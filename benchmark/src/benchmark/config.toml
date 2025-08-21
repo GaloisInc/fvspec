@@ -1,0 +1,8 @@
+[agent]
+model = "anthropic/claude-3-7-sonnet-20250219"
+max_attempts = 5
+max_tokens = -1
+
+[meta]
+logging = true
+debug = true

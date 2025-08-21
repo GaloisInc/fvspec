@@ -1,0 +1,35 @@
+[project]
+name = "benchmark"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+authors = [
+    { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" }
+]
+requires-python = ">=3.13"
+dependencies = [
+    "codegen>=0.56.17",
+    "datasets>=4.0.0",
+    "inspect-ai>=0.3.123",
+    "jinja2>=3.1.6",
+    "jsonlines>=4.0.0",
+    "mcp>=1.13.0",
+    "pydantic>=2.11.7",
+    "pydantic-ai>=0.7.4",
+    "python-dotenv>=1.1.1",
+    "typer>=0.16.1",
+]
+
+[project.scripts]
+benchmark = "benchmark:main"
+
+[build-system]
+requires = ["uv_build>=0.8.2,<0.9.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.138.2",
+    "pytest>=8.4.1",
+    "ruff>=0.12.10",
+]
