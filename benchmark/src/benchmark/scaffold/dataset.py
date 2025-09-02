@@ -1,8 +1,11 @@
 import json
 from pathlib import Path
+import random
 from pydantic import BaseModel
 from inspect_ai.dataset import Sample, MemoryDataset
 from benchmark.templates.prompt import initial
+
+random.seed(0)
 
 
 class Datapoint(BaseModel, frozen=True):
@@ -38,6 +41,12 @@ def load_datapoints(file_path: Path) -> list[Datapoint]:
     return [Datapoint(**obj) for obj in data]
 
 
+def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
+    """Effectful function: reads a json file from disk and samples n datapoints at random"""
+    dps = load_datapoints(file_path)
+    return random.sample(dps, n)
+
+
 def mk_dataset(path: Path) -> MemoryDataset:
     return MemoryDataset(
         [
@@ -45,6 +54,6 @@ def mk_dataset(path: Path) -> MemoryDataset:
                 input=mk_initial(datapoint_to_prompt(datapoint)),
                 metadata={"datapoint": datapoint},
             )
-            for datapoint in load_datapoints(path)
+            for datapoint in sample_datapoints(path, n=100)
         ]
     )
