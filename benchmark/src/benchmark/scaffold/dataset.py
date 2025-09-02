@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from pydantic import BaseModel
 from inspect_ai.dataset import Sample, MemoryDataset
-from generate.templates.prompt import initial
+from benchmark.templates.prompt import initial
 
 
 class Datapoint(BaseModel, frozen=True):

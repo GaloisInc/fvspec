@@ -2,7 +2,7 @@ import tempfile
 import re
 from typing import Callable, Awaitable
 from inspect_ai.tool import tool, ToolError
-from generate.scaffold.tools import utilio
+from benchmark.scaffold.tools import utilio
 
 LEAN_EXE = "lean"
 

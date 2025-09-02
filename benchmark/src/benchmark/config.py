@@ -2,19 +2,20 @@ import tomllib
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import logfire
+
+# import logfire
 from pydantic import BaseModel
 
 
-def setup_logfire() -> None:
-    """Configure logfire with token from .env"""
-    load_dotenv()
-
-    logfire_token = os.getenv("LOGFIRE_WRITE_TOKEN")
-    if not logfire_token:
-        raise ValueError("LOGFIRE__WRITE_TOKEN not found in .env file")
-
-    logfire.configure(token=logfire_token)
+#   def setup_logfire() -> None:
+#       """Configure logfire with token from .env"""
+#       load_dotenv()
+#
+#       logfire_token = os.getenv("LOGFIRE_WRITE_TOKEN")
+#       if not logfire_token:
+#           raise ValueError("LOGFIRE__WRITE_TOKEN not found in .env file")
+#
+#       logfire.configure(token=logfire_token)
 
 
 class AgentConfig(BaseModel):
@@ -52,7 +53,7 @@ def find_config_file(start_dir: Path | None = None) -> Path:
     if start_dir is None:
         start_dir = Path(".")
     current = start_dir.absolute()
-    config_path = current / "src" / "generate" / "config.toml"
+    config_path = current / "src" / "benchmark" / "config.toml"
     if config_path.exists():
         return config_path
     raise FileNotFoundError(

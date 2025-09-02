@@ -11,3 +11,7 @@ htmlcov
 
 .direnv
 .lake
+data/
+logs/
+.env
+artifacts/

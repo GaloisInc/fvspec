@@ -1,7 +1,7 @@
 import json
 from pathlib import Path
 from typer import Typer
-from generate.templates.prompt import system, initial
+from benchmark.templates.prompt import system, initial
 
 DATA = Path("data")
 
