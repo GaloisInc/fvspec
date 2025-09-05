@@ -20,6 +20,8 @@ class Datapoint(BaseModel, frozen=True):
     hash: str
     summary_vector: str | None
 
+    def toJSON(self):
+        return json.dumps(self.__dict__, indent=4)
 
 class Prompt(BaseModel, frozen=True):
     pbt: str
