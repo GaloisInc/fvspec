@@ -2,6 +2,7 @@ import tempfile
 import re
 from typing import Callable, Awaitable
 from inspect_ai.tool import tool, ToolError
+from benchmark.scaffold.dataset import Datapoint
 from benchmark.scaffold.tools import utilio
 
 LEAN_EXE = "lean"
@@ -56,7 +57,32 @@ def write_code_to_disk() -> Callable[[str, str], Awaitable[str]]:
             return utilio.no_code_block_found(sample_id, text)
         code_snippet = mtch.group(1)
 
-        spec_file = utilio.get_output_filepath(sample_id)
+        spec_file = utilio.get_output_filepath(sample_id, "Spec.lean")
         return utilio.writeit(spec_file, code_snippet)
+
+    return execute
+
+@tool
+def write_problem_to_disk() -> Callable[[str, Datapoint], Awaitable[str]]:
+    """
+    A tool that extracts the initial input from 'Datapoint' and writes it
+    into artifacts/spec/<sample_id>/Datapoint.json.
+    """
+
+    async def execute(sample_id: str, datapoint: Datapoint) -> str:
+        """
+        Write the inital input problem snippet from datapoint into
+        artifacts/spec/<sample_id>/Datapoint.json.
+
+        Args:
+            sample_id: Identifier for the current sample.
+            datapoint: The Datapoint we are evaluating.
+        Returns:
+            A message describing whether the write succeeded.
+        """
+
+        # Just dump everything from the datapoint into the file
+        prob_file = utilio.get_output_filepath(sample_id, "Datapoint.json")
+        return utilio.writeit(prob_file, datapoint.toJSON())
 
     return execute

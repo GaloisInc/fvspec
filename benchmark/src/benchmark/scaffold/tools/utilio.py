@@ -54,7 +54,7 @@ def no_code_block_found(sample_id: str, text: str) -> str:
     return f"{msg} for sample_id={sample_id}"
 
 
-def get_output_filepath(sample_id: str) -> Path:
+def get_output_filepath(sample_id: str, file_name: str) -> Path:
     # Find the project root (directory containing pyproject.toml)
     current_dir = Path.cwd()
     root_dir = current_dir
@@ -72,7 +72,7 @@ def get_output_filepath(sample_id: str) -> Path:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Write out to Spec.lean
-    spec_file = output_dir / "Spec.lean"
+    spec_file = output_dir / file_name
     return spec_file
 
 
