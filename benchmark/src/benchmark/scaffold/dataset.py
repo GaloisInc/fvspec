@@ -55,7 +55,8 @@ def mk_dataset(path: Path) -> MemoryDataset:
             Sample(
                 input=mk_initial(datapoint_to_prompt(datapoint)),
                 metadata={"datapoint": datapoint},
+                id=str(datapoint.id)+"_"+datapoint.pbt_name
             )
-            for datapoint in sample_datapoints(path, n=100)
+            for datapoint in sample_datapoints(path, n=4)
         ]
     )
