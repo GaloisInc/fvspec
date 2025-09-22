@@ -21,6 +21,8 @@ dependencies = [
 ]
 
 [project.scripts]
+preview_prompts = "benchmark.templates:main"
+fvspec = "banchmark:main"
 benchmark = "benchmark:main"
 
 [build-system]

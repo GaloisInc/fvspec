@@ -2,6 +2,9 @@ import tempfile
 import re
 from typing import Callable, Awaitable
 from inspect_ai.tool import tool, ToolError
+from inspect_ai.solver import TaskState
+from benchmark.scaffold.dataset import Datapoint
+from benchmark.scaffold.quality_assessment import QualityAssessment
 from benchmark.scaffold.tools import utilio
 
 LEAN_EXE = "lean"
@@ -30,21 +33,28 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
     return execute
 
 
-@tool
-def write_code_to_disk() -> Callable[[str, str], Awaitable[str]]:
-    """
-    A tool that extracts <code>...</code> from 'text' and writes it
-    into artifacts/spec/<sample_id>/Spec.lean.
-    """
+def write_datapoint_to_disk(sample_id: str, datapoint: Datapoint) -> str:
+        """
+        Write the datapoint from text into
+        artifacts/spec/<sample_id>/Datapoint.json.
 
-    async def execute(sample_id: str, text: str) -> str:
+        Args:
+            sample_id: Identifier for the current sample.
+            datapoint: The datapoint from the metadata of the current sample.
+        Returns:
+            A message describing whether the write succeeded.
+        """
+        datapoint_file = utilio.get_output_filepath(sample_id, "Datapoint.json")
+        return utilio.writeit(datapoint_file, datapoint.toJSON())
+
+def write_code_to_disk(sample_id: str, text: str) -> str:
         """
         Write the <code>...</code> snippet from text into
         artifacts/spec/<sample_id>/Spec.lean.
 
         Args:
             sample_id: Identifier for the current sample.
-            text: The text possibly containing <code>...</code>.
+            text: The output text possibly containing <code>...</code>.
         Returns:
             A message describing whether the write succeeded.
         """
@@ -56,7 +66,36 @@ def write_code_to_disk() -> Callable[[str, str], Awaitable[str]]:
             return utilio.no_code_block_found(sample_id, text)
         code_snippet = mtch.group(1)
 
-        spec_file = utilio.get_output_filepath(sample_id)
+        spec_file = utilio.get_output_filepath(sample_id, "Spec.lean")
         return utilio.writeit(spec_file, code_snippet)
 
-    return execute
+def write_qa_to_disk(sample_id: str, state: TaskState) -> str:
+        """
+        Write the QA results from the TaskState to
+        artifacts/spec/<sample_id>/QA.json.
+
+        Args:
+            sample_id: Identifier for the current sample.
+            state: The task state after completion.
+        Returns:
+            A message describing whether the write succeeded.
+        """
+
+        # Fill in QA info
+        qa = QualityAssessment(state)
+
+        qa_file = utilio.get_output_filepath(sample_id, "QA.json")
+        return utilio.writeit(qa_file, qa.toJSON())
+
+async def write_to_disk(state: TaskState):
+    """
+    Called after each sample in Task, writes the datapoint to a problem file and
+    the task quality assessment results to a QA file.
+
+    Args:
+        state: The current state after a sample completes.
+    """
+    retStrDP = write_datapoint_to_disk(state.sample_id, state.metadata.get("datapoint"))
+    retStrC = write_code_to_disk(state.sample_id, state.output.message.text)
+    retStrQA = write_qa_to_disk(state.sample_id, state)
+    return retStrDP + "\n" + retStrC + "\n" + retStrQA

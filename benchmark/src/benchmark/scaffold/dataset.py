@@ -20,6 +20,8 @@ class Datapoint(BaseModel, frozen=True):
     hash: str
     summary_vector: str | None
 
+    def toJSON(self):
+        return json.dumps(self.__dict__, indent=4)
 
 class Prompt(BaseModel, frozen=True):
     pbt: str
@@ -53,6 +55,7 @@ def mk_dataset(path: Path) -> MemoryDataset:
             Sample(
                 input=mk_initial(datapoint_to_prompt(datapoint)),
                 metadata={"datapoint": datapoint},
+                id=str(datapoint.id)+"_"+datapoint.pbt_name
             )
             for datapoint in sample_datapoints(path, n=100)
         ]
