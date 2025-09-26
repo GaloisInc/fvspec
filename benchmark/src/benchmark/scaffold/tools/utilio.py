@@ -83,3 +83,4 @@ def writeit(spfile: Path, code: str) -> str:
     # if cfg.meta.logging:
     #     logfire.info(msg, spec_file=spfile, code_snippet=code)
     return f"{msg} at {spfile}"
+
