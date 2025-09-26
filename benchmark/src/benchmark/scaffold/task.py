@@ -28,3 +28,14 @@ def fvspec(datafile: str) -> Task:
     )
 
     return fvspec_task
+
+@task
+def lean_task():
+    lean_server = mcp_server_stdio(
+        name="lean-lsp", command="uvx", args=["lean-lsp-mcp"]
+    )
+
+    return Task(
+        dataset=[Sample("Does this lean code compile?")],
+        solver=react(tools=[lean_server]),
+    )
