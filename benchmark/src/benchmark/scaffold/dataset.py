@@ -1,3 +1,4 @@
+import datetime
 import json
 from pathlib import Path
 import random
@@ -49,12 +50,12 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
     return random.sample(dps, n)
 
 
-def mk_dataset(path: Path) -> MemoryDataset:
+def mk_dataset(path: Path, date_time: datetime) -> MemoryDataset:
     return MemoryDataset(
         [
             Sample(
                 input=mk_initial(datapoint_to_prompt(datapoint)),
-                metadata={"datapoint": datapoint},
+                metadata={"datapoint": datapoint, "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S")},
                 id=str(datapoint.id)+"_"+datapoint.pbt_name
             )
             for datapoint in sample_datapoints(path, n=100)

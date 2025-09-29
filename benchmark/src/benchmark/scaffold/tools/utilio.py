@@ -54,7 +54,7 @@ def no_code_block_found(sample_id: str, text: str) -> str:
     return f"{msg} for sample_id={sample_id}"
 
 
-def get_output_filepath(sample_id: str, file_name: str) -> Path:
+def get_output_filepath(date_time: str, sample_id: str, file_name: str) -> Path:
     # Find the project root (directory containing pyproject.toml)
     current_dir = Path.cwd()
     root_dir = current_dir
@@ -67,8 +67,8 @@ def get_output_filepath(sample_id: str, file_name: str) -> Path:
             )
         root_dir = root_dir.parent
 
-    # Create artifacts/spec/<sample_id> relative to the project root
-    output_dir = root_dir / "artifacts" / "spec" / sample_id
+    # Create artifacts/<date_time>/<sample_id> relative to the project root
+    output_dir = root_dir / "artifacts" / date_time / sample_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Write out to Spec.lean
@@ -83,3 +83,4 @@ def writeit(spfile: Path, code: str) -> str:
     # if cfg.meta.logging:
     #     logfire.info(msg, spec_file=spfile, code_snippet=code)
     return f"{msg} at {spfile}"
+
