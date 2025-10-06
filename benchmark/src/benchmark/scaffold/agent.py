@@ -13,9 +13,9 @@ def lean_agent(max_attempts: int = 5):
                 lean_server,
                 # https://github.com/oOo0oOo/lean-lsp-mcp
                 tools=[
-                    "lean_diagnostic_messages",
-                    "lean_completions",
-                    "lean_multi_attempt",
+                    # "lean_diagnostic_messages",
+                    # "lean_completions",
+                    # "lean_multi_attempt",
                 ],
             ),
         ],

@@ -36,6 +36,6 @@ def lean_task():
     )
 
     return Task(
-        dataset=[Sample("Does this lean code compile?")],
+        dataset=[Sample("Help me write lean code that compiles and can be proved using tools.")],
         solver=react(tools=[lean_server]),
     )
