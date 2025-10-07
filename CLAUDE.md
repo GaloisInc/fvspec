@@ -10,6 +10,8 @@ fvspec is a benchmark suite for evaluating how AI models perform on formal verif
 
 FVAPPS (Formally Verified Automated Programming Progress Standards) is a benchmark of 4,715 samples for writing programs and proving their correctness in Lean 4. It generalizes the APPS benchmark by transforming Python unit tests into Lean 4 theorems. The benchmark challenges models to both implement code and prove its correctness.
 
+**Note on mvcgen/monadic program logic**: Dougherty & Mehta would have heavily used mvcgen (monadic verification condition generator) if it had been merged into Lean 4 master when they created FVAPPS. This tool enables interactive verification of imperative programs using Hoare triples, allowing developers to specify loop invariants and generate verification conditions. See [Markus Himmel's blog post](https://markushimmel.de/blog/my-first-verified-imperative-program/) for details on how mvcgen transforms imperative program verification into a compositional, interactive proof process in Lean 4.
+
 ### This Project's Extension
 
 While FVAPPS uses curated programming puzzles, this project:

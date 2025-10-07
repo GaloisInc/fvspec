@@ -1,5 +1,6 @@
 import argparse
 from bokeh.models import HoverTool
+import hvplot.pandas  # noqa: F401 - Register hvplot accessor for pandas DataFrames
 import json
 import os
 import pandas
@@ -87,7 +88,41 @@ def load_a_dataframe(directory_path: str) -> DataFrame:
         path = Path(directory_path) / dir / "QA.json"
         if os.path.exists(path):
             with open(path, "r") as file:
-                data.append(json.load(file))
+                qa_data = json.load(file)
+
+                # Backwards compatibility: handle old field names
+                if (
+                    "faithfulness" in qa_data
+                    and "faithfulness_subjective" not in qa_data
+                ):
+                    qa_data["faithfulness_subjective"] = qa_data["faithfulness"]
+                if "interest" in qa_data and "interest_subjective" not in qa_data:
+                    qa_data["interest_subjective"] = qa_data["interest"]
+
+                # Flatten structural_faithfulness for easier plotting
+                if (
+                    "structural_faithfulness" in qa_data
+                    and qa_data["structural_faithfulness"]
+                ):
+                    sf = qa_data["structural_faithfulness"]
+                    qa_data["structural_param_coverage"] = sf.get(
+                        "parameter_coverage", 0
+                    )
+                    qa_data["structural_type_correspondence"] = sf.get(
+                        "type_correspondence", 0
+                    )
+                    qa_data["structural_strategy_coverage"] = sf.get(
+                        "strategy_coverage", 0
+                    )
+                    qa_data["structural_assertion_coverage"] = sf.get(
+                        "assertion_coverage", 0
+                    )
+                    qa_data["structural_dependency_coverage"] = sf.get(
+                        "dependency_coverage", 0
+                    )
+                    qa_data["structural_overall"] = sf.get("overall", 0)
+
+                data.append(qa_data)
     dataframe = DataFrame(data)
     # count points at each (faithfulness, interest) and add as new row
     f_i_row_counts: list[int] = []
@@ -95,15 +130,30 @@ def load_a_dataframe(directory_path: str) -> DataFrame:
     source_names: list[str] = []
     for _, row in dataframe.iterrows():
         f_i_count_val: int = 0
-        if "faithfulness" in dataframe.columns and "interest" in dataframe.columns:
-            if dataframe.isin([row["faithfulness"], row["interest"]]).any().any():
-                filt_x_df = dataframe[dataframe["faithfulness"] == row["faithfulness"]]
-                filt_xy_df = filt_x_df[filt_x_df["interest"] == row["interest"]]
+        # Use subjective metrics for counting (backward compatible)
+        if (
+            "faithfulness_subjective" in dataframe.columns
+            and "interest_subjective" in dataframe.columns
+        ):
+            if (
+                dataframe.isin(
+                    [row["faithfulness_subjective"], row["interest_subjective"]]
+                )
+                .any()
+                .any()
+            ):
+                filt_x_df = dataframe[
+                    dataframe["faithfulness_subjective"]
+                    == row["faithfulness_subjective"]
+                ]
+                filt_xy_df = filt_x_df[
+                    filt_x_df["interest_subjective"] == row["interest_subjective"]
+                ]
                 f_i_count_val = len(filt_xy_df)
         f_i_row_counts.append(f_i_count_val)
         default_row_counts.append(1)
         source_names.append(directory_path[-19:])
-    dataframe["faithfulness vs interest"] = f_i_row_counts
+    dataframe["faithfulness_subjective vs interest_subjective"] = f_i_row_counts
     dataframe["default"] = default_row_counts
     dataframe["source"] = source_names
     return dataframe
@@ -130,12 +180,25 @@ def plot_dataframe(
 
     metric_list = dataframe.columns  # could fileter this if desired...
 
+    # Map old arg names to new column names for backward compatibility
+    x_axis_mapped = args.x_axis
+    if args.x_axis == "faithfulness" and "faithfulness_subjective" in dataframe.columns:
+        x_axis_mapped = "faithfulness_subjective"
+    elif args.x_axis == "interest" and "interest_subjective" in dataframe.columns:
+        x_axis_mapped = "interest_subjective"
+
+    y_axis_mapped = args.y_axis
+    if args.y_axis == "faithfulness" and "faithfulness_subjective" in dataframe.columns:
+        y_axis_mapped = "faithfulness_subjective"
+    elif args.y_axis == "interest" and "interest_subjective" in dataframe.columns:
+        y_axis_mapped = "interest_subjective"
+
     x_axis_default = "default"
-    if args.x_axis in dataframe.columns:
-        x_axis_default = args.x_axis
+    if x_axis_mapped in dataframe.columns:
+        x_axis_default = x_axis_mapped
     y_axis_default = "default"
-    if args.y_axis in dataframe.columns:
-        y_axis_default = args.y_axis
+    if y_axis_mapped in dataframe.columns:
+        y_axis_default = y_axis_mapped
 
     # Make interactive parts
     x_axis_options = list(metric_list)

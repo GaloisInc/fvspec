@@ -202,7 +202,7 @@ def test_smoke_quality_assessment_from_mock_state():
 
     assert qa.sample_id == 1
     assert qa.sample_name == "test"
-    assert qa.faithfulness == 7.0
-    assert qa.interest == 3.0
+    assert qa.faithfulness_subjective == 7.0
+    assert qa.interest_subjective == 3.0
     assert qa.success is True
     assert qa.num_sorries == 1
