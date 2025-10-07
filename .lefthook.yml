@@ -13,3 +13,7 @@ pre-commit:
       root: "benchmark/"
       glob: "*.py"
       run: uv run ty check
+    pytest:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run pytest
