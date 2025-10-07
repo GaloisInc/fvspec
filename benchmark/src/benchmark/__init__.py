@@ -13,7 +13,7 @@ app = Typer()
 
 
 @app.command()
-def generate(datafile: str = "scrapedtests.json", no_mcp: bool = False):
+def generate(datafile: str = "scrapedtests.json", no_mcp: bool = False) -> None:
     """Evaluate the fvspec benchmark.
 
     Args:
@@ -23,5 +23,5 @@ def generate(datafile: str = "scrapedtests.json", no_mcp: bool = False):
     eval(fvspec(datafile, use_mcp=not no_mcp), model=cfg.agent.model)
 
 
-def main():
+def main() -> None:
     app()

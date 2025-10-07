@@ -9,7 +9,7 @@ app = Typer()
 
 
 @app.command()
-def preview_prompts(data: str):
+def preview_prompts(data: str) -> None:
     the_json = DATA / data
     with open(the_json) as f:
         data = json.load(f)
@@ -19,5 +19,5 @@ def preview_prompts(data: str):
         print("=========================")
 
 
-def main():
+def main() -> None:
     app()
