@@ -1,10 +1,10 @@
-import datetime
+from datetime import datetime
 import json
 from pathlib import Path
 import random
 from pydantic import BaseModel
 from inspect_ai.dataset import Sample, MemoryDataset
-from benchmark.templates.prompt import initial
+from benchmark.templates.prompt import initial, PromptStyle
 
 random.seed(0)
 
@@ -50,7 +50,9 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
     return random.sample(dps, n)
 
 
-def mk_dataset(path: Path, date_time: datetime.datetime) -> MemoryDataset:
+def mk_dataset(
+    path: Path, date_time: datetime, style: PromptStyle = "functional"
+) -> MemoryDataset:
     return MemoryDataset(
         [
             Sample(
@@ -58,6 +60,7 @@ def mk_dataset(path: Path, date_time: datetime.datetime) -> MemoryDataset:
                 metadata={
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
+                    "style": style,
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )

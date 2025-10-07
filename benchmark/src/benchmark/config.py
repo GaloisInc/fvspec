@@ -1,5 +1,6 @@
 import tomllib
 from pathlib import Path
+from typing import Literal
 
 # import logfire
 from pydantic import BaseModel
@@ -16,6 +17,9 @@ from pydantic import BaseModel
 #       logfire.configure(token=logfire_token)
 
 
+PromptStyle = Literal["functional", "mvcgen"]
+
+
 class AgentConfig(BaseModel):
     model: str
     max_attempts: int
@@ -27,9 +31,14 @@ class MetaConfig(BaseModel):
     debug: bool = False
 
 
+class PromptConfig(BaseModel):
+    style: PromptStyle = "functional"
+
+
 class Config(BaseModel):
     agent: AgentConfig
     meta: MetaConfig
+    prompt: PromptConfig = PromptConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -41,6 +50,7 @@ class Config(BaseModel):
         return cls(
             agent=AgentConfig(**data["agent"]),  # type: ignore[arg-type]
             meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
+            prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
         )
 
 

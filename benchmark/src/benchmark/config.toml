@@ -6,3 +6,7 @@ max_tokens = -1
 [meta]
 logging = true
 debug = true
+
+[prompt]
+# Verification style: "functional" (FVAPPS-style) or "mvcgen" (imperative with Hoare logic)
+style = "functional"
