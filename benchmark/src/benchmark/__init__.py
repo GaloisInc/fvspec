@@ -13,9 +13,14 @@ app = Typer()
 
 
 @app.command()
-def evaluate_fvspec(datafile: str = "scrapedtests.json"):
-    """Evaluate the fvspec benchmark."""
-    eval(fvspec(datafile), model=cfg.agent.model)
+def generate(datafile: str = "scrapedtests.json", no_mcp: bool = False):
+    """Evaluate the fvspec benchmark.
+
+    Args:
+        datafile: Path to the JSON file containing test data
+        no_mcp: Disable Lean LSP MCP tools (use simple generate instead)
+    """
+    eval(fvspec(datafile, use_mcp=not no_mcp), model=cfg.agent.model)
 
 
 def main():

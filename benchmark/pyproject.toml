@@ -10,7 +10,7 @@ requires-python = ">=3.13"
 dependencies = [
     "codegen>=0.56.17",
     "datasets>=4.0.0",
-    "inspect-ai>=0.3.123",
+    "inspect-ai>=0.3.136",
     "jinja2>=3.1.6",
     "jsonlines>=4.0.0",
     "mcp>=1.13.0",
@@ -22,8 +22,8 @@ dependencies = [
 
 [project.scripts]
 preview_prompts = "benchmark.templates:main"
-fvspec = "banchmark:main"
-benchmark = "benchmark:main"
+fvspec = "benchmark:main"
+analyze_deps = "scripts.analyze_deps:cli"
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]
@@ -34,4 +34,5 @@ dev = [
     "hypothesis>=6.138.2",
     "pytest>=8.4.1",
     "ruff>=0.12.10",
+    "ty>=0.0.1a21",
 ]

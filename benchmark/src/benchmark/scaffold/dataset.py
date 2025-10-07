@@ -10,6 +10,8 @@ random.seed(0)
 
 
 class Datapoint(BaseModel, frozen=True):
+    """A scraped property-based test datapoint with metadata."""
+
     id: int
     repo_id: int
     pbt_name: str
@@ -21,8 +23,6 @@ class Datapoint(BaseModel, frozen=True):
     hash: str
     summary_vector: str | None
 
-    def toJSON(self):
-        return json.dumps(self.__dict__, indent=4)
 
 class Prompt(BaseModel, frozen=True):
     pbt: str
@@ -55,8 +55,11 @@ def mk_dataset(path: Path, date_time: datetime) -> MemoryDataset:
         [
             Sample(
                 input=mk_initial(datapoint_to_prompt(datapoint)),
-                metadata={"datapoint": datapoint, "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S")},
-                id=str(datapoint.id)+"_"+datapoint.pbt_name
+                metadata={
+                    "datapoint": datapoint,
+                    "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
+                },
+                id=str(datapoint.id) + "_" + datapoint.pbt_name,
             )
             for datapoint in sample_datapoints(path, n=100)
         ]

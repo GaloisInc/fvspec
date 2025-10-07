@@ -1,46 +1,61 @@
+"""Analyze import dependencies in scraped property-based test data.
+
+This script processes the scraped Hypothesis property-based tests from
+scrapedtests.json and extracts all Python import statements from both the
+test code (pbt) and its dependencies (deps). It then generates a CSV report
+counting how many datapoints use each import, sorted by frequency.
+
+The output (import_counts.csv) helps understand:
+- Which libraries/modules are most commonly used in the scraped tests
+- What dependencies would be needed to run/translate these tests
+- The breadth of the Python ecosystem covered by the dataset
+
+Usage:
+    uv run analyze_deps
+
+Output:
+    ../data/import_counts.csv - CSV file with columns:
+        - import: The fully qualified import name
+        - number of datapoints using the import: Frequency count
+"""
+
 import asyncio
 import json
 import logging
 import re
 
+from pydantic import BaseModel
 
-class Datapoint:
-    def __init__(
-        self,
-        id: int,
-        repo_id: int,
-        pbt_name: str,
-        pbt: str,
-        dep_names: list[str],
-        deps: list[str],
-        source: str,
-        summary: str | None,
-        hash: str,
-        summary_vector: str | None,
-        mode: str,
-        summaryversion: int,
-        summaryconfidence: int,
-    ):
-        self.id = id
-        self.repo_id = repo_id
-        self.pbt_name = pbt_name
-        self.pbt = pbt
-        self.dep_names = dep_names
-        self.deps = deps
-        self.source = source
-        self.summary = summary
-        self.hash = hash
-        self.summary_vector = summary_vector
-        self.mode = mode
-        self.summaryversion = summaryversion
-        self.summaryconfidence = summaryconfidence
+
+class Datapoint(BaseModel):
+    """Extended datapoint model for analyze_deps script.
+
+    Includes additional fields beyond the core Datapoint model:
+    - mode: Processing mode used during scraping
+    - summaryversion: Version of the summarization algorithm
+    - summaryconfidence: Confidence score for the summary
+    """
+
+    id: int
+    repo_id: int
+    pbt_name: str
+    pbt: str
+    dep_names: list[str]
+    deps: list[str]
+    source: str
+    summary: str | None
+    hash: str
+    summary_vector: str | None
+    mode: str
+    summaryversion: int
+    summaryconfidence: int
 
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Read the content of the file
-    with open("../data/scrapedtests.json", "r") as file:
+    with open("../../data/scrapedtests.json", "r") as file:
         data = json.load(file)
 
     # Find all the imports in each datapoint
@@ -111,5 +126,10 @@ def process(code: str) -> list[str]:
     return imports
 
 
-if __name__ == "__main__":
+def cli():
+    """Entry point for the analyze_deps command."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()

@@ -33,62 +33,67 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
     return execute
 
 
-def write_datapoint_to_disk(date_time: str, sample_id: str, datapoint: Datapoint) -> str:
-        """
-        Write the datapoint from text into
-        artifacts/spec/<sample_id>/Datapoint.json.
+def write_datapoint_to_disk(
+    date_time: str, sample_id: str, datapoint: Datapoint
+) -> str:
+    """
+    Write the datapoint from text into
+    artifacts/spec/<sample_id>/Datapoint.json.
 
-        Args:
-            date_time: datetime string used in directory structue.
-            sample_id: Identifier for the current sample.
-            datapoint: The datapoint from the metadata of the current sample.
-        Returns:
-            A message describing whether the write succeeded.
-        """
-        datapoint_file = utilio.get_output_filepath(date_time, sample_id, "Datapoint.json")
-        return utilio.writeit(datapoint_file, datapoint.toJSON())
+    Args:
+        date_time: datetime string used in directory structue.
+        sample_id: Identifier for the current sample.
+        datapoint: The datapoint from the metadata of the current sample.
+    Returns:
+        A message describing whether the write succeeded.
+    """
+    datapoint_file = utilio.get_output_filepath(date_time, sample_id, "Datapoint.json")
+    return utilio.writeit(datapoint_file, datapoint.model_dump_json(indent=4))
+
 
 def write_code_to_disk(date_time: str, sample_id: str, text: str) -> str:
-        """
-        Write the <code>...</code> snippet from text into
-        artifacts/spec/<sample_id>/Spec.lean.
+    """
+    Write the <code>...</code> snippet from text into
+    artifacts/spec/<sample_id>/Spec.lean.
 
-        Args:
-            date_time: datetime string used in directory structue.
-            sample_id: Identifier for the current sample.
-            text: The output text possibly containing <code>...</code>.
-        Returns:
-            A message describing whether the write succeeded.
-        """
+    Args:
+        date_time: datetime string used in directory structue.
+        sample_id: Identifier for the current sample.
+        text: The output text possibly containing <code>...</code>.
+    Returns:
+        A message describing whether the write succeeded.
+    """
 
-        # Look for <code>...</code>
-        pattern = r"(?s)<code>(.*?)</code>"
-        mtch = re.search(pattern, text)
-        if not mtch:
-            return utilio.no_code_block_found(sample_id, text)
-        code_snippet = mtch.group(1)
+    # Look for <code>...</code>
+    pattern = r"(?s)<code>(.*?)</code>"
+    mtch = re.search(pattern, text)
+    if not mtch:
+        return utilio.no_code_block_found(sample_id, text)
+    code_snippet = mtch.group(1)
 
-        spec_file = utilio.get_output_filepath(date_time, sample_id, "Spec.lean")
-        return utilio.writeit(spec_file, code_snippet)
+    spec_file = utilio.get_output_filepath(date_time, sample_id, "Spec.lean")
+    return utilio.writeit(spec_file, code_snippet)
+
 
 def write_qa_to_disk(date_time: str, sample_id: str, state: TaskState) -> str:
-        """
-        Write the QA results from the TaskState to
-        artifacts/spec/<sample_id>/QA.json.
+    """
+    Write the QA results from the TaskState to
+    artifacts/spec/<sample_id>/QA.json.
 
-        Args:
-            date_time: datetime string used in directory structue.
-            sample_id: Identifier for the current sample.
-            state: The task state after completion.
-        Returns:
-            A message describing whether the write succeeded.
-        """
+    Args:
+        date_time: datetime string used in directory structue.
+        sample_id: Identifier for the current sample.
+        state: The task state after completion.
+    Returns:
+        A message describing whether the write succeeded.
+    """
 
-        # Fill in QA info
-        qa = QualityAssessment(state)
+    # Fill in QA info
+    qa = QualityAssessment.from_task_state(state)
 
-        qa_file = utilio.get_output_filepath(date_time, sample_id, "QA.json")
-        return utilio.writeit(qa_file, qa.toJSON())
+    qa_file = utilio.get_output_filepath(date_time, sample_id, "QA.json")
+    return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
+
 
 async def write_to_disk(state: TaskState):
     """
@@ -98,7 +103,20 @@ async def write_to_disk(state: TaskState):
     Args:
         state: The current state after a sample completes.
     """
-    retStrDP = write_datapoint_to_disk(state.metadata.get("date_time"),state.sample_id, state.metadata.get("datapoint"))
-    retStrC = write_code_to_disk(state.metadata.get("date_time"),state.sample_id, state.output.message.text)
-    retStrQA = write_qa_to_disk(state.metadata.get("date_time"),state.sample_id, state)
-    return retStrDP + "\n" + retStrC + "\n" + retStrQA
+    retStrDP = write_datapoint_to_disk(
+        state.metadata.get("date_time"),
+        state.sample_id,
+        state.metadata.get("datapoint"),
+    )
+
+    # Only write code and QA if we have output
+    if state.output and state.output.choices:
+        retStrC = write_code_to_disk(
+            state.metadata.get("date_time"), state.sample_id, state.output.message.text
+        )
+        retStrQA = write_qa_to_disk(
+            state.metadata.get("date_time"), state.sample_id, state
+        )
+        return retStrDP + "\n" + retStrC + "\n" + retStrQA
+    else:
+        return retStrDP + "\n" + "No output generated (task may have been interrupted)"

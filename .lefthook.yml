@@ -1,0 +1,11 @@
+pre-commit:
+  parallel: true
+  commands:
+    ruff-format:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+    ruff-check:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ruff check {staged_files}
