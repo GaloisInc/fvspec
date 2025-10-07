@@ -4,23 +4,24 @@ version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
 authors = [
-    { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" }
+    { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" },
+    { name = "Hazel Shackleton", email = "hazel.shackleton@galois.com" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "codegen>=0.56.17",
-    "datasets>=4.0.0",
-    "hvplot>=0.11.2",
+    "codegen>=0.57.0",
+    "datasets>=4.1.1",
+    "hvplot>=0.12.1",
     "inspect-ai>=0.3.136",
     "jinja2>=3.1.6",
     "jsonlines>=4.0.0",
-    "mcp>=1.13.0",
-    "pandas>=2.2.3",
-    "panel>=1.5.5",
-    "pydantic>=2.11.7",
-    "pydantic-ai>=0.7.4",
+    "mcp>=1.16.0",
+    "pandas>=2.3.3",
+    "panel>=1.8.2",
+    "pydantic>=2.12.0",
+    "pydantic-ai>=1.0.15",
     "python-dotenv>=1.1.1",
-    "typer>=0.16.1",
+    "typer>=0.19.2",
 ]
 
 [project.scripts]
@@ -34,8 +35,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.138.2",
-    "pytest>=8.4.1",
-    "ruff>=0.12.10",
+    "hypothesis>=6.140.3",
+    "pytest>=8.4.2",
+    "ruff>=0.14.0",
     "ty>=0.0.1a21",
 ]

@@ -4,7 +4,7 @@ pre-commit:
     ruff-format:
       root: "benchmark/"
       glob: "*.py"
-      run: uv run ruff format {staged_files}
+      run: uv run ruff format --check {staged_files}
     ruff-check:
       root: "benchmark/"
       glob: "*.py"
