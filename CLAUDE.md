@@ -71,6 +71,9 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 ### `/data` - Input data
 - `scrapedtests.json` - Large JSON file (~1.1GB) containing scraped Python property-based tests with dependencies
 
+### `/benchmark/src/scripts` - Utility scripts
+- `analyze_deps.py` - Analyzes import dependencies in scraped property-based test data
+
 ### `/artifacts` - Benchmark outputs (gitignored)
 Organized by timestamp, then by `<sample_id>_<test_name>/`:
 - `Datapoint.json` - Original test metadata

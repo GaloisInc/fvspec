@@ -1,3 +1,24 @@
+"""Analyze import dependencies in scraped property-based test data.
+
+This script processes the scraped Hypothesis property-based tests from
+scrapedtests.json and extracts all Python import statements from both the
+test code (pbt) and its dependencies (deps). It then generates a CSV report
+counting how many datapoints use each import, sorted by frequency.
+
+The output (import_counts.csv) helps understand:
+- Which libraries/modules are most commonly used in the scraped tests
+- What dependencies would be needed to run/translate these tests
+- The breadth of the Python ecosystem covered by the dataset
+
+Usage:
+    uv run analyze_deps
+
+Output:
+    ../data/import_counts.csv - CSV file with columns:
+        - import: The fully qualified import name
+        - number of datapoints using the import: Frequency count
+"""
+
 import asyncio
 import json
 import logging
@@ -40,7 +61,7 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Read the content of the file
-    with open("../data/scrapedtests.json", "r") as file:
+    with open("../../data/scrapedtests.json", "r") as file:
         data = json.load(file)
 
     # Find all the imports in each datapoint
@@ -111,5 +132,10 @@ def process(code: str) -> list[str]:
     return imports
 
 
-if __name__ == "__main__":
+def cli():
+    """Entry point for the analyze_deps command."""
     asyncio.run(main())
+
+
+if __name__ == "__main__":
+    cli()
