@@ -29,6 +29,7 @@ def fvspec(datafile: str) -> Task:
 
     return fvspec_task
 
+
 @task
 def lean_task():
     lean_server = mcp_server_stdio(
@@ -36,6 +37,10 @@ def lean_task():
     )
 
     return Task(
-        dataset=[Sample("Help me write lean code that compiles and can be proved using tools.")],
+        dataset=[
+            Sample(
+                "Help me write lean code that compiles and can be proved using tools."
+            )
+        ],
         solver=react(tools=[lean_server]),
     )

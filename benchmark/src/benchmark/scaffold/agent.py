@@ -1,7 +1,7 @@
 from inspect_ai.solver import basic_agent, solver
 from inspect_ai.solver.tool import mcp_tools
-from generate.scaffold.tool import lean_tool
-from generate.scaffold.task import lean_server
+from benchmark.scaffold.tool import lean_tool
+from benchmark.scaffold.task import lean_server
 
 
 @solver

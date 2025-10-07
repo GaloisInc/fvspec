@@ -24,6 +24,7 @@ class Datapoint(BaseModel, frozen=True):
     def toJSON(self):
         return json.dumps(self.__dict__, indent=4)
 
+
 class Prompt(BaseModel, frozen=True):
     pbt: str
     deps: list[str]
@@ -55,8 +56,11 @@ def mk_dataset(path: Path, date_time: datetime) -> MemoryDataset:
         [
             Sample(
                 input=mk_initial(datapoint_to_prompt(datapoint)),
-                metadata={"datapoint": datapoint, "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S")},
-                id=str(datapoint.id)+"_"+datapoint.pbt_name
+                metadata={
+                    "datapoint": datapoint,
+                    "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
+                },
+                id=str(datapoint.id) + "_" + datapoint.pbt_name,
             )
             for datapoint in sample_datapoints(path, n=100)
         ]
