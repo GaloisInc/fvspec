@@ -81,8 +81,8 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
   - `tools/utilio.py` - Utility functions for subprocess execution and file operations
 
 - **`src/benchmark/templates/`** - Jinja2 prompt templates
-  - `system.txt` - System prompt instructing the model to translate Python tests to Lean 4
-  - `initial.txt` - User prompt template with dependencies and property-based test
+  - `system.prompt` - System prompt instructing the model to translate Python tests to Lean 4
+  - `initial.prompt.template` - User prompt template with dependencies and property-based test
 
 - **`src/benchmark/config.toml`** - Runtime configuration
   - Agent settings: model name, max_attempts, max_tokens
@@ -147,7 +147,7 @@ uv add <package>
 
 1. `mk_dataset()` loads datapoints from JSON, samples 100 random items
 2. Each datapoint contains a Python property-based test (`pbt`) and its dependencies (`deps`)
-3. The `initial.txt` template renders a prompt with the test and dependencies
+3. The `initial.prompt.template` template renders a prompt with the test and dependencies
 4. The agent uses the `lean_compile()` tool to typecheck generated Lean code
 5. The model responds with Lean 4 code in `<code>...</code>` tags, including faithfulness/interest metrics
 6. Cleanup (`write_to_disk`) extracts the code, runs quality assessment, and saves all outputs
