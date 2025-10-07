@@ -46,6 +46,17 @@ This project addresses these concerns by:
 
 **Funding**: Advanced Research + Invention Agency (ARIA)
 
+## Additional Documentation
+
+**For research, design, and creative work**: Consult `benchmark/IDEAS.md` for in-depth discussion of:
+
+- Metric design and quality assessment strategies
+- Vacuity detection approaches
+- Dependency mocking challenges (torch/numpy)
+- Future directions and open questions
+
+This document contains brainstorming, trade-off analysis, and detailed rationale that inform benchmark development decisions.
+
 ## Development Environment
 
 This project uses Nix flakes with direnv for environment management:
