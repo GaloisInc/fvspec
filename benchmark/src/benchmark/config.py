@@ -39,8 +39,8 @@ class Config(BaseModel):
 
         # Convert tool paths to Path objects
         return cls(
-            agent=AgentConfig(**data["agent"]),
-            meta=MetaConfig(**data["meta"]),
+            agent=AgentConfig(**data["agent"]),  # type: ignore[arg-type]
+            meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
         )
 
 

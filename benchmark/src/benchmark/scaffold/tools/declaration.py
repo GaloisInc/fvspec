@@ -1,6 +1,6 @@
 import tempfile
 import re
-from typing import Callable, Awaitable
+from typing import Callable, Awaitable, cast
 from inspect_ai.tool import tool, ToolError
 from inspect_ai.solver import TaskState
 from benchmark.scaffold.dataset import Datapoint
@@ -10,7 +10,7 @@ from benchmark.scaffold.tools import utilio
 LEAN_EXE = "lean"
 
 
-@tool
+@tool  # type: ignore[arg-type]
 def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
     async def execute(code: str) -> utilio.SubprocessResult:
         """
@@ -103,20 +103,20 @@ async def write_to_disk(state: TaskState):
     Args:
         state: The current state after a sample completes.
     """
+    date_time = cast(str, state.metadata.get("date_time"))
+    datapoint = cast(Datapoint, state.metadata.get("datapoint"))
+    sample_id = str(state.sample_id)
+
     retStrDP = write_datapoint_to_disk(
-        state.metadata.get("date_time"),
-        state.sample_id,
-        state.metadata.get("datapoint"),
+        date_time,
+        sample_id,
+        datapoint,
     )
 
     # Only write code and QA if we have output
     if state.output and state.output.choices:
-        retStrC = write_code_to_disk(
-            state.metadata.get("date_time"), state.sample_id, state.output.message.text
-        )
-        retStrQA = write_qa_to_disk(
-            state.metadata.get("date_time"), state.sample_id, state
-        )
+        retStrC = write_code_to_disk(date_time, sample_id, state.output.message.text)
+        retStrQA = write_qa_to_disk(date_time, sample_id, state)
         return retStrDP + "\n" + retStrC + "\n" + retStrQA
     else:
         return retStrDP + "\n" + "No output generated (task may have been interrupted)"

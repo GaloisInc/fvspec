@@ -60,7 +60,7 @@ async def main() -> None:
 
     # Find all the imports in each datapoint
     imports_per_datapoint: list[str] = []
-    for datapoint in [Datapoint(**obj) for obj in data]:
+    for datapoint in [Datapoint(**obj) for obj in data]:  # type: ignore[arg-type]
         import_strs: list[str] = []
         import_strs += process(datapoint.pbt)
         for dep in datapoint.deps:
@@ -69,7 +69,7 @@ async def main() -> None:
         imports_per_datapoint += import_strs
 
     # Count up each import
-    import_list: list[(str, int)] = []
+    import_list: list[tuple[str, int]] = []
     processed_str: list[str] = []
     for imp in imports_per_datapoint:
         if processed_str.count(imp) == 0:

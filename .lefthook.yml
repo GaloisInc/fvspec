@@ -9,3 +9,7 @@ pre-commit:
       root: "benchmark/"
       glob: "*.py"
       run: uv run ruff check {staged_files}
+    ty-check:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ty check

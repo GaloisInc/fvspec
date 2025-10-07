@@ -1,7 +1,9 @@
 import re
+from typing import cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
+from benchmark.scaffold.dataset import Datapoint
 
 
 class QualityAssessment(BaseModel):
@@ -33,7 +35,9 @@ class QualityAssessment(BaseModel):
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
         """Extract quality metrics from a completed task state."""
-        lines_pbt = state.metadata.get("datapoint").pbt.count("\n")
+        datapoint = cast(Datapoint, state.metadata.get("datapoint"))
+        date_time = cast(str, state.metadata.get("date_time"))
+        lines_pbt = datapoint.pbt.count("\n")
 
         # Extract code metrics
         pattern = r"(?s)<code>(.*?)</code>"
@@ -65,9 +69,9 @@ class QualityAssessment(BaseModel):
             interest = float(i_mtch.group(1)) / float(i_mtch.group(2)) * 10.0
 
         return cls(
-            sample_id=state.metadata.get("datapoint").id,
-            sample_name=state.metadata.get("datapoint").pbt_name,
-            datetime=state.metadata.get("date_time"),
+            sample_id=datapoint.id,
+            sample_name=datapoint.pbt_name,
+            datetime=date_time,
             model=state.output.model,
             token_usage=state.token_usage,
             time=state.output.time,

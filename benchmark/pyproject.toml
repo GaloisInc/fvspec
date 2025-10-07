@@ -21,6 +21,7 @@ dependencies = [
     "pydantic>=2.12.0",
     "pydantic-ai>=1.0.15",
     "python-dotenv>=1.1.1",
+    "trio>=0.31.0",
     "typer>=0.19.2",
 ]
 

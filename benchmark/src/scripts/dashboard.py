@@ -88,7 +88,7 @@ def load_a_dataframe(directory_path: str) -> DataFrame:
         if os.path.exists(path):
             with open(path, "r") as file:
                 data.append(json.load(file))
-    dataframe = DataFrame.from_dict(data)
+    dataframe = DataFrame(data)
     # count points at each (faithfulness, interest) and add as new row
     f_i_row_counts: list[int] = []
     default_row_counts: list[int] = []

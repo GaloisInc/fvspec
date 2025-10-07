@@ -20,6 +20,7 @@
             typst
             typstyle
             nodejs_24
+            prettier
             lefthook
             pandoc
             util-linux  # ionice

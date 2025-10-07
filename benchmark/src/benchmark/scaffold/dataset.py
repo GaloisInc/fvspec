@@ -41,7 +41,7 @@ def load_datapoints(file_path: Path) -> list[Datapoint]:
     """Effectful function: reads a json file from disk"""
     with open(file_path) as f:
         data = json.load(f)
-    return [Datapoint(**obj) for obj in data]
+    return [Datapoint(**obj) for obj in data]  # type: ignore[arg-type]
 
 
 def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
@@ -50,7 +50,7 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
     return random.sample(dps, n)
 
 
-def mk_dataset(path: Path, date_time: datetime) -> MemoryDataset:
+def mk_dataset(path: Path, date_time: datetime.datetime) -> MemoryDataset:
     return MemoryDataset(
         [
             Sample(
@@ -59,7 +59,7 @@ def mk_dataset(path: Path, date_time: datetime) -> MemoryDataset:
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                 },
-                id=str(datapoint.id) + "_" + datapoint.pbt_name,
+                id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
             for datapoint in sample_datapoints(path, n=100)
         ]
