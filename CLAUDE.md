@@ -79,13 +79,10 @@ Organized by timestamp, then by `<sample_id>_<test_name>/`:
 
 ## Common Commands
 
-### Running the benchmark
+### Generating the benchmark data
 ```bash
-# Run benchmark evaluation (from repository root)
-uv run fvspec evaluate-fvspec [datafile]
-
 # Default uses data/scrapedtests.json
-uv run fvspec evaluate-fvspec
+uv run fvspec
 ```
 
 ### Development tools
