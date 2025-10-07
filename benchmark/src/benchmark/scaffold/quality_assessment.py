@@ -1,16 +1,18 @@
-import json
 import re
 
 from inspect_ai.solver import TaskState
+from pydantic import BaseModel, Field
 
 
-class QualityAssessment:
-    sample_id: str
+class QualityAssessment(BaseModel):
+    """Quality assessment metrics for a generated Lean specification."""
+
+    sample_id: int
     sample_name: str
     datetime: str
     model: str
     token_usage: int
-    time: int
+    time: float
     num_messages: int
     num_generate_messages: int
     num_input_messages: int
@@ -18,55 +20,67 @@ class QualityAssessment:
     num_sorries: int
     lines_pbt: int
     lines_code: int
-    percent_lines_added: float | None  # (lines code - lines pbt)/(lines pbt)
-    faithfulness: float | None  # defined by ai
-    interest: float | None  # defined by ai
+    percent_lines_added: float | None = Field(
+        None, description="(lines_code - lines_pbt) / lines_pbt"
+    )
+    faithfulness: float | None = Field(
+        None, description="AI-defined faithfulness score"
+    )
+    interest: float | None = Field(
+        None, description="AI-defined interest/complexity score"
+    )
 
-    def __init__(self, state: TaskState):
-        self.sample_id = state.metadata.get("datapoint").id
-        self.sample_name = state.metadata.get("datapoint").pbt_name
-        self.datetime = state.metadata.get("date_time")
-        self.model = state.output.model
-        self.token_usage = state.token_usage
-        self.time = state.output.time
-        self.num_messages = len(state.messages)
-        self.num_generate_messages = sum(
-            1 for sm in state.messages if sm.source == "generate"
-        )
-        self.num_input_messages = sum(
-            1 for sm in state.messages if sm.source == "input"
-        )
-        self.lines_pbt = state.metadata.get("datapoint").pbt.count("\n")
-        # code related metrics
+    @classmethod
+    def from_task_state(cls, state: TaskState) -> "QualityAssessment":
+        """Extract quality metrics from a completed task state."""
+        lines_pbt = state.metadata.get("datapoint").pbt.count("\n")
+
+        # Extract code metrics
         pattern = r"(?s)<code>(.*?)</code>"
         mtch = re.search(pattern, state.messages[-1].text)
         if not mtch:
-            self.success = False
-            self.num_sorries = 0
-            self.lines_code = 0
-            self.percent_lines_added = 0.0
+            success = False
+            num_sorries = 0
+            lines_code = 0
+            percent_lines_added = 0.0
         else:
             code_snippet = mtch.group(1)
-            self.success = True
-            self.num_sorries = code_snippet.count("sorry")
-            self.lines_code = code_snippet.count("\n")
-            self.percent_lines_added = (
-                self.lines_code - self.lines_pbt
-            ) / self.lines_pbt
-        # faithfulness metric
+            success = True
+            num_sorries = code_snippet.count("sorry")
+            lines_code = code_snippet.count("\n")
+            percent_lines_added = (lines_code - lines_pbt) / lines_pbt
+
+        # Extract faithfulness metric
         f_pattern = r"Faithfulness.*:\s*([0-9]*.?[0-9]+)/([0-9]+)"
         f_mtch = re.search(f_pattern, state.messages[-1].text, re.IGNORECASE)
-        if not f_mtch:
-            self.faithfulness = None
-        else:
-            self.faithfulness = float(f_mtch.group(1)) / float(f_mtch.group(2)) * 10.0
-        # interest metric
+        faithfulness = None
+        if f_mtch:
+            faithfulness = float(f_mtch.group(1)) / float(f_mtch.group(2)) * 10.0
+
+        # Extract interest metric
         i_pattern = r"Interest.*:\s*([0-9]*.?[0-9]+)/([0-9]+)"
         i_mtch = re.search(i_pattern, state.messages[-1].text, re.IGNORECASE)
-        if not i_mtch:
-            self.interest = None
-        else:
-            self.interest = float(i_mtch.group(1)) / float(i_mtch.group(2)) * 10.0
+        interest = None
+        if i_mtch:
+            interest = float(i_mtch.group(1)) / float(i_mtch.group(2)) * 10.0
 
-    def toJSON(self):
-        return json.dumps(self.__dict__, indent=4)
+        return cls(
+            sample_id=state.metadata.get("datapoint").id,
+            sample_name=state.metadata.get("datapoint").pbt_name,
+            datetime=state.metadata.get("date_time"),
+            model=state.output.model,
+            token_usage=state.token_usage,
+            time=state.output.time,
+            num_messages=len(state.messages),
+            num_generate_messages=sum(
+                1 for sm in state.messages if sm.source == "generate"
+            ),
+            num_input_messages=sum(1 for sm in state.messages if sm.source == "input"),
+            lines_pbt=lines_pbt,
+            success=success,
+            num_sorries=num_sorries,
+            lines_code=lines_code,
+            percent_lines_added=percent_lines_added,
+            faithfulness=faithfulness,
+            interest=interest,
+        )

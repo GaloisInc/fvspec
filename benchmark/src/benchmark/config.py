@@ -1,7 +1,5 @@
 import tomllib
 from pathlib import Path
-import os
-from dotenv import load_dotenv
 
 # import logfire
 from pydantic import BaseModel

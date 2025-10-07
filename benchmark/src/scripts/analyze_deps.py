@@ -24,37 +24,31 @@ import json
 import logging
 import re
 
+from pydantic import BaseModel
 
-class Datapoint:
-    def __init__(
-        self,
-        id: int,
-        repo_id: int,
-        pbt_name: str,
-        pbt: str,
-        dep_names: list[str],
-        deps: list[str],
-        source: str,
-        summary: str | None,
-        hash: str,
-        summary_vector: str | None,
-        mode: str,
-        summaryversion: int,
-        summaryconfidence: int,
-    ):
-        self.id = id
-        self.repo_id = repo_id
-        self.pbt_name = pbt_name
-        self.pbt = pbt
-        self.dep_names = dep_names
-        self.deps = deps
-        self.source = source
-        self.summary = summary
-        self.hash = hash
-        self.summary_vector = summary_vector
-        self.mode = mode
-        self.summaryversion = summaryversion
-        self.summaryconfidence = summaryconfidence
+
+class Datapoint(BaseModel):
+    """Extended datapoint model for analyze_deps script.
+
+    Includes additional fields beyond the core Datapoint model:
+    - mode: Processing mode used during scraping
+    - summaryversion: Version of the summarization algorithm
+    - summaryconfidence: Confidence score for the summary
+    """
+
+    id: int
+    repo_id: int
+    pbt_name: str
+    pbt: str
+    dep_names: list[str]
+    deps: list[str]
+    source: str
+    summary: str | None
+    hash: str
+    summary_vector: str | None
+    mode: str
+    summaryversion: int
+    summaryconfidence: int
 
 
 async def main() -> None:

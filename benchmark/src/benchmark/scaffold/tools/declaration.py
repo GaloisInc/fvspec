@@ -48,7 +48,7 @@ def write_datapoint_to_disk(
         A message describing whether the write succeeded.
     """
     datapoint_file = utilio.get_output_filepath(date_time, sample_id, "Datapoint.json")
-    return utilio.writeit(datapoint_file, datapoint.toJSON())
+    return utilio.writeit(datapoint_file, datapoint.model_dump_json(indent=4))
 
 
 def write_code_to_disk(date_time: str, sample_id: str, text: str) -> str:
@@ -89,10 +89,10 @@ def write_qa_to_disk(date_time: str, sample_id: str, state: TaskState) -> str:
     """
 
     # Fill in QA info
-    qa = QualityAssessment(state)
+    qa = QualityAssessment.from_task_state(state)
 
     qa_file = utilio.get_output_filepath(date_time, sample_id, "QA.json")
-    return utilio.writeit(qa_file, qa.toJSON())
+    return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
 
 async def write_to_disk(state: TaskState):

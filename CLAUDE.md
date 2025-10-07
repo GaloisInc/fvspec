@@ -138,6 +138,22 @@ Edit `benchmark/src/benchmark/config.toml` to change:
 - Max attempts and tokens
 - Debug/logging flags
 
+## Code Style & Conventions
+
+### Pydantic Usage
+**Use Pydantic aggressively throughout the codebase.** All data models should be Pydantic `BaseModel` classes:
+
+- ✅ **Do:** Use `BaseModel` for all data structures
+- ✅ **Do:** Use `.model_dump_json(indent=4)` for JSON serialization
+- ✅ **Do:** Use `Field()` for field descriptions and validation
+- ✅ **Do:** Use `frozen=True` for immutable models
+- ✅ **Do:** Add docstrings to models explaining their purpose
+- ❌ **Don't:** Write manual `__init__` methods
+- ❌ **Don't:** Write custom `toJSON()` methods
+- ❌ **Don't:** Use plain Python classes for data that could be validated
+
+**Benefits:** Automatic validation, type safety, consistent serialization, better IDE support.
+
 ## Working with Lean Output
 
 Generated Lean files follow this pattern:

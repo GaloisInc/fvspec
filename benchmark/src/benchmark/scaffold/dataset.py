@@ -10,6 +10,8 @@ random.seed(0)
 
 
 class Datapoint(BaseModel, frozen=True):
+    """A scraped property-based test datapoint with metadata."""
+
     id: int
     repo_id: int
     pbt_name: str
@@ -20,9 +22,6 @@ class Datapoint(BaseModel, frozen=True):
     summary: str | None
     hash: str
     summary_vector: str | None
-
-    def toJSON(self):
-        return json.dumps(self.__dict__, indent=4)
 
 
 class Prompt(BaseModel, frozen=True):
