@@ -52,7 +52,7 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
 
 
 def mk_dataset(
-    path: Path, date_time: datetime, style: PromptStyle = "functional"
+    path: Path, date_time: datetime, style: PromptStyle = PromptStyle.FUNCTIONAL
 ) -> MemoryDataset:
     return MemoryDataset(
         [
@@ -61,7 +61,7 @@ def mk_dataset(
                 metadata={
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
-                    "style": style,
+                    "style": style.value,
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )

@@ -15,7 +15,7 @@ DATA = Path("..") / "data"
 
 @task
 def fvspec(
-    datafile: str, use_mcp: bool = False, style: PromptStyle = "functional"
+    datafile: str, use_mcp: bool = False, style: PromptStyle = PromptStyle.FUNCTIONAL
 ) -> Task:
     """
     A task generating the fvspec benchmark.

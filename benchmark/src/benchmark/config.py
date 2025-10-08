@@ -1,6 +1,6 @@
 import tomllib
+from enum import Enum
 from pathlib import Path
-from typing import Literal
 
 # import logfire
 from pydantic import BaseModel
@@ -17,7 +17,11 @@ from pydantic import BaseModel
 #       logfire.configure(token=logfire_token)
 
 
-type PromptStyle = Literal["functional", "mvcgen"]
+class PromptStyle(str, Enum):
+    """Verification style for Lean code generation."""
+
+    FUNCTIONAL = "functional"
+    MVCGEN = "mvcgen"
 
 
 class AgentConfig(BaseModel):
@@ -32,7 +36,7 @@ class MetaConfig(BaseModel):
 
 
 class PromptConfig(BaseModel):
-    style: PromptStyle = "functional"
+    style: PromptStyle = PromptStyle.FUNCTIONAL
 
 
 class Config(BaseModel):

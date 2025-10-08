@@ -8,7 +8,7 @@ env = Environment(loader=PackageLoader("benchmark"))
 initial = env.get_template("initial.prompt.template")
 
 
-def get_system_prompt(style: PromptStyle = "functional"):
+def get_system_prompt(style: PromptStyle = PromptStyle.FUNCTIONAL):
     """Load the appropriate system prompt based on the verification style.
 
     Args:
@@ -17,4 +17,4 @@ def get_system_prompt(style: PromptStyle = "functional"):
     Returns:
         The rendered system prompt template
     """
-    return env.get_template(f"{style}.system.prompt")
+    return env.get_template(f"{style.value}.system.prompt")

@@ -13,7 +13,7 @@ app = Typer()
 def preview_prompts(
     data: str,
     style: PromptStyle = Option(
-        "functional",
+        PromptStyle.FUNCTIONAL,
         help="Prompt style: 'functional' (FVAPPS) or 'mvcgen' (imperative)",
     ),
 ) -> None:

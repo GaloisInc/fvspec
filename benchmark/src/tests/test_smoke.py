@@ -129,14 +129,15 @@ async def test_smoke_dataset_loading(temp_data_file):
 
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
+    from benchmark.config import PromptStyle
     from benchmark.templates.prompt import initial, get_system_prompt
 
     # Test system prompts (both styles)
-    functional_prompt = get_system_prompt("functional").render()
+    functional_prompt = get_system_prompt(PromptStyle.FUNCTIONAL).render()
     assert isinstance(functional_prompt, str)
     assert len(functional_prompt) > 0
 
-    mvcgen_prompt = get_system_prompt("mvcgen").render()
+    mvcgen_prompt = get_system_prompt(PromptStyle.MVCGEN).render()
     assert isinstance(mvcgen_prompt, str)
     assert len(mvcgen_prompt) > 0
     assert "mvcgen" in mvcgen_prompt

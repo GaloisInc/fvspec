@@ -354,18 +354,18 @@ def dashboard():
     plot = panel.bind(plot_dataframe, dataframe, args)
     table = panel.bind(get_table, dataframe)
 
-    fileCol = panel.Column(
+    file_col = panel.Column(
         file_selector,
         sizing_mode="stretch_both",
         name="Source",
     )
-    plotCol = panel.Column(plot, sizing_mode="stretch_both", name="Plot")
-    tableCol = panel.Column(table, sizing_mode="stretch_both", name="Table")
+    plot_col = panel.Column(plot, sizing_mode="stretch_both", name="Plot")
+    table_col = panel.Column(table, sizing_mode="stretch_both", name="Table")
 
     tabs = panel.Tabs(
-        fileCol,
-        plotCol,
-        tableCol,
+        file_col,
+        plot_col,
+        table_col,
         styles=styles,
         sizing_mode="stretch_width",
         height=600,

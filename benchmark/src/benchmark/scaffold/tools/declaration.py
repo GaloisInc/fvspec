@@ -119,14 +119,16 @@ async def write_to_disk(state: TaskState):
     style = cast(str, state.metadata.get("style", "functional"))
     sample_id = str(state.sample_id)
 
-    retStrDP = write_datapoint_to_disk(date_time, sample_id, datapoint, style=style)
+    ret_str_dp = write_datapoint_to_disk(date_time, sample_id, datapoint, style=style)
 
     # Only write code and QA if we have output
     if state.output and state.output.choices:
-        retStrC = write_code_to_disk(
+        ret_str_c = write_code_to_disk(
             date_time, sample_id, state.output.message.text, style=style
         )
-        retStrQA = write_qa_to_disk(date_time, sample_id, state, style=style)
-        return retStrDP + "\n" + retStrC + "\n" + retStrQA
+        ret_str_qa = write_qa_to_disk(date_time, sample_id, state, style=style)
+        return ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
     else:
-        return retStrDP + "\n" + "No output generated (task may have been interrupted)"
+        return (
+            ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
+        )
