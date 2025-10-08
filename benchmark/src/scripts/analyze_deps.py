@@ -92,6 +92,18 @@ MULTI_LINE_COMMENTS_RE = r"\"\"\"[\s\S]*\"\"\""
 
 
 def process(code: str) -> list[str]:
+    """Extract import statements from Python source code.
+
+    Parses Python code to find all import and from...import statements,
+    resolving fully qualified import names. Handles both simple and
+    complex import patterns including comma-separated imports.
+
+    Args:
+        code: Python source code string
+
+    Returns:
+        List of fully qualified import names (e.g., ['numpy.array', 'hypothesis.strategies'])
+    """
     # remove comments
     code = re.sub(IN_LINE_COMMENTS_RE, "", code)
     code = re.sub(MULTI_LINE_COMMENTS_RE, "", code)

@@ -1,4 +1,5 @@
 import tomllib
+from enum import Enum
 from pathlib import Path
 
 # import logfire
@@ -16,20 +17,61 @@ from pydantic import BaseModel
 #       logfire.configure(token=logfire_token)
 
 
+class PromptStyle(str, Enum):
+    """Verification style for Lean code generation."""
+
+    FUNCTIONAL = "functional"
+    MVCGEN = "mvcgen"
+
+
 class AgentConfig(BaseModel):
+    """Configuration for the AI agent behavior.
+
+    Attributes:
+        model: Model identifier string (e.g., "anthropic/claude-sonnet-4-5")
+        max_attempts: Maximum number of generation attempts
+        max_tokens: Maximum token limit for generation
+    """
+
     model: str
     max_attempts: int
     max_tokens: int
 
 
 class MetaConfig(BaseModel):
+    """Configuration for logging and debugging.
+
+    Attributes:
+        logging: Enable logging functionality
+        debug: Enable debug mode for verbose output
+    """
+
     logging: bool
     debug: bool = False
 
 
+class PromptConfig(BaseModel):
+    """Configuration for prompt template selection.
+
+    Attributes:
+        style: Verification style - functional (FVAPPS) or mvcgen (imperative with Hoare logic)
+    """
+
+    style: PromptStyle = PromptStyle.FUNCTIONAL
+
+
 class Config(BaseModel):
+    """Top-level configuration loaded from config.toml.
+
+    Attributes:
+        agent: Agent configuration settings
+        meta: Logging and debugging configuration
+        prompt: Prompt template configuration
+    """
+
     agent: AgentConfig
     meta: MetaConfig
+    prompt: PromptConfig = PromptConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -41,6 +83,7 @@ class Config(BaseModel):
         return cls(
             agent=AgentConfig(**data["agent"]),  # type: ignore[arg-type]
             meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
+            prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
         )
 
 

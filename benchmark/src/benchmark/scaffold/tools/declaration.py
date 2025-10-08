@@ -34,7 +34,7 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
 
 
 def write_datapoint_to_disk(
-    date_time: str, sample_id: str, datapoint: Datapoint
+    date_time: str, sample_id: str, datapoint: Datapoint, style: str = "functional"
 ) -> str:
     """
     Write the datapoint from text into
@@ -44,14 +44,19 @@ def write_datapoint_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         datapoint: The datapoint from the metadata of the current sample.
+        style: Prompt style used (functional or mvcgen).
     Returns:
         A message describing whether the write succeeded.
     """
-    datapoint_file = utilio.get_output_filepath(date_time, sample_id, "Datapoint.json")
+    datapoint_file = utilio.get_output_filepath(
+        date_time, sample_id, "Datapoint.json", style=style
+    )
     return utilio.writeit(datapoint_file, datapoint.model_dump_json(indent=4))
 
 
-def write_code_to_disk(date_time: str, sample_id: str, text: str) -> str:
+def write_code_to_disk(
+    date_time: str, sample_id: str, text: str, style: str = "functional"
+) -> str:
     """
     Write the <code>...</code> snippet from text into
     artifacts/spec/<sample_id>/Spec.lean.
@@ -60,6 +65,7 @@ def write_code_to_disk(date_time: str, sample_id: str, text: str) -> str:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
+        style: Prompt style used (functional or mvcgen).
     Returns:
         A message describing whether the write succeeded.
     """
@@ -71,11 +77,15 @@ def write_code_to_disk(date_time: str, sample_id: str, text: str) -> str:
         return utilio.no_code_block_found(sample_id, text)
     code_snippet = mtch.group(1)
 
-    spec_file = utilio.get_output_filepath(date_time, sample_id, "Spec.lean")
+    spec_file = utilio.get_output_filepath(
+        date_time, sample_id, "Spec.lean", style=style
+    )
     return utilio.writeit(spec_file, code_snippet)
 
 
-def write_qa_to_disk(date_time: str, sample_id: str, state: TaskState) -> str:
+def write_qa_to_disk(
+    date_time: str, sample_id: str, state: TaskState, style: str = "functional"
+) -> str:
     """
     Write the QA results from the TaskState to
     artifacts/spec/<sample_id>/QA.json.
@@ -84,6 +94,7 @@ def write_qa_to_disk(date_time: str, sample_id: str, state: TaskState) -> str:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         state: The task state after completion.
+        style: Prompt style used (functional or mvcgen).
     Returns:
         A message describing whether the write succeeded.
     """
@@ -91,7 +102,7 @@ def write_qa_to_disk(date_time: str, sample_id: str, state: TaskState) -> str:
     # Fill in QA info
     qa = QualityAssessment.from_task_state(state)
 
-    qa_file = utilio.get_output_filepath(date_time, sample_id, "QA.json")
+    qa_file = utilio.get_output_filepath(date_time, sample_id, "QA.json", style=style)
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
 
@@ -105,18 +116,16 @@ async def write_to_disk(state: TaskState):
     """
     date_time = cast(str, state.metadata.get("date_time"))
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
+    style = cast(str, state.metadata.get("style", "functional"))
     sample_id = str(state.sample_id)
 
-    retStrDP = write_datapoint_to_disk(
-        date_time,
-        sample_id,
-        datapoint,
-    )
+    ret_str_dp = write_datapoint_to_disk(date_time, sample_id, datapoint, style=style)
 
     # Only write code and QA if we have output
     if state.output and state.output.choices:
-        retStrC = write_code_to_disk(date_time, sample_id, state.output.message.text)
-        retStrQA = write_qa_to_disk(date_time, sample_id, state)
-        return retStrDP + "\n" + retStrC + "\n" + retStrQA
-    else:
-        return retStrDP + "\n" + "No output generated (task may have been interrupted)"
+        ret_str_c = write_code_to_disk(
+            date_time, sample_id, state.output.message.text, style=style
+        )
+        ret_str_qa = write_qa_to_disk(date_time, sample_id, state, style=style)
+        return ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
+    return ret_str_dp + "\n" + "No output generated (task may have been interrupted)"

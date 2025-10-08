@@ -81,8 +81,10 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
   - `tools/utilio.py` - Utility functions for subprocess execution and file operations
 
 - **`src/benchmark/templates/`** - Jinja2 prompt templates
-  - `system.prompt` - System prompt instructing the model to translate Python tests to Lean 4
+  - `functional.system.prompt` - System prompt for functional/FVAPPS-style verification
+  - `mvcgen.system.prompt` - System prompt for imperative verification with mvcgen and Hoare logic
   - `initial.prompt.template` - User prompt template with dependencies and property-based test
+  - `prompt.py` - Prompt loading logic with style selection support
 
 - **`src/benchmark/config.toml`** - Runtime configuration
   - Agent settings: model name, max_attempts, max_tokens
@@ -111,8 +113,39 @@ Organized by timestamp, then by `<sample_id>_<test_name>/`:
 ### Generating the benchmark data
 
 ```bash
-# Default uses data/scrapedtests.json
+# Default uses data/scrapedtests.json with functional style
 uv run fvspec
+
+# Use imperative/mvcgen style for verification with Hoare logic
+uv run fvspec --style mvcgen
+
+# Disable MCP tools (faster, but less interactive)
+uv run fvspec --no-mcp
+
+# Combine options
+uv run fvspec --style mvcgen --no-mcp
+```
+
+### Prompt Styles
+
+The benchmark supports two verification approaches:
+
+**Functional Style** (`--style functional`, default):
+- FVAPPS-style recursive definitions
+- Pure functional programming
+- Traditional theorem proving with induction
+- Best for: mathematical functions, recursive algorithms
+
+**mvcgen Style** (`--style mvcgen`):
+- Imperative programs with `do` notation and mutable variables
+- Hoare logic specifications with `⦃Precondition⦄ program ⦃Postcondition⦄`
+- Loop invariants and verification conditions via `mvcgen` tactic
+- Best for: loops, stateful algorithms, PyTorch/NumPy operations
+
+You can set the default style in `config.toml`:
+```toml
+[prompt]
+style = "mvcgen"  # or "functional"
 ```
 
 ### Development tools
@@ -127,8 +160,9 @@ uv run ruff check
 # Run tests
 uv run pytest
 
-# Preview prompt templates
-uv run preview_prompts
+# Preview prompt templates (both styles)
+uv run preview_prompts test_prompts.json --style functional
+uv run preview_prompts test_prompts.json --style mvcgen
 ```
 
 ### Package management

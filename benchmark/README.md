@@ -3,7 +3,25 @@
 ## Running the benchmark
 
 ```bash
+# Default: functional style (FVAPPS-style recursive definitions)
 uv run fvspec
+
+# Use mvcgen style (imperative with Hoare logic and loop invariants)
+uv run fvspec --style mvcgen
+
+# Disable MCP tools for faster execution
+uv run fvspec --no-mcp
+```
+
+### Verification Styles
+
+- **functional** (default): Pure functional style with recursion and induction
+- **mvcgen**: Imperative style with `do` notation, Hoare triples, and `mvcgen` tactic
+
+Set default in `config.toml`:
+```toml
+[prompt]
+style = "mvcgen"  # or "functional"
 ```
 
 ## Dashboard
@@ -33,7 +51,9 @@ uv run pytest
 Preview prompt templates:
 
 ```bash
-uv run preview_prompts
+# Preview prompts with functional or mvcgen style
+uv run preview_prompts <data_file.json> --style functional
+uv run preview_prompts <data_file.json> --style mvcgen
 ```
 
 Analyze dependencies in scraped tests:
