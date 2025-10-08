@@ -26,15 +26,33 @@ class Datapoint(BaseModel, frozen=True):
 
 
 class Prompt(BaseModel, frozen=True):
+    """A simplified prompt containing the property-based test and its dependencies."""
+
     pbt: str
     deps: list[str]
 
 
 def datapoint_to_prompt(dp: Datapoint) -> Prompt:
+    """Convert a datapoint to a prompt by extracting test and dependencies.
+
+    Args:
+        dp: The datapoint to convert
+
+    Returns:
+        A Prompt containing the property-based test and dependencies
+    """
     return Prompt(pbt=dp.pbt, deps=dp.deps)
 
 
 def mk_initial(prompt: Prompt) -> str:
+    """Render the initial user prompt from a Prompt object.
+
+    Args:
+        prompt: The prompt containing test and dependencies
+
+    Returns:
+        Rendered initial prompt string
+    """
     return initial.render(pbt=prompt.pbt, deps=prompt.deps)
 
 
@@ -54,6 +72,16 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
 def mk_dataset(
     path: Path, date_time: datetime, style: PromptStyle = PromptStyle.FUNCTIONAL
 ) -> MemoryDataset:
+    """Create an inspect_ai dataset from scraped datapoints.
+
+    Args:
+        path: Path to the JSON file containing scraped datapoints
+        date_time: Timestamp for organizing output artifacts
+        style: Verification style (functional or mvcgen)
+
+    Returns:
+        MemoryDataset with 100 randomly sampled datapoints
+    """
     return MemoryDataset(
         [
             Sample(

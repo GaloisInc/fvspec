@@ -47,7 +47,15 @@ def run_cmd(
 
 
 def no_code_block_found(sample_id: str, text: str) -> str:
-    """Considered effectful just because logging"""
+    """Generate error message when no code block is found in model output.
+
+    Args:
+        sample_id: The sample identifier
+        text: The model output text that was searched
+
+    Returns:
+        A formatted error message string
+    """
     msg = "No <code> block found"
     # if cfg.meta.logging:
     #     logfire.info(msg, sample_id=sample_id, text=text)
@@ -57,6 +65,23 @@ def no_code_block_found(sample_id: str, text: str) -> str:
 def get_output_filepath(
     date_time: str, sample_id: str, file_name: str, style: str = "functional"
 ) -> Path:
+    """Construct output file path in the artifacts directory structure.
+
+    Creates a directory structure: artifacts/<date_time>_<style>/<sample_id>/<file_name>
+    The function locates the project root by searching for pyproject.toml.
+
+    Args:
+        date_time: Timestamp string for the benchmark run
+        sample_id: Unique identifier for the sample
+        file_name: Name of the output file (e.g., 'Spec.lean', 'QA.json')
+        style: Verification style (functional or mvcgen)
+
+    Returns:
+        Path to the output file
+
+    Raises:
+        FileNotFoundError: If pyproject.toml cannot be found in parent directories
+    """
     # Find the project root (directory containing pyproject.toml)
     current_dir = Path.cwd()
     root_dir = current_dir
@@ -80,6 +105,15 @@ def get_output_filepath(
 
 
 def writeit(spfile: Path, code: str) -> str:
+    """Write content to a file.
+
+    Args:
+        spfile: Path to the output file
+        code: Content to write to the file
+
+    Returns:
+        A success message with the file path
+    """
     with spfile.open("w", encoding="utf-8") as the_file:
         the_file.write(code)
     msg = "Code block written to disk"

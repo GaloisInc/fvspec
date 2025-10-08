@@ -128,7 +128,4 @@ async def write_to_disk(state: TaskState):
         )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, style=style)
         return ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
-    else:
-        return (
-            ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
-        )
+    return ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
