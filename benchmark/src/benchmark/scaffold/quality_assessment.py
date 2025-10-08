@@ -4,6 +4,7 @@ from typing import cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
+from benchmark.config import PromptStyle
 from benchmark.scaffold.dataset import Datapoint
 
 
@@ -408,8 +409,9 @@ class QualityAssessment(BaseModel):
     sample_id: int
     sample_name: str
     datetime: str
-    style: str = Field(
-        default="functional", description="Prompt style (functional or mvcgen)"
+    style: PromptStyle = Field(
+        default=PromptStyle.FUNCTIONAL,
+        description="Prompt style (functional or mvcgen)",
     )
     model: str
     token_usage: int
@@ -441,7 +443,8 @@ class QualityAssessment(BaseModel):
         """Extract quality metrics from a completed task state."""
         datapoint = cast(Datapoint, state.metadata.get("datapoint"))
         date_time = cast(str, state.metadata.get("date_time"))
-        style = cast(str, state.metadata.get("style", "functional"))
+        style_raw = state.metadata.get("style", "functional")
+        style = PromptStyle(style_raw) if isinstance(style_raw, str) else style_raw
         lines_pbt = datapoint.pbt.count("\n")
 
         # Extract code metrics
