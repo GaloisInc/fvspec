@@ -17,7 +17,7 @@ from pydantic import BaseModel
 #       logfire.configure(token=logfire_token)
 
 
-PromptStyle = Literal["functional", "mvcgen"]
+type PromptStyle = Literal["functional", "mvcgen"]
 
 
 class AgentConfig(BaseModel):

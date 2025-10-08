@@ -5,9 +5,10 @@ from inspect_ai.agent import react
 from inspect_ai.dataset import Sample
 from inspect_ai.tool import mcp_server_stdio
 from inspect_ai.solver import generate, use_tools, system_message
+from benchmark.config import PromptStyle
 from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
-from benchmark.templates.prompt import get_system_prompt, PromptStyle
+from benchmark.templates.prompt import get_system_prompt
 
 DATA = Path("..") / "data"
 

@@ -1,7 +1,8 @@
 import json
 from pathlib import Path
 from typer import Typer, Option
-from benchmark.templates.prompt import get_system_prompt, initial, PromptStyle
+from benchmark.config import PromptStyle
+from benchmark.templates.prompt import get_system_prompt, initial
 
 DATA = Path("data")
 

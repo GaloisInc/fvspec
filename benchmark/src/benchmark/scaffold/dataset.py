@@ -4,7 +4,8 @@ from pathlib import Path
 import random
 from pydantic import BaseModel
 from inspect_ai.dataset import Sample, MemoryDataset
-from benchmark.templates.prompt import initial, PromptStyle
+from benchmark.config import PromptStyle
+from benchmark.templates.prompt import initial
 
 random.seed(0)
 
