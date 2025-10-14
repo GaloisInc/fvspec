@@ -44,10 +44,14 @@ class MetaConfig(BaseModel):
     Attributes:
         logging: Enable logging functionality
         debug: Enable debug mode for verbose output
+        display: Display mode for inspect_ai eval TUI (full, conversation, rich, plain, log, none)
+        parallelism: Number of samples to evaluate in parallel
     """
 
     logging: bool
     debug: bool = False
+    display: str = "plain"
+    parallelism: int = 25
 
 
 class PromptConfig(BaseModel):

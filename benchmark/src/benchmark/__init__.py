@@ -31,7 +31,10 @@ def generate(
     # Use CLI arg if provided, otherwise use config
     prompt_style = style if style is not None else cfg.prompt.style
     eval(
-        fvspec(datafile, use_mcp=not no_mcp, style=prompt_style), model=cfg.agent.model
+        fvspec(datafile, use_mcp=not no_mcp, style=prompt_style),
+        model=cfg.agent.model,
+        display=cfg.meta.display,
+        max_samples=cfg.meta.parallelism,
     )
 
 
