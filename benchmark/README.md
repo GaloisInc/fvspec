@@ -19,9 +19,17 @@ uv run fvspec --variant control-mvcgen
 # Disable MCP tools for faster execution
 uv run fvspec --no-mcp
 
+# Control dataset sample size (default: 100)
+uv run fvspec --sample-size 50
+uv run fvspec --sample-size 200
+
 # A/B testing: compare multiple variants in parallel
 uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
+
+# Combine options
+uv run fvspec --variant terse-functional --sample-size 50 --no-mcp
+uv run fvspec compare-variants --sample-size 200
 ```
 
 ## Prompt Variants
@@ -218,13 +226,16 @@ Always document in `metadata.toml`:
 
 ### Configuration
 
-Set default variant in `config.toml`:
+Set defaults in `config.toml`:
 ```toml
 [prompt]
 variant = "control-functional"
+
+[dataset]
+sample_size = 100
 ```
 
-Priority: `--variant` (CLI arg) > `config.variant` > registry default
+Priority: CLI args (`--variant`, `--sample-size`) > config.toml > defaults
 
 ### Implementation
 

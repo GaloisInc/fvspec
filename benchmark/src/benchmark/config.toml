@@ -11,3 +11,7 @@ debug = true
 # Prompt variant from registry.toml
 # If not specified, uses registry default ("control-functional")
 # variant = "control-functional"
+
+[dataset]
+# Number of samples to draw from the dataset
+sample_size = 100

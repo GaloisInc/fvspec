@@ -23,6 +23,10 @@ def main_callback(
         None,
         help="Prompt variant name from registry.toml (e.g., 'control-functional', 'terse-functional'). If not specified, uses default from registry or config.toml.",
     ),
+    sample_size: int = Option(
+        None,
+        help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
+    ),
     list_variants: bool = Option(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
@@ -36,6 +40,7 @@ def main_callback(
         datafile: Path to the JSON file containing test data
         no_mcp: Disable Lean LSP MCP tools
         variant: Prompt variant name (overrides config.toml)
+        sample_size: Number of samples to draw (overrides config.toml)
         list_variants: List available variants and exit
     """
     # If a subcommand was invoked, don't run the default behavior
@@ -57,9 +62,18 @@ def main_callback(
 
     # Determine variant: CLI arg > config > registry default
     use_variant = variant or cfg.prompt.variant
+    # Determine sample_size: CLI arg > config
+    use_sample_size = (
+        sample_size if sample_size is not None else cfg.dataset.sample_size
+    )
 
     eval(
-        fvspec(datafile, use_mcp=not no_mcp, variant=use_variant),
+        fvspec(
+            datafile,
+            use_mcp=not no_mcp,
+            variant=use_variant,
+            sample_size=use_sample_size,
+        ),
         model=cfg.agent.model,
     )
 
@@ -73,6 +87,10 @@ def compare_variants(
         "--variant",
         help="Variant names to compare (can be specified multiple times). If not specified, uses all control and treatment variants.",
     ),
+    sample_size: int = Option(
+        None,
+        help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
+    ),
 ) -> None:
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
@@ -80,6 +98,7 @@ def compare_variants(
         datafile: Path to the JSON file containing test data
         no_mcp: Disable Lean LSP MCP tools
         variant: List of variant names to compare
+        sample_size: Number of samples to draw (overrides config.toml)
     """
     import datetime
     from pathlib import Path
@@ -105,6 +124,11 @@ def compare_variants(
 
     print(f"Comparing variants: {', '.join(variants_to_compare)}\n")
 
+    # Determine sample_size: CLI arg > config
+    use_sample_size = (
+        sample_size if sample_size is not None else cfg.dataset.sample_size
+    )
+
     # Create log directory for comparison results
     now = datetime.datetime.now()
     log_dir_name = f"comparison_{now.strftime('%Y-%m-%dT%H-%M-%S')}"
@@ -113,7 +137,8 @@ def compare_variants(
 
     # Create task instances for each variant
     tasks = [
-        fvspec(datafile, use_mcp=not no_mcp, variant=v) for v in variants_to_compare
+        fvspec(datafile, use_mcp=not no_mcp, variant=v, sample_size=use_sample_size)
+        for v in variants_to_compare
     ]
 
     # Run all tasks together with eval_set

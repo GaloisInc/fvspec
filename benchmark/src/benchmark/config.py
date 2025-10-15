@@ -53,6 +53,16 @@ class PromptConfig(BaseModel):
     variant: str | None = None
 
 
+class DatasetConfig(BaseModel):
+    """Configuration for dataset sampling.
+
+    Attributes:
+        sample_size: Number of samples to draw from the dataset
+    """
+
+    sample_size: int = 100
+
+
 class Config(BaseModel):
     """Top-level configuration loaded from config.toml.
 
@@ -60,11 +70,13 @@ class Config(BaseModel):
         agent: Agent configuration settings
         meta: Logging and debugging configuration
         prompt: Prompt template configuration
+        dataset: Dataset sampling configuration
     """
 
     agent: AgentConfig
     meta: MetaConfig
     prompt: PromptConfig = PromptConfig()
+    dataset: DatasetConfig = DatasetConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -77,6 +89,7 @@ class Config(BaseModel):
             agent=AgentConfig(**data["agent"]),  # type: ignore[arg-type]
             meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
             prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
+            dataset=DatasetConfig(**data.get("dataset", {})),  # type: ignore[arg-type]
         )
 
 

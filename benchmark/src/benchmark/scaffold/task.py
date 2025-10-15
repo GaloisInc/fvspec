@@ -1,9 +1,6 @@
 import datetime
 from pathlib import Path
 from inspect_ai import Task, task
-from inspect_ai.agent import react
-from inspect_ai.dataset import Sample
-from inspect_ai.tool import mcp_server_stdio
 from inspect_ai.solver import generate, use_tools, system_message
 from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
@@ -17,6 +14,7 @@ def fvspec(
     datafile: str,
     use_mcp: bool = False,
     variant: str | None = None,
+    sample_size: int = 100,
 ) -> Task:
     """
     A task generating the fvspec benchmark.
@@ -25,12 +23,13 @@ def fvspec(
         datafile: Path to the JSON file containing test data
         use_mcp: If True, use Lean LSP MCP tools in addition to lean_compile
         variant: Prompt variant name from registry.toml. If None, uses registry default.
+        sample_size: Number of samples to draw from the dataset
     """
     now = datetime.datetime.now()
 
     # Load variant prompts (will use registry default if variant is None)
     system_prompt, _ = get_variant_prompts(variant)
-    dataset = mk_dataset(DATA / datafile, now, variant=variant)
+    dataset = mk_dataset(DATA / datafile, now, variant=variant, sample_size=sample_size)
 
     if use_mcp:
         from benchmark.scaffold.agent import get_lean_mcp_tools
@@ -56,19 +55,3 @@ def fvspec(
         )
 
     return fvspec_task
-
-
-@task
-def lean_task():
-    lean_server = mcp_server_stdio(
-        name="lean-lsp", command="uvx", args=["lean-lsp-mcp"]
-    )
-
-    return Task(
-        dataset=[
-            Sample(
-                "Help me write lean code that compiles and can be proved using tools."
-            )
-        ],
-        solver=react(tools=[lean_server]),
-    )

@@ -75,6 +75,7 @@ def mk_dataset(
     path: Path,
     date_time: datetime,
     variant: str | None = None,
+    sample_size: int = 100,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from scraped datapoints.
 
@@ -82,9 +83,10 @@ def mk_dataset(
         path: Path to the JSON file containing scraped datapoints
         date_time: Timestamp for organizing output artifacts
         variant: Prompt variant name. If None, uses registry default.
+        sample_size: Number of datapoints to sample from the dataset
 
     Returns:
-        MemoryDataset with 100 randomly sampled datapoints
+        MemoryDataset with randomly sampled datapoints
     """
     # Get the actual variant name (resolve default if needed)
     registry = VariantRegistry()
@@ -103,6 +105,6 @@ def mk_dataset(
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(path, n=100)
+            for datapoint in sample_datapoints(path, n=sample_size)
         ]
     )
