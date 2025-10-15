@@ -5,17 +5,18 @@ from inspect_ai.agent import react
 from inspect_ai.dataset import Sample
 from inspect_ai.tool import mcp_server_stdio
 from inspect_ai.solver import generate, use_tools, system_message
-from benchmark.config import PromptStyle
 from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
-from benchmark.templates.prompt import get_system_prompt
+from benchmark.templates.prompt import get_variant_prompts
 
 DATA = Path("..") / "data"
 
 
 @task
 def fvspec(
-    datafile: str, use_mcp: bool = False, style: PromptStyle = PromptStyle.FUNCTIONAL
+    datafile: str,
+    use_mcp: bool = False,
+    variant: str | None = None,
 ) -> Task:
     """
     A task generating the fvspec benchmark.
@@ -23,14 +24,13 @@ def fvspec(
     Args:
         datafile: Path to the JSON file containing test data
         use_mcp: If True, use Lean LSP MCP tools in addition to lean_compile
-        style: Prompt style - "functional" (FVAPPS) or "mvcgen" (imperative)
+        variant: Prompt variant name from registry.toml. If None, uses registry default.
     """
-    # Load the appropriate system prompt based on style
-    system_prompt = get_system_prompt(style).render()
-
-    # Create dataset with style metadata
     now = datetime.datetime.now()
-    dataset = mk_dataset(DATA / datafile, now, style=style)
+
+    # Load variant prompts (will use registry default if variant is None)
+    system_prompt, _ = get_variant_prompts(variant)
+    dataset = mk_dataset(DATA / datafile, now, variant=variant)
 
     if use_mcp:
         from benchmark.scaffold.agent import get_lean_mcp_tools

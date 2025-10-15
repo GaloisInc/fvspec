@@ -1,20 +1,31 @@
-from jinja2 import Environment, PackageLoader
+from jinja2 import Environment, PackageLoader, Template
 
-from benchmark.config import PromptStyle
+from benchmark.templates.registry import VariantRegistry
 
 env = Environment(loader=PackageLoader("benchmark"))
 
-# Always available
-initial = env.get_template("initial.prompt.template")
 
-
-def get_system_prompt(style: PromptStyle = PromptStyle.FUNCTIONAL):
-    """Load the appropriate system prompt based on the verification style.
+def get_variant_prompts(variant_name: str | None = None) -> tuple[str, Template]:
+    """Load system and initial prompts for a specific variant.
 
     Args:
-        style: Either "functional" (FVAPPS-style) or "mvcgen" (imperative with Hoare logic)
+        variant_name: Name of the variant to load. If None, uses default from registry.
 
     Returns:
-        The rendered system prompt template
+        Tuple of (system_prompt_text, initial_prompt_template)
+
+    Raises:
+        ValueError: If variant name is not found in registry
+        FileNotFoundError: If variant files are missing
     """
-    return env.get_template(f"{style.value}.system.prompt")
+    registry = VariantRegistry()
+
+    if variant_name is None:
+        variant_name = registry.default_variant()
+
+    variant_config = registry.get_variant(variant_name)
+
+    # Create a Jinja2 template from the initial prompt string
+    initial_template = env.from_string(variant_config.initial_template)
+
+    return variant_config.system_prompt, initial_template

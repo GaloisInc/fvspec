@@ -1,5 +1,4 @@
 import tomllib
-from enum import Enum
 from pathlib import Path
 
 # import logfire
@@ -15,13 +14,6 @@ from pydantic import BaseModel
 #           raise ValueError("LOGFIRE__WRITE_TOKEN not found in .env file")
 #
 #       logfire.configure(token=logfire_token)
-
-
-class PromptStyle(str, Enum):
-    """Verification style for Lean code generation."""
-
-    FUNCTIONAL = "functional"
-    MVCGEN = "mvcgen"
 
 
 class AgentConfig(BaseModel):
@@ -54,10 +46,11 @@ class PromptConfig(BaseModel):
     """Configuration for prompt template selection.
 
     Attributes:
-        style: Verification style - functional (FVAPPS) or mvcgen (imperative with Hoare logic)
+        variant: Name of the prompt variant to use from registry.toml
+                 If None, uses registry default
     """
 
-    style: PromptStyle = PromptStyle.FUNCTIONAL
+    variant: str | None = None
 
 
 class Config(BaseModel):

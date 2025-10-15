@@ -129,21 +129,21 @@ async def test_smoke_dataset_loading(temp_data_file):
 
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
-    from benchmark.config import PromptStyle
-    from benchmark.templates.prompt import initial, get_system_prompt
+    from benchmark.templates.prompt import get_variant_prompts
 
-    # Test system prompts (both styles)
-    functional_prompt = get_system_prompt(PromptStyle.FUNCTIONAL).render()
-    assert isinstance(functional_prompt, str)
-    assert len(functional_prompt) > 0
+    # Test functional variant
+    functional_system, functional_initial = get_variant_prompts("control-functional")
+    assert isinstance(functional_system, str)
+    assert len(functional_system) > 0
 
-    mvcgen_prompt = get_system_prompt(PromptStyle.MVCGEN).render()
-    assert isinstance(mvcgen_prompt, str)
-    assert len(mvcgen_prompt) > 0
-    assert "mvcgen" in mvcgen_prompt
+    # Test mvcgen variant
+    mvcgen_system, mvcgen_initial = get_variant_prompts("control-mvcgen")
+    assert isinstance(mvcgen_system, str)
+    assert len(mvcgen_system) > 0
+    assert "mvcgen" in mvcgen_system
 
-    # Test initial prompt with sample data
-    initial_prompt = initial.render(
+    # Test initial prompt rendering with sample data
+    initial_prompt = functional_initial.render(
         pbt="def test(): pass", deps=["def helper(): return 42"]
     )
     assert isinstance(initial_prompt, str)
@@ -201,6 +201,7 @@ def test_smoke_quality_assessment_from_mock_state():
                 summary_vector=None,
             ),
             "date_time": "2025-01-01T00-00-00",
+            "variant": "control-functional",
         },
     )
 
