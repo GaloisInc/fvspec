@@ -1,11 +1,14 @@
 [agent]
 model = "anthropic/claude-sonnet-4-5-20250929"
-max_attempts = 5
 max_tokens = -1
 
 [meta]
 logging = true
 debug = true
+# Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
+display = "full"
+# Number of samples to evaluate in parallel
+parallelism = 25
 
 [prompt]
 # Verification style: "functional" (FVAPPS-style) or "mvcgen" (imperative with Hoare logic)

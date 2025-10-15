@@ -87,7 +87,7 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
   - `prompt.py` - Prompt loading logic with style selection support
 
 - **`src/benchmark/config.toml`** - Runtime configuration
-  - Agent settings: model name, max_attempts, max_tokens
+  - Agent settings: model name, max_tokens
   - Meta settings: logging, debug flags
 
 ### `/baselines` - Baseline implementations (minimal structure currently)

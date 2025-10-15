@@ -1,20 +1,24 @@
-import tempfile
 import re
+from pathlib import Path
 from typing import Callable, Awaitable, cast
 from inspect_ai.tool import tool, ToolError
 from inspect_ai.solver import TaskState
+from inspect_ai.solver._task_state import sample_state
 from benchmark.scaffold.dataset import Datapoint
 from benchmark.scaffold.quality_assessment import QualityAssessment
 from benchmark.scaffold.tools import utilio
 
-LEAN_EXE = "lean"
+LAKE_BUILD_CMD = ["lake", "build"]
 
 
 @tool  # type: ignore[arg-type]
 def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
     async def execute(code: str) -> utilio.SubprocessResult:
         """
-        Typecheck Lean code.
+        Typecheck Lean code using lake build in an isolated workspace.
+
+        Creates a temporary Lake project workspace for the sample if it doesn't exist yet.
+        Writes the code to Fvspec/<SampleID>.lean and runs lake build.
 
         Args:
             code: The Lean code to typecheck
@@ -22,10 +26,30 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
         Returns:
             A tuple of stdout, stderr and exitcode.
         """
-        with tempfile.NamedTemporaryFile(mode="w", suffix=".lean") as tmp:
-            tmp.write(code)
-            tmp.flush()
-            stdout, stderr, exitcode = utilio.run_cmd([LEAN_EXE, tmp.name])
+        # Get current task state to access metadata
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        sample_id = str(state.sample_id)
+
+        # Create workspace if it doesn't exist yet
+        if "workspace" not in state.metadata:
+            workspace = utilio.create_sample_workspace(sample_id)
+            state.metadata["workspace"] = str(workspace)
+        else:
+            workspace = Path(state.metadata["workspace"])
+
+        # Write code to Fvspec/<SampleID>.lean
+        fvspec_dir = workspace / "Fvspec"
+        fvspec_dir.mkdir(exist_ok=True)
+
+        spec_file = fvspec_dir / f"{sample_id}.lean"
+        spec_file.write_text(code)
+
+        # Run lake build
+        stdout, stderr, exitcode = utilio.run_cmd(LAKE_BUILD_CMD, cwd=workspace)
+
         if exitcode != 0:
             raise ToolError(stderr)
         return stdout, stderr, exitcode
@@ -111,6 +135,8 @@ async def write_to_disk(state: TaskState):
     Called after each sample in Task, writes the datapoint to a problem file and
     the task quality assessment results to a QA file.
 
+    Also handles cleanup of the temporary workspace.
+
     Args:
         state: The current state after a sample completes.
     """
@@ -127,5 +153,15 @@ async def write_to_disk(state: TaskState):
             date_time, sample_id, state.output.message.text, style=style
         )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, style=style)
-        return ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
-    return ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
+        result = ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
+    else:
+        result = (
+            ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
+        )
+
+    # Clean up workspace if it exists
+    workspace_path = state.metadata.get("workspace")
+    if workspace_path:
+        utilio.cleanup_sample_workspace(Path(workspace_path))
+
+    return result

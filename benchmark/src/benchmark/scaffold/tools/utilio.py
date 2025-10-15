@@ -1,4 +1,7 @@
 import subprocess
+import shutil
+import tempfile
+from contextlib import contextmanager
 from pathlib import Path
 
 # import logfire
@@ -8,18 +11,29 @@ cfg = config.load_config()
 # if cfg.meta.logging:
 #     config.setup_logfire()
 
+# Path to the Lake project template (relative to project root)
+LAKE_TEMPLATE = Path(__file__).parent.parent.parent.parent.parent / "lake-template"
+
 
 type SubprocessResult = tuple[str, str, int]
 
 
 def run_cmd(
-    cmd: list[str], capture_output: bool = True, timeout: int = 60, text: bool = True
+    cmd: list[str],
+    capture_output: bool = True,
+    timeout: int = 60,
+    text: bool = True,
+    cwd: Path | None = None,
 ) -> SubprocessResult:
     """
     Run a command in the shell.
 
     Args:
         cmd: The command to run.
+        capture_output: Whether to capture stdout/stderr
+        timeout: Command timeout in seconds
+        text: Whether to return output as text (vs bytes)
+        cwd: Working directory for the command (optional)
 
     Returns:
         A tuple of stdout, stderr and exitcode.
@@ -32,6 +46,7 @@ def run_cmd(
             capture_output=capture_output,
             timeout=timeout,
             text=text,
+            cwd=cwd,
         )
     except subprocess.TimeoutExpired:
         # logfire.info(f"Command timed out: {' '.join(cmd)}")
@@ -120,3 +135,95 @@ def writeit(spfile: Path, code: str) -> str:
     # if cfg.meta.logging:
     #     logfire.info(msg, spec_file=spfile, code_snippet=code)
     return f"{msg} at {spfile}"
+
+
+def create_sample_workspace(
+    sample_id: str, lake_template: Path = LAKE_TEMPLATE
+) -> Path:
+    """
+    Create an isolated workspace for one sample.
+
+    This function creates a temporary directory with a Lake project for the sample.
+    The caller is responsible for cleanup via cleanup_sample_workspace().
+
+    Advantages over global state tracking:
+    - Explicit lifecycle management
+    - No global state needed
+    - Works naturally with parallel execution
+    - Cleanup happens immediately after sample (bounded memory: O(n_parallel) not O(n_total))
+
+    Args:
+        sample_id: Unique identifier for the sample (used in tmpdir prefix)
+        lake_template: Path to the Lake project template to copy
+
+    Returns:
+        Path: Temporary workspace directory containing a Lake project
+
+    Example:
+        workspace = create_sample_workspace("sample_42")
+        spec_file = workspace / "Fvspec" / "Sample42.lean"
+        spec_file.write_text("def foo := 42")
+        result = subprocess.run(["lake", "build"], cwd=workspace)
+        save_artifacts(workspace, "sample_42")
+        cleanup_sample_workspace(workspace)
+    """
+    tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_"))
+
+    # Copy Lake project template into workspace
+    if lake_template.exists():
+        for item in lake_template.iterdir():
+            if item.is_dir():
+                shutil.copytree(item, tmpdir / item.name, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, tmpdir / item.name)
+    else:
+        raise FileNotFoundError(
+            f"Lake template not found at {lake_template}. "
+            "Run 'lake init' to create the template first."
+        )
+
+    return tmpdir
+
+
+def cleanup_sample_workspace(workspace: Path) -> None:
+    """
+    Clean up a sample workspace created by create_sample_workspace().
+
+    Args:
+        workspace: Path to the workspace directory to remove
+    """
+    if workspace.exists():
+        try:
+            shutil.rmtree(workspace)
+        except Exception as e:
+            # Log but don't fail on cleanup errors
+            print(f"Warning: Error cleaning up workspace {workspace}: {e}")
+
+
+@contextmanager
+def sample_workspace(sample_id: str, lake_template: Path = LAKE_TEMPLATE):
+    """
+    Context manager version of sample workspace for use in with-blocks.
+
+    Automatically creates and cleans up the workspace.
+
+    Args:
+        sample_id: Unique identifier for the sample (used in tmpdir prefix)
+        lake_template: Path to the Lake project template to copy
+
+    Yields:
+        Path: Temporary workspace directory containing a Lake project
+
+    Example:
+        with sample_workspace("sample_42") as workspace:
+            spec_file = workspace / "Fvspec" / "Sample42.lean"
+            spec_file.write_text("def foo := 42")
+            result = subprocess.run(["lake", "build"], cwd=workspace)
+            save_artifacts(workspace, "sample_42")
+        # Tmpdir automatically cleaned up here
+    """
+    workspace = create_sample_workspace(sample_id, lake_template)
+    try:
+        yield workspace
+    finally:
+        cleanup_sample_workspace(workspace)
