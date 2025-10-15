@@ -48,14 +48,14 @@ This project addresses these concerns by:
 
 ## Additional Documentation
 
-**For research, design, and creative work**: Consult `benchmark/IDEAS.md` for in-depth discussion of:
+**For research, design, and creative work**: Consult `benchmark/ideas/*.md` for in-depth discussion of:
 
-- Metric design and quality assessment strategies
-- Vacuity detection approaches
-- Dependency mocking challenges (torch/numpy)
-- Future directions and open questions
+- **`METRICS.claude.md`** - Metric design and quality assessment strategies, vacuity detection approaches
+- **`DEPMOCK.human.md`** - Dependency mocking strategies (torch/numpy) with focus on computable implementations
+- **`DEPMOCK.claude.md`** - Historical exploration of dependency mocking approaches (includes non-viable options for context)
+- **`HOARE.claude.md`** - mvcgen and monadic program logic for imperative verification
 
-This document contains brainstorming, trade-off analysis, and detailed rationale that inform benchmark development decisions.
+These documents contain brainstorming, trade-off analysis, and detailed rationale that inform benchmark development decisions. Files marked `.claude.md` are exploratory/historical; `.human.md` files are intended for team review.
 
 ## Development Environment
 
@@ -232,3 +232,16 @@ Generated Lean files follow this pattern:
 - No implementations - only declarations and specifications
 
 Lean files can be typechecked with: `lean <filename>.lean`
+
+### Design Philosophy: Computation is Non-Negotiable
+
+**Critical constraint**: While we initially ship specifications with `sorry` placeholders, **all definitions must eventually be computable**. The ultimate goal is for downstream solvers—primarily future language models and AI proof techniques—to implement all the `sorry`s.
+
+**Why computation (`#eval`) is a priority:**
+
+- Downstream proof agents need computational leverage from tactics like `rfl`, `decide`, and `simp`
+- Axioms and opaque definitions provide no reduction rules for proof automation
+- Computable implementations enable both validation (via `#eval`) and proof tactics
+- This requirement drives our dependency mocking strategy (see `benchmark/ideas/DEPMOCK.human.md`)
+
+**Implication**: When generating or designing Lean code for this benchmark, prefer concrete implementations over axioms, even if incomplete initially. A `def` with `sorry` is better than an `axiom`, because it can later be filled in while maintaining computability.
