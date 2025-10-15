@@ -11,5 +11,10 @@ display = "full"
 parallelism = 25
 
 [prompt]
-# Verification style: "functional" (FVAPPS-style) or "mvcgen" (imperative with Hoare logic)
-style = "functional"
+# Prompt variant from registry.toml
+# If not specified, uses registry default ("control-functional")
+# variant = "control-functional"
+
+[dataset]
+# Number of samples to draw from the dataset
+sample_size = 100

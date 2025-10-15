@@ -78,18 +78,22 @@ def no_code_block_found(sample_id: str, text: str) -> str:
 
 
 def get_output_filepath(
-    date_time: str, sample_id: str, file_name: str, style: str = "functional"
+    date_time: str,
+    sample_id: str,
+    file_name: str,
+    variant: str,
 ) -> Path:
     """Construct output file path in the artifacts directory structure.
 
-    Creates a directory structure: artifacts/<date_time>_<style>/<sample_id>/<file_name>
+    Creates a directory structure: artifacts/<date_time>__variant_<variant>/<sample_id>/<file_name>
+
     The function locates the project root by searching for pyproject.toml.
 
     Args:
         date_time: Timestamp string for the benchmark run
         sample_id: Unique identifier for the sample
         file_name: Name of the output file (e.g., 'Spec.lean', 'QA.json')
-        style: Verification style (functional or mvcgen)
+        variant: Prompt variant name
 
     Returns:
         Path to the output file
@@ -109,12 +113,11 @@ def get_output_filepath(
             )
         root_dir = root_dir.parent
 
-    # Create artifacts/<date_time>_<style>/<sample_id> relative to the project root
-    timestamped_dir = f"{date_time}_{style}"
+    # Create directory name based on variant
+    timestamped_dir = f"{date_time}__variant_{variant}"
     output_dir = root_dir / "artifacts" / timestamped_dir / sample_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    # Write out to Spec.lean
     spec_file = output_dir / file_name
     return spec_file
 

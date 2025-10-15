@@ -1,5 +1,4 @@
 import tomllib
-from enum import Enum
 from pathlib import Path
 
 # import logfire
@@ -15,13 +14,6 @@ from pydantic import BaseModel
 #           raise ValueError("LOGFIRE__WRITE_TOKEN not found in .env file")
 #
 #       logfire.configure(token=logfire_token)
-
-
-class PromptStyle(str, Enum):
-    """Verification style for Lean code generation."""
-
-    FUNCTIONAL = "functional"
-    MVCGEN = "mvcgen"
 
 
 class AgentConfig(BaseModel):
@@ -56,10 +48,21 @@ class PromptConfig(BaseModel):
     """Configuration for prompt template selection.
 
     Attributes:
-        style: Verification style - functional (FVAPPS) or mvcgen (imperative with Hoare logic)
+        variant: Name of the prompt variant to use from registry.toml
+                 If None, uses registry default
     """
 
-    style: PromptStyle = PromptStyle.FUNCTIONAL
+    variant: str | None = None
+
+
+class DatasetConfig(BaseModel):
+    """Configuration for dataset sampling.
+
+    Attributes:
+        sample_size: Number of samples to draw from the dataset
+    """
+
+    sample_size: int = 100
 
 
 class Config(BaseModel):
@@ -69,11 +72,13 @@ class Config(BaseModel):
         agent: Agent configuration settings
         meta: Logging and debugging configuration
         prompt: Prompt template configuration
+        dataset: Dataset sampling configuration
     """
 
     agent: AgentConfig
     meta: MetaConfig
     prompt: PromptConfig = PromptConfig()
+    dataset: DatasetConfig = DatasetConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -86,6 +91,7 @@ class Config(BaseModel):
             agent=AgentConfig(**data["agent"]),  # type: ignore[arg-type]
             meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
             prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
+            dataset=DatasetConfig(**data.get("dataset", {})),  # type: ignore[arg-type]
         )
 
 

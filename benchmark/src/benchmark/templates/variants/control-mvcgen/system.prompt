@@ -156,9 +156,7 @@ theorem trainStep_decreases_loss (model : NNModule) (data : Tensor) (lr : Float)
     grind
 ```
 
-## Output Format
-
-Always respond with Lean 4 code in code tags: `<code>...</code>`
+{% include 'shared/fragments/output_format.txt' %}
 
 Include:
 1. **Type definitions** for dependencies (axioms/structures for torch/numpy types)

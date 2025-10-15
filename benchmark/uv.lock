@@ -271,6 +271,7 @@ dependencies = [
 dev = [
     { name = "hypothesis" },
     { name = "pytest" },
+    { name = "pytest-mock" },
     { name = "ruff" },
     { name = "ty" },
 ]
@@ -280,7 +281,7 @@ requires-dist = [
     { name = "codegen", specifier = ">=0.57.0" },
     { name = "datasets", specifier = ">=4.1.1" },
     { name = "hvplot", specifier = ">=0.12.1" },
-    { name = "inspect-ai", specifier = ">=0.3.136" },
+    { name = "inspect-ai", specifier = ">=0.3.137" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonlines", specifier = ">=4.0.0" },
     { name = "mcp", specifier = ">=1.16.0" },
@@ -297,6 +298,7 @@ requires-dist = [
 dev = [
     { name = "hypothesis", specifier = ">=6.140.3" },
     { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
     { name = "ruff", specifier = ">=0.14.0" },
     { name = "ty", specifier = ">=0.0.1a21" },
 ]
@@ -1430,13 +1432,14 @@ wheels = [
 
 [[package]]
 name = "inspect-ai"
-version = "0.3.136"
+version = "0.3.137"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "aioboto3" },
     { name = "aiohttp" },
     { name = "anyio" },
     { name = "beautifulsoup4" },
+    { name = "boto3" },
     { name = "click" },
     { name = "debugpy" },
     { name = "docstring-parser" },
@@ -1464,11 +1467,12 @@ dependencies = [
     { name = "tenacity" },
     { name = "textual" },
     { name = "typing-extensions" },
+    { name = "universal-pathlib" },
     { name = "zipp" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/ef/ba/52882feacf30cef3d56f89514441df93e2f35804a76806c49a12ea6d8093/inspect_ai-0.3.136.tar.gz", hash = "sha256:7a37a61f330c7ea4028b2689cfa298e3368de4a48536d0f2e79c783249dad6ea", size = 42631158, upload-time = "2025-10-03T00:08:32.941Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/6b/fc559da9cb4c6a0bb75c3cd5f7d82c198831b995cc1b733a7954da6117fe/inspect_ai-0.3.137.tar.gz", hash = "sha256:ed5cd04164ef2a8401c613837fa5f26cbce21baaa8096471a674904f90c7dcc0", size = 42680068, upload-time = "2025-10-07T20:58:58.735Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/93/f5/ccca4bf11ca5b870197c530a7704f0a0569f11bb5a653ad959f9022fbb31/inspect_ai-0.3.136-py3-none-any.whl", hash = "sha256:1f5520a77bd4bcc9ca89510666056525180965db1e2ac1e03bf9746800ae4910", size = 33951365, upload-time = "2025-10-03T00:08:22.742Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/17/94feec4906f97e9d849dfb379814751560e2bc1e698b4a72b1d1e9a8f86a/inspect_ai-0.3.137-py3-none-any.whl", hash = "sha256:ca6f3c3c8a69d41c3179b09929c33c9dde92d41e008770f95956090310adb3c7", size = 34002758, upload-time = "2025-10-07T20:58:52.046Z" },
 ]
 
 [[package]]
@@ -2470,6 +2474,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pathlib-abc"
+version = "0.5.1"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/40/fe/5f022a26c73d32df11bc2f4817f662576d0ef78cf40cd844cd0eb97d7336/pathlib_abc-0.5.1.tar.gz", hash = "sha256:bec9a9954728ea21092f8a1168b59cd6f380a0c3503e466e0c2ac9c7c2623564", size = 34457, upload-time = "2025-09-12T00:31:40.547Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/db/c6/ed8bbe16ed10a0461bafdedb54936faee4cc510b1709a6296f66421c5362/pathlib_abc-0.5.1-py3-none-any.whl", hash = "sha256:96bfbcc9828bc2d5f7d53e6c3e66314773dd6c119dad46ab6de20bb869dc6324", size = 20573, upload-time = "2025-09-12T00:31:39.168Z" },
+]
+
+[[package]]
 name = "pathspec"
 version = "0.12.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3019,6 +3032,18 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/a3/5c/00a0e072241553e1a7496d638deababa67c5058571567b92a7eaa258397c/pytest-8.4.2.tar.gz", hash = "sha256:86c0d0b93306b961d58d62a4db4879f27fe25513d4b969df351abdddb3c30e01", size = 1519618, upload-time = "2025-09-04T14:34:22.711Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/a8/a4/20da314d277121d6534b3a980b29035dcd51e6744bd79075a6ce8fa4eb8d/pytest-8.4.2-py3-none-any.whl", hash = "sha256:872f880de3fc3a5bdc88a11b39c9710c3497a547cfa9320bc3c5e62fbf272e79", size = 365750, upload-time = "2025-09-04T14:34:20.226Z" },
+]
+
+[[package]]
+name = "pytest-mock"
+version = "3.15.1"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "pytest" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/68/14/eb014d26be205d38ad5ad20d9a80f7d201472e08167f0bb4361e251084a9/pytest_mock-3.15.1.tar.gz", hash = "sha256:1849a238f6f396da19762269de72cb1814ab44416fa73a8686deac10b0d87a0f", size = 34036, upload-time = "2025-09-16T16:37:27.081Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/5a/cc/06253936f4a7fa2e0f48dfe6d851d9c56df896a9ab09ac019d70b760619c/pytest_mock-3.15.1-py3-none-any.whl", hash = "sha256:0a25e2eb88fe5168d535041d09a4529a188176ae608a6d249ee65abc0949630d", size = 10095, upload-time = "2025-09-16T16:37:25.734Z" },
 ]
 
 [[package]]
@@ -3701,6 +3726,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/a3/48/81be0ac96e423a877754153699731ef439fd7b80b4c8b5425c94ed079ebd/unidiff-0.7.5.tar.gz", hash = "sha256:2e5f0162052248946b9f0970a40e9e124236bf86c82b70821143a6fc1dea2574", size = 20931, upload-time = "2023-03-10T01:05:39.185Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/8a/54/57c411a6e8f7bd7848c8b66e4dcaffa586bf4c02e63f2280db0327a4e6eb/unidiff-0.7.5-py2.py3-none-any.whl", hash = "sha256:c93bf2265cc1ba2a520e415ab05da587370bc2a3ae9e0414329f54f0c2fc09e8", size = 14386, upload-time = "2023-03-10T01:05:36.594Z" },
+]
+
+[[package]]
+name = "universal-pathlib"
+version = "0.3.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "fsspec" },
+    { name = "pathlib-abc" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/51/dc/a8508d1f2c44bd4909fb44a423ac4c32dc809b6552c041d1e702ee5ca828/universal_pathlib-0.3.3.tar.gz", hash = "sha256:78601aee7d470db077990d803d33511f081dddcca53c460b984ce86bb33dccff", size = 202126, upload-time = "2025-10-08T20:59:32.098Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/18/44/3bdfa7dbc8e219300be933ca735f1d9e226ba51de56a09820b6ee8b69bd0/universal_pathlib-0.3.3-py3-none-any.whl", hash = "sha256:1107d74400d868a6af031b2b3477e1a845133db42b2a1d9282d023f013a821f0", size = 71201, upload-time = "2025-10-08T20:59:30.803Z" },
 ]
 
 [[package]]

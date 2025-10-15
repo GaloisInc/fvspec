@@ -4,8 +4,8 @@ from pathlib import Path
 import random
 from pydantic import BaseModel
 from inspect_ai.dataset import Sample, MemoryDataset
-from benchmark.config import PromptStyle
-from benchmark.templates.prompt import initial
+from benchmark.templates.prompt import get_variant_prompts
+from benchmark.templates.registry import VariantRegistry
 
 random.seed(0)
 
@@ -44,16 +44,18 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     return Prompt(pbt=dp.pbt, deps=dp.deps)
 
 
-def mk_initial(prompt: Prompt) -> str:
+def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
     """Render the initial user prompt from a Prompt object.
 
     Args:
         prompt: The prompt containing test and dependencies
+        variant: Variant name to use for template (uses registry default if None)
 
     Returns:
         Rendered initial prompt string
     """
-    return initial.render(pbt=prompt.pbt, deps=prompt.deps)
+    _, initial_template = get_variant_prompts(variant)
+    return initial_template.render(pbt=prompt.pbt, deps=prompt.deps)
 
 
 def load_datapoints(file_path: Path) -> list[Datapoint]:
@@ -70,29 +72,39 @@ def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
 
 
 def mk_dataset(
-    path: Path, date_time: datetime, style: PromptStyle = PromptStyle.FUNCTIONAL
+    path: Path,
+    date_time: datetime,
+    variant: str | None = None,
+    sample_size: int = 100,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from scraped datapoints.
 
     Args:
         path: Path to the JSON file containing scraped datapoints
         date_time: Timestamp for organizing output artifacts
-        style: Verification style (functional or mvcgen)
+        variant: Prompt variant name. If None, uses registry default.
+        sample_size: Number of datapoints to sample from the dataset
 
     Returns:
-        MemoryDataset with 100 randomly sampled datapoints
+        MemoryDataset with randomly sampled datapoints
     """
+    # Get the actual variant name (resolve default if needed)
+    registry = VariantRegistry()
+    actual_variant = variant or registry.default_variant()
+
     return MemoryDataset(
         [
             Sample(
-                input=mk_initial(datapoint_to_prompt(datapoint)),
+                input=mk_initial(
+                    datapoint_to_prompt(datapoint), variant=actual_variant
+                ),
                 metadata={
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
-                    "style": style.value,
+                    "variant": actual_variant,
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(path, n=100)
+            for datapoint in sample_datapoints(path, n=sample_size)
         ]
     )

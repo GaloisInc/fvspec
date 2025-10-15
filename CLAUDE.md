@@ -75,19 +75,25 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 - **`src/benchmark/scaffold/`** - Core evaluation infrastructure
   - `task.py` - Defines the `fvspec` task that runs the benchmark
   - `agent.py` - Agent configuration using `inspect_ai` basic_agent with Lean MCP tools
-  - `dataset.py` - Loads and samples datapoints from JSON, creates `inspect_ai` datasets
-  - `quality_assessment.py` - Extracts metrics from TaskState (token usage, timing, faithfulness, interest)
-  - `tools/declaration.py` - Defines `lean_compile()` tool and cleanup functions that write outputs to disk
+  - `dataset.py` - Loads and samples datapoints from JSON, creates `inspect_ai` datasets (configurable sample size)
+  - `quality_assessment.py` - Extracts metrics from TaskState (token usage, timing, faithfulness, interest, structural metrics)
+  - `tools/declaration.py` - Defines `lean_compile()` tool, cleanup functions, and score registration for inspect_ai viewer
   - `tools/utilio.py` - Utility functions for subprocess execution and file operations
 
-- **`src/benchmark/templates/`** - Jinja2 prompt templates
-  - `functional.system.prompt` - System prompt for functional/FVAPPS-style verification
-  - `mvcgen.system.prompt` - System prompt for imperative verification with mvcgen and Hoare logic
-  - `initial.prompt.template` - User prompt template with dependencies and property-based test
-  - `prompt.py` - Prompt loading logic with style selection support
+- **`src/benchmark/_registry.py`** - Task registration for inspect_ai
+  - Registers `fvspec` task via entry point for `eval_set()` retry support and log management
+
+- **`src/benchmark/templates/`** - Jinja2 prompt templates with variant system
+  - `variants/` - Directory containing prompt variants for A/B testing
+  - `shared/` - Shared prompt fragments and default templates
+  - `registry.toml` - Master index of available variants with metadata
+  - `prompt.py` - Prompt loading logic with variant selection and Jinja2 templating
+  - `registry.py` - Variant registry for loading and validating variants
 
 - **`src/benchmark/config.toml`** - Runtime configuration
   - Agent settings: model name, max_tokens
+  - Dataset settings: sample_size (default: 100)
+  - Prompt settings: default variant selection
   - Meta settings: logging, debug flags
 
 ### `/baselines` - Baseline implementations (minimal structure currently)
@@ -102,51 +108,85 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 
 ### `/artifacts` - Benchmark outputs (gitignored)
 
-Organized by timestamp, then by `<sample_id>_<test_name>/`:
+Organized by timestamp/variant, then by `<sample_id>_<test_name>/`:
 
+- `<timestamp>__variant_<name>/` - Single variant run directories
+- `comparison_<timestamp>/` - Multi-variant A/B testing results
+- `.eval` files - Binary inspect_ai log files (viewable with `uv run inspect view --log-dir artifacts`)
 - `Datapoint.json` - Original test metadata
 - `Spec.lean` - Generated Lean 4 code extracted from `<code>...</code>` tags
-- `QA.json` - Quality assessment metrics
+- `QA.json` - Quality assessment metrics with scores
 
 ## Common Commands
 
-### Generating the benchmark data
+### Running the benchmark
 
 ```bash
-# Default uses data/scrapedtests.json with functional style
+# Default run with control-functional variant and 100 samples
 uv run fvspec
 
-# Use imperative/mvcgen style for verification with Hoare logic
-uv run fvspec --style mvcgen
+# List available variants
+uv run fvspec --list-variants
+
+# Run specific variant
+uv run fvspec --variant control-mvcgen
+uv run fvspec --variant terse-functional
+
+# Control sample size (default: 100)
+uv run fvspec --sample-size 50
 
 # Disable MCP tools (faster, but less interactive)
 uv run fvspec --no-mcp
 
 # Combine options
-uv run fvspec --style mvcgen --no-mcp
+uv run fvspec --variant control-mvcgen --sample-size 200 --no-mcp
+
+# A/B testing: compare multiple variants in parallel
+uv run fvspec compare-variants
+uv run fvspec compare-variants --variant control-functional --variant terse-functional --sample-size 50
 ```
 
-### Prompt Styles
+### Viewing Results
 
-The benchmark supports two verification approaches:
+```bash
+# View all results in artifacts directory with inspect_ai viewer
+uv run inspect view --log-dir artifacts
 
-**Functional Style** (`--style functional`, default):
+# View specific run
+uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__variant_control-functional
+
+# View comparison results
+uv run inspect view --log-dir artifacts/comparison_2025-10-14T15-45-00
+```
+
+The inspect viewer displays all quality metrics as scores with explanations, including token usage, time, faithfulness, structural metrics, and more.
+
+### Prompt Variants
+
+The benchmark uses a **variant system** for A/B testing different prompting strategies. Variants support two verification approaches:
+
+**Functional variants** (e.g., `control-functional`, `terse-functional`):
 - FVAPPS-style recursive definitions
 - Pure functional programming
 - Traditional theorem proving with induction
 - Best for: mathematical functions, recursive algorithms
 
-**mvcgen Style** (`--style mvcgen`):
+**mvcgen variants** (e.g., `control-mvcgen`):
 - Imperative programs with `do` notation and mutable variables
 - Hoare logic specifications with `⦃Precondition⦄ program ⦃Postcondition⦄`
 - Loop invariants and verification conditions via `mvcgen` tactic
 - Best for: loops, stateful algorithms, PyTorch/NumPy operations
 
-You can set the default style in `config.toml`:
+You can set the default variant in `config.toml`:
 ```toml
 [prompt]
-style = "mvcgen"  # or "functional"
+variant = "control-functional"
+
+[dataset]
+sample_size = 100
 ```
+
+See `benchmark/README.md` for detailed documentation on creating and comparing variants.
 
 ### Development tools
 
@@ -156,6 +196,9 @@ uv run ruff format
 
 # Run linter
 uv run ruff check
+
+# Run typechecker
+uv run ty check
 
 # Run tests
 uv run pytest
@@ -179,24 +222,41 @@ uv add <package>
 
 ### Benchmark Flow
 
-1. `mk_dataset()` loads datapoints from JSON, samples 100 random items
+1. `mk_dataset()` loads datapoints from JSON, samples N random items (configurable via `--sample-size`, default: 100)
 2. Each datapoint contains a Python property-based test (`pbt`) and its dependencies (`deps`)
-3. The `initial.prompt.template` template renders a prompt with the test and dependencies
+3. The variant's prompt templates render system and initial prompts with the test and dependencies
 4. The agent uses the `lean_compile()` tool to typecheck generated Lean code
 5. The model responds with Lean 4 code in `<code>...</code>` tags, including faithfulness/interest metrics
-6. Cleanup (`write_to_disk`) extracts the code, runs quality assessment, and saves all outputs
+6. Cleanup (`write_to_disk`) extracts the code, runs quality assessment, registers scores, and saves all outputs
+7. All metrics are registered as inspect_ai `Score` objects with explanations for the viewer
 
 ### Quality Metrics
 
-The QualityAssessment class extracts:
+The QualityAssessment class extracts and registers as scores:
 
-- Performance: token usage, time, message counts
-- Code metrics: lines added, number of `sorry` placeholders
-- AI-generated metrics: faithfulness score (how well Lean matches Python), interest score (complexity)
+- **Performance**: token usage, time, message counts
+- **Code metrics**: lines added, number of `sorry` placeholders, success status
+- **Subjective metrics**: AI self-reported faithfulness (0-10) and interest (0-10) scores
+- **Structural faithfulness**: Objective metrics computed from code analysis
+  - Parameter coverage, type correspondence, strategy coverage
+  - Assertion coverage, dependency coverage
+  - Overall weighted average
+
+All metrics appear in `inspect view` with explanatory text.
+
+### Task Registration
+
+Tasks are registered via `_registry.py` and `pyproject.toml` entry points:
+```toml
+[project.entry-points.inspect_ai]
+benchmark = "benchmark._registry"
+```
+
+This enables `eval_set()` to serialize tasks for retry support and log management.
 
 ### MCP Integration
 
-The benchmark can use the `lean-lsp-mcp` server (via `uvx lean-lsp-mcp`) to provide Lean LSP functionality through the Model Context Protocol. The `lean_task()` function demonstrates this setup.
+The benchmark uses the `lean-lsp-mcp` server (via `uvx lean-lsp-mcp`) to provide Lean LSP functionality through the Model Context Protocol. MCP is enabled by default. Disable with `--no-mcp` flag for faster execution.
 
 ## Configuration
 
@@ -204,9 +264,21 @@ Edit `benchmark/src/benchmark/config.toml` to change:
 
 - Model selection (currently `anthropic/claude-sonnet-4-5-20250929`)
 - Max attempts and tokens
+- Dataset sample size (default: 100)
+- Default prompt variant
 - Debug/logging flags
 
+All settings can be overridden via CLI arguments.
+
 ## Code Style & Conventions
+
+### Import Style
+
+**Datetime imports**: Always use `from datetime import datetime`, never `import datetime`:
+- ✅ **Do:** `from datetime import datetime` then `datetime.now()`
+- ❌ **Don't:** `import datetime` then `datetime.datetime.now()`
+
+This style is consistent across the entire codebase.
 
 ### Pydantic Usage
 
