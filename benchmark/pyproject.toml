@@ -30,6 +30,9 @@ preview_prompts = "benchmark.templates:main"
 fvspec = "benchmark:main"
 analyze_deps = "scripts.analyze_deps:cli"
 
+[project.entry-points.inspect_ai]
+benchmark = "benchmark._registry"
+
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]
 build-backend = "uv_build"
