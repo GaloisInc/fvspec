@@ -32,6 +32,43 @@ uv run fvspec --variant terse-functional --sample-size 50 --no-mcp
 uv run fvspec compare-variants --sample-size 200
 ```
 
+## Viewing Results
+
+### Inspect AI Viewer (Recommended)
+
+View evaluation logs with the official inspect_ai viewer:
+
+```bash
+# View all results in artifacts directory
+uv run inspect view --log-dir artifacts
+
+# View specific run
+uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__variant_control-functional
+
+# View comparison results
+uv run inspect view --log-dir artifacts/comparison_2025-10-14T15-45-00
+```
+
+The inspect viewer provides:
+- Interactive web interface with scores and metrics
+- Sample-by-sample inspection
+- Filtering and sorting capabilities
+- Comparison views for A/B testing
+
+### Dashboard (Legacy)
+
+Alternative panel-based dashboard:
+
+```bash
+uv run panel serve src/scripts/dashboard.py
+```
+
+With custom arguments:
+
+```bash
+uv run panel serve src/scripts/dashboard.py --args -d "artifacts/2025-10-01T13-26-28" -x "interest" -y "faithfulness"
+```
+
 ## Prompt Variants
 
 The benchmark supports **prompt variants** for A/B testing different prompting strategies. Variants allow systematic comparison of how different prompt formulations affect model performance.
@@ -258,20 +295,6 @@ Priority: CLI args (`--variant`, `--sample-size`) > config.toml > defaults
 
 **Treatment variants:**
 - **terse-functional**: Minimal instructions, tests concision hypothesis
-
-## Dashboard
-
-View benchmark results interactively:
-
-```bash
-uv run panel serve src/scripts/dashboard.py
-```
-
-With custom arguments:
-
-```bash
-uv run panel serve src/scripts/dashboard.py --args -d "artifacts/2025-10-01T13-26-28" -x "interest" -y "faithfulness"
-```
 
 ## Testing
 

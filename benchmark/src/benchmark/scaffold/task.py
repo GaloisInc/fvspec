@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from pathlib import Path
 from inspect_ai import Task, task
 from inspect_ai.solver import generate, use_tools, system_message
@@ -25,7 +25,7 @@ def fvspec(
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
     """
-    now = datetime.datetime.now()
+    now = datetime.now()
 
     # Load variant prompts (will use registry default if variant is None)
     system_prompt, _ = get_variant_prompts(variant)

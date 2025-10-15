@@ -1,5 +1,7 @@
 """Generate the benchmark"""
 
+from datetime import datetime
+from pathlib import Path
 from inspect_ai import eval, eval_set
 from benchmark.config import load_config
 from benchmark.scaffold.task import fvspec
@@ -67,6 +69,14 @@ def main_callback(
         sample_size if sample_size is not None else cfg.dataset.sample_size
     )
 
+    # Create log directory in artifacts
+    now = datetime.now()
+    log_dir_name = (
+        f"{now.strftime('%Y-%m-%dT%H-%M-%S')}__variant_{use_variant or 'default'}"
+    )
+    log_dir = Path("artifacts") / log_dir_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+
     eval(
         fvspec(
             datafile,
@@ -75,6 +85,7 @@ def main_callback(
             sample_size=use_sample_size,
         ),
         model=cfg.agent.model,
+        log_dir=str(log_dir),
     )
 
 
@@ -100,9 +111,6 @@ def compare_variants(
         variant: List of variant names to compare
         sample_size: Number of samples to draw (overrides config.toml)
     """
-    import datetime
-    from pathlib import Path
-
     registry = VariantRegistry()
 
     # If no variants specified, use all control and treatment variants
@@ -130,7 +138,7 @@ def compare_variants(
     )
 
     # Create log directory for comparison results
-    now = datetime.datetime.now()
+    now = datetime.now()
     log_dir_name = f"comparison_{now.strftime('%Y-%m-%dT%H-%M-%S')}"
     log_dir = Path("artifacts") / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)

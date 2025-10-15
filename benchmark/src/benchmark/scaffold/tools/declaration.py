@@ -3,6 +3,7 @@ import re
 from typing import Callable, Awaitable, cast
 from inspect_ai.tool import tool, ToolError
 from inspect_ai.solver import TaskState
+from inspect_ai.scorer import Score
 from benchmark.scaffold.dataset import Datapoint
 from benchmark.scaffold.quality_assessment import QualityAssessment
 from benchmark.scaffold.tools import utilio
@@ -117,10 +118,99 @@ def write_qa_to_disk(
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
 
+def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
+    """Convert QualityAssessment metrics to inspect_ai Score objects.
+
+    Args:
+        qa: Quality assessment with computed metrics
+
+    Returns:
+        Dictionary mapping score names to Score objects for inspect_ai viewer
+    """
+    scores = {
+        "token_usage": Score(
+            value=qa.token_usage,
+            explanation=f"Total tokens used: {qa.token_usage}",
+        ),
+        "time": Score(
+            value=qa.time,
+            explanation=f"Execution time: {qa.time:.2f}s",
+        ),
+        "num_messages": Score(
+            value=qa.num_messages,
+            explanation=f"Total messages exchanged: {qa.num_messages}",
+        ),
+        "success": Score(
+            value="C" if qa.success else "I",
+            explanation="Successfully generated Lean code in <code> tags"
+            if qa.success
+            else "Failed to generate valid Lean code",
+        ),
+        "num_sorries": Score(
+            value=qa.num_sorries,
+            explanation=f"Number of 'sorry' placeholders in generated code: {qa.num_sorries}",
+        ),
+        "lines_code": Score(
+            value=qa.lines_code,
+            explanation=f"Lines of Lean code generated: {qa.lines_code}",
+        ),
+    }
+
+    # Add optional metrics if available
+    if qa.percent_lines_added is not None:
+        scores["percent_lines_added"] = Score(
+            value=qa.percent_lines_added,
+            explanation=f"Percent lines added relative to Python test: {qa.percent_lines_added:.1%}",
+        )
+
+    if qa.faithfulness_subjective is not None:
+        scores["faithfulness_subjective"] = Score(
+            value=qa.faithfulness_subjective,
+            explanation=f"AI self-reported faithfulness (0-10): {qa.faithfulness_subjective:.1f}",
+        )
+
+    if qa.interest_subjective is not None:
+        scores["interest_subjective"] = Score(
+            value=qa.interest_subjective,
+            explanation=f"AI self-reported complexity/interest (0-10): {qa.interest_subjective:.1f}",
+        )
+
+    # Add structural faithfulness metrics if available
+    if qa.structural_faithfulness is not None:
+        sf = qa.structural_faithfulness
+        scores["structural_faithfulness_overall"] = Score(
+            value=sf.overall,
+            explanation=f"Weighted average of structural metrics: {sf.overall:.2%}",
+        )
+        scores["parameter_coverage"] = Score(
+            value=sf.parameter_coverage,
+            explanation=f"Fraction of Python parameters found in Lean: {sf.parameter_coverage:.2%}",
+        )
+        scores["type_correspondence"] = Score(
+            value=sf.type_correspondence,
+            explanation=f"Fraction of Python types correctly mapped to Lean: {sf.type_correspondence:.2%}",
+        )
+        scores["strategy_coverage"] = Score(
+            value=sf.strategy_coverage,
+            explanation=f"Fraction of Hypothesis strategy bounds found in Lean: {sf.strategy_coverage:.2%}",
+        )
+        scores["assertion_coverage"] = Score(
+            value=sf.assertion_coverage,
+            explanation=f"Ratio of Lean properties to Python assertions: {sf.assertion_coverage:.2%}",
+        )
+        scores["dependency_coverage"] = Score(
+            value=sf.dependency_coverage,
+            explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
+        )
+
+    return scores
+
+
 async def write_to_disk(state: TaskState):
     """
     Called after each sample in Task, writes the datapoint to a problem file and
-    the task quality assessment results to a QA file.
+    the task quality assessment results to a QA file. Also registers metrics as scores
+    for inspect_ai viewer.
 
     Args:
         state: The current state after a sample completes.
@@ -143,5 +233,10 @@ async def write_to_disk(state: TaskState):
             variant=variant,
         )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, variant=variant)
+
+        # Extract quality assessment and register metrics as scores
+        qa = QualityAssessment.from_task_state(state)
+        state.scores = _qa_to_scores(qa)
+
         return ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
     return ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
