@@ -6,7 +6,8 @@ on:
   pull_request:
 
 jobs:
-  lint-and-test:
+  ruff-ty-test:
+    name: Ruff, Ty, and tests
     runs-on: ubuntu-latest
     defaults:
       run:
