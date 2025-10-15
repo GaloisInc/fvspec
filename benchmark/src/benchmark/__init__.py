@@ -1,22 +1,24 @@
 """Generate the benchmark"""
 
-from inspect_ai import eval
+from inspect_ai import eval, eval_set
 from benchmark.config import load_config
 from benchmark.scaffold.task import fvspec
 from benchmark.templates.registry import VariantRegistry
 from typer import Typer, Option
+import typer
 
 cfg = load_config()
 # if cfg.meta.logging:
 #     setup_logfire()
 
-app = Typer()
+app = Typer(no_args_is_help=False, invoke_without_command=True)
 
 
-@app.command()
-def generate(
-    datafile: str = "scrapedtests.json",
-    no_mcp: bool = False,
+@app.callback()
+def main_callback(
+    ctx: typer.Context,
+    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
     variant: str = Option(
         None,
         help="Prompt variant name from registry.toml (e.g., 'control-functional', 'terse-functional'). If not specified, uses default from registry or config.toml.",
@@ -25,14 +27,21 @@ def generate(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
 ) -> None:
-    """Evaluate the fvspec benchmark.
+    """Run the fvspec benchmark with a single variant.
+
+    This is the default command. For A/B testing, use the compare-variants subcommand.
 
     Args:
+        ctx: Typer context
         datafile: Path to the JSON file containing test data
-        no_mcp: Disable Lean LSP MCP tools (use simple generate instead)
+        no_mcp: Disable Lean LSP MCP tools
         variant: Prompt variant name (overrides config.toml)
         list_variants: List available variants and exit
     """
+    # If a subcommand was invoked, don't run the default behavior
+    if ctx.invoked_subcommand is not None:
+        return
+
     # Handle --list-variants flag
     if list_variants:
         registry = VariantRegistry()
@@ -51,6 +60,66 @@ def generate(
 
     eval(
         fvspec(datafile, use_mcp=not no_mcp, variant=use_variant),
+        model=cfg.agent.model,
+    )
+
+
+@app.command(name="compare-variants")
+def compare_variants(
+    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
+    variant: list[str] = Option(
+        None,
+        "--variant",
+        help="Variant names to compare (can be specified multiple times). If not specified, uses all control and treatment variants.",
+    ),
+) -> None:
+    """Run A/B testing comparing multiple prompt variants using eval_set.
+
+    Args:
+        datafile: Path to the JSON file containing test data
+        no_mcp: Disable Lean LSP MCP tools
+        variant: List of variant names to compare
+    """
+    import datetime
+    from pathlib import Path
+
+    registry = VariantRegistry()
+
+    # If no variants specified, use all control and treatment variants
+    if not variant:
+        all_variants = registry.list_variants()
+        variants_to_compare = []
+        for v in all_variants:
+            info = registry.get_variant_info(v)
+            tags = info.get("tags", [])
+            if "control" in tags or "treatment" in tags:
+                variants_to_compare.append(v)
+    else:
+        variants_to_compare = list(variant)
+
+    if len(variants_to_compare) < 2:
+        print("Error: Need at least 2 variants to compare")
+        print(f"Found: {variants_to_compare}")
+        return
+
+    print(f"Comparing variants: {', '.join(variants_to_compare)}\n")
+
+    # Create log directory for comparison results
+    now = datetime.datetime.now()
+    log_dir_name = f"comparison_{now.strftime('%Y-%m-%dT%H-%M-%S')}"
+    log_dir = Path("artifacts") / log_dir_name
+    log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create task instances for each variant
+    tasks = [
+        fvspec(datafile, use_mcp=not no_mcp, variant=v) for v in variants_to_compare
+    ]
+
+    # Run all tasks together with eval_set
+    eval_set(
+        tasks,
+        log_dir=str(log_dir),
         model=cfg.agent.model,
     )
 

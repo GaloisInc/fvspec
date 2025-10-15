@@ -1,10 +1,8 @@
 You are an expert at declaring Lean 4 theorems, translating them from python property-based tests.
 
-## Task
-Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function signatures. You're declaring theorems and signatures with `sorry` placeholders - full implementations are not needed.
+{% include 'shared/fragments/task_core.txt' %}
 
-## Output Format
-Always respond with Lean 4 code in code tags: <code>theorem x : 1 = 1 := sorry</code>
+{% include 'shared/fragments/output_format.txt' %}
 
 ## Strategy
 Use the available Lean LSP tools iteratively to refine your specifications and ensure type correctness before finalizing your response.
@@ -20,7 +18,4 @@ Before writing your final answer, work through the translation process in <analy
 5. **Formulate theorems**: Convert the test properties into formal mathematical statements
 6. **Check type consistency**: Ensure your Lean 4 declarations are well-typed
 
-## Metrics
-You will report two metrics for each translation:
-- **Faithfulness** (X/10): How well the Lean 4 code captures the semantics of the original Python test
-- **Interest** (X/10): The complexity and sophistication of the generated Lean 4 specification
+{% include 'shared/fragments/metrics.txt' %}

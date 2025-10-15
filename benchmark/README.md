@@ -6,7 +6,7 @@
 # List available variants
 uv run fvspec --list-variants
 
-# Run with control variant (uses default from config or registry if not specified)
+# Run single variant (uses default from config or registry if not specified)
 uv run fvspec
 uv run fvspec --variant control-functional
 
@@ -18,6 +18,10 @@ uv run fvspec --variant control-mvcgen
 
 # Disable MCP tools for faster execution
 uv run fvspec --no-mcp
+
+# A/B testing: compare multiple variants in parallel
+uv run fvspec compare-variants
+uv run fvspec compare-variants --variant control-functional --variant terse-functional
 ```
 
 ## Prompt Variants
@@ -46,27 +50,43 @@ artifacts/
 
 ### Architecture
 
-**Directory structure:**
+**Directory structure (Single Source of Truth):**
 ```
 src/benchmark/templates/
+  shared/                    # SSoT for common prompt components
+    initial.prompt          # Default initial prompt (used by most variants)
+    fragments/              # Reusable system prompt sections
+      task_core.txt        # Core task description
+      output_format.txt    # <code> tag instruction
+      metrics.txt          # Faithfulness/Interest scoring
+    README.md              # Documentation for shared templates
+
   variants/
-    control-functional/       # Control for functional-style experiments
-      system.prompt
-      initial.prompt
+    control-functional/    # Control for functional-style experiments
+      system.prompt        # Uses {% include %} for shared fragments
+      metadata.toml
+      # No initial.prompt - uses shared/initial.prompt
+
+    control-mvcgen/        # Control for imperative-style experiments
+      system.prompt        # Uses {% include %} for output_format.txt
+      metadata.toml
+      # No initial.prompt - uses shared/initial.prompt
+
+    terse-functional/      # Treatment: minimal instructions
+      system.prompt        # Custom, deliberately terse
+      initial.prompt       # Override: terser than shared version
       metadata.toml
 
-    control-mvcgen/          # Control for imperative-style experiments
-      system.prompt
-      initial.prompt
-      metadata.toml
-
-    terse-functional/        # Treatment: minimal instructions
-      system.prompt
-      initial.prompt
-      metadata.toml
-
-  registry.toml              # Master index
+  registry.toml            # Master index
+  prompt.py                # Jinja2 loader with {% include %} support
+  registry.py              # Variant loading with shared fallback
 ```
+
+**Key SSoT principles:**
+- `shared/initial.prompt` is the default for all variants (override only when needed)
+- `shared/fragments/` provides reusable sections via `{% include %}`
+- Variants can mix shared fragments with custom content
+- One change to a shared fragment updates all variants that use it
 
 **Registry format** (`templates/registry.toml`):
 ```toml
@@ -95,20 +115,37 @@ cp -r src/benchmark/templates/variants/control-functional \
       src/benchmark/templates/variants/my-experiment
 ```
 
-**2. Edit prompts:**
+**2. Edit system prompt:**
 ```bash
 vim src/benchmark/templates/variants/my-experiment/system.prompt
-vim src/benchmark/templates/variants/my-experiment/initial.prompt
 ```
 
-**3. Update metadata:**
+**Leverage shared fragments with `{% include %}`:**
+```jinja
+You are an expert at X.
+
+{% include 'shared/fragments/task_core.txt' %}
+
+{% include 'shared/fragments/output_format.txt' %}
+
+## Custom Section
+Your experiment-specific content here...
+
+{% include 'shared/fragments/metrics.txt' %}
+```
+
+**3. Decide on initial prompt:**
+- **Use shared** (recommended): Delete `initial.prompt` file - variant will use `shared/initial.prompt`
+- **Custom override**: Keep and edit `initial.prompt` for deliberately different wording
+
+**4. Update metadata:**
 ```bash
 vim src/benchmark/templates/variants/my-experiment/metadata.toml
 ```
 
 Change `name`, `description`, and `notes.motivation`.
 
-**4. Register variant:**
+**5. Register variant:**
 
 Edit `src/benchmark/templates/registry.toml`:
 ```toml
@@ -120,14 +157,28 @@ tags = ["treatment"]
 based_on = "control-functional"
 ```
 
-**5. Test:**
+**6. Test:**
 ```bash
 uv run fvspec --variant my-experiment
 ```
 
 ### Comparing Variants
 
-**Run control and treatment:**
+**A/B testing with eval_set (recommended):**
+```bash
+# Compare all control and treatment variants in parallel
+uv run fvspec compare-variants
+
+# Compare specific variants
+uv run fvspec compare-variants --variant control-functional --variant terse-functional
+
+# Compare with custom options
+uv run fvspec compare-variants --variant control-mvcgen --variant control-functional --no-mcp
+```
+
+The `compare-variants` subcommand uses `inspect_ai`'s `eval_set()` to run multiple variants in parallel with unified logging. Results are stored in `artifacts/comparison_<timestamp>/`.
+
+**Manual sequential comparison:**
 ```bash
 uv run fvspec --variant control-functional
 uv run fvspec --variant my-experiment
