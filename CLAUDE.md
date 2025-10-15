@@ -91,7 +91,7 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
   - `registry.py` - Variant registry for loading and validating variants
 
 - **`src/benchmark/config.toml`** - Runtime configuration
-  - Agent settings: model name, max_attempts, max_tokens
+  - Agent settings: model name, max_tokens
   - Dataset settings: sample_size (default: 100)
   - Prompt settings: default variant selection
   - Meta settings: logging, debug flags

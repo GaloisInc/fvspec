@@ -32,6 +32,14 @@ def main_callback(
     list_variants: bool = Option(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
+    display: str = Option(
+        None,
+        help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
+    ),
+    parallelism: int = Option(
+        None,
+        help="Number of samples to evaluate in parallel. Overrides config.toml.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 

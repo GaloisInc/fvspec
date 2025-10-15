@@ -21,12 +21,10 @@ class AgentConfig(BaseModel):
 
     Attributes:
         model: Model identifier string (e.g., "anthropic/claude-sonnet-4-5")
-        max_attempts: Maximum number of generation attempts
         max_tokens: Maximum token limit for generation
     """
 
     model: str
-    max_attempts: int
     max_tokens: int
 
 
@@ -36,10 +34,14 @@ class MetaConfig(BaseModel):
     Attributes:
         logging: Enable logging functionality
         debug: Enable debug mode for verbose output
+        display: Display mode for inspect_ai eval TUI (full, conversation, rich, plain, log, none)
+        parallelism: Number of samples to evaluate in parallel
     """
 
     logging: bool
     debug: bool = False
+    display: str = "plain"
+    parallelism: int = 25
 
 
 class PromptConfig(BaseModel):

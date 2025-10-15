@@ -1,0 +1,6 @@
+name = "fvspec"
+version = "0.1.0"
+defaultTargets = ["Fvspec"]
+
+[[lean_lib]]
+name = "Fvspec"
