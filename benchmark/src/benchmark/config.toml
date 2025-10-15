@@ -1,6 +1,5 @@
 [agent]
 model = "anthropic/claude-sonnet-4-5-20250929"
-max_attempts = 5
 max_tokens = -1
 
 [meta]

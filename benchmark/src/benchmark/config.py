@@ -29,12 +29,10 @@ class AgentConfig(BaseModel):
 
     Attributes:
         model: Model identifier string (e.g., "anthropic/claude-sonnet-4-5")
-        max_attempts: Maximum number of generation attempts
         max_tokens: Maximum token limit for generation
     """
 
     model: str
-    max_attempts: int
     max_tokens: int
 
 
