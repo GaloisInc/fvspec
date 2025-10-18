@@ -23,6 +23,7 @@ import asyncio
 import json
 import logging
 import re
+from pathlib import Path
 
 from pydantic import BaseModel
 
@@ -47,15 +48,19 @@ class Datapoint(BaseModel):
     hash: str
     summary_vector: str | None
     mode: str
-    summaryversion: int
-    summaryconfidence: int
+    summaryversion: int | None
+    summaryconfidence: int | None
+
+
+UP = Path("..")
 
 
 async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Read the content of the file
-    with open("../../data/scrapedtests.json", "r") as file:
+
+    with open(UP / "data" / "scrapedtests.json", "r") as file:
         data = json.load(file)
 
     # Find all the imports in each datapoint
@@ -78,7 +83,7 @@ async def main() -> None:
 
     # Output results
     import_list.sort(key=lambda x: x[1])
-    with open("../data/import_counts.csv", "w") as file:
+    with open(UP / "data" / "import_counts.csv", "w") as file:
         file.write("import,number of datapoints using the import\n")
         for imp, n in import_list:
             file.write(imp + ", " + str(n) + "\n")
