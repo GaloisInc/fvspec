@@ -7,7 +7,7 @@ from inspect_ai import eval, eval_set
 from benchmark.config import load_config
 from benchmark.scaffold.task import fvspec, DATA_DIR
 from benchmark.scaffold.dataset import load_datapoints, Datapoint
-from benchmark.scaffold.depmock.runner import run_depmock_for_sample
+from benchmark.scaffold.depmock import run_depmock_for_sample, clear_cache
 from benchmark.templates.spec import VariantRegistry
 from typer import Typer, Option
 import typer
@@ -17,6 +17,8 @@ cfg = load_config()
 #     setup_logfire()
 
 app = Typer(no_args_is_help=False, invoke_without_command=True)
+deps_app = Typer(help="Dependency management utilities")
+app.add_typer(deps_app, name="deps")
 
 
 @app.callback()
@@ -198,7 +200,7 @@ def compare_variants(
     )
 
 
-@app.command(name="deps-autoformalize")
+@deps_app.command(name="autoformalize")
 def deps_autoformalize_command(
     datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
     sample_id: list[int] = Option(
@@ -254,7 +256,7 @@ def deps_autoformalize_command(
 
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
-    path_variant = f"{base_variant}-deps-auto"
+    path_variant = f"{base_variant}-deps"
     base_dir = Path("artifacts") / f"{timestamp}__variant_{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
@@ -282,6 +284,14 @@ def deps_autoformalize_command(
     print(
         "\nDone. You can inspect the generated Lean modules under the directory above."
     )
+
+
+@deps_app.command(name="cache-flush")
+def deps_cache_flush_command() -> None:
+    """Clear all dependency autoformalization cache artifacts."""
+
+    root = clear_cache()
+    print(f"Cleared dependency cache at {root}")
 
 
 def main() -> None:

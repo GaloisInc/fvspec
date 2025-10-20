@@ -15,6 +15,8 @@ from pydantic import BaseModel, Field
 
 from .models import DependencyPayload, DependencyResult
 
+CACHE_SCHEMA_VERSION = 2
+
 
 def _find_project_root(start: Path | None = None) -> Path:
     """Locate the project root (directory containing pyproject.toml)."""
@@ -61,6 +63,7 @@ class CacheMetadata(BaseModel):
     variant: str | None = None
     status: Literal["ok", "failed", "stub"] = "ok"
     diagnostics: str | None = None
+    schema_version: int = Field(default=1)
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
@@ -116,6 +119,7 @@ def store_dependency_result(
         variant=result.variant,
         status=result.status,
         diagnostics=result.diagnostics,
+        schema_version=CACHE_SCHEMA_VERSION,
     )
     (entry / "metadata.json").write_text(metadata.model_dump_json(indent=2))
     return CacheRecord(key=key, directory=entry, lean_path=lean_path, metadata=metadata)
@@ -132,6 +136,8 @@ def load_cached_dependency(
     if not metadata_path.exists():
         return None
     metadata = CacheMetadata.model_validate_json(metadata_path.read_text())
+    if metadata.schema_version < CACHE_SCHEMA_VERSION:
+        return None
     lean_path = entry / f"{metadata.lean_module}.lean"
     if not lean_path.exists():
         return None
