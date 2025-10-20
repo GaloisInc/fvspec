@@ -92,7 +92,7 @@ def get_output_filepath(
     Args:
         date_time: Timestamp string for the benchmark run
         sample_id: Unique identifier for the sample
-        file_name: Name of the output file (e.g., 'Spec.lean', 'QA.json')
+        file_name: Name of the output file (e.g., 'Spec.lean', 'qa.json')
         variant: Prompt variant name
 
     Returns:

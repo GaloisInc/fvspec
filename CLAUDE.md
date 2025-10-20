@@ -113,9 +113,9 @@ Organized by timestamp/variant, then by `<sample_id>_<test_name>/`:
 - `<timestamp>__variant_<name>/` - Single variant run directories
 - `comparison_<timestamp>/` - Multi-variant A/B testing results
 - `.eval` files - Binary inspect_ai log files (viewable with `uv run inspect view --log-dir artifacts`)
-- `Datapoint.json` - Original test metadata
+- `datapoint.json` - Original test metadata
 - `Spec.lean` - Generated Lean 4 code extracted from `<code>...</code>` tags
-- `QA.json` - Quality assessment metrics with scores
+- `qa.json` - Quality assessment metrics with scores
 
 ## Common Commands
 

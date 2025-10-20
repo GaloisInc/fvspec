@@ -71,7 +71,7 @@ def write_datapoint_to_disk(
 ) -> str:
     """
     Write the datapoint from text into
-    artifacts/spec/<sample_id>/Datapoint.json.
+    artifacts/spec/<sample_id>/datapoint.json.
 
     Args:
         date_time: datetime string used in directory structue.
@@ -82,7 +82,7 @@ def write_datapoint_to_disk(
         A message describing whether the write succeeded.
     """
     datapoint_file = utilio.get_output_filepath(
-        date_time, sample_id, "Datapoint.json", variant=variant
+        date_time, sample_id, "datapoint.json", variant=variant
     )
     return utilio.writeit(datapoint_file, datapoint.model_dump_json(indent=4))
 
@@ -127,7 +127,7 @@ def write_qa_to_disk(
 ) -> str:
     """
     Write the QA results from the TaskState to
-    artifacts/spec/<sample_id>/QA.json.
+    artifacts/spec/<sample_id>/qa.json.
 
     Args:
         date_time: datetime string used in directory structue.
@@ -142,7 +142,7 @@ def write_qa_to_disk(
     qa = QualityAssessment.from_task_state(state)
 
     qa_file = utilio.get_output_filepath(
-        date_time, sample_id, "QA.json", variant=variant
+        date_time, sample_id, "qa.json", variant=variant
     )
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 

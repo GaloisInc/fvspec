@@ -233,8 +233,8 @@ uv run fvspec --variant my-experiment
 
 **Compare outputs:**
 ```bash
-diff artifacts/2025-*__variant_control-functional/00123_test_foo/QA.json \
-     artifacts/2025-*__variant_my-experiment/00123_test_foo/QA.json
+diff artifacts/2025-*__variant_control-functional/00123_test_foo/qa.json \
+     artifacts/2025-*__variant_my-experiment/00123_test_foo/qa.json
 ```
 
 **Metrics to compare:**
