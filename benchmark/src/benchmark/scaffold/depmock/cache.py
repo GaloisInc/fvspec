@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import shutil
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Literal, Sequence
+from typing import Literal
 
+import json
 from pydantic import BaseModel, Field
 
 from .models import DependencyPayload, DependencyResult
@@ -141,19 +141,48 @@ def load_cached_dependency(
 
 
 def _manifest_path(deps_dir: Path) -> Path:
-    return deps_dir / "manifest.json"
+    return deps_dir / "manifest.jsonl"
 
 
-def _load_manifest(path: Path) -> list[dict[str, object]]:
+def read_manifest(deps_dir: Path) -> list[dict[str, object]]:
+    """Read manifest entries, deduplicating by module (last entry wins)."""
+    path = _manifest_path(deps_dir)
     if not path.exists():
         return []
-    with path.open("r") as fh:
-        return json.load(fh)
+
+    entries: list[dict[str, object]] = []
+    try:
+        with path.open("r", encoding="utf-8") as fh:
+            for line in fh:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    entry = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                entries.append(entry)
+    except FileNotFoundError:
+        return []
+
+    merged: dict[str, dict[str, object]] = {}
+    order: list[str] = []
+    for entry in entries:
+        module = entry.get("module")
+        if not isinstance(module, str):
+            continue
+        if module in merged:
+            order.remove(module)
+        order.append(module)
+        merged[module] = entry
+    return [merged[module] for module in order]
 
 
-def _write_manifest(path: Path, entries: Sequence[dict[str, object]]) -> None:
-    with path.open("w") as fh:
-        json.dump(list(entries), fh, indent=2)
+def _append_manifest_entry(deps_dir: Path, entry: dict[str, object]) -> None:
+    path = _manifest_path(deps_dir)
+    with path.open("a", encoding="utf-8") as fh:
+        fh.write(json.dumps(entry))
+        fh.write("\n")
 
 
 def write_dependency_artifact(
@@ -167,13 +196,8 @@ def write_dependency_artifact(
     target = deps_dir / f"{record.metadata.lean_module}.lean"
     shutil.copy2(record.lean_path, target)
 
-    manifest_path = _manifest_path(deps_dir)
-    entries = _load_manifest(manifest_path)
-    entries = [
-        entry for entry in entries if entry.get("module") != record.metadata.lean_module
-    ]
-    entries.append(record.to_manifest_entry(source=source))
-    _write_manifest(manifest_path, entries)
+    entry = record.to_manifest_entry(source=source)
+    _append_manifest_entry(deps_dir, entry)
     return target
 
 

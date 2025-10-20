@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import json
 import pytest
 
 from benchmark.scaffold.depmock import (
@@ -14,7 +13,7 @@ from benchmark.scaffold.depmock import (
     persist_generated_dependency,
     record_cache_hit,
 )
-from benchmark.scaffold.depmock.cache import CacheRecord
+from benchmark.scaffold.depmock.cache import CacheRecord, read_manifest
 
 
 @pytest.fixture
@@ -67,18 +66,16 @@ def test_write_dependency_artifact_updates_manifest(tmp_path: Path, payload, res
     target = write_dependency_artifact(record, run_dir, source="generated")
 
     assert target.exists()
-    manifest_path = run_dir / "deps" / "manifest.json"
-    assert manifest_path.exists()
-    entries = json.loads(manifest_path.read_text())
-    assert len(entries) == 1
-    assert entries[0]["module"] == result.lean_module
-    assert entries[0]["source"] == "generated"
+    manifest_entries = read_manifest(run_dir / "deps")
+    assert len(manifest_entries) == 1
+    assert manifest_entries[0]["module"] == result.lean_module
+    assert manifest_entries[0]["source"] == "generated"
 
     # Writing again should replace the entry instead of duplicating it
     write_dependency_artifact(record, run_dir, source="cache")
-    entries = json.loads(manifest_path.read_text())
-    assert len(entries) == 1
-    assert entries[0]["source"] == "cache"
+    updated_entries = read_manifest(run_dir / "deps")
+    assert len(updated_entries) == 1
+    assert updated_entries[0]["source"] == "cache"
 
 
 def test_persist_generated_dependency_writes_cache_and_run(tmp_path: Path, payload, result):
@@ -95,7 +92,7 @@ def test_persist_generated_dependency_writes_cache_and_run(tmp_path: Path, paylo
     sample_file = run_dir / "deps" / f"{result.lean_module}.lean"
     assert sample_file.exists()
 
-    manifest_entries = json.loads((run_dir / "deps" / "manifest.json").read_text())
+    manifest_entries = read_manifest(run_dir / "deps")
     assert manifest_entries[0]["source"] == "generated"
 
 
@@ -107,6 +104,6 @@ def test_record_cache_hit(tmp_path: Path, payload, result):
     record = store_dependency_result(payload, result, cache_root=cache_root)
     record_cache_hit(record, run_dir, source="cache")
 
-    manifest = json.loads((run_dir / "deps" / "manifest.json").read_text())
+    manifest = read_manifest(run_dir / "deps")
     assert manifest[0]["cache_key"] == record.key
     assert manifest[0]["source"] == "cache"
