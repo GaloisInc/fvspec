@@ -1,0 +1,112 @@
+"""Tests for dependency cache management."""
+
+from pathlib import Path
+
+import json
+import pytest
+
+from benchmark.scaffold.depmock import (
+    DependencyPayload,
+    DependencyResult,
+    store_dependency_result,
+    load_cached_dependency,
+    write_dependency_artifact,
+    persist_generated_dependency,
+    record_cache_hit,
+)
+from benchmark.scaffold.depmock.cache import CacheRecord
+
+
+@pytest.fixture
+def payload() -> DependencyPayload:
+    return DependencyPayload(
+        dep_name="utils.normalize",
+        python_source="""def normalize(x):\n    return x.strip().lower()""",
+        source_hash="abc123",
+        tags=["strings"],
+        usage_example="normalize(' Foo ')",
+    )
+
+
+@pytest.fixture
+def result() -> DependencyResult:
+    return DependencyResult(
+        lean_module="Fvspec.Deps.Normalize",
+        lean_code="""namespace Fvspec.Deps
+
+@[simp] def normalize (s : String) : String := s.trim.lower
+
+end Fvspec.Deps
+""",
+        variant="baseline",
+        status="ok",
+        diagnostics=None,
+    )
+
+
+def test_store_and_load_cached_dependency(tmp_path: Path, payload, result):
+    cache_root = tmp_path / "cache"
+    record = store_dependency_result(payload, result, cache_root=cache_root)
+
+    assert record.lean_path.exists()
+    metadata_path = record.directory / "metadata.json"
+    assert metadata_path.exists()
+
+    loaded = load_cached_dependency(payload, cache_root=cache_root)
+    assert loaded is not None
+    assert loaded.metadata.lean_module == result.lean_module
+    assert loaded.lean_path.read_text() == result.lean_code
+
+
+def test_write_dependency_artifact_updates_manifest(tmp_path: Path, payload, result):
+    cache_root = tmp_path / "cache"
+    run_dir = tmp_path / "run" / "sample_001"
+    run_dir.mkdir(parents=True)
+
+    record = store_dependency_result(payload, result, cache_root=cache_root)
+    target = write_dependency_artifact(record, run_dir, source="generated")
+
+    assert target.exists()
+    manifest_path = run_dir / "deps" / "manifest.json"
+    assert manifest_path.exists()
+    entries = json.loads(manifest_path.read_text())
+    assert len(entries) == 1
+    assert entries[0]["module"] == result.lean_module
+    assert entries[0]["source"] == "generated"
+
+    # Writing again should replace the entry instead of duplicating it
+    write_dependency_artifact(record, run_dir, source="cache")
+    entries = json.loads(manifest_path.read_text())
+    assert len(entries) == 1
+    assert entries[0]["source"] == "cache"
+
+
+def test_persist_generated_dependency_writes_cache_and_run(tmp_path: Path, payload, result):
+    run_dir = tmp_path / "run" / "sample_002"
+    run_dir.mkdir(parents=True)
+    cache_root = tmp_path / "cache"
+
+    record = persist_generated_dependency(
+        payload, result, run_dir, cache_root=cache_root
+    )
+
+    assert isinstance(record, CacheRecord)
+    assert record.lean_path.exists()
+    sample_file = run_dir / "deps" / f"{result.lean_module}.lean"
+    assert sample_file.exists()
+
+    manifest_entries = json.loads((run_dir / "deps" / "manifest.json").read_text())
+    assert manifest_entries[0]["source"] == "generated"
+
+
+def test_record_cache_hit(tmp_path: Path, payload, result):
+    cache_root = tmp_path / "cache"
+    run_dir = tmp_path / "run" / "sample_003"
+    run_dir.mkdir(parents=True)
+
+    record = store_dependency_result(payload, result, cache_root=cache_root)
+    record_cache_hit(record, run_dir, source="cache")
+
+    manifest = json.loads((run_dir / "deps" / "manifest.json").read_text())
+    assert manifest[0]["cache_key"] == record.key
+    assert manifest[0]["source"] == "cache"
