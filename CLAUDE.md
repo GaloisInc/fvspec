@@ -121,6 +121,8 @@ Organized by timestamp/variant, then by `<sample_id>_<test_name>/`:
 
 ### Running the benchmark
 
+You actually shouldn't run the benchmark as an agent. i'll do that in a different terminal.
+
 ```bash
 # Default run with control-functional variant and 100 samples
 uv run fvspec

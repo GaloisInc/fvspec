@@ -18,3 +18,5 @@ parallelism = 25
 [dataset]
 # Number of samples to draw from the dataset
 sample_size = 100
+# Random seed for dataset sampling
+ranseed = 0

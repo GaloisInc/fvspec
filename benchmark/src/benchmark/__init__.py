@@ -29,6 +29,10 @@ def main_callback(
         None,
         help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
     ),
+    ranseed: int = Option(
+        None,
+        help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
+    ),
     list_variants: bool = Option(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
@@ -51,6 +55,7 @@ def main_callback(
         no_mcp: Disable Lean LSP MCP tools
         variant: Prompt variant name (overrides config.toml)
         sample_size: Number of samples to draw (overrides config.toml)
+        ranseed: Random seed used when sampling datapoints (overrides config.toml)
         list_variants: List available variants and exit
     """
     # If a subcommand was invoked, don't run the default behavior
@@ -76,6 +81,7 @@ def main_callback(
     use_sample_size = (
         sample_size if sample_size is not None else cfg.dataset.sample_size
     )
+    use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
 
     # Create log directory in artifacts
     now = datetime.now()
@@ -91,6 +97,7 @@ def main_callback(
             use_mcp=not no_mcp,
             variant=use_variant,
             sample_size=use_sample_size,
+            ranseed=use_ranseed,
         ),
         model=cfg.agent.model,
         log_dir=str(log_dir),
@@ -110,6 +117,10 @@ def compare_variants(
         None,
         help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
     ),
+    ranseed: int = Option(
+        None,
+        help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
+    ),
 ) -> None:
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
@@ -118,6 +129,7 @@ def compare_variants(
         no_mcp: Disable Lean LSP MCP tools
         variant: List of variant names to compare
         sample_size: Number of samples to draw (overrides config.toml)
+        ranseed: Random seed used when sampling datapoints (overrides config.toml)
     """
     registry = VariantRegistry()
 
@@ -144,6 +156,7 @@ def compare_variants(
     use_sample_size = (
         sample_size if sample_size is not None else cfg.dataset.sample_size
     )
+    use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
 
     # Create log directory for comparison results
     now = datetime.now()
@@ -153,7 +166,13 @@ def compare_variants(
 
     # Create task instances for each variant
     tasks = [
-        fvspec(datafile, use_mcp=not no_mcp, variant=v, sample_size=use_sample_size)
+        fvspec(
+            datafile,
+            use_mcp=not no_mcp,
+            variant=v,
+            sample_size=use_sample_size,
+            ranseed=use_ranseed,
+        )
         for v in variants_to_compare
     ]
 

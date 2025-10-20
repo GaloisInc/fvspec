@@ -60,9 +60,11 @@ class DatasetConfig(BaseModel):
 
     Attributes:
         sample_size: Number of samples to draw from the dataset
+        ranseed: Random seed used for dataset sampling (0 yields deterministic default)
     """
 
     sample_size: int = 100
+    ranseed: int = 0
 
 
 class Config(BaseModel):

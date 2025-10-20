@@ -1,12 +1,11 @@
-from datetime import datetime
 import json
-from pathlib import Path
 import random
-from pydantic import BaseModel
-from inspect_ai.dataset import Sample, MemoryDataset
-from benchmark.templates.spec import get_variant_prompts, VariantRegistry
+from datetime import datetime
+from pathlib import Path
 
-random.seed(0)
+from benchmark.templates.spec import VariantRegistry, get_variant_prompts
+from inspect_ai.dataset import MemoryDataset, Sample
+from pydantic import BaseModel
 
 
 class Datapoint(BaseModel, frozen=True):
@@ -64,10 +63,15 @@ def load_datapoints(file_path: Path) -> list[Datapoint]:
     return [Datapoint(**obj) for obj in data]  # type: ignore[arg-type]
 
 
-def sample_datapoints(file_path: Path, n: int) -> list[Datapoint]:
+def sample_datapoints(
+    file_path: Path,
+    n: int,
+    ranseed: int | None = 0,
+) -> list[Datapoint]:
     """Effectful function: reads a json file from disk and samples n datapoints at random"""
     dps = load_datapoints(file_path)
-    return random.sample(dps, n)
+    rng = random.Random(ranseed)
+    return rng.sample(dps, n)
 
 
 def mk_dataset(
@@ -75,6 +79,7 @@ def mk_dataset(
     date_time: datetime,
     variant: str | None = None,
     sample_size: int = 100,
+    ranseed: int | None = 0,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from scraped datapoints.
 
@@ -83,6 +88,7 @@ def mk_dataset(
         date_time: Timestamp for organizing output artifacts
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset
+        ranseed: Random seed used for sampling datapoints
 
     Returns:
         MemoryDataset with randomly sampled datapoints
@@ -104,6 +110,6 @@ def mk_dataset(
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(path, n=sample_size)
+            for datapoint in sample_datapoints(path, n=sample_size, ranseed=ranseed)
         ]
     )

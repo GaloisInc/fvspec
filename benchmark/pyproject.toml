@@ -22,6 +22,7 @@ dependencies = [
     "pydantic-ai>=1.2.1",
     "python-dotenv>=1.1.1",
     "streamlit>=1.50.0",
+    "tqdm>=4.67.1",
     "trio>=0.31.0",
     "typer>=0.19.2",
 ]
@@ -30,6 +31,7 @@ dependencies = [
 preview_prompts = "benchmark.templates:main"
 fvspec = "benchmark:main"
 analyze_deps_regex = "scripts.analyze_deps_regex:cli"
+analyze_deps = "scripts.analyze_deps:main"
 
 [project.entry-points.inspect_ai]
 benchmark = "benchmark._registry"

@@ -15,6 +15,7 @@ def fvspec(
     use_mcp: bool = False,
     variant: str | None = None,
     sample_size: int = 100,
+    ranseed: int | None = 0,
 ) -> Task:
     """
     A task generating the fvspec benchmark.
@@ -24,12 +25,19 @@ def fvspec(
         use_mcp: If True, use Lean LSP MCP tools in addition to lean_compile
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
+        ranseed: Random seed used when sampling datapoints
     """
     now = datetime.now()
 
     # Load variant prompts (will use registry default if variant is None)
     system_prompt, _ = get_variant_prompts(variant)
-    dataset = mk_dataset(DATA / datafile, now, variant=variant, sample_size=sample_size)
+    dataset = mk_dataset(
+        DATA / datafile,
+        now,
+        variant=variant,
+        sample_size=sample_size,
+        ranseed=ranseed,
+    )
 
     if use_mcp:
         from benchmark.scaffold.agent import get_lean_mcp_tools
