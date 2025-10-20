@@ -45,7 +45,7 @@ def fvspec(
 
         fvspec_task = Task(
             dataset=dataset,
-            setup=depmock_setup,  # type: ignore[arg-type]
+            setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
                 use_tools(get_lean_mcp_tools()),
@@ -56,7 +56,7 @@ def fvspec(
     else:
         fvspec_task = Task(
             dataset=dataset,
-            setup=depmock_setup,  # type: ignore[arg-type]
+            setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
                 use_tools([lean_compile()]),

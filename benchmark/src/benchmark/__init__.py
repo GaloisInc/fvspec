@@ -83,6 +83,10 @@ def main_callback(
     )
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
 
+    use_parallelism = (
+        parallelism if parallelism is not None else cfg.meta.parallelism
+    )
+
     # Create log directory in artifacts
     now = datetime.now()
     log_dir_name = (
@@ -101,6 +105,8 @@ def main_callback(
         ),
         model=cfg.agent.model,
         log_dir=str(log_dir),
+        max_samples=use_parallelism,
+        max_connections=use_parallelism,
     )
 
 
@@ -120,6 +126,10 @@ def compare_variants(
     ranseed: int = Option(
         None,
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
+    ),
+    parallelism: int = Option(
+        None,
+        help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
 ) -> None:
     """Run A/B testing comparing multiple prompt variants using eval_set.
@@ -157,6 +167,9 @@ def compare_variants(
         sample_size if sample_size is not None else cfg.dataset.sample_size
     )
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
+    use_parallelism = (
+        parallelism if parallelism is not None else cfg.meta.parallelism
+    )
 
     # Create log directory for comparison results
     now = datetime.now()
@@ -181,6 +194,8 @@ def compare_variants(
         tasks,
         log_dir=str(log_dir),
         model=cfg.agent.model,
+        max_samples=use_parallelism,
+        max_connections=use_parallelism,
     )
 
 
