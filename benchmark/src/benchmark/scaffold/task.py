@@ -5,6 +5,7 @@ from inspect_ai.solver import generate, use_tools, system_message
 from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
 from benchmark.templates.spec import get_variant_prompts
+from benchmark.scaffold.depmock.runner import depmock_setup
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -44,6 +45,7 @@ def fvspec(
 
         fvspec_task = Task(
             dataset=dataset,
+            setup=depmock_setup,  # type: ignore[arg-type]
             solver=[
                 system_message(system_prompt),
                 use_tools(get_lean_mcp_tools()),
@@ -54,6 +56,7 @@ def fvspec(
     else:
         fvspec_task = Task(
             dataset=dataset,
+            setup=depmock_setup,  # type: ignore[arg-type]
             solver=[
                 system_message(system_prompt),
                 use_tools([lean_compile()]),

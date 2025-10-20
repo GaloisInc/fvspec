@@ -59,7 +59,7 @@ class CacheMetadata(BaseModel):
     lean_module: str
     source_hash: str
     variant: str | None = None
-    status: Literal["ok", "failed"] = "ok"
+    status: Literal["ok", "failed", "stub"] = "ok"
     diagnostics: str | None = None
     created_at: str = Field(
         default_factory=lambda: datetime.now(UTC).isoformat()

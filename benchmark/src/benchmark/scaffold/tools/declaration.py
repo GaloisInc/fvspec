@@ -53,6 +53,17 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
         body = code if "import Fvspec.Deps" in code else deps_import + code
         basic_file.write_text(header + body)
 
+        deps_meta = state.metadata.get("depmock") if state else None
+        deps_file = fvspec_dir / "Deps.lean"
+        if deps_meta:
+            deps_text = deps_meta.get("lean_text")
+            if isinstance(deps_text, str) and deps_text.strip():
+                deps_file.write_text(deps_text)
+            elif not deps_file.exists():
+                deps_file.write_text("-- No dependency modules available\n")
+        elif not deps_file.exists():
+            deps_file.write_text("-- No dependency modules available\n")
+
         # Run lake build
         stdout, stderr, exitcode = utilio.run_cmd(LAKE_BUILD_CMD, cwd=workspace)
 

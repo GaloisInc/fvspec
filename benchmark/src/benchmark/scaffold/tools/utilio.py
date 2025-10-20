@@ -122,6 +122,19 @@ def get_output_filepath(
     return spec_file
 
 
+def get_sample_output_dir(
+    date_time: str,
+    sample_id: str,
+    variant: str,
+) -> Path:
+    """Return the artifact directory for a given sample."""
+
+    path = get_output_filepath(date_time, sample_id, "Spec.lean", variant)
+    sample_dir = path.parent
+    sample_dir.mkdir(parents=True, exist_ok=True)
+    return sample_dir
+
+
 def writeit(spfile: Path, code: str) -> str:
     """Write content to a file.
 
