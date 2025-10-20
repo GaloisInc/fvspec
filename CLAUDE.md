@@ -137,6 +137,9 @@ uv run fvspec --variant terse-functional
 # Control sample size (default: 100)
 uv run fvspec --sample-size 50
 
+# Control parallelism (default: config.meta.parallelism)
+uv run fvspec --parallelism 10
+
 # Disable MCP tools (faster, but less interactive)
 uv run fvspec --no-mcp
 
@@ -147,6 +150,21 @@ uv run fvspec --variant control-mvcgen --sample-size 200 --no-mcp
 uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional --sample-size 50
 ```
+
+#### Dependency utilities
+
+```bash
+# Autoformalize dependencies for specific datapoints (writes Lean stubs or cached modules)
+uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
+
+# Sample N datapoints and generate dependency Lean files
+uv run fvspec deps autoformalize --sample-size 10 --ranseed 42
+
+# Clear dependency cache (forces regeneration next time)
+uv run fvspec deps cache-flush
+```
+
+`autoformalize` produces one Lean file per dependency under the run's `deps/` directory; if no cached Lean exists a computable stub is emitted and recorded for later refinement. Aggregated output in `Fvspec/Deps.lean` wraps all modules inside the namespace exactly once.
 
 ### Viewing Results
 

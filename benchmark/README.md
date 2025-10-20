@@ -32,7 +32,28 @@ uv run fvspec compare-variants --variant control-functional --variant terse-func
 # Combine options
 uv run fvspec --variant terse-functional --sample-size 50 --no-mcp
 uv run fvspec compare-variants --sample-size 200
+
+# Control parallelism (default: config.meta.parallelism)
+uv run fvspec --parallelism 10
+uv run fvspec compare-variants --parallelism 32
 ```
+
+## Dependency Utilities
+
+Sometimes you only need the dependency modules, not the full benchmark loop. The `deps` subcommands handle that:
+
+```bash
+# Autoformalize dependencies for specific datapoint ids
+uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
+
+# Sample N datapoints (default 1) and generate stubs/cached Lean modules
+uv run fvspec deps autoformalize --sample-size 10 --ranseed 42
+
+# Flush the dependency cache (forces regeneration on next run)
+uv run fvspec deps cache-flush
+```
+
+`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__variant_default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
 
 ## Viewing Results
 
