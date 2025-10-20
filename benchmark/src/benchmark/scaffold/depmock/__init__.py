@@ -11,6 +11,7 @@ from .cache import (
     store_dependency_result,
     write_dependency_artifact,
     read_manifest,
+    clear_cache,
 )
 from .runner import depmock_setup, run_depmock_for_sample
 
@@ -27,6 +28,7 @@ __all__ = [
     "store_dependency_result",
     "write_dependency_artifact",
     "read_manifest",
+    "clear_cache",
     "depmock_setup",
     "run_depmock_for_sample",
 ]

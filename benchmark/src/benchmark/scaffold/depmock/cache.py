@@ -144,6 +144,15 @@ def load_cached_dependency(
     return CacheRecord(key=key, directory=entry, lean_path=lean_path, metadata=metadata)
 
 
+def clear_cache(cache_root: Path | None = None) -> Path:
+    """Delete all cached dependency artifacts."""
+    root = cache_root or _cache_root()
+    if root.exists():
+        shutil.rmtree(root)
+    root.mkdir(parents=True, exist_ok=True)
+    return root
+
+
 def _manifest_path(deps_dir: Path) -> Path:
     return deps_dir / "manifest.jsonl"
 
