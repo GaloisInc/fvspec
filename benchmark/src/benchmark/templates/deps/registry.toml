@@ -1,0 +1,8 @@
+[meta]
+default_variant = "baseline"
+
+[variants.baseline]
+description = "Translate Python helpers into computable Lean modules."
+style = "baseline"
+path = "variants/baseline"
+tags = ["default"]

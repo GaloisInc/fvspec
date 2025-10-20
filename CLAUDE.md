@@ -51,8 +51,8 @@ This project addresses these concerns by:
 **For research, design, and creative work**: Consult `benchmark/ideas/*.md` for in-depth discussion of:
 
 - **`METRICS.claude.md`** - Metric design and quality assessment strategies, vacuity detection approaches
-- **`DEPMOCK.human.md`** - Dependency mocking strategies (torch/numpy) with focus on computable implementations
-- **`DEPMOCK.claude.md`** - Historical exploration of dependency mocking approaches (includes non-viable options for context)
+- **`depmock/human.md`** - Dependency mocking strategies (torch/numpy) with focus on computable implementations
+- **`depmock/agents.md`** - Historical exploration of dependency mocking approaches (includes non-viable options for context)
 - **`HOARE.claude.md`** - mvcgen and monadic program logic for imperative verification
 
 These documents contain brainstorming, trade-off analysis, and detailed rationale that inform benchmark development decisions. Files marked `.claude.md` are exploratory/historical; `.human.md` files are intended for team review.
@@ -190,6 +190,8 @@ See `benchmark/README.md` for detailed documentation on creating and comparing v
 
 ### Development tools
 
+**Please make sure you `cd` into `./benchmark` to run these commands!**
+
 ```bash
 # Format Python code
 uv run ruff format
@@ -207,6 +209,12 @@ uv run pytest
 uv run preview_prompts test_prompts.json --style functional
 uv run preview_prompts test_prompts.json --style mvcgen
 ```
+
+### Commit discipline
+
+- Keep the commit subject within the conventional character limit and follow it with two blank lines before a thorough, exhaustive body that enumerates every change.
+- Run every pre-commit hook and resolve the results—formatting, linting, type checking, and the full test suite must pass before you commit.
+- Always include both the user and the agent as co-authors so the history records shared ownership of the change.
 
 ### Package management
 
@@ -314,6 +322,6 @@ Lean files can be typechecked with: `lean <filename>.lean`
 - Downstream proof agents need computational leverage from tactics like `rfl`, `decide`, and `simp`
 - Axioms and opaque definitions provide no reduction rules for proof automation
 - Computable implementations enable both validation (via `#eval`) and proof tactics
-- This requirement drives our dependency mocking strategy (see `benchmark/ideas/DEPMOCK.human.md`)
+- This requirement drives our dependency mocking strategy (see `benchmark/ideas/depmock/human.md`)
 
 **Implication**: When generating or designing Lean code for this benchmark, prefer concrete implementations over axioms, even if incomplete initially. A `def` with `sorry` is better than an `axiom`, because it can later be filled in while maintaining computability.

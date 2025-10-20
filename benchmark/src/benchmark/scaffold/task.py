@@ -4,7 +4,7 @@ from inspect_ai import Task, task
 from inspect_ai.solver import generate, use_tools, system_message
 from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
-from benchmark.templates.prompt import get_variant_prompts
+from benchmark.templates.spec import get_variant_prompts
 
 DATA = Path("..") / "data"
 

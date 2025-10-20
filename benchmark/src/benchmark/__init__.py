@@ -5,7 +5,7 @@ from pathlib import Path
 from inspect_ai import eval, eval_set
 from benchmark.config import load_config
 from benchmark.scaffold.task import fvspec
-from benchmark.templates.registry import VariantRegistry
+from benchmark.templates.spec import VariantRegistry
 from typer import Typer, Option
 import typer
 

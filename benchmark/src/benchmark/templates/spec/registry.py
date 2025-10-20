@@ -30,7 +30,7 @@ class VariantConfig(BaseModel):
 class VariantRegistry:
     """Manages prompt variant loading and validation.
 
-    The registry loads variant configurations from templates/registry.toml
+    The registry loads variant configurations from templates/spec/registry.toml
     and provides methods to list and retrieve prompt variants for A/B testing.
     """
 

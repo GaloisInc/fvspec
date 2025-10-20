@@ -2,7 +2,7 @@
 
 from typer.testing import CliRunner
 from benchmark import app
-from benchmark.templates.registry import VariantRegistry
+from benchmark.templates.spec import VariantRegistry
 
 
 class TestCompareVariantsLogic:

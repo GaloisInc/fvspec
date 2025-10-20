@@ -2,6 +2,7 @@
 .idea
 *.log
 tmp/
+.nvimlog
 
 *.py[cod]
 *.egg
@@ -10,6 +11,7 @@ htmlcov
 .venv
 .pytest_cache/
 .ruff_cache/
+.uv_cache/
 
 .direnv
 .lake

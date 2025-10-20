@@ -1,7 +1,7 @@
 from jinja2 import Environment, FileSystemLoader, Template
 from pathlib import Path
 
-from benchmark.templates.registry import VariantRegistry
+from benchmark.templates.spec.registry import VariantRegistry
 
 # Configure Jinja2 to load templates from the filesystem
 # This allows {% include %} to work for shared fragments

@@ -11,10 +11,10 @@ The output (import_counts.csv) helps understand:
 - The breadth of the Python ecosystem covered by the dataset
 
 Usage:
-    uv run analyze_deps
+    uv run analyze_deps_regex
 
 Output:
-    ../data/import_counts.csv - CSV file with columns:
+    benchmark/data/import_counts.csv - CSV file with columns:
         - import: The fully qualified import name
         - number of datapoints using the import: Frequency count
 """
@@ -52,7 +52,7 @@ class Datapoint(BaseModel):
     summaryconfidence: int | None
 
 
-UP = Path("..")
+BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 async def main() -> None:
@@ -60,7 +60,7 @@ async def main() -> None:
 
     # Read the content of the file
 
-    with open(UP / "data" / "scrapedtests.json", "r") as file:
+    with open(BASE_DIR / "data" / "scrapedtests.json", "r") as file:
         data = json.load(file)
 
     # Find all the imports in each datapoint
@@ -83,7 +83,7 @@ async def main() -> None:
 
     # Output results
     import_list.sort(key=lambda x: x[1])
-    with open(UP / "data" / "import_counts.csv", "w") as file:
+    with open(BASE_DIR / "data" / "import_counts.csv", "w") as file:
         file.write("import,number of datapoints using the import\n")
         for imp, n in import_list:
             file.write(imp + ", " + str(n) + "\n")

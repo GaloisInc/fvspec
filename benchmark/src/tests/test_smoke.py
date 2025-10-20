@@ -13,9 +13,7 @@ import pytest
 from inspect_ai.model import ChatMessageAssistant
 from benchmark.scaffold.task import fvspec
 from benchmark.scaffold.dataset import Datapoint
-
-# Configure anyio for async tests
-pytestmark = pytest.mark.anyio
+from benchmark.templates.spec import get_variant_prompts
 
 
 @pytest.fixture
@@ -127,9 +125,43 @@ async def test_smoke_dataset_loading(temp_data_file):
     assert datapoints[1].pbt_name == "test_list_append"
 
 
+def _trio_supported() -> bool:
+    """Check whether the environment permits Trio's wakeup socket tweaks."""
+
+    try:
+        import socket
+
+        s1, s2 = socket.socketpair()
+        try:
+            s1.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, 1)
+        except PermissionError:
+            return False
+        finally:
+            s1.close()
+            s2.close()
+    except OSError:
+        return False
+    return True
+
+
+TRIO_SUPPORTED = _trio_supported()
+
+if TRIO_SUPPORTED:
+    pytestmark = pytest.mark.anyio
+else:
+    pytestmark = pytest.mark.anyio("asyncio")
+
+
+@pytest.fixture(params=["asyncio", "trio"] if TRIO_SUPPORTED else ["asyncio"])
+def anyio_backend(request):
+    backend = request.param
+    if backend == "trio" and not TRIO_SUPPORTED:
+        pytest.skip("Trio backend requires socket permissions")
+    return backend
+
+
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
-    from benchmark.templates.prompt import get_variant_prompts
 
     # Test functional variant
     functional_system, functional_initial = get_variant_prompts("control-functional")

@@ -2,8 +2,11 @@
 
 from pathlib import Path
 import pytest
-from benchmark.templates.registry import VariantRegistry, VariantConfig
-from benchmark.templates.prompt import get_variant_prompts
+from benchmark.templates.spec import (
+    VariantRegistry,
+    VariantConfig,
+    get_variant_prompts,
+)
 
 
 class TestVariantRegistry:
@@ -239,6 +242,7 @@ class TestSharedFragments:
             Path(__file__).parent.parent
             / "benchmark"
             / "templates"
+            / "spec"
             / "shared"
             / "fragments"
         )
@@ -249,7 +253,9 @@ class TestSharedFragments:
 
     def test_shared_initial_prompt_exists(self):
         """Shared initial prompt should exist."""
-        shared_dir = Path(__file__).parent.parent / "benchmark" / "templates" / "shared"
+        shared_dir = (
+            Path(__file__).parent.parent / "benchmark" / "templates" / "spec" / "shared"
+        )
         assert (shared_dir / "initial.prompt").exists()
 
     def test_task_core_fragment_content(self):
@@ -258,6 +264,7 @@ class TestSharedFragments:
             Path(__file__).parent.parent
             / "benchmark"
             / "templates"
+            / "spec"
             / "shared"
             / "fragments"
         )
@@ -273,6 +280,7 @@ class TestSharedFragments:
             Path(__file__).parent.parent
             / "benchmark"
             / "templates"
+            / "spec"
             / "shared"
             / "fragments"
         )
@@ -288,6 +296,7 @@ class TestSharedFragments:
             Path(__file__).parent.parent
             / "benchmark"
             / "templates"
+            / "spec"
             / "shared"
             / "fragments"
         )

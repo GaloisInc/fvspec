@@ -19,7 +19,7 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
         Typecheck Lean code using lake build in an isolated workspace.
 
         Creates a temporary Lake project workspace for the sample if it doesn't exist yet.
-        Writes the code to Fvspec/<SampleID>.lean and runs lake build.
+        Writes the code to Fvspec/Basic.lean and runs lake build.
 
         Args:
             code: The Lean code to typecheck
@@ -41,12 +41,17 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
         else:
             workspace = Path(state.metadata["workspace"])
 
-        # Write code to Fvspec/<SampleID>.lean
+        # Write code to Fvspec/Basic.lean
         fvspec_dir = workspace / "Fvspec"
         fvspec_dir.mkdir(exist_ok=True)
 
-        spec_file = fvspec_dir / f"{sample_id}.lean"
-        spec_file.write_text(code)
+        basic_file = fvspec_dir / "Basic.lean"
+
+        # Ensure the generated file keeps the dependency import header
+        header = f"-- Auto-generated spec for sample {sample_id}\n"
+        deps_import = "import Fvspec.Deps\n\n"
+        body = code if "import Fvspec.Deps" in code else deps_import + code
+        basic_file.write_text(header + body)
 
         # Run lake build
         stdout, stderr, exitcode = utilio.run_cmd(LAKE_BUILD_CMD, cwd=workspace)

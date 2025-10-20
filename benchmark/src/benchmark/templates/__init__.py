@@ -1,8 +1,18 @@
 import json
 from pathlib import Path
 from typer import Typer, Option
-from benchmark.templates.prompt import get_variant_prompts
-from benchmark.templates.registry import VariantRegistry
+from benchmark.templates.spec import get_variant_prompts, VariantRegistry
+from benchmark.templates.deps import (
+    get_dependency_prompts,
+    DependencyVariantRegistry,
+)
+
+__all__ = [
+    "get_variant_prompts",
+    "VariantRegistry",
+    "get_dependency_prompts",
+    "DependencyVariantRegistry",
+]
 
 DATA = Path("data")
 

@@ -1,6 +1,8 @@
 # Benchmark
 
-## Running the benchmark
+**You need `scrapedtests.json` from MaxVH and put it in `./benchmark/data/`**
+
+## Generating the benchmark synthetic signatures
 
 ```bash
 # List available variants
