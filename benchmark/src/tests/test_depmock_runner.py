@@ -1,12 +1,8 @@
 """Tests for depmock setup orchestration."""
 
-import asyncio
 from pathlib import Path
 
-from inspect_ai.model import ModelName
-from inspect_ai.solver import TaskState
-
-from benchmark.scaffold.depmock.runner import depmock_setup
+from benchmark.scaffold.depmock.runner import run_depmock_for_sample
 from benchmark.scaffold.dataset import Datapoint
 
 
@@ -35,32 +31,18 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
         summary_vector=None,
     )
 
-    state = TaskState(
-        model=ModelName("mock/model"),
+    meta = run_depmock_for_sample(
+        datapoint,
+        date_time="2025-01-01T00-00-00",
+        variant="control-functional",
         sample_id="00001_test",
-        epoch=0,
-        input="",
-        messages=[],
-        metadata={
-            "datapoint": datapoint,
-            "date_time": "2025-01-01T00-00-00",
-            "variant": "control-functional",
-        },
+        path_variant="control-functional",
     )
-
-    async def runner() -> TaskState:
-        async def dummy_generate(*args, **kwargs):  # pragma: no cover - unused
-            return state
-
-        solver = depmock_setup()
-        return await solver(state, dummy_generate)
-
-    new_state = asyncio.run(runner())
-
-    meta = new_state.metadata.get("depmock")
     assert meta is not None
     assert meta["manifest"], "expected manifest entries"
-    assert "helper" in meta["lean_text"], "stub Lean text should mention helper"
+    lean_text = meta.get("lean_text")
+    assert isinstance(lean_text, str)
+    assert "helper" in lean_text
 
     deps_dir = tmp_path / "artifacts" / "00001_test" / "deps"
     manifest_path = deps_dir / "manifest.jsonl"

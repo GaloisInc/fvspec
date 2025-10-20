@@ -2,9 +2,12 @@
 
 from datetime import datetime
 from pathlib import Path
+import random
 from inspect_ai import eval, eval_set
 from benchmark.config import load_config
-from benchmark.scaffold.task import fvspec
+from benchmark.scaffold.task import fvspec, DATA_DIR
+from benchmark.scaffold.dataset import load_datapoints, Datapoint
+from benchmark.scaffold.depmock.runner import run_depmock_for_sample
 from benchmark.templates.spec import VariantRegistry
 from typer import Typer, Option
 import typer
@@ -197,6 +200,88 @@ def compare_variants(
         max_samples=use_parallelism,
         max_connections=use_parallelism,
     )
+
+
+@app.command(name="deps-autoformalize")
+def deps_autoformalize_command(
+    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    sample_id: list[int] = Option(
+        None,
+        "--sample-id",
+        help="Specific datapoint id(s) to autoformalize (can be repeated).",
+    ),
+    sample_size: int = Option(
+        1,
+        help="If --sample-id is not provided, sample this many datapoints (default: 1).",
+    ),
+    ranseed: int = Option(
+        0,
+        help="Random seed used when sampling datapoints (only when --sample-id not supplied).",
+    ),
+    variant: str = Option(
+        None,
+        help="Variant name used for metadata (defaults to config.toml prompt variant).",
+    ),
+) -> None:
+    """Autoformalize dependencies for selected datapoints without running the full benchmark."""
+
+    dataset_path = (DATA_DIR / datafile).resolve()
+    if not dataset_path.exists():
+        print(f"Dataset not found at {dataset_path}")
+        return
+
+    datapoints = load_datapoints(dataset_path)
+    if not datapoints:
+        print("No datapoints available in dataset")
+        return
+
+    dp_by_id = {dp.id: dp for dp in datapoints}
+
+    selected: list[Datapoint] = []
+    if sample_id:
+        for sid in sample_id:
+            dp = dp_by_id.get(sid)
+            if dp is None:
+                print(f"Warning: sample id {sid} not found in dataset")
+            else:
+                selected.append(dp)
+        if not selected:
+            print("No valid sample ids provided; aborting.")
+            return
+    else:
+        size = max(0, min(sample_size, len(datapoints)))
+        if size == 0:
+            print("Sample size is zero; nothing to do.")
+            return
+        rng = random.Random(ranseed)
+        selected = rng.sample(datapoints, size)
+
+    timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
+    base_variant = variant or cfg.prompt.variant or "default"
+    path_variant = f"{base_variant}-deps-auto"
+    base_dir = Path("artifacts") / f"{timestamp}__variant_{path_variant}"
+    base_dir.mkdir(parents=True, exist_ok=True)
+
+    print(f"Autoformalizing {len(selected)} dependency set(s) using variant '{base_variant}'.")
+    print(f"Artifacts will be written to {base_dir}\n")
+
+    for dp in selected:
+        sample_label = f"{dp.id:05d}_{dp.pbt_name}"
+        meta = run_depmock_for_sample(
+            dp,
+            date_time=timestamp,
+            variant=base_variant,
+            sample_id=sample_label,
+            path_variant=path_variant,
+        )
+        deps_dir = meta.get("deps_dir")
+        manifest = meta.get("manifest")
+        manifest_entries = manifest if isinstance(manifest, list) else []
+        print(
+            f"- {sample_label}: deps written to {deps_dir} ({len(manifest_entries)} entries)"
+        )
+
+    print("\nDone. You can inspect the generated Lean modules under the directory above.")
 
 
 def main() -> None:

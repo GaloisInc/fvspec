@@ -63,7 +63,9 @@ def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyR
     )
 
 
-def _aggregate_lean(deps_dir: Path, manifest: list[dict[str, object]]) -> list[dict[str, str]]:
+def _aggregate_lean(
+    deps_dir: Path, manifest: list[dict[str, object]]
+) -> list[dict[str, str]]:
     aggregated: list[dict[str, str]] = []
     for entry in manifest:
         module = entry.get("module")
@@ -71,8 +73,43 @@ def _aggregate_lean(deps_dir: Path, manifest: list[dict[str, object]]) -> list[d
             continue
         lean_path = deps_dir / f"{module}.lean"
         if lean_path.exists():
-            aggregated.append({"module": module, "path": str(lean_path), "code": lean_path.read_text()})
+            aggregated.append(
+                {"module": module, "path": str(lean_path), "code": lean_path.read_text()}
+            )
     return aggregated
+
+
+def _process_payloads(
+    payloads: list[DependencyPayload],
+    sample_output_dir: Path,
+    variant: str | None,
+) -> dict[str, object]:
+    deps_dir = sample_output_dir / "deps"
+    deps_dir.mkdir(parents=True, exist_ok=True)
+
+    prepared_records: list[CacheRecord] = []
+
+    for payload in payloads:
+        record = load_cached_dependency(payload)
+        if record is not None:
+            record_cache_hit(record, sample_output_dir, source="cache")
+            prepared_records.append(record)
+            continue
+
+        stub_result = _stub_result(payload, variant)
+        record = persist_generated_dependency(payload, stub_result, sample_output_dir)
+        prepared_records.append(record)
+
+    manifest = read_manifest(deps_dir)
+    aggregated = _aggregate_lean(deps_dir, manifest)
+    lean_text = "\n\n".join(item["code"] for item in aggregated)
+    return {
+        "manifest": manifest,
+        "aggregated": aggregated,
+        "lean_text": lean_text,
+        "deps_dir": str(deps_dir),
+        "variant": variant,
+    }
 
 
 @solver
@@ -95,32 +132,40 @@ def depmock_setup() -> Solver:
         sample_output_dir = utilio.get_sample_output_dir(
             date_time, str(state.sample_id), variant or "default"
         )
-        deps_dir = sample_output_dir / "deps"
-        deps_dir.mkdir(parents=True, exist_ok=True)
-
-        prepared_records: list[CacheRecord] = []
-
-        for payload in payloads:
-            record = load_cached_dependency(payload)
-            if record is not None:
-                record_cache_hit(record, sample_output_dir, source="cache")
-                prepared_records.append(record)
-                continue
-
-            stub_result = _stub_result(payload, variant if isinstance(variant, str) else None)
-            record = persist_generated_dependency(payload, stub_result, sample_output_dir)
-            prepared_records.append(record)
-
-        manifest = read_manifest(deps_dir)
-        aggregated = _aggregate_lean(deps_dir, manifest)
-        lean_text = "\n\n".join(item["code"] for item in aggregated)
-        state.metadata["depmock"] = {
-            "manifest": manifest,
-            "aggregated": aggregated,
-            "lean_text": lean_text,
-            "deps_dir": str(deps_dir),
-            "variant": variant,
-        }
+        meta = _process_payloads(
+            payloads,
+            sample_output_dir,
+            variant if isinstance(variant, str) else None,
+        )
+        state.metadata["depmock"] = meta
         return state
 
     return run
+
+
+def run_depmock_for_sample(
+    datapoint: Datapoint,
+    *,
+    date_time: str,
+    variant: str | None = None,
+    sample_id: str | None = None,
+    path_variant: str | None = None,
+) -> dict[str, object]:
+    """Run depmock processing for a single datapoint outside the task loop."""
+
+    payloads = _payloads_from_datapoint(datapoint)
+    sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.pbt_name}"
+    sample_output_dir = utilio.get_sample_output_dir(
+        date_time, sample_id_str, path_variant or variant or "default"
+    )
+
+    if not payloads:
+        return {
+            "manifest": [],
+            "aggregated": [],
+            "lean_text": "",
+            "deps_dir": str(sample_output_dir / "deps"),
+            "variant": variant,
+        }
+
+    return _process_payloads(payloads, sample_output_dir, variant)

@@ -10,7 +10,9 @@ from .cache import (
     record_cache_hit,
     store_dependency_result,
     write_dependency_artifact,
+    read_manifest,
 )
+from .runner import depmock_setup, run_depmock_for_sample
 
 __all__ = [
     "DependencyPayload",
@@ -24,4 +26,7 @@ __all__ = [
     "record_cache_hit",
     "store_dependency_result",
     "write_dependency_artifact",
+    "read_manifest",
+    "depmock_setup",
+    "run_depmock_for_sample",
 ]
