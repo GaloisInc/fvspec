@@ -4,7 +4,7 @@ from typer import Typer, Option
 from benchmark.templates.prompt import get_variant_prompts
 from benchmark.templates.registry import VariantRegistry
 
-DATA = Path("data")
+DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 app = Typer()
 
@@ -20,10 +20,10 @@ def preview_prompts(
     """Preview prompts for the given data file and variant.
 
     Args:
-        data: JSON file name in the data/ directory
+        data: JSON file name located under benchmark/data
         variant: Prompt variant to preview
     """
-    the_json = DATA / data
+    the_json = DATA_DIR / data
     with open(the_json) as f:
         data_content = json.load(f)
 

@@ -6,7 +6,7 @@ from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
 from benchmark.scaffold.dataset import mk_dataset
 from benchmark.templates.prompt import get_variant_prompts
 
-DATA = Path("..") / "data"
+DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 
 @task
@@ -29,7 +29,9 @@ def fvspec(
 
     # Load variant prompts (will use registry default if variant is None)
     system_prompt, _ = get_variant_prompts(variant)
-    dataset = mk_dataset(DATA / datafile, now, variant=variant, sample_size=sample_size)
+    dataset = mk_dataset(
+        DATA_DIR / datafile, now, variant=variant, sample_size=sample_size
+    )
 
     if use_mcp:
         from benchmark.scaffold.agent import get_lean_mcp_tools

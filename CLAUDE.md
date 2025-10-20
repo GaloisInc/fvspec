@@ -98,7 +98,7 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 
 ### `/baselines` - Baseline implementations (minimal structure currently)
 
-### `/data` - Input data
+### `benchmark/data` - Input data
 
 - `scrapedtests.json` - Large JSON file (~1.1GB) containing scraped Python property-based tests with dependencies
 
