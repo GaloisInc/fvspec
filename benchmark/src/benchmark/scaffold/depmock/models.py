@@ -59,7 +59,7 @@ class DependencyPayload(BaseModel):
 class DependencyResult(BaseModel):
     """Result metadata emitted by the autoformalization agent."""
 
-    lean_module: str = Field(..., description="Lean module identifier")
+    lean_module: str = Field(..., description="Lean module file/base name")
     lean_code: str = Field(..., description="Generated Lean source code")
     variant: str | None = Field(default=None, description="Prompt variant used")
     status: Literal["ok", "failed", "stub"] = Field(

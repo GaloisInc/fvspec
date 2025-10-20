@@ -47,6 +47,6 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     deps_dir = tmp_path / "artifacts" / "00001_test" / "deps"
     manifest_path = deps_dir / "manifest.jsonl"
     assert manifest_path.exists()
-    deps_lean = (tmp_path / "artifacts" / "00001_test" / "deps" / "Fvspec.Deps.Helper.lean")
+    deps_lean = deps_dir / "Helper.lean"
     assert deps_lean.exists()
     assert "Autoformalization stub" in deps_lean.read_text()

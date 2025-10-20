@@ -42,7 +42,6 @@ def _payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
 
 def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyResult:
     module_name = payload.lean_module_name
-    lean_module = f"Fvspec.Deps.{module_name}"
     original = payload.python_source.strip()
     lean_code = (
         "namespace Fvspec.Deps\n\n"
@@ -55,7 +54,7 @@ def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyR
         "end Fvspec.Deps\n"
     )
     return DependencyResult(
-        lean_module=lean_module,
+        lean_module=module_name,
         lean_code=lean_code,
         variant=variant,
         status="stub",

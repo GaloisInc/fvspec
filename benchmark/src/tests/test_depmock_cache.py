@@ -30,7 +30,7 @@ def payload() -> DependencyPayload:
 @pytest.fixture
 def result() -> DependencyResult:
     return DependencyResult(
-        lean_module="Fvspec.Deps.Normalize",
+        lean_module="Normalize",
         lean_code="""namespace Fvspec.Deps
 
 @[simp] def normalize (s : String) : String := s.trim.lower
