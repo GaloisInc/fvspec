@@ -42,6 +42,7 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     assert meta["manifest"], "expected manifest entries"
     lean_text = meta.get("lean_text")
     assert isinstance(lean_text, str)
+    assert "namespace Fvspec.Deps" in lean_text
     assert "helper" in lean_text
 
     deps_dir = tmp_path / "artifacts" / "00001_test" / "deps"
@@ -49,4 +50,6 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     assert manifest_path.exists()
     deps_lean = deps_dir / "Helper.lean"
     assert deps_lean.exists()
-    assert "Autoformalization stub" in deps_lean.read_text()
+    file_text = deps_lean.read_text()
+    assert "Autoformalization stub" in file_text
+    assert "namespace" not in file_text

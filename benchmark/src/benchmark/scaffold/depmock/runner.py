@@ -44,14 +44,12 @@ def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyR
     module_name = payload.lean_module_name
     original = payload.python_source.strip()
     lean_code = (
-        "namespace Fvspec.Deps\n\n"
-        f"/-- Autoformalization stub for `{payload.dep_name}`. \n"
+        f"/-- Autoformalization stub for `{payload.dep_name}`.\n"
         "TODO: replace with generated Lean code. -/\n"
         "-- Original Python:\n/-\n"
         f"{original}\n"
         "-/\n\n"
-        f"def {module_name}_stub : Unit := sorry\n\n"
-        "end Fvspec.Deps\n"
+        f"def {module_name}_stub : Unit := ()\n"
     )
     return DependencyResult(
         lean_module=module_name,
@@ -73,7 +71,11 @@ def _aggregate_lean(
         lean_path = deps_dir / f"{module}.lean"
         if lean_path.exists():
             aggregated.append(
-                {"module": module, "path": str(lean_path), "code": lean_path.read_text()}
+                {
+                    "module": module,
+                    "path": str(lean_path),
+                    "code": lean_path.read_text().strip(),
+                }
             )
     return aggregated
 
@@ -101,7 +103,11 @@ def _process_payloads(
 
     manifest = read_manifest(deps_dir)
     aggregated = _aggregate_lean(deps_dir, manifest)
-    lean_text = "\n\n".join(item["code"] for item in aggregated)
+    body = "\n\n".join(item["code"] for item in aggregated if item["code"])
+    if body:
+        lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
+    else:
+        lean_text = ""
     return {
         "manifest": manifest,
         "aggregated": aggregated,

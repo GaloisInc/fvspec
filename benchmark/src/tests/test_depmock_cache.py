@@ -31,12 +31,7 @@ def payload() -> DependencyPayload:
 def result() -> DependencyResult:
     return DependencyResult(
         lean_module="Normalize",
-        lean_code="""namespace Fvspec.Deps
-
-@[simp] def normalize (s : String) : String := s.trim.lower
-
-end Fvspec.Deps
-""",
+        lean_code="""@[simp] def normalize (s : String) : String := s.trim.lower\n""",
         variant="baseline",
         status="ok",
         diagnostics=None,
@@ -78,7 +73,9 @@ def test_write_dependency_artifact_updates_manifest(tmp_path: Path, payload, res
     assert updated_entries[0]["source"] == "cache"
 
 
-def test_persist_generated_dependency_writes_cache_and_run(tmp_path: Path, payload, result):
+def test_persist_generated_dependency_writes_cache_and_run(
+    tmp_path: Path, payload, result
+):
     run_dir = tmp_path / "run" / "sample_002"
     run_dir.mkdir(parents=True)
     cache_root = tmp_path / "cache"

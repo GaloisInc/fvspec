@@ -61,9 +61,7 @@ class CacheMetadata(BaseModel):
     variant: str | None = None
     status: Literal["ok", "failed", "stub"] = "ok"
     diagnostics: str | None = None
-    created_at: str = Field(
-        default_factory=lambda: datetime.now(UTC).isoformat()
-    )
+    created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
 
 
 @dataclass(frozen=True)

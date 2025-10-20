@@ -86,9 +86,7 @@ def main_callback(
     )
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
 
-    use_parallelism = (
-        parallelism if parallelism is not None else cfg.meta.parallelism
-    )
+    use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
 
     # Create log directory in artifacts
     now = datetime.now()
@@ -170,9 +168,7 @@ def compare_variants(
         sample_size if sample_size is not None else cfg.dataset.sample_size
     )
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
-    use_parallelism = (
-        parallelism if parallelism is not None else cfg.meta.parallelism
-    )
+    use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
 
     # Create log directory for comparison results
     now = datetime.now()
@@ -262,7 +258,9 @@ def deps_autoformalize_command(
     base_dir = Path("artifacts") / f"{timestamp}__variant_{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Autoformalizing {len(selected)} dependency set(s) using variant '{base_variant}'.")
+    print(
+        f"Autoformalizing {len(selected)} dependency set(s) using variant '{base_variant}'."
+    )
     print(f"Artifacts will be written to {base_dir}\n")
 
     for dp in selected:
@@ -281,7 +279,9 @@ def deps_autoformalize_command(
             f"- {sample_label}: deps written to {deps_dir} ({len(manifest_entries)} entries)"
         )
 
-    print("\nDone. You can inspect the generated Lean modules under the directory above.")
+    print(
+        "\nDone. You can inspect the generated Lean modules under the directory above."
+    )
 
 
 def main() -> None:
