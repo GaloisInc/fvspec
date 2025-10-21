@@ -10,15 +10,15 @@ from inspect_ai.solver import TaskState, solver, Solver, Generate
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.tools import utilio
 
-from .cache import (
+from generate.scaffold.depmock.cache import (
     CacheRecord,
     load_cached_dependency,
     persist_generated_dependency,
     read_manifest,
     record_cache_hit,
 )
-from .dataset import payloads_from_datapoint
-from .models import DependencyPayload, DependencyResult
+from generate.scaffold.depmock.dataset import payloads_from_datapoint
+from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
 
 
 def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyResult:

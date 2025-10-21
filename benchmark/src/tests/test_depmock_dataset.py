@@ -45,7 +45,10 @@ def test_scan_dependencies_dedupe(datapoint: Datapoint) -> None:
 
     specs = scan_dependencies([datapoint, duplicate_dp], skip_cached=False, dedupe=True)
     assert len(specs) == 2
-    assert {spec.cache_key for spec in specs} == {specs[0].cache_key, specs[1].cache_key}
+    assert {spec.cache_key for spec in specs} == {
+        specs[0].cache_key,
+        specs[1].cache_key,
+    }
 
 
 def test_scan_dependencies_skip_cached(datapoint: Datapoint) -> None:
@@ -66,7 +69,9 @@ def test_build_dependency_dataset_batches(datapoint: Datapoint) -> None:
     specs = scan_dependencies([datapoint], skip_cached=False, dedupe=False)
     date_time = datetime(2025, 1, 1, 12, 0, 0)
 
-    dataset = build_dependency_dataset(specs, date_time=date_time, variant="functional", batch_size=1)
+    dataset = build_dependency_dataset(
+        specs, date_time=date_time, variant="functional", batch_size=1
+    )
     assert len(dataset) == 2
 
     first = dataset[0]

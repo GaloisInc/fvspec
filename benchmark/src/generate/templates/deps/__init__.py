@@ -1,10 +1,13 @@
 """Prompts for the dependency autoformalization subagent."""
 
-from .prompt import (
+from generate.templates.deps.prompt import (
     DependencyPromptBundle,
     get_dependency_prompts,
 )
-from .registry import DependencyVariantRegistry, DependencyVariantConfig
+from generate.templates.deps.registry import (
+    DependencyVariantConfig,
+    DependencyVariantRegistry,
+)
 
 __all__ = [
     "get_dependency_prompts",

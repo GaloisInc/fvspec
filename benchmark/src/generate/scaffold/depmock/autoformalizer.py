@@ -7,8 +7,11 @@ from datetime import UTC, datetime
 import logging
 from typing import Callable, Literal, Sequence
 
-from .dataset import DependencySampleSpec, build_dependency_dataset
-from .models import DependencyResult
+from generate.scaffold.depmock.dataset import (
+    DependencySampleSpec,
+    build_dependency_dataset,
+)
+from generate.scaffold.depmock.models import DependencyResult
 
 
 class DependencyInvocationError(RuntimeError):
@@ -66,7 +69,9 @@ class DependencyRunReport:
 
     @property
     def succeeded(self) -> tuple[DependencyOutcome, ...]:
-        return tuple(outcome for outcome in self.outcomes if outcome.status == "success")
+        return tuple(
+            outcome for outcome in self.outcomes if outcome.status == "success"
+        )
 
     @property
     def failed(self) -> tuple[DependencyOutcome, ...]:
@@ -78,7 +83,9 @@ class DependencyRunReport:
 
     @property
     def skipped(self) -> tuple[DependencyOutcome, ...]:
-        return tuple(outcome for outcome in self.outcomes if outcome.status == "skipped")
+        return tuple(
+            outcome for outcome in self.outcomes if outcome.status == "skipped"
+        )
 
     @property
     def success(self) -> bool:

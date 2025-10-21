@@ -18,7 +18,7 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
          Build an inspect_ai dataset wrapper that yields dependency tasks from the depmock manifest/cache scanner, supports deterministic batching, and exposes sample metadata for logging.
 2. [x] **Invocation layer**  
          Expose a Python API (e.g., `run_dependency_autoformalizer(...)`) that the CLI can call, handle partial successes (recoverable Lean errors), capture diagnostics, and propagate failures cleanly.
-3. [ ] **Caching strategy alignment**  
+3. [x] **Caching strategy alignment**  
          Reconcile agent outputs with the existing cache format (hash naming, manifest entries, `Deps.lean` aggregation) and write cache entries with Lean artifacts plus provenance metadata (model, timestamp, source hash).
 4. [ ] **Module ordering**  
          Add a topological sort that respects Lean import dependencies before aggregating modules into `Deps.lean`, ensuring reproducible builds even when the agent introduces cross-module references.
@@ -35,3 +35,4 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
 1. [ ] Inspect_ai agent module for dependency autoformalization using `sonnet-4-5`.
 2. [ ] Updated CLI command and supporting APIs that invoke the agent and integrate with caching.
 3. [ ] Extended run artifacts containing Lean outputs, provenance, and telemetry for each dependency translation.
+4. [ ] Thorough documentation explaining how to interpret the new artifacts dir

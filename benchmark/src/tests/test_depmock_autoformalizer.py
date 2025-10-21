@@ -17,7 +17,9 @@ from generate.scaffold.depmock import (
 )
 
 
-def make_spec(*, cached: bool = False, dep_name: str = "helpers.trim") -> DependencySampleSpec:
+def make_spec(
+    *, cached: bool = False, dep_name: str = "helpers.trim"
+) -> DependencySampleSpec:
     payload = DependencyPayload(
         dep_name=dep_name,
         python_source="def trim(value: str) -> str:\n    return value.strip()",
@@ -40,7 +42,9 @@ def make_spec(*, cached: bool = False, dep_name: str = "helpers.trim") -> Depend
     )
 
 
-def make_result(payload: DependencyPayload, variant: str | None = None) -> DependencyResult:
+def make_result(
+    payload: DependencyPayload, variant: str | None = None
+) -> DependencyResult:
     return DependencyResult(
         lean_module=payload.lean_module_name,
         lean_code=(

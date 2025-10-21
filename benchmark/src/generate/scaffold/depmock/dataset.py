@@ -11,8 +11,8 @@ from inspect_ai.dataset import MemoryDataset, Sample
 
 from generate.scaffold.dataset import Datapoint
 
-from .cache import compute_cache_key, load_cached_dependency
-from .models import DependencyPayload
+from generate.scaffold.depmock.cache import compute_cache_key, load_cached_dependency
+from generate.scaffold.depmock.models import DependencyPayload
 
 
 def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:

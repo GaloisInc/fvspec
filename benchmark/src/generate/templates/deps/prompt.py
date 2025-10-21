@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template
 
-from .registry import DependencyVariantRegistry
+from generate.templates.deps.registry import DependencyVariantRegistry
 
 
 @dataclass(frozen=True)

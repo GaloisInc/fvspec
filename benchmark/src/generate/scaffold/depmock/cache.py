@@ -13,9 +13,12 @@ from typing import Literal
 import json
 from pydantic import BaseModel, Field
 
-from .models import DependencyPayload, DependencyResult
+from generate.scaffold.depmock.models import (
+    DependencyPayload,
+    DependencyResult,
+)
 
-CACHE_SCHEMA_VERSION = 2
+CACHE_SCHEMA_VERSION = 3
 
 
 def _find_project_root(start: Path | None = None) -> Path:
@@ -54,6 +57,16 @@ def compute_cache_key(payload: DependencyPayload) -> str:
     return digest
 
 
+class CacheProvenance(BaseModel):
+    """Provenance metadata for generated dependency artifacts."""
+
+    model: str | None = None
+    run_id: str | None = None
+    attempts: int | None = None
+    diagnostics: str | None = None
+    generated_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+
+
 class CacheMetadata(BaseModel):
     """Metadata persisted alongside cached Lean modules."""
 
@@ -63,8 +76,9 @@ class CacheMetadata(BaseModel):
     variant: str | None = None
     status: Literal["ok", "failed", "stub"] = "ok"
     diagnostics: str | None = None
-    schema_version: int = Field(default=1)
+    schema_version: int = Field(default=CACHE_SCHEMA_VERSION)
     created_at: str = Field(default_factory=lambda: datetime.now(UTC).isoformat())
+    provenance: CacheProvenance | None = None
 
 
 @dataclass(frozen=True)
@@ -90,6 +104,14 @@ class CacheRecord:
             "diagnostics": self.metadata.diagnostics,
             "cache_path": str(self.lean_path),
             "timestamp": datetime.now(UTC).isoformat(),
+            "model": self.metadata.provenance.model
+            if self.metadata.provenance
+            else None,
+            "generated_at": (
+                self.metadata.provenance.generated_at
+                if self.metadata.provenance
+                else self.metadata.created_at
+            ),
         }
 
 
@@ -105,6 +127,7 @@ def store_dependency_result(
     result: DependencyResult,
     *,
     cache_root: Path | None = None,
+    provenance: CacheProvenance | None = None,
 ) -> CacheRecord:
     """Persist a dependency result to the global cache."""
     key = compute_cache_key(payload)
@@ -119,7 +142,7 @@ def store_dependency_result(
         variant=result.variant,
         status=result.status,
         diagnostics=result.diagnostics,
-        schema_version=CACHE_SCHEMA_VERSION,
+        provenance=provenance,
     )
     (entry / "metadata.json").write_text(metadata.model_dump_json(indent=2))
     return CacheRecord(key=key, directory=entry, lean_path=lean_path, metadata=metadata)
@@ -220,10 +243,14 @@ def persist_generated_dependency(
     run_sample_dir: Path,
     *,
     cache_root: Path | None = None,
+    provenance: CacheProvenance | None = None,
 ) -> CacheRecord:
     """Persist a freshly generated dependency to cache and run artifact directory."""
     record = store_dependency_result(
-        payload, result, cache_root=cache_root or _cache_root()
+        payload,
+        result,
+        cache_root=cache_root or _cache_root(),
+        provenance=provenance,
     )
     write_dependency_artifact(record, run_sample_dir, source="generated")
     return record

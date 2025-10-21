@@ -308,6 +308,8 @@ All settings can be overridden via CLI arguments.
 
 This style is consistent across the entire codebase.
 
+**Absolute imports**: Prefer fully qualified module paths (e.g. `from generate.scaffold.depmock.runner import ...`) instead of relative imports such as `from .runner import ...`. Absolute imports keep the package structure explicit, help static tooling, and reduce ambiguity when files move.
+
 ### Pydantic Usage
 
 **Use Pydantic aggressively throughout the codebase.** All data models should be Pydantic `BaseModel` classes:

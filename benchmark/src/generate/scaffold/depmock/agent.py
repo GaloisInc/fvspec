@@ -9,7 +9,7 @@ from inspect_ai.util._store import store
 
 from generate.templates.deps import get_dependency_prompts
 
-from .models import DependencyPayload
+from generate.scaffold.depmock.models import DependencyPayload
 
 
 def _ensure_system_message(state: AgentState, system_prompt: str) -> None:

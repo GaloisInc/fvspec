@@ -1,6 +1,6 @@
 """Dependency autoformalization toolkit."""
 
-from .models import (
+from generate.scaffold.depmock.models import (
     ArgumentRole,
     ArgumentSpec,
     CallableKind,
@@ -12,8 +12,11 @@ from .models import (
     NormalizationStrategy,
     LeanArtifactSpec,
 )
-from .agent import dependency_autoformalizer, autoformalize_dependency_tool
-from .cache import (
+from generate.scaffold.depmock.agent import (
+    dependency_autoformalizer,
+    autoformalize_dependency_tool,
+)
+from generate.scaffold.depmock.cache import (
     CacheRecord,
     compute_cache_key,
     load_cached_dependency,
@@ -24,13 +27,13 @@ from .cache import (
     read_manifest,
     clear_cache,
 )
-from .dataset import (
+from generate.scaffold.depmock.dataset import (
     DependencySampleSpec,
     build_dependency_dataset,
     payloads_from_datapoint,
     scan_dependencies,
 )
-from .autoformalizer import (
+from generate.scaffold.depmock.autoformalizer import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyOutcome,
@@ -40,7 +43,7 @@ from .autoformalizer import (
     DependencyRunReport,
     run_dependency_autoformalizer,
 )
-from .runner import depmock_setup, run_depmock_for_sample
+from generate.scaffold.depmock.runner import depmock_setup, run_depmock_for_sample
 
 __all__ = [
     "DependencyPayload",
