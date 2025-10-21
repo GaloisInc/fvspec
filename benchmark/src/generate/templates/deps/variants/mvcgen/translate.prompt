@@ -51,7 +51,7 @@ Normalization plan:
 {% if normalization_notes %}- Notes: {{ normalization_notes }}{% endif %}
 
 Guidelines:
-1. Ensure the resulting definitions reside in the module `{{ lean_module_qualified }}` under `namespace {{ lean_namespace }}` (file stem `{{ lean_file_stem }}.lean`). Open and close the namespace if you introduce it manually.
+1. Ensure the resulting definitions reside in the module `{{ lean_module_qualified }}` (file stem `{{ lean_file_stem }}.lean`). **Do NOT include a `namespace` block in this module; the aggregation logic will wrap all dependencies in a single namespace block in the aggregated `Deps.lean` file. Write all definitions as if they are already inside the correct namespace.**
 2. Model imperative structure with `do` notation, mutable references, or arrays as needed. When loops or mutation occur, accompany them with mvcgen-style Hoare triples (`⦃ P ⦄ program ⦃ Q ⦄`) and call `vcg`/`simp` to discharge verification conditions.
 3. Provide an executable demonstration (e.g. `#eval`, `#reduce`, or an explicit theorem) showing the helper reduces to the expected behaviour on a representative input.
 4. Keep definitions transparent; avoid axioms or opaque constants. Use `sorry` only when absolutely required and annotate each with a `-- TODO:` comment describing the missing step.
