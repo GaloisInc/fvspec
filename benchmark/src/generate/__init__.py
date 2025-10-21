@@ -1,13 +1,31 @@
 """Generate the benchmark"""
 
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 import random
+
 from inspect_ai import eval, eval_set
+
 from generate.config import load_config
 from generate.scaffold.task import fvspec, DATA_DIR
 from generate.scaffold.dataset import load_datapoints, Datapoint
-from generate.scaffold.depmock import run_depmock_for_sample, clear_cache
+from generate.scaffold.depmock import (
+    DependencyBatchError,
+    DependencyExecutionRequest,
+    DependencyResult,
+    DependencySampleSpec,
+    build_dependency_dataset,
+    clear_cache,
+    load_cached_dependency,
+    persist_generated_dependency,
+    record_cache_hit,
+    run_dependency_autoformalizer,
+    scan_dependencies,
+)
+from generate.scaffold.depmock.cache import CacheProvenance, read_manifest
+from generate.scaffold.depmock.runner import _aggregate_lean, _order_modules  # type: ignore[attr-defined]
+from generate.scaffold.tools import utilio
 from generate.templates.spec import VariantRegistry
 from typer import Typer, Option
 import typer
@@ -220,6 +238,23 @@ def deps_autoformalize_command(
         None,
         help="Variant name used for metadata (defaults to config.toml prompt variant).",
     ),
+    skip_cached: bool = Option(
+        True,
+        "--skip-cached/--no-skip-cached",
+        help="Skip dependencies already present in the cache (still copies them into the run directory).",
+    ),
+    max_attempts: int = Option(
+        3, help="Maximum attempts for recoverable Lean errors per dependency."
+    ),
+    dry_run: bool = Option(
+        False,
+        "--dry-run",
+        help="Emit Lean stubs without invoking the autoformalizer agent.",
+    ),
+    batch_size: int = Option(
+        None,
+        help="Logical batch size recorded for dependency dataset metadata.",
+    ),
 ) -> None:
     """Autoformalize dependencies for selected datapoints without running the full generate."""
 
@@ -265,24 +300,137 @@ def deps_autoformalize_command(
     )
     print(f"Artifacts will be written to {base_dir}\n")
 
-    for dp in selected:
-        sample_label = f"{dp.id:05d}_{dp.pbt_name}"
-        meta = run_depmock_for_sample(
-            dp,
-            date_time=timestamp,
-            variant=base_variant,
-            sample_id=sample_label,
-            path_variant=path_variant,
+    specs = scan_dependencies(
+        selected,
+        skip_cached=False,
+        dedupe=True,
+    )
+
+    if not specs:
+        print("No dependencies discovered for the selected datapoints.")
+        return
+
+    for spec in specs:
+        sample_output_dir = utilio.get_sample_output_dir(
+            timestamp, spec.sample_id, path_variant
         )
-        deps_dir = meta.get("deps_dir")
-        manifest = meta.get("manifest")
-        manifest_entries = manifest if isinstance(manifest, list) else []
-        print(
-            f"- {sample_label}: deps written to {deps_dir} ({len(manifest_entries)} entries)"
+        deps_dir = sample_output_dir / "deps"
+        deps_dir.mkdir(parents=True, exist_ok=True)
+        if skip_cached and spec.cached:
+            cached_record = load_cached_dependency(spec.payload)
+            if cached_record is not None:
+                record_cache_hit(cached_record, sample_output_dir, source="cache")
+
+    dependency_dataset = build_dependency_dataset(
+        specs,
+        date_time=datetime.strptime(timestamp, "%Y-%m-%dT%H-%M-%S"),
+        variant=base_variant,
+        batch_size=batch_size,
+    )
+    print(f"Prepared dependency dataset with {len(dependency_dataset)} samples.\n")
+
+    def make_stub_result(payload) -> DependencyResult:
+        module_name = payload.lean_module_name
+        original = payload.python_source.strip()
+        lean_code = (
+            f"/-- Autoformalization stub for `{payload.dep_name}`.\n"
+            "TODO: replace with generated Lean code. -/\n"
+            "-- Original Python:\n/-\n"
+            f"{original}\n"
+            "-/\n\n"
+            f"def {module_name}_stub : Unit := ()\n"
+        )
+        diagnostics = "dry-run" if dry_run else "autoformalizer not yet implemented"
+        return DependencyResult(
+            lean_module=module_name,
+            lean_code=lean_code,
+            variant=base_variant,
+            status="stub",
+            diagnostics=diagnostics,
         )
 
+    def executor(request: DependencyExecutionRequest) -> DependencyResult:
+        payload = request.spec.payload
+        # Placeholder: emit stub Lean code until the agent integration is implemented.
+        return make_stub_result(payload)
+
+    metadata = {"timestamp": timestamp, "variant": base_variant}
+
+    fatal_encountered = False
+    try:
+        report = run_dependency_autoformalizer(
+            specs,
+            executor=executor,
+            variant=base_variant,
+            max_attempts=max_attempts,
+            skip_cached=skip_cached,
+            dataset_batch_size=batch_size,
+            metadata=metadata,
+        )
+    except DependencyBatchError as err:
+        report = err.report
+        fatal_encountered = True
+
+    for outcome in report.outcomes:
+        spec = outcome.spec
+        sample_output_dir = utilio.get_sample_output_dir(
+            timestamp, spec.sample_id, path_variant
+        )
+        if outcome.status == "success" and outcome.result is not None:
+            provenance = CacheProvenance(
+                model=cfg.agent.model,
+                attempts=outcome.attempts,
+                diagnostics=outcome.diagnostics,
+            )
+            persist_generated_dependency(
+                spec.payload,
+                outcome.result,
+                sample_output_dir,
+                provenance=provenance,
+            )
+        elif outcome.status == "skipped" and skip_cached:
+            continue
+        elif outcome.status in {"failed", "fatal"}:
+            print(
+                f"! Dependency {spec.dependency_name} failed after {outcome.attempts} attempt(s)."
+            )
+
+    sample_groups: dict[str, list[DependencySampleSpec]] = defaultdict(list)
+    for spec in specs:
+        sample_groups[spec.sample_id].append(spec)
+
+    for sample_id, _ in sample_groups.items():
+        sample_output_dir = utilio.get_sample_output_dir(
+            timestamp, sample_id, path_variant
+        )
+        deps_dir = sample_output_dir / "deps"
+        if not deps_dir.exists():
+            continue
+        manifest = read_manifest(deps_dir)
+        aggregated = _aggregate_lean(deps_dir, manifest)
+        ordered = _order_modules(aggregated)
+        body = "\n\n".join(item["code"] for item in ordered if item["code"])
+        lean_text = (
+            f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n" if body else ""
+        )
+        (deps_dir / "Deps.lean").write_text(lean_text)
+
+    succeeded = len(report.succeeded)
+    skipped = len(report.skipped)
+    failed = len(report.failed)
+    fatal = len(report.fatal)
+
+    print("Run summary:")
+    print(f"  Successful: {succeeded}")
+    print(f"  Skipped (cached): {skipped}")
+    print(f"  Failed: {failed}")
+    print(f"  Fatal: {fatal}")
+
+    if fatal_encountered or fatal:
+        raise typer.Exit(code=1)
+
     print(
-        "\nDone. You can inspect the generated Lean modules under the directory above."
+        "\nDone. You can inspect the generated Lean modules and cache metadata under the directory above."
     )
 
 
