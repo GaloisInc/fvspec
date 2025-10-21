@@ -256,6 +256,11 @@ def deps_autoformalize_command(
         None,
         help="Logical batch size recorded for dependency dataset metadata.",
     ),
+    validate: bool = Option(
+        False,
+        "--validate",
+        help="Typecheck aggregated dependency modules after generation.",
+    ),
 ) -> None:
     """Autoformalize dependencies for selected datapoints without running the full generate."""
 
@@ -400,6 +405,8 @@ def deps_autoformalize_command(
     for spec in specs:
         sample_groups[spec.sample_id].append(spec)
 
+    validation_results: dict[str, dict[str, object]] = {}
+
     for sample_id, _ in sample_groups.items():
         sample_output_dir = utilio.get_sample_output_dir(
             timestamp, sample_id, path_variant
@@ -415,17 +422,42 @@ def deps_autoformalize_command(
             f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n" if body else ""
         )
         (deps_dir / "Deps.lean").write_text(lean_text)
+        if validate and lean_text.strip():
+            stdout, stderr, exitcode = utilio.run_cmd(
+                ["lean", str(deps_dir / "Deps.lean")], cwd=deps_dir
+            )
+            validation_results[sample_id] = {
+                "exitcode": exitcode,
+                "stdout": stdout,
+                "stderr": stderr,
+            }
+            status = "ok" if exitcode == 0 else "error"
+            print(f"  Validation ({sample_id}): {status} (exitcode={exitcode})")
+        elif validate:
+            validation_results[sample_id] = {
+                "exitcode": 0,
+                "stdout": "",
+                "stderr": "",
+            }
+            print(f"  Validation ({sample_id}): skipped (no Lean content)")
 
     succeeded = len(report.succeeded)
     skipped = len(report.skipped)
     failed = len(report.failed)
     fatal = len(report.fatal)
+    validation_failures = (
+        sum(1 for res in validation_results.values() if res["exitcode"] != 0)
+        if validate
+        else 0
+    )
 
     print("Run summary:")
     print(f"  Successful: {succeeded}")
     print(f"  Skipped (cached): {skipped}")
     print(f"  Failed: {failed}")
     print(f"  Fatal: {fatal}")
+    if validate:
+        print(f"  Validation failures: {validation_failures}")
 
     report_payload = {
         "timestamp": timestamp,
@@ -433,6 +465,7 @@ def deps_autoformalize_command(
         "dry_run": dry_run,
         "skip_cached": skip_cached,
         "max_attempts": max_attempts,
+        "validate": validate,
         "dataset_size": len(dependency_dataset),
         "started_at": report.started_at.isoformat(),
         "completed_at": report.completed_at.isoformat(),
@@ -463,6 +496,7 @@ def deps_autoformalize_command(
             for outcome in report.outcomes
         ],
         "metadata": report.metadata,
+        "validation": validation_results,
     }
 
     report_path = base_dir / "dependency_report.json"
