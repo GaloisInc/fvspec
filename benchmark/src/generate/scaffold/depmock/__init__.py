@@ -30,6 +30,16 @@ from .dataset import (
     payloads_from_datapoint,
     scan_dependencies,
 )
+from .autoformalizer import (
+    DependencyBatchError,
+    DependencyExecutionRequest,
+    DependencyOutcome,
+    DependencyRecoverableError,
+    DependencyFatalError,
+    DependencyInvocationError,
+    DependencyRunReport,
+    run_dependency_autoformalizer,
+)
 from .runner import depmock_setup, run_depmock_for_sample
 
 __all__ = [
@@ -58,6 +68,14 @@ __all__ = [
     "payloads_from_datapoint",
     "scan_dependencies",
     "build_dependency_dataset",
+    "DependencyInvocationError",
+    "DependencyRecoverableError",
+    "DependencyFatalError",
+    "DependencyExecutionRequest",
+    "DependencyOutcome",
+    "DependencyRunReport",
+    "DependencyBatchError",
+    "run_dependency_autoformalizer",
     "depmock_setup",
     "run_depmock_for_sample",
 ]

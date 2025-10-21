@@ -1,13 +1,12 @@
 """Tests for dependency dataset utilities."""
 
 from datetime import UTC, datetime
-from typing import Any, Callable, cast
+from typing import Any, cast
 
 import pytest
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.dataset import (
-    DependencySampleSpec,
     build_dependency_dataset,
     payloads_from_datapoint,
     scan_dependencies,

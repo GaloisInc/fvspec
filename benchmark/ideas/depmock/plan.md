@@ -16,7 +16,7 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
 ## Phase 2 — Execution Pipeline
 1. [x] **Dataset + run harness**  
          Build an inspect_ai dataset wrapper that yields dependency tasks from the depmock manifest/cache scanner, supports deterministic batching, and exposes sample metadata for logging.
-2. [ ] **Invocation layer**  
+2. [x] **Invocation layer**  
          Expose a Python API (e.g., `run_dependency_autoformalizer(...)`) that the CLI can call, handle partial successes (recoverable Lean errors), capture diagnostics, and propagate failures cleanly.
 3. [ ] **Caching strategy alignment**  
          Reconcile agent outputs with the existing cache format (hash naming, manifest entries, `Deps.lean` aggregation) and write cache entries with Lean artifacts plus provenance metadata (model, timestamp, source hash).
