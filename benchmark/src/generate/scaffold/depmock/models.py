@@ -6,7 +6,7 @@ import ast
 import re
 from dataclasses import dataclass
 from enum import Enum
-from typing import Iterable, Literal
+from typing import Iterable, Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
@@ -426,7 +426,8 @@ class _ReceiverUsageVisitor(ast.NodeVisitor):
 
     def _check_target(self, node: ast.AST) -> bool:
         if self._is_receiver_attribute(node):
-            self._attributes.add(node.attr)
+            attr_node = cast(ast.Attribute, node)
+            self._attributes.add(attr_node.attr)
             return True
         return False
 

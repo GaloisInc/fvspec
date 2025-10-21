@@ -33,7 +33,7 @@ def _payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
             DependencyPayload(
                 dep_name=dep_name,
                 python_source=source,
-                tags=[],
+                tags=tuple(),
                 usage_example=None,
             )
         )

@@ -22,7 +22,7 @@ def payload() -> DependencyPayload:
         dep_name="utils.normalize",
         python_source="""def normalize(x):\n    return x.strip().lower()""",
         source_hash="abc123",
-        tags=["strings"],
+        tags=("strings",),
         usage_example="normalize(' Foo ')",
     )
 

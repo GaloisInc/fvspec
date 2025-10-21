@@ -1,5 +1,7 @@
 """Unit tests for the dependency autoformalization agent."""
 
+from typing import Any, cast
+
 import pytest
 from inspect_ai.agent import AgentState
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser
@@ -18,7 +20,7 @@ def payload() -> DependencyPayload:
         dep_name="config.validate",
         python_source="""def validate(x):\n    return int(x)""",
         source_hash="abc123",
-        tags=["validation"],
+        tags=("validation",),
         usage_example="validate('42')",
     )
 
@@ -33,11 +35,14 @@ def test_dependency_payload_annotation(payload: DependencyPayload):
     assert plan.receiver_name is None
     context = payload.prompt_context()
     assert context["callable_kind"] == "function"
-    assert context["lean_module_qualified"].endswith(".ConfigValidate")
-    assert context["callable_arguments"][0]["name"] == "x"
+    lean_module = cast(str, context["lean_module_qualified"])
+    assert lean_module == payload.artifact.qualified_module
+    arguments = cast(list[dict[str, Any]], context["callable_arguments"])
+    assert arguments[0]["name"] == "x"
     assert context["module_path"] == "config"
     assert context["normalization_strategy"] == "as_is"
-    assert context["lean_helper_name"] == "config_validate"
+    lean_helper_name = cast(str, context["lean_helper_name"])
+    assert lean_helper_name == "config_validate"
 
 
 def test_normalization_flatten_method():
@@ -45,7 +50,7 @@ def test_normalization_flatten_method():
         dep_name="Widget.ping",
         python_source="def ping(self, value):\n    return value + 1",
         source_hash=None,
-        tags=(),
+        tags=tuple(),
     )
     plan = payload.normalization
     assert plan.strategy.value == "flatten_method"
@@ -54,8 +59,9 @@ def test_normalization_flatten_method():
     assert plan.lean_helper_name == "widget_ping"
     context = payload.prompt_context()
     assert context["normalization_strategy"] == "flatten_method"
-    assert "widget_ping" in context["lean_helper_name"]
-    assert context["normalization"]["receiver_alias"] == "inst"
+    assert "widget_ping" in cast(str, context["lean_helper_name"])
+    normalization = cast(dict[str, Any], context["normalization"])
+    assert normalization["receiver_alias"] == "inst"
 
 
 def test_normalization_structure_method():
@@ -76,8 +82,9 @@ def test_normalization_structure_method():
     assert plan.mutates_receiver is True
     context = payload.prompt_context()
     assert context["normalization_strategy"] == "structure_method"
-    assert context["normalization"]["struct_fields"] == ["count"]
-    assert context["normalization"]["mutates_receiver"] is True
+    normalization = cast(dict[str, Any], context["normalization"])
+    assert normalization["struct_fields"] == ["count"]
+    assert normalization["mutates_receiver"] is True
 
 
 def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
