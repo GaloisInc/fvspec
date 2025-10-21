@@ -7,8 +7,8 @@ from pathlib import Path
 
 from inspect_ai.solver import TaskState, solver, Solver, Generate
 
-from benchmark.scaffold.dataset import Datapoint
-from benchmark.scaffold.tools import utilio
+from generate.scaffold.dataset import Datapoint
+from generate.scaffold.tools import utilio
 
 from .cache import (
     CacheRecord,

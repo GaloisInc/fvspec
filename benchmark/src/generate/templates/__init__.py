@@ -1,8 +1,8 @@
 import json
 from pathlib import Path
 from typer import Typer, Option
-from benchmark.templates.spec import get_variant_prompts, VariantRegistry
-from benchmark.templates.deps import (
+from generate.templates.spec import get_variant_prompts, VariantRegistry
+from generate.templates.deps import (
     get_dependency_prompts,
     DependencyVariantRegistry,
 )

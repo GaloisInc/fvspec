@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark.scaffold.depmock import (
+from generate.scaffold.depmock import (
     DependencyPayload,
     DependencyResult,
     store_dependency_result,
@@ -13,7 +13,7 @@ from benchmark.scaffold.depmock import (
     persist_generated_dependency,
     record_cache_hit,
 )
-from benchmark.scaffold.depmock.cache import CacheRecord, read_manifest
+from generate.scaffold.depmock.cache import CacheRecord, read_manifest
 
 
 @pytest.fixture

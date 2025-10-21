@@ -2,10 +2,10 @@ from datetime import datetime
 from pathlib import Path
 from inspect_ai import Task, task
 from inspect_ai.solver import generate, use_tools, system_message
-from benchmark.scaffold.tools.declaration import lean_compile, write_to_disk
-from benchmark.scaffold.dataset import mk_dataset
-from benchmark.templates.spec import get_variant_prompts
-from benchmark.scaffold.depmock.runner import depmock_setup
+from generate.scaffold.tools.declaration import lean_compile, write_to_disk
+from generate.scaffold.dataset import mk_dataset
+from generate.templates.spec import get_variant_prompts
+from generate.scaffold.depmock.runner import depmock_setup
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -19,7 +19,7 @@ def fvspec(
     ranseed: int | None = 0,
 ) -> Task:
     """
-    A task generating the fvspec benchmark.
+    A task generating the fvspec generate.
 
     Args:
         datafile: Path to the JSON file containing test data
@@ -41,7 +41,7 @@ def fvspec(
     )
 
     if use_mcp:
-        from benchmark.scaffold.agent import get_lean_mcp_tools
+        from generate.scaffold.agent import get_lean_mcp_tools
 
         fvspec_task = Task(
             dataset=dataset,

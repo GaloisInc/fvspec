@@ -5,9 +5,9 @@ from inspect_ai.tool import tool, ToolError
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import Score
 from inspect_ai.solver._task_state import sample_state
-from benchmark.scaffold.dataset import Datapoint
-from benchmark.scaffold.quality_assessment import QualityAssessment
-from benchmark.scaffold.tools import utilio
+from generate.scaffold.dataset import Datapoint
+from generate.scaffold.quality_assessment import QualityAssessment
+from generate.scaffold.tools import utilio
 
 LAKE_BUILD_CMD = ["lake", "build"]
 

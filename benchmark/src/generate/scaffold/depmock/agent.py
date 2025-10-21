@@ -7,7 +7,7 @@ from inspect_ai.model import ChatMessageSystem, ChatMessageUser
 from inspect_ai.tool import Tool
 from inspect_ai.util._store import store
 
-from benchmark.templates.deps import get_dependency_prompts
+from generate.templates.deps import get_dependency_prompts
 
 from .models import DependencyPayload
 

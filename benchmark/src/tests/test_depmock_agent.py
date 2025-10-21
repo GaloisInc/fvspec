@@ -4,12 +4,12 @@ import pytest
 from inspect_ai.agent import AgentState
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser
 
-from benchmark.scaffold.depmock import (
+from generate.scaffold.depmock import (
     DependencyPayload,
     autoformalize_dependency_tool,
     dependency_autoformalizer,
 )
-from benchmark.scaffold.depmock.agent import _dependency_autoformalizer
+from generate.scaffold.depmock.agent import _dependency_autoformalizer
 
 
 @pytest.fixture

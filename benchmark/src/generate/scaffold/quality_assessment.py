@@ -4,7 +4,7 @@ from typing import cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
-from benchmark.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import Datapoint
 
 
 class StructuralFaithfulness(BaseModel):

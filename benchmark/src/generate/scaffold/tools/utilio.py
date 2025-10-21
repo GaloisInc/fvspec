@@ -5,7 +5,7 @@ from contextlib import contextmanager
 from pathlib import Path
 
 # import logfire
-from benchmark import config
+from generate import config
 
 cfg = config.load_config()
 # if cfg.meta.logging:

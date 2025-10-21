@@ -1,6 +1,6 @@
 """Tests for dependency autoformalization prompt variants."""
 
-from benchmark.templates.deps import (
+from generate.templates.deps import (
     DependencyVariantRegistry,
     get_dependency_prompts,
     DependencyPromptBundle,

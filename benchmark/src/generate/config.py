@@ -104,7 +104,7 @@ def find_config_file(start_dir: Path | None = None) -> Path:
     if start_dir is None:
         start_dir = Path(".")
     current = start_dir.absolute()
-    config_path = current / "src" / "benchmark" / "config.toml"
+    config_path = current / "src" / "generate" / "config.toml"
     if config_path.exists():
         return config_path
     raise FileNotFoundError(

@@ -4,11 +4,11 @@ from datetime import datetime
 from pathlib import Path
 import random
 from inspect_ai import eval, eval_set
-from benchmark.config import load_config
-from benchmark.scaffold.task import fvspec, DATA_DIR
-from benchmark.scaffold.dataset import load_datapoints, Datapoint
-from benchmark.scaffold.depmock import run_depmock_for_sample, clear_cache
-from benchmark.templates.spec import VariantRegistry
+from generate.config import load_config
+from generate.scaffold.task import fvspec, DATA_DIR
+from generate.scaffold.dataset import load_datapoints, Datapoint
+from generate.scaffold.depmock import run_depmock_for_sample, clear_cache
+from generate.templates.spec import VariantRegistry
 from typer import Typer, Option
 import typer
 
@@ -221,7 +221,7 @@ def deps_autoformalize_command(
         help="Variant name used for metadata (defaults to config.toml prompt variant).",
     ),
 ) -> None:
-    """Autoformalize dependencies for selected datapoints without running the full benchmark."""
+    """Autoformalize dependencies for selected datapoints without running the full generate."""
 
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():

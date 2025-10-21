@@ -263,67 +263,6 @@ wheels = [
 ]
 
 [[package]]
-name = "benchmark"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "codegen" },
-    { name = "datasets" },
-    { name = "hvplot" },
-    { name = "inspect-ai" },
-    { name = "jinja2" },
-    { name = "jsonlines" },
-    { name = "mcp" },
-    { name = "pandas" },
-    { name = "panel" },
-    { name = "pydantic" },
-    { name = "pydantic-ai" },
-    { name = "python-dotenv" },
-    { name = "streamlit" },
-    { name = "tqdm" },
-    { name = "trio" },
-    { name = "typer" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "hypothesis" },
-    { name = "pytest" },
-    { name = "pytest-mock" },
-    { name = "ruff" },
-    { name = "ty" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "codegen", specifier = ">=0.57.0" },
-    { name = "datasets", specifier = ">=4.1.1" },
-    { name = "hvplot", specifier = ">=0.12.1" },
-    { name = "inspect-ai", specifier = ">=0.3.140" },
-    { name = "jinja2", specifier = ">=3.1.6" },
-    { name = "jsonlines", specifier = ">=4.0.0" },
-    { name = "mcp", specifier = ">=1.18.0" },
-    { name = "pandas", specifier = ">=2.3.3" },
-    { name = "panel", specifier = ">=1.8.2" },
-    { name = "pydantic", specifier = ">=2.12.3" },
-    { name = "pydantic-ai", specifier = ">=1.2.1" },
-    { name = "python-dotenv", specifier = ">=1.1.1" },
-    { name = "streamlit", specifier = ">=1.50.0" },
-    { name = "tqdm", specifier = ">=4.67.1" },
-    { name = "trio", specifier = ">=0.31.0" },
-    { name = "typer", specifier = ">=0.19.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "hypothesis", specifier = ">=6.140.3" },
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-mock", specifier = ">=3.15.1" },
-    { name = "ruff", specifier = ">=0.14.0" },
-    { name = "ty", specifier = ">=0.0.1a21" },
-]
-
-[[package]]
 name = "black"
 version = "25.9.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1064,6 +1003,67 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/0d/f4/d1d790c9d1c01e9d1d7ec17985702d2cf209bdf0b7c528a5d99d09054633/genai_prices-0.0.35.tar.gz", hash = "sha256:79b1cdfeef9a0ee7b2895781c3b2beafd22a0aec76a8864aab8aa6ff6013a9e3", size = 45930, upload-time = "2025-10-19T10:05:45.831Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/6d/89/84ae62f3ba944ee7bf9009840b7918249cba7f83b9b16f25b85fdfeaeaa8/genai_prices-0.0.35-py3-none-any.whl", hash = "sha256:4e53f19ffe4151074bf7e60f2dd1a0b65593b4c4a9134149bd940e3e77467db2", size = 48565, upload-time = "2025-10-19T10:05:44.464Z" },
+]
+
+[[package]]
+name = "generate"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "codegen" },
+    { name = "datasets" },
+    { name = "hvplot" },
+    { name = "inspect-ai" },
+    { name = "jinja2" },
+    { name = "jsonlines" },
+    { name = "mcp" },
+    { name = "pandas" },
+    { name = "panel" },
+    { name = "pydantic" },
+    { name = "pydantic-ai" },
+    { name = "python-dotenv" },
+    { name = "streamlit" },
+    { name = "tqdm" },
+    { name = "trio" },
+    { name = "typer" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "hypothesis" },
+    { name = "pytest" },
+    { name = "pytest-mock" },
+    { name = "ruff" },
+    { name = "ty" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "codegen", specifier = ">=0.57.0" },
+    { name = "datasets", specifier = ">=4.1.1" },
+    { name = "hvplot", specifier = ">=0.12.1" },
+    { name = "inspect-ai", specifier = ">=0.3.140" },
+    { name = "jinja2", specifier = ">=3.1.6" },
+    { name = "jsonlines", specifier = ">=4.0.0" },
+    { name = "mcp", specifier = ">=1.18.0" },
+    { name = "pandas", specifier = ">=2.3.3" },
+    { name = "panel", specifier = ">=1.8.2" },
+    { name = "pydantic", specifier = ">=2.12.3" },
+    { name = "pydantic-ai", specifier = ">=1.2.1" },
+    { name = "python-dotenv", specifier = ">=1.1.1" },
+    { name = "streamlit", specifier = ">=1.50.0" },
+    { name = "tqdm", specifier = ">=4.67.1" },
+    { name = "trio", specifier = ">=0.31.0" },
+    { name = "typer", specifier = ">=0.19.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "hypothesis", specifier = ">=6.140.3" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-mock", specifier = ">=3.15.1" },
+    { name = "ruff", specifier = ">=0.14.0" },
+    { name = "ty", specifier = ">=0.0.1a21" },
 ]
 
 [[package]]

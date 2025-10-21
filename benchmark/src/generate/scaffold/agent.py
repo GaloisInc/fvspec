@@ -1,5 +1,5 @@
 from inspect_ai.tool import mcp_server_stdio, mcp_tools
-from benchmark.scaffold.tools.declaration import lean_compile
+from generate.scaffold.tools.declaration import lean_compile
 
 
 def get_lean_mcp_tools():

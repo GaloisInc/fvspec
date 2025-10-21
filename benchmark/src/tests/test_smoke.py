@@ -1,4 +1,4 @@
-"""Smoke tests for the fvspec benchmark.
+"""Smoke tests for the fvspec generate.
 
 These tests verify that the inspect_ai task loop can run without crashing
 due to basic software engineering errors (import issues, type errors, etc).
@@ -11,9 +11,9 @@ from unittest.mock import patch
 
 import pytest
 from inspect_ai.model import ChatMessageAssistant
-from benchmark.scaffold.task import fvspec
-from benchmark.scaffold.dataset import Datapoint
-from benchmark.templates.spec import get_variant_prompts
+from generate.scaffold.task import fvspec
+from generate.scaffold.dataset import Datapoint
+from generate.templates.spec import get_variant_prompts
 
 
 @pytest.fixture
@@ -86,7 +86,7 @@ async def test_smoke_task_creation(temp_data_file):
     - Tool registration works
     - No import errors, type errors, or missing dependencies
     """
-    with patch("benchmark.scaffold.dataset.sample_datapoints") as mock_sample:
+    with patch("generate.scaffold.dataset.sample_datapoints") as mock_sample:
         # Only use 1 sample for speed
         mock_sample.return_value = [
             Datapoint(
@@ -115,7 +115,7 @@ async def test_smoke_task_creation(temp_data_file):
 
 async def test_smoke_dataset_loading(temp_data_file):
     """Smoke test: Verify dataset loading doesn't crash."""
-    from benchmark.scaffold.dataset import load_datapoints
+    from generate.scaffold.dataset import load_datapoints
 
     datapoints = load_datapoints(temp_data_file)
 
@@ -185,7 +185,7 @@ def test_smoke_prompt_rendering():
 
 def test_smoke_tool_registration():
     """Smoke test: Verify lean_compile tool can be created."""
-    from benchmark.scaffold.tools.declaration import lean_compile
+    from generate.scaffold.tools.declaration import lean_compile
 
     tool = lean_compile()
     assert callable(tool)
@@ -193,10 +193,10 @@ def test_smoke_tool_registration():
 
 def test_smoke_quality_assessment_from_mock_state():
     """Smoke test: Verify QA extraction doesn't crash."""
-    from benchmark.scaffold.quality_assessment import QualityAssessment
+    from generate.scaffold.quality_assessment import QualityAssessment
     from inspect_ai.solver import TaskState
     from inspect_ai.model import ChatMessageUser
-    from benchmark.scaffold.dataset import Datapoint
+    from generate.scaffold.dataset import Datapoint
     from unittest.mock import Mock
 
     # Create a minimal mock TaskState

@@ -2,7 +2,7 @@
 
 from pathlib import Path
 import pytest
-from benchmark.templates.spec import (
+from generate.templates.spec import (
     VariantRegistry,
     VariantConfig,
     get_variant_prompts,
@@ -240,7 +240,7 @@ class TestSharedFragments:
         """All expected shared fragment files should exist."""
         fragments_dir = (
             Path(__file__).parent.parent
-            / "benchmark"
+            / "generate"
             / "templates"
             / "spec"
             / "shared"
@@ -254,7 +254,7 @@ class TestSharedFragments:
     def test_shared_initial_prompt_exists(self):
         """Shared initial prompt should exist."""
         shared_dir = (
-            Path(__file__).parent.parent / "benchmark" / "templates" / "spec" / "shared"
+            Path(__file__).parent.parent / "generate" / "templates" / "spec" / "shared"
         )
         assert (shared_dir / "initial.prompt").exists()
 
@@ -262,7 +262,7 @@ class TestSharedFragments:
         """task_core.txt should have expected content."""
         fragments_dir = (
             Path(__file__).parent.parent
-            / "benchmark"
+            / "generate"
             / "templates"
             / "spec"
             / "shared"
@@ -278,7 +278,7 @@ class TestSharedFragments:
         """output_format.txt should specify code tag format."""
         fragments_dir = (
             Path(__file__).parent.parent
-            / "benchmark"
+            / "generate"
             / "templates"
             / "spec"
             / "shared"
@@ -294,7 +294,7 @@ class TestSharedFragments:
         """metrics.txt should describe Faithfulness and Interest."""
         fragments_dir = (
             Path(__file__).parent.parent
-            / "benchmark"
+            / "generate"
             / "templates"
             / "spec"
             / "shared"

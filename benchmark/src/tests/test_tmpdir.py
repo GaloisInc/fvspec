@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark.scaffold.tools.utilio import (
+from generate.scaffold.tools.utilio import (
     create_sample_workspace,
     cleanup_sample_workspace,
     sample_workspace,

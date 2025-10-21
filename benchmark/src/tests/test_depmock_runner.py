@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from benchmark.scaffold.depmock.runner import run_depmock_for_sample
-from benchmark.scaffold.dataset import Datapoint
+from generate.scaffold.depmock.runner import run_depmock_for_sample
+from generate.scaffold.dataset import Datapoint
 
 
 def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
@@ -14,7 +14,7 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
         path.mkdir(parents=True, exist_ok=True)
         return path
 
-    from benchmark.scaffold.tools import utilio
+    from generate.scaffold.tools import utilio
 
     monkeypatch.setattr(utilio, "get_sample_output_dir", fake_sample_dir)
 

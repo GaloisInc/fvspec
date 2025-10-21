@@ -3,7 +3,7 @@ import random
 from datetime import datetime
 from pathlib import Path
 
-from benchmark.templates.spec import VariantRegistry, get_variant_prompts
+from generate.templates.spec import VariantRegistry, get_variant_prompts
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
 

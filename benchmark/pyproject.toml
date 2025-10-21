@@ -1,5 +1,5 @@
 [project]
-name = "benchmark"
+name = "generate"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -28,13 +28,13 @@ dependencies = [
 ]
 
 [project.scripts]
-preview_prompts = "benchmark.templates:main"
-fvspec = "benchmark:main"
+preview_prompts = "generate.templates:main"
+fvspec = "generate:main"
 analyze_deps_regex = "scripts.analyze_deps_regex:cli"
 analyze_deps = "scripts.analyze_deps:main"
 
 [project.entry-points.inspect_ai]
-benchmark = "benchmark._registry"
+benchmark = "generate._registry"
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]
