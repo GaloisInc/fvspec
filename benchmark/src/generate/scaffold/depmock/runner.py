@@ -8,41 +8,23 @@ from pathlib import Path
 
 from inspect_ai.solver import TaskState, solver, Solver, Generate
 
-from generate.config import load_config
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.tools import utilio
 
 from generate.scaffold.depmock.cache import (
     CacheRecord,
-    CacheProvenance,
-    compute_cache_key,
     load_cached_dependency,
     persist_generated_dependency,
     read_manifest,
     record_cache_hit,
 )
-from generate.scaffold.depmock.dataset import (
-    DependencySampleSpec,
-    payloads_from_datapoint,
-)
+from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
-from generate.scaffold.depmock.autoformalizer import (
-    DependencyExecutionRequest,
-    DependencyRecoverableError,
-    DependencyFatalError,
-)
-from generate.scaffold.depmock.agent_runner import run_dependency_agent
 
 
 _LEAN_IMPORT_PATTERN = re.compile(
     r"^\s*import\s+(Fvspec\.Deps\.[A-Za-z0-9_.]+)", re.MULTILINE
 )
-
-_CONFIG_PATH = Path(__file__).resolve().parents[2] / "config.toml"
-_CFG = load_config(_CONFIG_PATH)
-_DEPMOCK_AGENT_MODEL = _CFG.agent.model
-_DEPMOCK_AGENT_DISPLAY = _CFG.meta.display or "none"
-_DEPMOCK_MAX_ATTEMPTS = 3
 
 
 def _extract_module_dependencies(
@@ -147,104 +129,25 @@ def _process_payloads(
     payloads: list[DependencyPayload],
     sample_output_dir: Path,
     variant: str | None,
-    *,
-    max_attempts: int,
-    model: str,
-    display: str | None,
 ) -> dict[str, object]:
     deps_dir = sample_output_dir / "deps"
     deps_dir.mkdir(parents=True, exist_ok=True)
 
     prepared_records: list[CacheRecord] = []
-    sample_id = sample_output_dir.name
+    payload_dumps: list[dict[str, object]] = []
 
-    for index, payload in enumerate(payloads):
+    for payload in payloads:
         record = load_cached_dependency(payload)
         if record is not None:
             record_cache_hit(record, sample_output_dir, source="cache")
             prepared_records.append(record)
+            payload_dumps.append(payload.model_dump())
             continue
 
-        spec = DependencySampleSpec(
-            payload=payload,
-            cache_key=compute_cache_key(payload),
-            datapoint_id=datapoint.id,
-            datapoint_repo_id=datapoint.repo_id,
-            datapoint_name=datapoint.pbt_name,
-            dependency_index=index,
-            sample_id=sample_id,
-            cached=False,
-        )
-
-        diagnostics: str | None = None
-        success_result: DependencyResult | None = None
-        failure_error: DependencyRecoverableError | DependencyFatalError | None = None
-        final_attempt = 0
-
-        for attempt in range(1, max_attempts + 1):
-            request = DependencyExecutionRequest(
-                spec=spec,
-                attempt=attempt,
-                diagnostics=diagnostics,
-            )
-            try:
-                success_result = run_dependency_agent(
-                    request,
-                    variant=variant,
-                    model=model,
-                    max_attempts=max_attempts,
-                    display=display,
-                )
-            except DependencyRecoverableError as err:
-                diagnostics = err.diagnostics
-                failure_error = err
-                success_result = None
-                final_attempt = attempt
-                if attempt >= max_attempts:
-                    break
-                continue
-            except DependencyFatalError as err:
-                failure_error = err
-                success_result = None
-                final_attempt = attempt
-                break
-            else:
-                failure_error = None
-                final_attempt = attempt
-                break
-
-        if success_result is not None:
-            provenance = CacheProvenance(
-                model=model,
-                attempts=final_attempt,
-                diagnostics=None,
-            )
-            record = persist_generated_dependency(
-                payload,
-                success_result,
-                sample_output_dir,
-                provenance=provenance,
-            )
-        else:
-            failure_diagnostics = None
-            if failure_error is not None:
-                failure_diagnostics = failure_error.diagnostics or str(failure_error)
-
-            stub = _stub_result(payload, variant)
-            failed_result = DependencyResult(
-                lean_module=stub.lean_module,
-                lean_code=stub.lean_code,
-                variant=stub.variant,
-                status="failed",
-                diagnostics=failure_diagnostics,
-            )
-            record = persist_generated_dependency(
-                payload,
-                failed_result,
-                sample_output_dir,
-            )
-
+        stub_result = _stub_result(payload, variant)
+        record = persist_generated_dependency(payload, stub_result, sample_output_dir)
         prepared_records.append(record)
+        payload_dumps.append(payload.model_dump())
 
     manifest = read_manifest(deps_dir)
     aggregated = _aggregate_lean(deps_dir, manifest)
@@ -260,6 +163,7 @@ def _process_payloads(
         "lean_text": lean_text,
         "deps_dir": str(deps_dir),
         "variant": variant,
+        "payloads": payload_dumps,
     }
 
 
@@ -290,9 +194,6 @@ def depmock_setup() -> Solver:
             payloads,
             sample_output_dir,
             variant if isinstance(variant, str) else None,
-            max_attempts=_DEPMOCK_MAX_ATTEMPTS,
-            model=_DEPMOCK_AGENT_MODEL,
-            display=_DEPMOCK_AGENT_DISPLAY,
         )
         state.metadata["depmock"] = meta
         return state
@@ -329,7 +230,4 @@ def run_depmock_for_sample(
         payloads,
         sample_output_dir,
         variant,
-        max_attempts=_DEPMOCK_MAX_ATTEMPTS,
-        model=_DEPMOCK_AGENT_MODEL,
-        display=_DEPMOCK_AGENT_DISPLAY,
     )

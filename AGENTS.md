@@ -225,9 +225,9 @@ See `benchmark/README.md` for detailed documentation on creating and comparing v
 uv run ruff format
 
 # Run linter
-uv run ruff check
+uv run ruff check  # this includes docstring linting! 
 
-# Run typechecker
+# Run typechecker -- don't be a zealot about it
 uv run ty check
 
 # Run tests

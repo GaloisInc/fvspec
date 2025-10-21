@@ -9,4 +9,8 @@ lean_diagnostic_messages(file_path: "/tmp/tmp.eOiLb6kBuO/Fvspec/Basic.lean")
 Invalid Lean file path: Unable to start LSP server or load file
 ```
 
+We also see in inspect logs:
+```
+No valid lean project path found. ... or set the LEAN_PROJECT_PATH environment variable.
+```
 

@@ -1,6 +1,7 @@
 """Unit tests for the dependency autoformalization agent."""
 
-from typing import Any, cast
+import asyncio
+from typing import Any, Awaitable, cast
 
 import pytest
 from inspect_ai.agent import AgentState
@@ -11,7 +12,25 @@ from generate.scaffold.depmock import (
     autoformalize_dependency_tool,
     dependency_autoformalizer,
 )
-from generate.scaffold.depmock.agent import _dependency_autoformalizer
+
+
+def run_dependency_autoformalizer(
+    payload: DependencyPayload,
+    *,
+    diagnostics: str | None = None,
+    variant: str | None = None,
+) -> AgentState:
+    """Execute the dependency autoformalizer agent and return the new state."""
+
+    async def _run() -> AgentState:
+        state = AgentState(messages=[])
+        agent_call = dependency_autoformalizer(
+            state, payload=payload, diagnostics=diagnostics, variant=variant
+        )
+        awaitable_state = cast(Awaitable[AgentState], agent_call)
+        return await awaitable_state
+
+    return asyncio.run(_run())
 
 
 @pytest.fixture
@@ -93,9 +112,7 @@ def test_normalization_structure_method():
 
 def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
     """Initial prompts should include system instructions and user payload content."""
-    state = AgentState(messages=[])
-
-    result_state = _dependency_autoformalizer(state, payload=payload)
+    result_state = run_dependency_autoformalizer(payload)
 
     assert len(result_state.messages) == 2
     assert isinstance(result_state.messages[0], ChatMessageSystem)
@@ -107,11 +124,7 @@ def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
 def test_dependency_autoformalizer_refine_prompt(payload: DependencyPayload):
     """Refinement prompts should surface diagnostics for iterative repair."""
     diagnostics = "unknown identifier foo"
-    state = AgentState(messages=[])
-
-    result_state = _dependency_autoformalizer(
-        state, payload=payload, diagnostics=diagnostics
-    )
+    result_state = run_dependency_autoformalizer(payload, diagnostics=diagnostics)
 
     assert diagnostics in result_state.messages[-1].content
 

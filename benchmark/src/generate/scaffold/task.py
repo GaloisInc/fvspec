@@ -12,6 +12,7 @@ from generate.scaffold.tools.declaration import (
 from generate.scaffold.dataset import mk_dataset
 from generate.templates.spec import get_variant_prompts
 from generate.scaffold.depmock.runner import depmock_setup
+from generate.scaffold.depmock.agent import autoformalize_dependency_tool
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -51,7 +52,7 @@ def fvspec(
             setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
-                use_tools(lean_lsp_mcp()),
+                use_tools(lean_lsp_mcp() + [autoformalize_dependency_tool()]),
                 generate(),
             ],
             cleanup=write_to_disk,
@@ -62,7 +63,7 @@ def fvspec(
             setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
-                use_tools([lean_compile()]),
+                use_tools([lean_compile(), autoformalize_dependency_tool()]),
                 generate(),
             ],
             cleanup=write_to_disk,

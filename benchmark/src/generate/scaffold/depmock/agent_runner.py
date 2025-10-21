@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any, cast
 
 from inspect_ai import Task, eval as inspect_eval
@@ -76,6 +77,7 @@ def _run_agent_once(
     max_attempts: int,
     display: str | None,
     message_limit: int | None,
+    log_dir: Path | None = None,
 ) -> DependencyAgentRun:
     """Execute the dependency autoformalizer task once via inspect_ai."""
     payload = request.spec.payload
@@ -118,16 +120,20 @@ def _run_agent_once(
 
     task = Task(dataset=dataset, solver=solver_plan)
 
+    eval_kwargs: dict[str, Any] = {
+        "model": model,
+        "display": display or "none",
+        "trace": False,
+        "log_samples": False,
+        "fail_on_error": True,
+        "continue_on_fail": False,
+    }
+    if log_dir is not None:
+        log_dir.mkdir(parents=True, exist_ok=True)
+        eval_kwargs["log_dir"] = str(log_dir)
+
     try:
-        logs = inspect_eval(
-            task,
-            model=model,
-            display=display or "none",
-            trace=False,
-            log_samples=False,
-            fail_on_error=True,
-            continue_on_fail=False,
-        )
+        logs = inspect_eval(task, **eval_kwargs)
     except Exception as exc:  # pragma: no cover - safety net for inspect_ai errors
         raise DependencyFatalError(f"inspect.ai evaluation failed: {exc}") from exc
 
@@ -167,6 +173,7 @@ def run_dependency_agent(
     max_attempts: int,
     display: str | None = "none",
     message_limit: int | None = 20,
+    log_dir: Path | None = None,
 ) -> DependencyResult:
     """Run the dependency autoformalizer agent and return Lean output.
 
@@ -177,6 +184,7 @@ def run_dependency_agent(
         max_attempts: Maximum submissions allowed within the agent loop.
         display: Inspect display mode (defaults to ``"none"``).
         message_limit: Optional cap on messages exchanged within the agent.
+        log_dir: Optional directory where inspect_ai evaluation logs should be written.
 
     Returns:
         DependencyResult containing the generated Lean code.
@@ -192,6 +200,7 @@ def run_dependency_agent(
         max_attempts=max_attempts,
         display=display,
         message_limit=message_limit,
+        log_dir=log_dir,
     )
 
     return DependencyResult(

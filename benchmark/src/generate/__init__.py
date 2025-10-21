@@ -369,12 +369,17 @@ def deps_autoformalize_command(
     else:
 
         def executor(request: DependencyExecutionRequest) -> DependencyResult:
+            sample_output_dir = utilio.get_sample_output_dir(
+                timestamp, request.spec.sample_id, path_variant
+            )
+            log_dir = sample_output_dir / "deps"
             return run_dependency_agent(
                 request,
                 variant=base_variant,
                 model=cfg.agent.model,
                 max_attempts=max_attempts,
                 display=agent_display,
+                log_dir=log_dir,
             )
 
     metadata = {"timestamp": timestamp, "variant": base_variant}
