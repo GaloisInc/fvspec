@@ -471,9 +471,7 @@ def deps_autoformalize_command(
         "dataset_size": len(dependency_dataset),
         "started_at": report.started_at.isoformat(),
         "completed_at": report.completed_at.isoformat(),
-        "duration_seconds": (
-            report.completed_at - report.started_at
-        ).total_seconds(),
+        "duration_seconds": (report.completed_at - report.started_at).total_seconds(),
         "totals": {
             "success": succeeded,
             "skipped": skipped,
