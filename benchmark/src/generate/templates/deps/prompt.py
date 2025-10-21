@@ -24,6 +24,9 @@ def get_dependency_prompts(variant: str | None = None) -> DependencyPromptBundle
     """Load system/translate/refine prompts for the given dependency variant."""
     registry = DependencyVariantRegistry()
     variant_name = variant or registry.default_variant()
+    if variant_name == "default":
+        variant_name = registry.default_variant()
+
     variant_config = registry.get_variant(variant_name)
 
     system_prompt = _env.from_string(variant_config.system_prompt).render()

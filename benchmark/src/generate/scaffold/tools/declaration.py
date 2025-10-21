@@ -3,7 +3,7 @@
 import re
 from pathlib import Path
 from typing import Callable, Awaitable, cast
-from inspect_ai.tool import tool, ToolError
+from inspect_ai.tool import tool, ToolError, mcp_server_stdio, mcp_tools
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import Score
 from inspect_ai.solver._task_state import sample_state
@@ -75,6 +75,28 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
         return stdout, stderr, exitcode
 
     return execute
+
+
+def lean_lsp_mcp() -> list:
+    """Construct the Lean LSP MCP tool bundle used by benchmark agents."""
+    lean_server = mcp_server_stdio(
+        name="lean-lsp", command="uvx", args=["lean-lsp-mcp"]
+    )
+
+    return [
+        lean_compile(),
+        mcp_tools(
+            lean_server,
+            tools=[
+                "lean_run_code",
+                "lean_diagnostic_messages",
+                "lean_hover_info",
+                "lean_goal",
+                "lean_completions",
+                "lean_multi_attempt",
+            ],
+        ),
+    ]
 
 
 def write_datapoint_to_disk(

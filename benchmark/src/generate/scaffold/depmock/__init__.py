@@ -16,6 +16,7 @@ from generate.scaffold.depmock.agent import (
     dependency_autoformalizer,
     autoformalize_dependency_tool,
 )
+from generate.scaffold.depmock.agent_runner import run_dependency_agent
 from generate.scaffold.depmock.cache import (
     CacheRecord,
     compute_cache_key,
@@ -58,6 +59,7 @@ __all__ = [
     "LeanArtifactSpec",
     "dependency_autoformalizer",
     "autoformalize_dependency_tool",
+    "run_dependency_agent",
     "CacheRecord",
     "compute_cache_key",
     "load_cached_dependency",

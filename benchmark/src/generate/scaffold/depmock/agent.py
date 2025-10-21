@@ -59,7 +59,11 @@ dependency_autoformalizer = agent(
 
 
 def autoformalize_dependency_tool(
-    *, variant: str | None = None, description: str | None = None
+    *,
+    payload: DependencyPayload,
+    diagnostics: str | None = None,
+    variant: str | None = None,
+    description: str | None = None,
 ) -> Tool:
     """Create a tool wrapping the dependency autoformalizer agent."""
     tool_description = description or (
@@ -68,5 +72,7 @@ def autoformalize_dependency_tool(
     return as_tool(
         dependency_autoformalizer,
         description=tool_description,
+        payload=payload,
+        diagnostics=diagnostics,
         variant=variant,
     )

@@ -2,6 +2,8 @@
 
 Goal: ship `uv run fvspec` with real dependency autoformalization by embedding the depmock agent as an inspect_ai subagent (agent-as-tool). This document captures the minimum work required to replace the current stub executor with a functioning subagent loop. No stretch goals, no future roadmap—just the blockers between today’s implementation and a working multi-agent flow.
 
+See also: `benchmark/ideas/docs/multiagent.md` for the Inspect multi-agent tooling notes harvested during indexing.
+
 ---
 
 ## 1. Desired Runtime Flow
@@ -98,9 +100,9 @@ Drawing from https://inspect.aisi.org.uk/multi-agent.html:
 
 ---
 
-## 5. Deliverable Checklist
+# Deliverable Checklist
 
-- [ ] `run_dependency_autoformalizer` invokes the real subagent via `run_dependency_agent()`.
-- [ ] Subagent uses inspect_ai `basic_agent` + `autoformalize_dependency_tool()` + `lean_compile()` to produce Lean code.
+- [x] `run_dependency_autoformalizer` invokes the real subagent via `run_dependency_agent()`.
+- [x] Subagent uses inspect_ai `basic_agent` + `autoformalize_dependency_tool()` + `lean_compile()` to produce Lean code.
 - [ ] Telemetry (`dependency_report.json`, cache metadata, validation logs) captures actual agent attempts/diagnostics.
 - [ ] `uv run fvspec deps autoformalize` works end-to-end, and `uv run fvspec` automatically leverages the generated dependencies for the main spec solver.

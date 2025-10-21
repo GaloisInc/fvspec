@@ -118,7 +118,13 @@ def test_dependency_autoformalizer_refine_prompt(payload: DependencyPayload):
 
 def test_autoformalize_dependency_tool_configuration():
     """The dependency autoformalizer tool should expose agent and payload config."""
-    tool = autoformalize_dependency_tool()
+    payload = DependencyPayload(
+        dep_name="demo.helper",
+        python_source="def helper(x):\n    return x + 1",
+        source_hash="xyz789",
+        tags=("demo",),
+    )
+    tool = autoformalize_dependency_tool(payload=payload)
     assert callable(tool)
     params = getattr(tool, "__registry_params__", {})
     assert "autoformalizer" in (params.get("agent") or "")

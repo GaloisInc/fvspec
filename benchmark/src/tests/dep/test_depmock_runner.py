@@ -2,6 +2,8 @@
 
 from pathlib import Path
 
+from generate.scaffold.depmock.autoformalizer import DependencyRecoverableError
+from generate.scaffold.depmock.models import DependencyResult
 from generate.scaffold.depmock.runner import (
     run_depmock_for_sample,
     _aggregate_lean,
@@ -22,6 +24,14 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     from generate.scaffold.tools import utilio
 
     monkeypatch.setattr(utilio, "get_sample_output_dir", fake_sample_dir)
+
+    def fail_agent(*_args, **_kwargs):
+        raise DependencyRecoverableError("lean type error", diagnostics="unknown id")
+
+    monkeypatch.setattr(
+        "generate.scaffold.depmock.runner.run_dependency_agent",
+        fail_agent,
+    )
 
     datapoint = Datapoint(
         id=1,
@@ -58,6 +68,63 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     file_text = deps_lean.read_text()
     assert "Autoformalization stub" in file_text
     assert "namespace" not in file_text
+
+
+def test_depmock_setup_persists_generated_dependency(monkeypatch, tmp_path: Path):
+    """Successful autoformalization should write generated Lean modules."""
+    monkeypatch.setenv("DEPMOCK_CACHE_ROOT", str(tmp_path / "cache"))
+
+    def fake_sample_dir(_dt: str, sample_id: str, _variant: str) -> Path:
+        path = tmp_path / "artifacts" / sample_id
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    from generate.scaffold.tools import utilio
+
+    monkeypatch.setattr(utilio, "get_sample_output_dir", fake_sample_dir)
+
+    generated_result = DependencyResult(
+        lean_module="Helper",
+        lean_code="def helper : Nat := 1\n",
+        variant="control-functional",
+        status="ok",
+        diagnostics=None,
+    )
+
+    def succeed_agent(request, **_kwargs):
+        return generated_result
+
+    monkeypatch.setattr(
+        "generate.scaffold.depmock.runner.run_dependency_agent",
+        succeed_agent,
+    )
+
+    datapoint = Datapoint(
+        id=2,
+        repo_id=1,
+        pbt_name="demo",
+        pbt="def test(): pass",
+        dep_names=["helper"],
+        deps=["def helper():\n    return 1"],
+        source="/tmp/demo.py",
+        summary="",
+        hash="hash456",
+        summary_vector=None,
+    )
+
+    meta = run_depmock_for_sample(
+        datapoint,
+        date_time="2025-01-01T00-00-00",
+        variant="control-functional",
+        sample_id="00002_demo",
+        path_variant="control-functional",
+    )
+
+    deps_dir = tmp_path / "artifacts" / "00002_demo" / "deps"
+    helper_path = deps_dir / "Helper.lean"
+    assert helper_path.exists()
+    assert "def helper : Nat := 1" in helper_path.read_text()
+    assert meta["manifest"], "expected manifest entries for generated dependency"
 
 
 def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:

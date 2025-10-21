@@ -12,10 +12,12 @@ from generate.config import load_config
 from generate.scaffold.task import fvspec, DATA_DIR
 from generate.scaffold.dataset import load_datapoints, Datapoint
 from generate.scaffold.depmock import (
+    DependencyPayload,
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyResult,
     DependencySampleSpec,
+    run_dependency_agent,
     build_dependency_dataset,
     clear_cache,
     load_cached_dependency,
@@ -337,7 +339,7 @@ def deps_autoformalize_command(
     )
     print(f"Prepared dependency dataset with {len(dependency_dataset)} samples.\n")
 
-    def make_stub_result(payload) -> DependencyResult:
+    def make_stub_result(payload: DependencyPayload) -> DependencyResult:
         module_name = payload.lean_module_name
         original = payload.python_source.strip()
         lean_code = (
@@ -348,7 +350,7 @@ def deps_autoformalize_command(
             "-/\n\n"
             f"def {module_name}_stub : Unit := ()\n"
         )
-        diagnostics = "dry-run" if dry_run else "autoformalizer not yet implemented"
+        diagnostics = "dry-run"
         return DependencyResult(
             lean_module=module_name,
             lean_code=lean_code,
@@ -357,10 +359,23 @@ def deps_autoformalize_command(
             diagnostics=diagnostics,
         )
 
-    def executor(request: DependencyExecutionRequest) -> DependencyResult:
-        payload = request.spec.payload
-        # Placeholder: emit stub Lean code until the agent integration is implemented.
-        return make_stub_result(payload)
+    agent_display = cfg.meta.display or "none"
+
+    if dry_run:
+
+        def executor(request: DependencyExecutionRequest) -> DependencyResult:
+            return make_stub_result(request.spec.payload)
+
+    else:
+
+        def executor(request: DependencyExecutionRequest) -> DependencyResult:
+            return run_dependency_agent(
+                request,
+                variant=base_variant,
+                model=cfg.agent.model,
+                max_attempts=max_attempts,
+                display=agent_display,
+            )
 
     metadata = {"timestamp": timestamp, "variant": base_variant}
 
