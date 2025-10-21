@@ -24,6 +24,12 @@ from .cache import (
     read_manifest,
     clear_cache,
 )
+from .dataset import (
+    DependencySampleSpec,
+    build_dependency_dataset,
+    payloads_from_datapoint,
+    scan_dependencies,
+)
 from .runner import depmock_setup, run_depmock_for_sample
 
 __all__ = [
@@ -48,6 +54,10 @@ __all__ = [
     "write_dependency_artifact",
     "read_manifest",
     "clear_cache",
+    "DependencySampleSpec",
+    "payloads_from_datapoint",
+    "scan_dependencies",
+    "build_dependency_dataset",
     "depmock_setup",
     "run_depmock_for_sample",
 ]

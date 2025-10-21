@@ -17,27 +17,8 @@ from .cache import (
     read_manifest,
     record_cache_hit,
 )
+from .dataset import payloads_from_datapoint
 from .models import DependencyPayload, DependencyResult
-
-
-def _payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
-    deps = datapoint.deps or []
-    payloads: list[DependencyPayload] = []
-
-    for idx, source in enumerate(deps):
-        name = None
-        if idx < len(datapoint.dep_names):
-            name = datapoint.dep_names[idx]
-        dep_name = name or f"dependency_{idx + 1}"
-        payloads.append(
-            DependencyPayload(
-                dep_name=dep_name,
-                python_source=source,
-                tags=tuple(),
-                usage_example=None,
-            )
-        )
-    return payloads
 
 
 def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyResult:
@@ -124,7 +105,7 @@ def depmock_setup() -> Solver:
         if not isinstance(datapoint, Datapoint):
             return state
 
-        payloads = _payloads_from_datapoint(datapoint)
+        payloads = payloads_from_datapoint(datapoint)
         if not payloads:
             state.metadata["depmock"] = {"manifest": [], "lean_text": ""}
             return state
@@ -158,7 +139,7 @@ def run_depmock_for_sample(
 ) -> dict[str, object]:
     """Run depmock processing for a single datapoint outside the task loop."""
 
-    payloads = _payloads_from_datapoint(datapoint)
+    payloads = payloads_from_datapoint(datapoint)
     sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.pbt_name}"
     sample_output_dir = utilio.get_sample_output_dir(
         date_time, sample_id_str, path_variant or variant or "default"

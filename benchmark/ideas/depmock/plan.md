@@ -14,7 +14,7 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
          Implement an inspect_ai agent that loads the prompts, connects to the `sonnet-4-5` backend, and invokes the `lean_compile` MCP tool. Leverage inspect_ai’s built-in retry/backoff and streaming capture while ensuring we record the Lean compilation loop in TaskState.
 
 ## Phase 2 — Execution Pipeline
-1. [ ] **Dataset + run harness**  
+1. [x] **Dataset + run harness**  
          Build an inspect_ai dataset wrapper that yields dependency tasks from the depmock manifest/cache scanner, supports deterministic batching, and exposes sample metadata for logging.
 2. [ ] **Invocation layer**  
          Expose a Python API (e.g., `run_dependency_autoformalizer(...)`) that the CLI can call, handle partial successes (recoverable Lean errors), capture diagnostics, and propagate failures cleanly.
