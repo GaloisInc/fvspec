@@ -32,7 +32,7 @@ def result() -> DependencyResult:
     return DependencyResult(
         lean_module="Normalize",
         lean_code="""@[simp] def normalize (s : String) : String := s.trim.lower\n""",
-        variant="baseline",
+        variant="functional",
         status="ok",
         diagnostics=None,
     )

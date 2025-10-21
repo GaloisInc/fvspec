@@ -1,6 +1,17 @@
 """Dependency autoformalization toolkit."""
 
-from .models import DependencyPayload, DependencyResult
+from .models import (
+    ArgumentRole,
+    ArgumentSpec,
+    CallableKind,
+    CallableSignature,
+    DependencyCallable,
+    DependencyPayload,
+    DependencyResult,
+    NormalizationPlan,
+    NormalizationStrategy,
+    LeanArtifactSpec,
+)
 from .agent import dependency_autoformalizer, autoformalize_dependency_tool
 from .cache import (
     CacheRecord,
@@ -18,6 +29,14 @@ from .runner import depmock_setup, run_depmock_for_sample
 __all__ = [
     "DependencyPayload",
     "DependencyResult",
+    "ArgumentRole",
+    "ArgumentSpec",
+    "CallableSignature",
+    "CallableKind",
+    "DependencyCallable",
+    "NormalizationPlan",
+    "NormalizationStrategy",
+    "LeanArtifactSpec",
     "dependency_autoformalizer",
     "autoformalize_dependency_tool",
     "CacheRecord",

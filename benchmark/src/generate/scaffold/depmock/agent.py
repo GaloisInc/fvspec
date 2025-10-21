@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from inspect_ai.agent import agent, AgentState, as_tool
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser, ChatMessageTool
 from inspect_ai.tool import Tool
 from inspect_ai.util._store import store
 
@@ -41,6 +41,7 @@ def _dependency_autoformalizer(
     # Persist context for downstream tooling/debugging
     store().set("depmock_payload", payload.model_dump())
     store().set("depmock_variant", variant)
+    store().set("depmock_normalization", payload.normalization.model_dump())
 
     if diagnostics:
         user_prompt = prompts.refine_template.render(

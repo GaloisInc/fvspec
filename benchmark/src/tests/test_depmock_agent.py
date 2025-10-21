@@ -23,6 +23,63 @@ def payload() -> DependencyPayload:
     )
 
 
+def test_dependency_payload_annotation(payload: DependencyPayload):
+    assert payload.callable.signature.text == "validate(x)"
+    assert payload.callable.kind.value == "function"
+    assert payload.artifact.module_basename == "ConfigValidate"
+    plan = payload.normalization
+    assert plan.strategy.value == "as_is"
+    assert plan.lean_helper_name == "config_validate"
+    assert plan.receiver_name is None
+    context = payload.prompt_context()
+    assert context["callable_kind"] == "function"
+    assert context["lean_module_qualified"].endswith(".ConfigValidate")
+    assert context["callable_arguments"][0]["name"] == "x"
+    assert context["module_path"] == "config"
+    assert context["normalization_strategy"] == "as_is"
+    assert context["lean_helper_name"] == "config_validate"
+
+
+def test_normalization_flatten_method():
+    payload = DependencyPayload(
+        dep_name="Widget.ping",
+        python_source="def ping(self, value):\n    return value + 1",
+        source_hash=None,
+        tags=(),
+    )
+    plan = payload.normalization
+    assert plan.strategy.value == "flatten_method"
+    assert plan.receiver_alias == "inst"
+    assert plan.struct_name is None
+    assert plan.lean_helper_name == "widget_ping"
+    context = payload.prompt_context()
+    assert context["normalization_strategy"] == "flatten_method"
+    assert "widget_ping" in context["lean_helper_name"]
+    assert context["normalization"]["receiver_alias"] == "inst"
+
+
+def test_normalization_structure_method():
+    payload = DependencyPayload(
+        dep_name="Counter.increment",
+        python_source=(
+            "def increment(self, delta: int = 1):\n"
+            "    self.count += delta\n"
+            "    return self.count\n"
+        ),
+        source_hash=None,
+        tags=("stateful",),
+    )
+    plan = payload.normalization
+    assert plan.strategy.value == "structure_method"
+    assert plan.struct_name == "Counter"
+    assert plan.struct_fields == ("count",)
+    assert plan.mutates_receiver is True
+    context = payload.prompt_context()
+    assert context["normalization_strategy"] == "structure_method"
+    assert context["normalization"]["struct_fields"] == ["count"]
+    assert context["normalization"]["mutates_receiver"] is True
+
+
 def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
     state = AgentState(messages=[])
 

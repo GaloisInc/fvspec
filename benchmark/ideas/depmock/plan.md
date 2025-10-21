@@ -4,13 +4,13 @@
 Upgrade the current dependency autoformalization workflow from a stub generator into a full inspect_ai-powered agent that translates Python dependency signatures into validated Lean modules using `sonnet-4-5`. The resulting pipeline must plug into the existing CLI (`uv run fvspec deps autoformalize`), respect caching semantics, and capture telemetry needed for benchmark analytics.
 
 ## Phase 1 — Agent Foundations
-1. [ ] **Dependency ingest contract**  
+1. [x] **Dependency ingest contract**  
          Define the Pydantic schema for the dependency inputs we can actually extract from the dataset: Python source bodies, signatures, and any inline docstrings/comments. Capture derived fields we need for prompting (e.g., module path, callable kind, argument roles) and the Lean artifact we expect back. Make the schema reusable by both CLI orchestration and inspect_ai datasets.
-2. [ ] **Prompt scaffolding**  
+2. [x] **Prompt scaffolding**  
          Author the system/user prompts that instruct the model to emit Lean stubs for dependencies only—no property-based tests or downstream specs yet—and decide how to surface functional vs mvcgen style variations in the prompt registry.
-3. [ ] **Callable normalization pass**  
+3. [x] **Callable normalization pass**  
          Design a preprocessing step that rewrites Python methods (functions whose first argument is `self`/`cls`) into a representation the agent can mock: decide when to spoof a minimal Lean structure/class vs. when to flatten into standalone pure functions, and record the transformation so the Lean artifact stays consistent with future spec generation.
-4. [ ] **Agent module**  
+4. [x] **Agent module**  
          Implement an inspect_ai agent that loads the prompts, connects to the `sonnet-4-5` backend, and invokes the `lean_compile` MCP tool. Leverage inspect_ai’s built-in retry/backoff and streaming capture while ensuring we record the Lean compilation loop in TaskState.
 
 ## Phase 2 — Execution Pipeline

@@ -1,40 +1,89 @@
 """Tests for dependency autoformalization prompt variants."""
 
+from generate.scaffold.depmock import DependencyPayload
 from generate.templates.deps import (
     DependencyVariantRegistry,
-    get_dependency_prompts,
     DependencyPromptBundle,
+    get_dependency_prompts,
 )
+
+
+def _example_payload() -> DependencyPayload:
+    return DependencyPayload(
+        dep_name="config.normalize",
+        python_source=(
+            "def normalize(value: str, *, trim: bool = True) -> str:\n"
+            '    """Coerce strings to lowercase with optional trimming."""\n'
+            "    result = value.lower()\n"
+            "    if trim:\n"
+            "        return result.strip()\n"
+            "    return result\n"
+        ),
+        source_hash="abc123",
+        tags=("strings", "io-free"),
+        usage_example="normalize(' Example ', trim=False)",
+    )
 
 
 def test_dependency_registry_lists_variants() -> None:
     registry = DependencyVariantRegistry()
     variants = registry.list_variants()
-    assert "baseline" in variants
+    assert "functional" in variants
+    assert "mvcgen" in variants
 
 
 def test_dependency_registry_default() -> None:
     registry = DependencyVariantRegistry()
-    assert registry.default_variant() in registry.list_variants()
+    assert registry.default_variant() == "functional"
 
 
-def test_get_dependency_prompts_returns_bundle() -> None:
-    bundle = get_dependency_prompts()
+def test_functional_prompts_render() -> None:
+    payload = _example_payload()
+    context = payload.prompt_context()
+
+    bundle = get_dependency_prompts("functional")
     assert isinstance(bundle, DependencyPromptBundle)
-    assert "Lean 4 engineer" in bundle.system_prompt
+    assert "Lean 4" in bundle.system_prompt
 
-    rendered = bundle.translate_template.render(
-        dep_name="helper",
-        source_hash="abc",
-        dep_module="Helper",
-        python_source="def helper(): return 1",
-        tags=[],
-        usage_example=None,
+    rendered = bundle.translate_template.render(**context)
+    assert payload.artifact.qualified_module in rendered
+    assert "Guidelines:" in rendered
+    assert "Normalization plan" in rendered
+    assert payload.normalization.lean_helper_name in rendered
+
+
+def test_functional_prompt_structure_strategy() -> None:
+    payload = DependencyPayload(
+        dep_name="Counter.increment",
+        python_source=(
+            "def increment(self, delta: int = 1):\n"
+            "    self.count += delta\n"
+            "    return self.count\n"
+        ),
+        source_hash=None,
     )
-    assert "Fvspec.Deps.Helper" in rendered
+    context = payload.prompt_context()
+    bundle = get_dependency_prompts("functional")
+    rendered = bundle.translate_template.render(**context)
+    assert "Lean structure" in rendered
+    assert "Counter" in rendered
+    assert "count" in rendered
+
+
+def test_mvcgen_prompts_render() -> None:
+    payload = _example_payload()
+    context = payload.prompt_context()
+
+    bundle = get_dependency_prompts("mvcgen")
+    rendered = bundle.translate_template.render(**context)
+    assert "Hoare" in rendered or "vcg" in rendered
+    assert payload.artifact.qualified_module in rendered
+    assert "Normalization plan" in rendered
 
 
 def test_dependency_tags_filter() -> None:
     registry = DependencyVariantRegistry()
-    tagged = registry.list_variants_by_tag("default")
-    assert "baseline" in tagged
+    default_variants = registry.list_variants_by_tag("default")
+    assert "functional" in default_variants
+    mvcgen_variants = registry.list_variants_by_tag("mvcgen")
+    assert "mvcgen" in mvcgen_variants
