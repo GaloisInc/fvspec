@@ -3,9 +3,9 @@
 from pathlib import Path
 
 from generate.scaffold.depmock.runner import (
+    aggregate_dependency_modules,
+    order_dependency_modules,
     run_depmock_for_sample,
-    _aggregate_lean,
-    _order_modules,
 )
 from generate.scaffold.dataset import Datapoint
 
@@ -78,7 +78,7 @@ def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
         {"module": "First"},
     ]
 
-    aggregated = _aggregate_lean(deps_dir, manifest)
-    ordered = _order_modules(aggregated)
+    aggregated = aggregate_dependency_modules(deps_dir, manifest)
+    ordered = order_dependency_modules(aggregated)
 
     assert [entry["module"] for entry in ordered] == ["First", "Second"]

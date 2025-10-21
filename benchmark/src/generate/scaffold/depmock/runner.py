@@ -45,7 +45,7 @@ def _extract_module_dependencies(
     return dependencies
 
 
-def _order_modules(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+def order_dependency_modules(entries: list[dict[str, str]]) -> list[dict[str, str]]:
     """Topologically order Lean modules according to internal import graph."""
     modules = {
         entry["module"]: entry
@@ -104,9 +104,10 @@ def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyR
     )
 
 
-def _aggregate_lean(
+def aggregate_dependency_modules(
     deps_dir: Path, manifest: list[dict[str, object]]
 ) -> list[dict[str, str]]:
+    """Load Lean module sources listed in the manifest from the deps directory."""
     aggregated: list[dict[str, str]] = []
     for entry in manifest:
         module = entry.get("module")
@@ -150,8 +151,8 @@ def _process_payloads(
         payload_dumps.append(payload.model_dump())
 
     manifest = read_manifest(deps_dir)
-    aggregated = _aggregate_lean(deps_dir, manifest)
-    ordered_modules = _order_modules(aggregated)
+    aggregated = aggregate_dependency_modules(deps_dir, manifest)
+    ordered_modules = order_dependency_modules(aggregated)
     body = "\n\n".join(item["code"] for item in ordered_modules if item["code"])
     if body:
         lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"

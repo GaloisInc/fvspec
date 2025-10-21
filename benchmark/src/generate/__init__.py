@@ -27,7 +27,10 @@ from generate.scaffold.depmock import (
     scan_dependencies,
 )
 from generate.scaffold.depmock.cache import CacheProvenance, read_manifest
-from generate.scaffold.depmock.runner import _aggregate_lean, _order_modules  # type: ignore[attr-defined]
+from generate.scaffold.depmock.runner import (
+    aggregate_dependency_modules,
+    order_dependency_modules,
+)  # type: ignore[attr-defined]
 from generate.scaffold.tools import utilio
 from generate.templates.spec import VariantRegistry
 from typer import Typer, Option
@@ -437,8 +440,8 @@ def deps_autoformalize_command(
         if not deps_dir.exists():
             continue
         manifest = read_manifest(deps_dir)
-        aggregated = _aggregate_lean(deps_dir, manifest)
-        ordered = _order_modules(aggregated)
+        aggregated = aggregate_dependency_modules(deps_dir, manifest)
+        ordered = order_dependency_modules(aggregated)
         body = "\n\n".join(item["code"] for item in ordered if item["code"])
         lean_text = (
             f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n" if body else ""

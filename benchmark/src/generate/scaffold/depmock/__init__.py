@@ -44,7 +44,12 @@ from generate.scaffold.depmock.autoformalizer import (
     DependencyRunReport,
     run_dependency_autoformalizer,
 )
-from generate.scaffold.depmock.runner import depmock_setup, run_depmock_for_sample
+from generate.scaffold.depmock.runner import (
+    aggregate_dependency_modules,
+    depmock_setup,
+    order_dependency_modules,
+    run_depmock_for_sample,
+)
 
 __all__ = [
     "DependencyPayload",
@@ -83,4 +88,6 @@ __all__ = [
     "run_dependency_autoformalizer",
     "depmock_setup",
     "run_depmock_for_sample",
+    "aggregate_dependency_modules",
+    "order_dependency_modules",
 ]
