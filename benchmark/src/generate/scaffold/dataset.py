@@ -1,3 +1,5 @@
+"""Dataset helpers for building inspect_ai tasks."""
+
 import json
 import random
 from datetime import datetime
@@ -57,7 +59,7 @@ def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
 
 
 def load_datapoints(file_path: Path) -> list[Datapoint]:
-    """Effectful function: reads a json file from disk"""
+    """Effectful function: read a JSON file from disk."""
     with open(file_path) as f:
         data = json.load(f)
     return [Datapoint(**obj) for obj in data]  # type: ignore[arg-type]
@@ -68,7 +70,7 @@ def sample_datapoints(
     n: int,
     ranseed: int | None = 0,
 ) -> list[Datapoint]:
-    """Effectful function: reads a json file from disk and samples n datapoints at random"""
+    """Effectful function: read a JSON file and sample ``n`` datapoints at random."""
     dps = load_datapoints(file_path)
     rng = random.Random(ranseed)
     return rng.sample(dps, n)

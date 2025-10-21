@@ -1,1 +1,1 @@
-"""Scaffold/Agent/Loop"""
+"""Scaffold helpers exposing agent and task utilities."""

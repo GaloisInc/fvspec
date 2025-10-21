@@ -18,6 +18,7 @@ class DependencyInvocationError(RuntimeError):
     """Base exception for dependency autoformalizer failures."""
 
     def __init__(self, message: str, *, diagnostics: str | None = None) -> None:
+        """Initialise the error with an optional diagnostics payload."""
         super().__init__(message)
         self.diagnostics = diagnostics
 
@@ -69,20 +70,24 @@ class DependencyRunReport:
 
     @property
     def succeeded(self) -> tuple[DependencyOutcome, ...]:
+        """Return outcomes that completed successfully."""
         return tuple(
             outcome for outcome in self.outcomes if outcome.status == "success"
         )
 
     @property
     def failed(self) -> tuple[DependencyOutcome, ...]:
+        """Return outcomes that exhausted recoverable attempts."""
         return tuple(outcome for outcome in self.outcomes if outcome.status == "failed")
 
     @property
     def fatal(self) -> tuple[DependencyOutcome, ...]:
+        """Return outcomes that encountered unrecoverable errors."""
         return tuple(outcome for outcome in self.outcomes if outcome.status == "fatal")
 
     @property
     def skipped(self) -> tuple[DependencyOutcome, ...]:
+        """Return outcomes that were skipped due to cached artifacts."""
         return tuple(
             outcome for outcome in self.outcomes if outcome.status == "skipped"
         )
@@ -97,6 +102,7 @@ class DependencyBatchError(RuntimeError):
     """Raised when fatal dependency errors occur during the run."""
 
     def __init__(self, message: str, report: DependencyRunReport) -> None:
+        """Store the fatal error message together with the generated report."""
         super().__init__(message)
         self.report = report
 
@@ -130,7 +136,6 @@ def run_dependency_autoformalizer(
     Returns:
         DependencyRunReport describing the run outcomes.
     """
-
     logger = logging.getLogger("generate.depmock.autoformalizer")
     started_at = datetime.now(UTC)
     outcomes: list[DependencyOutcome] = []

@@ -20,6 +20,7 @@ from generate.scaffold.depmock import (
 def make_spec(
     *, cached: bool = False, dep_name: str = "helpers.trim"
 ) -> DependencySampleSpec:
+    """Construct a dependency specification for test scenarios."""
     payload = DependencyPayload(
         dep_name=dep_name,
         python_source="def trim(value: str) -> str:\n    return value.strip()",
@@ -45,6 +46,7 @@ def make_spec(
 def make_result(
     payload: DependencyPayload, variant: str | None = None
 ) -> DependencyResult:
+    """Return a trivial Lean module used to simulate autoformalizer output."""
     return DependencyResult(
         lean_module=payload.lean_module_name,
         lean_code=(
@@ -59,6 +61,7 @@ def make_result(
 
 
 def test_run_dependency_autoformalizer_success() -> None:
+    """A successful execution should produce a populated outcome."""
     spec = make_spec()
 
     def executor(request: DependencyExecutionRequest) -> DependencyResult:
@@ -77,6 +80,7 @@ def test_run_dependency_autoformalizer_success() -> None:
 
 
 def test_run_dependency_autoformalizer_recoverable_then_success() -> None:
+    """Recoverable errors should retry until a successful attempt occurs."""
     spec = make_spec()
     attempts: Iterator[int] = iter((1, 2))
 
@@ -97,6 +101,7 @@ def test_run_dependency_autoformalizer_recoverable_then_success() -> None:
 
 
 def test_run_dependency_autoformalizer_exhaust_recoverable() -> None:
+    """Exhausted retries should surface a failed outcome."""
     spec = make_spec()
 
     def executor(request: DependencyExecutionRequest) -> DependencyResult:
@@ -114,6 +119,7 @@ def test_run_dependency_autoformalizer_exhaust_recoverable() -> None:
 
 
 def test_run_dependency_autoformalizer_fatal() -> None:
+    """Fatal errors should propagate via a DependencyBatchError."""
     spec = make_spec()
 
     def executor(request: DependencyExecutionRequest) -> DependencyResult:
@@ -131,6 +137,7 @@ def test_run_dependency_autoformalizer_fatal() -> None:
 
 
 def test_run_dependency_autoformalizer_skip_cached() -> None:
+    """Skip-cached mode should bypass dependencies with existing cache entries."""
     cached_spec = make_spec(cached=True)
     uncached_spec = make_spec(cached=False, dep_name="helpers.bump")
 

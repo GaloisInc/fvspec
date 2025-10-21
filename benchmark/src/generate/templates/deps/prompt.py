@@ -1,3 +1,5 @@
+"""Load dependency prompt bundles for autoformalization variants."""
+
 from dataclasses import dataclass
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template
@@ -20,7 +22,6 @@ _env = Environment(loader=FileSystemLoader(_templates_dir))
 
 def get_dependency_prompts(variant: str | None = None) -> DependencyPromptBundle:
     """Load system/translate/refine prompts for the given dependency variant."""
-
     registry = DependencyVariantRegistry()
     variant_name = variant or registry.default_variant()
     variant_config = registry.get_variant(variant_name)

@@ -93,6 +93,7 @@ class CacheRecord:
     def to_manifest_entry(
         self, source: Literal["cache", "generated"]
     ) -> dict[str, object]:
+        """Convert the cache record into a manifest entry for run artifacts."""
         return {
             "module": self.metadata.lean_module,
             "dep_name": self.metadata.dep_name,

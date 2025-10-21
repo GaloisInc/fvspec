@@ -16,6 +16,7 @@ from generate.scaffold.depmock.agent import _dependency_autoformalizer
 
 @pytest.fixture
 def payload() -> DependencyPayload:
+    """Return a simple configuration helper payload used across tests."""
     return DependencyPayload(
         dep_name="config.validate",
         python_source="""def validate(x):\n    return int(x)""",
@@ -26,6 +27,7 @@ def payload() -> DependencyPayload:
 
 
 def test_dependency_payload_annotation(payload: DependencyPayload):
+    """Normalization metadata should derive helper names and kinds."""
     assert payload.callable.signature.text == "validate(x)"
     assert payload.callable.kind.value == "function"
     assert payload.artifact.module_basename == "ConfigValidate"
@@ -46,6 +48,7 @@ def test_dependency_payload_annotation(payload: DependencyPayload):
 
 
 def test_normalization_flatten_method():
+    """Methods with unused receivers should flatten into helper functions."""
     payload = DependencyPayload(
         dep_name="Widget.ping",
         python_source="def ping(self, value):\n    return value + 1",
@@ -65,6 +68,7 @@ def test_normalization_flatten_method():
 
 
 def test_normalization_structure_method():
+    """Stateful receivers should request structure-based normalization."""
     payload = DependencyPayload(
         dep_name="Counter.increment",
         python_source=(
@@ -88,6 +92,7 @@ def test_normalization_structure_method():
 
 
 def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
+    """Initial prompts should include system instructions and user payload content."""
     state = AgentState(messages=[])
 
     result_state = _dependency_autoformalizer(state, payload=payload)
@@ -100,6 +105,7 @@ def test_dependency_autoformalizer_initial_prompt(payload: DependencyPayload):
 
 
 def test_dependency_autoformalizer_refine_prompt(payload: DependencyPayload):
+    """Refinement prompts should surface diagnostics for iterative repair."""
     diagnostics = "unknown identifier foo"
     state = AgentState(messages=[])
 
@@ -111,6 +117,7 @@ def test_dependency_autoformalizer_refine_prompt(payload: DependencyPayload):
 
 
 def test_autoformalize_dependency_tool_configuration():
+    """The dependency autoformalizer tool should expose agent and payload config."""
     tool = autoformalize_dependency_tool()
     assert callable(tool)
     params = getattr(tool, "__registry_params__", {})

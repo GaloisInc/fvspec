@@ -34,7 +34,6 @@ def _dependency_autoformalizer(
         diagnostics: Lean diagnostics from a previous attempt (if any).
         variant: Optional prompt variant override.
     """
-
     prompts = get_dependency_prompts(variant)
     _ensure_system_message(state, prompts.system_prompt)
 
@@ -63,7 +62,6 @@ def autoformalize_dependency_tool(
     *, variant: str | None = None, description: str | None = None
 ) -> Tool:
     """Create a tool wrapping the dependency autoformalizer agent."""
-
     tool_description = description or (
         "Autoformalize a Python dependency into computable Lean code."
     )

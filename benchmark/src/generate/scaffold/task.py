@@ -1,3 +1,5 @@
+"""Task definitions for running the fvspec benchmark."""
+
 from datetime import datetime
 from pathlib import Path
 from inspect_ai import Task, task
@@ -18,8 +20,7 @@ def fvspec(
     sample_size: int = 100,
     ranseed: int | None = 0,
 ) -> Task:
-    """
-    A task generating the fvspec generate.
+    """A task generating the fvspec generate.
 
     Args:
         datafile: Path to the JSON file containing test data

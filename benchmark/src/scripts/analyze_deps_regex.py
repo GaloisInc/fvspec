@@ -56,6 +56,7 @@ BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 async def main() -> None:
+    """Parse the scraped dataset and write a CSV of import frequencies."""
     logging.basicConfig(level=logging.INFO)
 
     # Read the content of the file

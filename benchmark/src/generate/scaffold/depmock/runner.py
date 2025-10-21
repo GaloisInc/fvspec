@@ -164,6 +164,8 @@ def _process_payloads(
 
 @solver
 def depmock_setup() -> Solver:
+    """Prepare dependency payload stubs within the inspect_ai task loop."""
+
     async def run(state: TaskState, generate: Generate) -> TaskState:
         datapoint = state.metadata.get("datapoint")
         if not isinstance(datapoint, Datapoint):
@@ -202,7 +204,6 @@ def run_depmock_for_sample(
     path_variant: str | None = None,
 ) -> dict[str, object]:
     """Run depmock processing for a single datapoint outside the task loop."""
-
     payloads = payloads_from_datapoint(datapoint)
     sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.pbt_name}"
     sample_output_dir = utilio.get_sample_output_dir(

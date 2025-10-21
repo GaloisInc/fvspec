@@ -177,16 +177,20 @@ class ImportRegistry:
     """Track aliases introduced by import statements."""
 
     def __init__(self) -> None:
+        """Initialise an empty alias mapping."""
         self._alias_to_target: dict[str, str] = {}
 
     def add_import(self, alias_name: str, target: str) -> None:
+        """Register ``alias_name`` as pointing to ``target``."""
         if alias_name:
             self._alias_to_target.setdefault(alias_name, target)
 
     def resolve_name(self, name: str) -> str:
+        """Resolve a possibly-aliased symbol name to its target."""
         return self._alias_to_target.get(name, name)
 
     def resolve_dotted(self, dotted: str) -> str:
+        """Resolve dotted names while respecting stored aliases."""
         if "." not in dotted:
             return self.resolve_name(dotted)
         first, *rest = dotted.split(".")
@@ -202,6 +206,7 @@ class CodeAnalyzer(ast.NodeVisitor):
     """Traverse Python ASTs to gather imports and call sites."""
 
     def __init__(self, code: str, snippet_kind: Literal["pbt", "dep"]) -> None:
+        """Prepare analysis state for a snippet of the provided ``snippet_kind``."""
         self.code_lines = code.splitlines()
         self.snippet_kind = snippet_kind
         self.registry = ImportRegistry()
@@ -211,6 +216,7 @@ class CodeAnalyzer(ast.NodeVisitor):
         self.attributes: set[str] = set()
 
     def visit_Import(self, node: ast.Import) -> None:
+        """Track modules introduced via ``import`` statements."""
         for alias in node.names:
             module = alias.name
             alias_name = alias.asname or module.split(".")[0]
@@ -219,6 +225,7 @@ class CodeAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_ImportFrom(self, node: ast.ImportFrom) -> None:
+        """Track modules introduced via ``from ... import`` statements."""
         module = node.module or ""
         if node.level:
             module = "." * node.level + module
@@ -234,6 +241,7 @@ class CodeAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Call(self, node: ast.Call) -> None:
+        """Record function or method invocations encountered in the AST."""
         symbol = self._resolve_callable(node.func)
         if symbol:
             resolved = self.registry.resolve_dotted(symbol)
@@ -251,6 +259,7 @@ class CodeAnalyzer(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Attribute(self, node: ast.Attribute) -> None:
+        """Collect attribute-access chains for potential module references."""
         chain = self._attribute_chain(node)
         if chain:
             resolved = self.registry.resolve_dotted(chain)
@@ -291,7 +300,6 @@ class CodeAnalyzer(ast.NodeVisitor):
 
 def stream_json_array(path: Path) -> Iterator[dict]:
     """Streaming JSON array reader to avoid loading the 1.1GB dataset into RAM."""
-
     decoder = json.JSONDecoder()
     with path.open("r", encoding="utf-8") as handle:
         buffer = ""
@@ -341,7 +349,6 @@ def reservoir_sample_json(
     iterator: Iterator[dict], sample_size: int, seed: int
 ) -> list[dict]:
     """Reservoir sample a fixed number of objects from an iterator."""
-
     rng = random.Random(seed)
     sample: list[dict] = []
     for idx, obj in enumerate(iterator):
@@ -368,6 +375,7 @@ class DependencyAggregator:
     """Collect dataset-wide dependency signals."""
 
     def __init__(self, example_limit: int = 3) -> None:
+        """Initialise aggregation counters and storage structures."""
         self.total_datapoints = 0
         self.python_datapoints = 0
         self.datapoints_with_inline_deps = 0
@@ -386,6 +394,7 @@ class DependencyAggregator:
         self.example_limit = example_limit
 
     def consume(self, datapoint: Datapoint) -> None:
+        """Record dependency statistics for a single datapoint."""
         self.total_datapoints += 1
         if datapoint.dep_names:
             self.datapoints_with_inline_deps += 1
@@ -486,6 +495,7 @@ class DependencyAggregator:
         symbol_limit: int,
         analysis_config: AnalysisConfig,
     ) -> DependencyReport:
+        """Assemble a summarized dependency report from accumulated statistics."""
         top_modules = self._build_top_modules(module_limit)
         top_symbols = self._build_top_symbols(symbol_limit)
         mock_priorities = self._build_mock_targets(top_modules)
@@ -620,6 +630,7 @@ MOCK_NOTE_HINTS = {
 def categorize_module(
     module_root: str,
 ) -> Literal["stdlib", "third_party", "local", "unknown"]:
+    """Classify a module root into stdlib, third-party, local, or unknown."""
     if module_root in STD_MODULES:
         return "stdlib"
     if module_root in LOCAL_PREFIXES or module_root.startswith("_"):
@@ -636,6 +647,7 @@ def categorize_module(
 
 
 def derive_mocking_notes(module: ModuleUsage) -> str:
+    """Provide human-readable mocking guidance for a module usage."""
     hint = MOCK_NOTE_HINTS.get(module.module)
     if hint:
         return hint
@@ -650,7 +662,6 @@ def derive_mocking_notes(module: ModuleUsage) -> str:
 
 def build_summary_text(report: DependencyReport) -> str:
     """Render a short narrative summary."""
-
     lines: list[str] = []
     overview = report.overview
     lines.append(
@@ -717,7 +728,6 @@ def summarise_with_agent(summary_text: str) -> str:
 
 def render_markdown(report: DependencyReport, summary: str) -> str:
     """Build a markdown briefing."""
-
     lines: list[str] = []
     frontmatter_data = report.analysis.model_dump()
     lines.append("---")
@@ -779,6 +789,7 @@ logger = logging.getLogger("analyze_deps")
 
 
 def configure_logging(verbose: bool) -> None:
+    """Configure module-level logging for the command-line interface."""
     level = logging.DEBUG if verbose else logging.INFO
     logging.basicConfig(level=level, format="%(levelname)s %(message)s")
 
@@ -786,6 +797,7 @@ def configure_logging(verbose: bool) -> None:
 def iter_datapoints(
     dataset_path: Path, sample_size: int | None, seed: int
 ) -> Iterator[Datapoint]:
+    """Yield datapoints from ``dataset_path``, optionally sampling deterministically."""
     source_iter: Iterable[dict]
     if sample_size is None:
         source_iter = stream_json_array(dataset_path)
@@ -808,6 +820,7 @@ def analyze_dataset(
     seed: int,
     analysis_config: AnalysisConfig,
 ) -> tuple[DependencyReport, str]:
+    """Analyze a dataset and return both the structured report and summary text."""
     aggregator = DependencyAggregator()
     for datapoint in iter_datapoints(dataset_path, sample_size, seed):
         aggregator.consume(datapoint)
@@ -824,6 +837,7 @@ def analyze_dataset(
 
 
 def write_outputs(report: DependencyReport, summary: str, output_dir: Path) -> None:
+    """Persist the dependency report and Markdown summary to ``output_dir``."""
     output_dir.mkdir(parents=True, exist_ok=True)
     json_path = output_dir / "dependency_report.json"
     markdown_path = output_dir / "dependency_report.md"
@@ -860,7 +874,6 @@ def cli(
     verbose: bool = typer.Option(False, "--verbose", "-v", help="Enable debug logging"),
 ) -> None:
     """CLI entry point."""
-
     configure_logging(verbose)
     if not dataset.exists():
         typer.echo(f"Dataset not found at {dataset}", err=True)
@@ -894,6 +907,7 @@ def cli(
 
 
 def main() -> None:
+    """Execute the ``analyze_deps`` CLI via Typer."""
     typer.run(cli)
 
 

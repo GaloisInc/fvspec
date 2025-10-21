@@ -127,7 +127,6 @@ async def test_smoke_dataset_loading(temp_data_file):
 
 def _trio_supported() -> bool:
     """Check whether the environment permits Trio's wakeup socket tweaks."""
-
     try:
         import socket
 
@@ -154,6 +153,7 @@ else:
 
 @pytest.fixture(params=["asyncio", "trio"] if TRIO_SUPPORTED else ["asyncio"])
 def anyio_backend(request):
+    """Return the requested AnyIO backend, skipping trio when unsupported."""
     backend = request.param
     if backend == "trio" and not TRIO_SUPPORTED:
         pytest.skip("Trio backend requires socket permissions")
@@ -162,7 +162,6 @@ def anyio_backend(request):
 
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
-
     # Test functional variant
     functional_system, functional_initial = get_variant_prompts("control-functional")
     assert isinstance(functional_system, str)

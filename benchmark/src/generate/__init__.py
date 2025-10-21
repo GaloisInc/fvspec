@@ -1,4 +1,4 @@
-"""Generate the benchmark"""
+"""Generate the benchmark."""
 
 from collections import defaultdict
 import json
@@ -74,13 +74,15 @@ def main_callback(
     This is the default command. For A/B testing, use the compare-variants subcommand.
 
     Args:
-        ctx: Typer context
-        datafile: Path to the JSON file containing test data
-        no_mcp: Disable Lean LSP MCP tools
-        variant: Prompt variant name (overrides config.toml)
-        sample_size: Number of samples to draw (overrides config.toml)
-        ranseed: Random seed used when sampling datapoints (overrides config.toml)
-        list_variants: List available variants and exit
+        ctx: Typer context.
+        datafile: Path to the JSON file containing test data.
+        no_mcp: Disable Lean LSP MCP tools.
+        variant: Prompt variant name (overrides config.toml).
+        sample_size: Number of samples to draw (overrides config.toml).
+        ranseed: Random seed used when sampling datapoints (overrides config.toml).
+        list_variants: List available variants and exit.
+        display: Display mode for eval logs (overrides config or CLI default).
+        parallelism: Number of concurrent samples to evaluate.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -157,11 +159,12 @@ def compare_variants(
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
     Args:
-        datafile: Path to the JSON file containing test data
-        no_mcp: Disable Lean LSP MCP tools
-        variant: List of variant names to compare
-        sample_size: Number of samples to draw (overrides config.toml)
-        ranseed: Random seed used when sampling datapoints (overrides config.toml)
+        datafile: Path to the JSON file containing test data.
+        no_mcp: Disable Lean LSP MCP tools.
+        variant: List of variant names to compare.
+        sample_size: Number of samples to draw (overrides config.toml).
+        ranseed: Random seed used when sampling datapoints (overrides config.toml).
+        parallelism: Number of samples to evaluate concurrently.
     """
     registry = VariantRegistry()
 
@@ -263,7 +266,6 @@ def deps_autoformalize_command(
     ),
 ) -> None:
     """Autoformalize dependencies for selected datapoints without running the full generate."""
-
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():
         print(f"Dataset not found at {dataset_path}")
@@ -514,10 +516,10 @@ def deps_autoformalize_command(
 @deps_app.command(name="cache-flush")
 def deps_cache_flush_command() -> None:
     """Clear all dependency autoformalization cache artifacts."""
-
     root = clear_cache()
     print(f"Cleared dependency cache at {root}")
 
 
 def main() -> None:
+    """Entry point for the `uv run fvspec` CLI."""
     app()

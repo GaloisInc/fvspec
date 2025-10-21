@@ -1,3 +1,5 @@
+"""Quality assessment utilities for benchmarking Lean specifications."""
+
 import ast
 import re
 from typing import cast

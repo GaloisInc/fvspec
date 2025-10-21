@@ -11,6 +11,7 @@ from generate.scaffold.dataset import Datapoint
 
 
 def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
+    """Verify depmock scaffolding writes stubs and manifest entries."""
     monkeypatch.setenv("DEPMOCK_CACHE_ROOT", str(tmp_path / "cache"))
 
     def fake_sample_dir(_dt: str, sample_id: str, _variant: str) -> Path:
@@ -60,6 +61,7 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
 
 
 def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
+    """Ordered modules should reflect dependencies discovered in Lean imports."""
     deps_dir = tmp_path / "deps"
     deps_dir.mkdir(parents=True)
 

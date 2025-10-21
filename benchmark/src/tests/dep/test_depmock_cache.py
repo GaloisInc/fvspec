@@ -18,6 +18,7 @@ from generate.scaffold.depmock.cache import CacheProvenance, CacheRecord, read_m
 
 @pytest.fixture
 def payload() -> DependencyPayload:
+    """Return a simple string-normalisation dependency payload."""
     return DependencyPayload(
         dep_name="utils.normalize",
         python_source="""def normalize(x):\n    return x.strip().lower()""",
@@ -29,6 +30,7 @@ def payload() -> DependencyPayload:
 
 @pytest.fixture
 def result() -> DependencyResult:
+    """Provide a stub Lean result describing the normalise helper."""
     return DependencyResult(
         lean_module="Normalize",
         lean_code="""@[simp] def normalize (s : String) : String := s.trim.lower\n""",
@@ -40,10 +42,12 @@ def result() -> DependencyResult:
 
 @pytest.fixture
 def provenance() -> CacheProvenance:
+    """Produce provenance metadata used when storing cache entries."""
     return CacheProvenance(model="anthropic/claude-sonnet", attempts=1)
 
 
 def test_store_and_load_cached_dependency(tmp_path: Path, payload, result, provenance):
+    """Cache records should be persisted and retrieved with provenance."""
     cache_root = tmp_path / "cache"
     record = store_dependency_result(
         payload, result, cache_root=cache_root, provenance=provenance
@@ -64,6 +68,7 @@ def test_store_and_load_cached_dependency(tmp_path: Path, payload, result, prove
 def test_write_dependency_artifact_updates_manifest(
     tmp_path: Path, payload, result, provenance
 ):
+    """Copying cache records should maintain manifest information."""
     cache_root = tmp_path / "cache"
     run_dir = tmp_path / "run" / "sample_001"
     run_dir.mkdir(parents=True)
@@ -90,6 +95,7 @@ def test_write_dependency_artifact_updates_manifest(
 def test_persist_generated_dependency_writes_cache_and_run(
     tmp_path: Path, payload, result, provenance
 ):
+    """Persisting new dependencies should write both cache and run artifacts."""
     run_dir = tmp_path / "run" / "sample_002"
     run_dir.mkdir(parents=True)
     cache_root = tmp_path / "cache"
@@ -112,6 +118,7 @@ def test_persist_generated_dependency_writes_cache_and_run(
 
 
 def test_record_cache_hit(tmp_path: Path, payload, result):
+    """Recording a cache hit should mirror metadata into the manifest."""
     cache_root = tmp_path / "cache"
     run_dir = tmp_path / "run" / "sample_003"
     run_dir.mkdir(parents=True)

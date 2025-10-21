@@ -1,3 +1,5 @@
+"""Utility functions for configuring inspect_ai agents."""
+
 from inspect_ai.tool import mcp_server_stdio, mcp_tools
 from generate.scaffold.tools.declaration import lean_compile
 

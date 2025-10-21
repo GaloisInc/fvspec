@@ -1,3 +1,5 @@
+"""Utility functions for persisting benchmark artifacts and tooling hooks."""
+
 import re
 from pathlib import Path
 from typing import Callable, Awaitable, cast
@@ -14,9 +16,10 @@ LAKE_BUILD_CMD = ["lake", "build"]
 
 @tool  # type: ignore[arg-type]
 def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
+    """Create an inspect_ai tool that typechecks Lean code via Lake."""
+
     async def execute(code: str) -> utilio.SubprocessResult:
-        """
-        Typecheck Lean code using lake build in an isolated workspace.
+        """Typecheck Lean code using lake build in an isolated workspace.
 
         Creates a temporary Lake project workspace for the sample if it doesn't exist yet.
         Writes the code to Fvspec/Basic.lean and runs lake build.
@@ -80,15 +83,14 @@ def write_datapoint_to_disk(
     datapoint: Datapoint,
     variant: str,
 ) -> str:
-    """
-    Write the datapoint from text into
-    artifacts/spec/<sample_id>/datapoint.json.
+    """Write datapoint metadata to the sample's artifact directory.
 
     Args:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         datapoint: The datapoint from the metadata of the current sample.
         variant: Prompt variant name.
+
     Returns:
         A message describing whether the write succeeded.
     """
@@ -104,19 +106,17 @@ def write_code_to_disk(
     text: str,
     variant: str,
 ) -> str:
-    """
-    Write the <code>...</code> snippet from text into
-    artifacts/spec/<sample_id>/Spec.lean.
+    """Write the `<code>...</code>` snippet from text into `Spec.lean`.
 
     Args:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
         variant: Prompt variant name.
+
     Returns:
         A message describing whether the write succeeded.
     """
-
     # Look for <code>...</code>
     pattern = r"(?s)<code>(.*?)</code>"
     mtch = re.search(pattern, text)
@@ -136,19 +136,17 @@ def write_qa_to_disk(
     state: TaskState,
     variant: str,
 ) -> str:
-    """
-    Write the QA results from the TaskState to
-    artifacts/spec/<sample_id>/qa.json.
+    """Write quality-assessment results to `qa.json` for the sample.
 
     Args:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         state: The task state after completion.
         variant: Prompt variant name.
+
     Returns:
         A message describing whether the write succeeded.
     """
-
     # Fill in QA info
     qa = QualityAssessment.from_task_state(state)
 
@@ -247,12 +245,11 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
 
 
 async def write_to_disk(state: TaskState):
-    """
-    Called after each sample in Task, writes the datapoint to a problem file and
-    the task quality assessment results to a QA file. Also registers metrics as scores
-    for inspect_ai viewer.
+    """Persist sample outputs and register quality metrics for inspect_ai.
 
-    Also handles cleanup of the temporary workspace.
+    Writes the datapoint metadata, extracted Lean code, and QA report to disk
+    for the current sample. The function also registers quality scores for the
+    inspect_ai viewer and cleans up any temporary workspaces.
 
     Args:
         state: The current state after a sample completes.

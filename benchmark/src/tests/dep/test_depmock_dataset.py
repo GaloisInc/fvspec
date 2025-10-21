@@ -16,6 +16,7 @@ from generate.scaffold.depmock.models import DependencyPayload
 
 @pytest.fixture
 def datapoint() -> Datapoint:
+    """Provide a representative datapoint with two helper dependencies."""
     return Datapoint(
         id=1,
         repo_id=111,
@@ -34,6 +35,7 @@ def datapoint() -> Datapoint:
 
 
 def test_payloads_from_datapoint(datapoint: Datapoint) -> None:
+    """Ensure payload extraction preserves dependency ordering and names."""
     payloads = payloads_from_datapoint(datapoint)
     assert len(payloads) == 2
     assert payloads[0].dep_name == "helpers.trim"
@@ -41,6 +43,7 @@ def test_payloads_from_datapoint(datapoint: Datapoint) -> None:
 
 
 def test_scan_dependencies_dedupe(datapoint: Datapoint) -> None:
+    """Verify duplicate cache keys are deduplicated across datapoints."""
     duplicate_dp = datapoint.model_copy(update={"id": 2})
 
     specs = scan_dependencies([datapoint, duplicate_dp], skip_cached=False, dedupe=True)
@@ -52,6 +55,8 @@ def test_scan_dependencies_dedupe(datapoint: Datapoint) -> None:
 
 
 def test_scan_dependencies_skip_cached(datapoint: Datapoint) -> None:
+    """Confirm cached dependencies are omitted when `skip_cached` is enabled."""
+
     def cache_lookup(payload: DependencyPayload) -> bool:
         return payload.dep_name == "helpers.bump"
 
@@ -66,6 +71,7 @@ def test_scan_dependencies_skip_cached(datapoint: Datapoint) -> None:
 
 
 def test_build_dependency_dataset_batches(datapoint: Datapoint) -> None:
+    """Ensure dataset metadata records batch positioning information."""
     specs = scan_dependencies([datapoint], skip_cached=False, dedupe=False)
     date_time = datetime(2025, 1, 1, 12, 0, 0)
 
@@ -84,5 +90,6 @@ def test_build_dependency_dataset_batches(datapoint: Datapoint) -> None:
 
 
 def test_build_dependency_dataset_empty() -> None:
+    """An empty spec list should produce an empty dataset."""
     dataset = build_dependency_dataset([], date_time=datetime.now(UTC), variant=None)
     assert len(dataset) == 0

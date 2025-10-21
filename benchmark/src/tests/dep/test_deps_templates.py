@@ -26,6 +26,7 @@ def _example_payload() -> DependencyPayload:
 
 
 def test_dependency_registry_lists_variants() -> None:
+    """Ensure all expected dependency prompt variants are registered."""
     registry = DependencyVariantRegistry()
     variants = registry.list_variants()
     assert "functional" in variants
@@ -33,11 +34,13 @@ def test_dependency_registry_lists_variants() -> None:
 
 
 def test_dependency_registry_default() -> None:
+    """Verify the default dependency prompt variant is functional."""
     registry = DependencyVariantRegistry()
     assert registry.default_variant() == "functional"
 
 
 def test_functional_prompts_render() -> None:
+    """Functional prompts should include helper details and normalization plan."""
     payload = _example_payload()
     context = payload.prompt_context()
 
@@ -53,6 +56,7 @@ def test_functional_prompts_render() -> None:
 
 
 def test_functional_prompt_structure_strategy() -> None:
+    """Functional prompts should describe structure-based normalization when needed."""
     payload = DependencyPayload(
         dep_name="Counter.increment",
         python_source=(
@@ -71,6 +75,7 @@ def test_functional_prompt_structure_strategy() -> None:
 
 
 def test_mvcgen_prompts_render() -> None:
+    """Mvcgen prompts should highlight imperative guidance and normalization plan."""
     payload = _example_payload()
     context = payload.prompt_context()
 
@@ -82,6 +87,7 @@ def test_mvcgen_prompts_render() -> None:
 
 
 def test_dependency_tags_filter() -> None:
+    """Tag filtering should surface functional and mvcgen variants."""
     registry = DependencyVariantRegistry()
     default_variants = registry.list_variants_by_tag("default")
     assert "functional" in default_variants

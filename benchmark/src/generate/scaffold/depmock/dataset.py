@@ -129,7 +129,6 @@ def build_dependency_dataset(
     batch_size: int | None = None,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from dependency specifications."""
-
     if not specs:
         return MemoryDataset([])
 

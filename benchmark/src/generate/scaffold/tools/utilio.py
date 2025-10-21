@@ -1,3 +1,5 @@
+"""Utility helpers for managing benchmark workspaces and filesystem I/O."""
+
 import subprocess
 import shutil
 import tempfile
@@ -25,8 +27,7 @@ def run_cmd(
     text: bool = True,
     cwd: Path | None = None,
 ) -> SubprocessResult:
-    """
-    Run a command in the shell.
+    """Run a command in the shell.
 
     Args:
         cmd: The command to run.
@@ -128,7 +129,6 @@ def get_sample_output_dir(
     variant: str,
 ) -> Path:
     """Return the artifact directory for a given sample."""
-
     path = get_output_filepath(date_time, sample_id, "Spec.lean", variant)
     sample_dir = path.parent
     sample_dir.mkdir(parents=True, exist_ok=True)
@@ -156,8 +156,7 @@ def writeit(spfile: Path, code: str) -> str:
 def create_sample_workspace(
     sample_id: str, lake_template: Path = LAKE_TEMPLATE
 ) -> Path:
-    """
-    Create an isolated workspace for one sample.
+    """Create an isolated workspace for one sample.
 
     This function creates a temporary directory with a Lake project for the sample.
     The caller is responsible for cleanup via cleanup_sample_workspace().
@@ -202,8 +201,7 @@ def create_sample_workspace(
 
 
 def cleanup_sample_workspace(workspace: Path) -> None:
-    """
-    Clean up a sample workspace created by create_sample_workspace().
+    """Clean up a sample workspace created by create_sample_workspace().
 
     Args:
         workspace: Path to the workspace directory to remove
@@ -218,8 +216,7 @@ def cleanup_sample_workspace(workspace: Path) -> None:
 
 @contextmanager
 def sample_workspace(sample_id: str, lake_template: Path = LAKE_TEMPLATE):
-    """
-    Context manager version of sample workspace for use in with-blocks.
+    """Context manager version of sample workspace for use in with-blocks.
 
     Automatically creates and cleans up the workspace.
 

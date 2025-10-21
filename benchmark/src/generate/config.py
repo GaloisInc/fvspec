@@ -1,3 +1,5 @@
+"""Configuration helpers for the fvspec CLI."""
+
 import tomllib
 from pathlib import Path
 
@@ -84,7 +86,7 @@ class Config(BaseModel):
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
-        """Load configuration from the TOML file"""
+        """Load configuration from the TOML file."""
         with open(config_path, "rb") as f:
             data = tomllib.load(f)
 
@@ -98,9 +100,7 @@ class Config(BaseModel):
 
 
 def find_config_file(start_dir: Path | None = None) -> Path:
-    """
-    Find the config.toml in the scaffold directory.
-    """
+    """Locate `config.toml` within the scaffold directory tree."""
     if start_dir is None:
         start_dir = Path(".")
     current = start_dir.absolute()
@@ -114,9 +114,7 @@ def find_config_file(start_dir: Path | None = None) -> Path:
 
 
 def load_config(config_path: Path | None = None) -> Config:
-    """
-    Load the configuration from the specified path or find it in parent directories.
-    """
+    """Load configuration from `config_path`, falling back to the scaffold default."""
     if config_path is None:
         config_path = find_config_file()
     config = Config.load(config_path)

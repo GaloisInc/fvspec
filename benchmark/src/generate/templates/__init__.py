@@ -1,3 +1,5 @@
+"""CLI helpers for previewing benchmark prompt templates."""
+
 import json
 from pathlib import Path
 from typer import Typer, Option
