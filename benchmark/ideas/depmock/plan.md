@@ -41,39 +41,7 @@ The current depmock pipeline now delivers dataset plumbing, CLI integration, cac
 3. **CI smoke test**
    - Add a GitHub CI job (or local script) that runs `uv run fvspec deps autoformalize --dry-run --validate --sample-size 1` to ensure toolchain health.
 
-## 3. Prompt & Normalization Refinement
-
-### Observed gaps
-- `functional` vs `mvcgen` prompts diverge only in post-processing instructions.
-- Normalization hints are descriptive but unchecked by automation.
-
-### Actions
-1. **Prompt A/B testing**
-   - Collect a corpus of dependencies with known Lean implementations.
-   - Run the functional agent end-to-end once available, compare success/Lean validation rates across prompt variants.
-2. **Normalization telemetry**
-   - Extend `DependencyRunReport` to include normalization strategy (flatten/structure).
-   - Analyze distributions to spot edge cases (e.g., methods misclassified).
-3. **Prompt documentation**
-   - Produce README snippet describing normalization strategies for educators using the dataset.
-
-## 4. Cache Evolution & Persistence
-
-### Currently
-- Cache metadata includes provenance (model, attempts, diagnostics).
-- `CACHE_SCHEMA_VERSION = 3`.
-- Cache lives under `artifacts/dep_cache`.
-
-### Follow-ups
-1. **Compaction / pruning**
-   - Add CLI command `uv run fvspec deps cache-prune` to remove old schema versions or stale entries.
-2. **Remote sync**
-   - Explore optional S3/GCS sync to share cache across machines.
-   - Introduce `--cache-root` CLI override that feeds into cache helpers.
-3. **Manifest referencing**
-   - Include `validation` status per module in manifest entries to aid debugging.
-
-## 5. Documentation & Onboarding
+## 3. Documentation & Onboarding
 
 ### Immediate needs
 1. **AGENTS.md** already updated with CLI flags; add a short “Why stubs?” note until agent lands.
@@ -82,21 +50,27 @@ The current depmock pipeline now delivers dataset plumbing, CLI integration, cac
    - How to interpret validation results.
    - How to read provenance metadata.
 
-## 6. Stretch Goals
+## 4. Stretch Goals
 
-1. **Downstream integration with autoformalizer outputs**
+1. **Prompt & normalization refinement**
+   - Collect a corpus of dependencies with known Lean implementations and run A/B tests once the agent is live.
+   - Expand telemetry (`DependencyRunReport`) with normalization strategy distribution to catch misclassifications.
+   - Produce user-facing docs describing normalization strategies for educators.
+2. **Cache evolution**
+   - Add CLI pruning (`deps cache-prune`), remote sync support, and manifest validation flags.
+3. **Downstream integration with autoformalizer outputs**
    - Update main spec-generation pipeline to optionally load dependency Lean modules (vs. stub stubs).
    - Provide a `Deps.lean` import in generated specs guarded by configuration.
-2. **Batch scheduling**
+4. **Batch scheduling**
    - Consider keep-alive patterns for expensive models (reuse sessions across dependencies).
-3. **Mocking Playbook**
+5. **Mocking Playbook**
    - Combine results from `analyze_deps` with autoformalizer runs to prioritize human-crafted mocks.
 
 ## Summary Checklist
 
 - [ ] Implement inspect_ai dependency agent harness and integrate into CLI executor.
 - [ ] Support Lean-guided retries + per-module validation in telemetry.
-- [ ] Expand prompt A/B testing capabilities and track normalization analytics.
-- [ ] Enhance cache tooling (prune, remote sync, validation metadata).
+- [ ] Expand prompt A/B testing capabilities and track normalization analytics. *(stretch goal)*
+- [ ] Enhance cache tooling (prune, remote sync, validation metadata). *(stretch goal)*
 - [ ] Finish documentation updates (README, AGENTS) reflecting new reports.
 - [ ] Investigate stretch goals for full spec integration and human-in-the-loop mocks.
