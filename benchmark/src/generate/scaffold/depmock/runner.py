@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import re
 from pathlib import Path
 
 from inspect_ai.solver import TaskState, solver, Solver, Generate
@@ -19,6 +20,68 @@ from generate.scaffold.depmock.cache import (
 )
 from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
+
+
+_LEAN_IMPORT_PATTERN = re.compile(
+    r"^\s*import\s+(Fvspec\.Deps\.[A-Za-z0-9_.]+)", re.MULTILINE
+)
+
+
+def _extract_module_dependencies(
+    module: str, code: str, available: set[str]
+) -> set[str]:
+    """Extract dependency modules appearing in Lean import statements."""
+    dependencies: set[str] = set()
+    for match in _LEAN_IMPORT_PATTERN.findall(code):
+        if match.startswith("Fvspec.Deps."):
+            candidate = match.removeprefix("Fvspec.Deps.")
+        else:
+            continue
+        # When the candidate contains namespace separators, take the final segment
+        # because manifest modules are stored as sanitized basenames.
+        basename = candidate.split(".")[-1]
+        if basename != module and basename in available:
+            dependencies.add(basename)
+    return dependencies
+
+
+def _order_modules(entries: list[dict[str, str]]) -> list[dict[str, str]]:
+    """Topologically order Lean modules according to internal import graph."""
+    modules = {
+        entry["module"]: entry
+        for entry in entries
+        if isinstance(entry.get("module"), str)
+    }
+    available = set(modules.keys())
+    dependency_graph = {
+        module: _extract_module_dependencies(module, entry.get("code", ""), available)
+        for module, entry in modules.items()
+    }
+
+    ordered: list[dict[str, str]] = []
+    visiting: set[str] = set()
+    visited: set[str] = set()
+
+    def dfs(node: str) -> None:
+        if node in visited:
+            return
+        if node in visiting:
+            raise ValueError(f"Cycle detected involving module '{node}'")
+        visiting.add(node)
+        for dep in dependency_graph.get(node, set()):
+            dfs(dep)
+        visiting.remove(node)
+        visited.add(node)
+        ordered.append(modules[node])
+
+    try:
+        for module_name in modules:
+            dfs(module_name)
+    except ValueError:
+        # Fall back to original order if a cycle is encountered.
+        return entries
+
+    return ordered
 
 
 def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyResult:
@@ -84,14 +147,15 @@ def _process_payloads(
 
     manifest = read_manifest(deps_dir)
     aggregated = _aggregate_lean(deps_dir, manifest)
-    body = "\n\n".join(item["code"] for item in aggregated if item["code"])
+    ordered_modules = _order_modules(aggregated)
+    body = "\n\n".join(item["code"] for item in ordered_modules if item["code"])
     if body:
         lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
     else:
         lean_text = ""
     return {
         "manifest": manifest,
-        "aggregated": aggregated,
+        "aggregated": ordered_modules,
         "lean_text": lean_text,
         "deps_dir": str(deps_dir),
         "variant": variant,

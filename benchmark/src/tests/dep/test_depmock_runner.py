@@ -2,7 +2,11 @@
 
 from pathlib import Path
 
-from generate.scaffold.depmock.runner import run_depmock_for_sample
+from generate.scaffold.depmock.runner import (
+    run_depmock_for_sample,
+    _aggregate_lean,
+    _order_modules,
+)
 from generate.scaffold.dataset import Datapoint
 
 
@@ -53,3 +57,23 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     file_text = deps_lean.read_text()
     assert "Autoformalization stub" in file_text
     assert "namespace" not in file_text
+
+
+def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
+    deps_dir = tmp_path / "deps"
+    deps_dir.mkdir(parents=True)
+
+    (deps_dir / "First.lean").write_text("def firstValue : Nat := 1\n")
+    (deps_dir / "Second.lean").write_text(
+        "import Fvspec.Deps.First\n\ndef secondValue : Nat := firstValue + 1\n"
+    )
+
+    manifest = [
+        {"module": "Second"},
+        {"module": "First"},
+    ]
+
+    aggregated = _aggregate_lean(deps_dir, manifest)
+    ordered = _order_modules(aggregated)
+
+    assert [entry["module"] for entry in ordered] == ["First", "Second"]

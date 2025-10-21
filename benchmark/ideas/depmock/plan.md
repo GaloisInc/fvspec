@@ -20,7 +20,7 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
          Expose a Python API (e.g., `run_dependency_autoformalizer(...)`) that the CLI can call, handle partial successes (recoverable Lean errors), capture diagnostics, and propagate failures cleanly.
 3. [x] **Caching strategy alignment**  
          Reconcile agent outputs with the existing cache format (hash naming, manifest entries, `Deps.lean` aggregation) and write cache entries with Lean artifacts plus provenance metadata (model, timestamp, source hash).
-4. [ ] **Module ordering**  
+4. [x] **Module ordering**  
          Add a topological sort that respects Lean import dependencies before aggregating modules into `Deps.lean`, ensuring reproducible builds even when the agent introduces cross-module references.
 
 ## Phase 3 — Integration & Telemetry
