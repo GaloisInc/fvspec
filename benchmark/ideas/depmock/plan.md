@@ -24,9 +24,9 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
          Add a topological sort that respects Lean import dependencies before aggregating modules into `Deps.lean`, ensuring reproducible builds even when the agent introduces cross-module references.
 
 ## Phase 3 — Integration & Telemetry
-1. [ ] **CLI plumbing**  
+1. [x] **CLI plumbing**  
          Update `uv run fvspec deps autoformalize` to call the new agent API, stream progress, surface summary statistics, and retain a dry-run mode for smoke tests.
-2. [ ] **Quality assessment hooks**  
+2. [x] **Quality assessment hooks**  
          Extend quality metrics to cover dependency autoformalization (Lean compile counts, retry stats, token/time usage) and emit them into run artifacts for downstream inspection.
 3. [ ] **Validation workflow**  
          Run targeted samples end-to-end, verify cached outputs compile, assess prompt effectiveness, and collect follow-up action items for tuning.

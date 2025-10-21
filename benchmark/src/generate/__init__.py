@@ -1,6 +1,7 @@
 """Generate the benchmark"""
 
 from collections import defaultdict
+import json
 from datetime import datetime
 from pathlib import Path
 import random
@@ -425,6 +426,48 @@ def deps_autoformalize_command(
     print(f"  Skipped (cached): {skipped}")
     print(f"  Failed: {failed}")
     print(f"  Fatal: {fatal}")
+
+    report_payload = {
+        "timestamp": timestamp,
+        "variant": base_variant,
+        "dry_run": dry_run,
+        "skip_cached": skip_cached,
+        "max_attempts": max_attempts,
+        "dataset_size": len(dependency_dataset),
+        "started_at": report.started_at.isoformat(),
+        "completed_at": report.completed_at.isoformat(),
+        "duration_seconds": (
+            report.completed_at - report.started_at
+        ).total_seconds(),
+        "totals": {
+            "success": succeeded,
+            "skipped": skipped,
+            "failed": failed,
+            "fatal": fatal,
+            "total": report.total,
+        },
+        "outcomes": [
+            {
+                "cache_key": outcome.cache_key,
+                "dependency": outcome.spec.dependency_name,
+                "sample_id": outcome.spec.sample_id,
+                "datapoint_id": outcome.spec.datapoint_id,
+                "status": outcome.status,
+                "attempts": outcome.attempts,
+                "cached": outcome.spec.cached,
+                "diagnostics": outcome.diagnostics,
+                "result_status": outcome.result.status if outcome.result else None,
+                "result_variant": outcome.result.variant if outcome.result else None,
+                "error": str(outcome.error) if outcome.error else None,
+            }
+            for outcome in report.outcomes
+        ],
+        "metadata": report.metadata,
+    }
+
+    report_path = base_dir / "dependency_report.json"
+    report_path.write_text(json.dumps(report_payload, indent=2))
+    print(f"  Report written to {report_path}")
 
     if fatal_encountered or fatal:
         raise typer.Exit(code=1)
