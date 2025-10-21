@@ -1,76 +1,106 @@
-# Depmock Next Steps Blueprint
+# Depmock Subagent Integration Plan
 
-The current depmock pipeline now delivers dataset plumbing, CLI integration, caching/telemetry, and ordered Lean aggregation. Remaining work focuses on replacing the stub executor with a real inspect_ai agent, tightening validation, and supporting downstream consumers. This document tracks open cruxes and proposed experiments.
+Goal: ship `uv run fvspec` with real dependency autoformalization by embedding the depmock agent as an inspect_ai subagent (agent-as-tool). This document captures the minimum work required to replace the current stub executor with a functioning subagent loop. No stretch goals, no future roadmap—just the blockers between today’s implementation and a working multi-agent flow.
 
-## 1. Replace Stub Executor with Real inspect_ai Agent
+---
 
-### Status
-- CLI invokes `run_dependency_autoformalizer`, but the executor emits stubs.
-- No inspect_ai `Task` yet that exercises the dependency prompts against a model.
+## 1. Desired Runtime Flow
 
-### Tasks
-1. **Agent invocation harness**
-   - Create `generate/scaffold/depmock/agent_runner.py` that:
-     - Builds a `MemoryDataset` from `DependencySampleSpec`.
-     - Wraps `dependency_autoformalizer` in an inspect_ai `Task` using `basic_agent` + `autoformalize_dependency_tool`.
-     - Configures retry/backoff and `lean_compile` tooling.
-2. **Executor bridge**
-   - In `run_dependency_autoformalizer`, replace stub `executor` with a call into the new harness.
-   - Capture outputs (Lean code, diagnostics) and map to `DependencyResult`.
-   - Thread through attempt counts/diagnostics for provenance.
-3. **Model integration**
-   - Start with `cfg.agent.model` (`anthropic/claude-sonnet-4-5-20250929`).
-   - Ensure CLI options allow overriding model/max tokens if needed.
-4. **Testing**
-   - Add deterministic integration test using a small fake executor + dataset.
-   - Consider VCR-style fixtures or snapshot tests for prompt structure.
+When `uv run fvspec` executes a sample:
 
-## 2. Lean Validation & Retry Semantics
+1. `depmock_setup` prepares dependency metadata and writes cached stubs (already in place).
+2. Before the main spec solver runs, a dependency autoformalizer subagent should:
+   - Receive the `DependencyPayload` and diagnostics, if any.
+   - Call the prompt scaffolding (`functional`/`mvcgen`) and produce Lean code.
+   - Invoke `lean_compile` (via the subagent’s tool loop) to validate the result, retrying on recoverable errors.
+   - Persist the final Lean output + provenance through the existing cache/telemetry hooks.
+3. The main spec solver then runs with access to the generated dependency modules.
 
-### Current behavior
-- `--validate` runs `lean` on aggregated `Deps.lean`, but stubs mean limited coverage.
-- No automatic retry on recoverable Lean diagnostics (since executor is stubbed).
+This mirrors several patterns from the Inspect docs:
+- Treat the dependency translator as its own agent (`dependency_autoformalizer`).
+- Wrap it with `as_tool()` so the parent agent can call it during the tool loop.
+- Use `basic_agent` to orchestrate retry/backoff and track attempts via `AgentState`.
 
-### Next experiments
-1. **Lean-guided retry loop**
-   - Parse diagnostics from `lean_compile` tool results.
-   - If Lean reports undefined symbols, feed diagnostics back through `_dependency_autoformalizer`.
-2. **Per-module validation**
-   - Validate individual modules before aggregation to isolate failures.
-   - Store validation results alongside manifest entries for debugging.
-3. **CI smoke test**
-   - Add a GitHub CI job (or local script) that runs `uv run fvspec deps autoformalize --dry-run --validate --sample-size 1` to ensure toolchain health.
+---
 
-## 3. Documentation & Onboarding
+## 2. Subagent Architecture
 
-### Immediate needs
-1. **AGENTS.md** already updated with CLI flags; add a short “Why stubs?” note until agent lands.
-2. **New README section** covering:
-   - `dependency_report.json` schema.
-   - How to interpret validation results.
-   - How to read provenance metadata.
+### 2.1 Components
 
-## 4. Stretch Goals
+| Component | Responsibility |
+|-----------|----------------|
+| `dependency_autoformalizer` (existing) | Build system/user prompts; store context in `inspect_ai.util.store()`. |
+| **New** `dependency_agent_solver` | Call `dependency_autoformalizer` and `lean_compile()` inside a `basic_agent` loop. |
+| `autoformalize_dependency_tool()` | Wrap `dependency_autoformalizer` using `as_tool()` so it can be mounted by another agent. |
+| **New** `run_dependency_agent()` | Thin harness that instantiates the solver, passes in `DependencyExecutionRequest`, and returns `DependencyResult`. |
+| CLI executor (`run_dependency_autoformalizer`) | Replace stub executor with calls to `run_dependency_agent()`. |
 
-1. **Prompt & normalization refinement**
-   - Collect a corpus of dependencies with known Lean implementations and run A/B tests once the agent is live.
-   - Expand telemetry (`DependencyRunReport`) with normalization strategy distribution to catch misclassifications.
-   - Produce user-facing docs describing normalization strategies for educators.
-2. **Cache evolution**
-   - Add CLI pruning (`deps cache-prune`), remote sync support, and manifest validation flags.
-3. **Downstream integration with autoformalizer outputs**
-   - Update main spec-generation pipeline to optionally load dependency Lean modules (vs. stub stubs).
-   - Provide a `Deps.lean` import in generated specs guarded by configuration.
-4. **Batch scheduling**
-   - Consider keep-alive patterns for expensive models (reuse sessions across dependencies).
-5. **Mocking Playbook**
-   - Combine results from `analyze_deps` with autoformalizer runs to prioritize human-crafted mocks.
+### 2.2 Inspect Patterns
 
-## Summary Checklist
+Drawing from https://inspect.aisi.org.uk/multi-agent.html:
 
-- [ ] Implement inspect_ai dependency agent harness and integrate into CLI executor.
-- [ ] Support Lean-guided retries + per-module validation in telemetry.
-- [ ] Expand prompt A/B testing capabilities and track normalization analytics. *(stretch goal)*
-- [ ] Enhance cache tooling (prune, remote sync, validation metadata). *(stretch goal)*
-- [ ] Finish documentation updates (README, AGENTS) reflecting new reports.
-- [ ] Investigate stretch goals for full spec integration and human-in-the-loop mocks.
+- **Agent-as-tool**: `as_tool(dependency_autoformalizer)` lets the parent solver treat the subagent like any other tool call; we then mount it inside a `basic_agent` that also has access to `lean_compile()`.
+- **Retry semantics**: leverage `basic_agent(max_attempts=N)` to control how many times the subagent can refine output before returning failure.
+- **State sharing**: we already stash payload/variant in `store()`; extend this to include the most recent Lean diagnostics so retries can access them.
+- **Partial failures**: when retries are exhausted, convert the subagent’s final outcome into a `DependencyRecoverableError` or `DependencyFatalError` so the outer invocation layer can log telemetry.
+
+---
+
+## 3. Action Items
+
+### 3.1 Agent Harness
+
+1. Implement `generate/scaffold/depmock/agent_runner.py` (or similar):
+   - Build a minimal inspect_ai `Task` with:
+     ```python
+     dependency_task = Task(
+         dataset=MemoryDataset([Sample(id=cache_key, input="")]),
+         solver=[
+             system_message(system_prompt),
+             use_tools([autoformalize_dependency_tool(), lean_compile()]),
+             basic_agent(max_attempts=requested_attempts),
+         ],
+     )
+     ```
+   - Provide a tiny `GenerateConfig` matching `cfg.agent.model`.
+   - Run `eval(dependency_task, ...)` with `display="none"`, `log_samples=False`, `trace=False`, writing logs into the existing artifacts directory (reuse `dependency_report.json` path or a temp subdir).
+   - Extract the assistant output (Lean code) plus `state.store()` for diagnostics.
+
+2. Translate the eval result into `DependencyResult`:
+   - `lean_code` = assistant `.completion`.
+   - `diagnostics` = values captured in `store()` (e.g., Lean error message) or the latest tool call output.
+   - On failure, raise `DependencyRecoverableError` or `DependencyFatalError` based on exit reason.
+
+### 3.2 Invocation Layer Wiring
+
+1. In `run_dependency_autoformalizer`, replace the stub `executor` with a call to `run_dependency_agent()`.
+2. Ensure attempt counts / diagnostics from `basic_agent` propagate back so provenance metadata stays accurate.
+3. Respect `max_attempts` from CLI by passing it through to `basic_agent`.
+4. Maintain existing caching: persist results with `CacheProvenance(model=cfg.agent.model, attempts=attempt_count, diagnostics=...)`.
+
+### 3.3 Lean Validation Integration
+
+1. Confirm the subagent’s tool stack includes a `lean_compile()` call; rely on tool results to mark success vs. recoverable failure.
+2. On recoverable failure (non-zero exit code, diagnostics mentioning missing constants, etc.), loop back with diagnostics to the user prompt (`_dependency_autoformalizer` already accepts a `diagnostics` string).
+3. On fatal failure (e.g., repeated syntax errors, timeouts), bubble up `DependencyFatalError` so the CLI summaries stay informative.
+
+---
+
+## 4. Testing & Verification
+
+1. **Unit tests**
+   - Add tests in `tests/dep/` covering `run_dependency_agent()` with a mocked inspect_ai `eval` call. Use a fake model (or monkeypatch `eval`) to return canned Lean code / diagnostics.
+2. **Integration smoke**
+   - Run `uv run fvspec deps autoformalize --sample-size 1 --dry-run` to confirm the plumbing still works with stubs.
+   - Run without `--dry-run` once the agent is hooked up. Validate Lean modules created and `dependency_report.json` contains real `status="success"` entries.
+3. **Lean validation path**
+   - Run `uv run fvspec deps autoformalize --sample-size 1 --validate` and ensure `Deps.lean` is typechecked and validation results are recorded.
+
+---
+
+## 5. Deliverable Checklist
+
+- [ ] `run_dependency_autoformalizer` invokes the real subagent via `run_dependency_agent()`.
+- [ ] Subagent uses inspect_ai `basic_agent` + `autoformalize_dependency_tool()` + `lean_compile()` to produce Lean code.
+- [ ] Telemetry (`dependency_report.json`, cache metadata, validation logs) captures actual agent attempts/diagnostics.
+- [ ] `uv run fvspec deps autoformalize` works end-to-end, and `uv run fvspec` automatically leverages the generated dependencies for the main spec solver.
