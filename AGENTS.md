@@ -166,6 +166,14 @@ uv run fvspec deps cache-flush
 
 `autoformalize` produces one Lean file per dependency under the run's `deps/` directory; if no cached Lean exists a computable stub is emitted and recorded for later refinement. Aggregated output in `Fvspec/Deps.lean` wraps all modules inside the namespace exactly once.
 
+Additional behavior to know:
+
+- `--dry-run` emits Lean stubs without invoking the autoformalizer agent. Use this for smoke tests or when the backend is unavailable.
+- `--skip-cached/--no-skip-cached` controls whether cached dependencies are regenerated. Even when skipping, cached files are copied into the run-specific `deps/` directory.
+- `--validate` typechecks the aggregated `Deps.lean` per sample and records exit codes in the run report.
+- Each invocation writes `dependency_report.json` at the root of the artifacts directory. The report captures timing, retry counts, dependency outcomes, diagnostics, and validation results, enabling quick inspection without opening every sample directory.
+- Sample directories under `artifacts/<timestamp>__variant_<variant>-deps/` contain ordered Lean modules (`<Module>.lean`) and a consolidated `Deps.lean`, mirroring the module graph used during validation.
+
 ### Viewing Results
 
 ```bash

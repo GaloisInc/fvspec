@@ -32,7 +32,7 @@ Upgrade the current dependency autoformalization workflow from a stub generator 
          Run targeted samples end-to-end, verify cached outputs compile, assess prompt effectiveness, and collect follow-up action items for tuning.
 
 ## Deliverables
-1. [ ] Inspect_ai agent module for dependency autoformalization using `sonnet-4-5`.
-2. [ ] Updated CLI command and supporting APIs that invoke the agent and integrate with caching.
-3. [ ] Extended run artifacts containing Lean outputs, provenance, and telemetry for each dependency translation.
-4. [ ] Thorough documentation explaining how to interpret the new artifacts dir
+1. [ ] Inspect_ai agent module for dependency autoformalization using `sonnet-4-5` (currently stubbed in CLI executor; real agent still pending).
+2. [x] Updated CLI command and supporting APIs that invoke the agent and integrate with caching.
+3. [x] Extended run artifacts containing Lean outputs, provenance, and telemetry for each dependency translation.
+4. [x] Thorough documentation explaining how to interpret the new artifacts dir
