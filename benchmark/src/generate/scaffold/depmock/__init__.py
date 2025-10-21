@@ -1,0 +1,93 @@
+"""Dependency autoformalization toolkit."""
+
+from generate.scaffold.depmock.models import (
+    ArgumentRole,
+    ArgumentSpec,
+    CallableKind,
+    CallableSignature,
+    DependencyCallable,
+    DependencyPayload,
+    DependencyResult,
+    NormalizationPlan,
+    NormalizationStrategy,
+    LeanArtifactSpec,
+)
+from generate.scaffold.depmock.agent import (
+    dependency_autoformalizer,
+    autoformalize_dependency_tool,
+)
+from generate.scaffold.depmock.agent_runner import run_dependency_agent
+from generate.scaffold.depmock.cache import (
+    CacheRecord,
+    compute_cache_key,
+    load_cached_dependency,
+    persist_generated_dependency,
+    record_cache_hit,
+    store_dependency_result,
+    write_dependency_artifact,
+    read_manifest,
+    clear_cache,
+)
+from generate.scaffold.depmock.dataset import (
+    DependencySampleSpec,
+    build_dependency_dataset,
+    payloads_from_datapoint,
+    scan_dependencies,
+)
+from generate.scaffold.depmock.autoformalizer import (
+    DependencyBatchError,
+    DependencyExecutionRequest,
+    DependencyOutcome,
+    DependencyRecoverableError,
+    DependencyFatalError,
+    DependencyInvocationError,
+    DependencyRunReport,
+    run_dependency_autoformalizer,
+)
+from generate.scaffold.depmock.runner import (
+    aggregate_dependency_modules,
+    depmock_setup,
+    order_dependency_modules,
+    run_depmock_for_sample,
+)
+
+__all__ = [
+    "DependencyPayload",
+    "DependencyResult",
+    "ArgumentRole",
+    "ArgumentSpec",
+    "CallableSignature",
+    "CallableKind",
+    "DependencyCallable",
+    "NormalizationPlan",
+    "NormalizationStrategy",
+    "LeanArtifactSpec",
+    "dependency_autoformalizer",
+    "autoformalize_dependency_tool",
+    "run_dependency_agent",
+    "CacheRecord",
+    "compute_cache_key",
+    "load_cached_dependency",
+    "persist_generated_dependency",
+    "record_cache_hit",
+    "store_dependency_result",
+    "write_dependency_artifact",
+    "read_manifest",
+    "clear_cache",
+    "DependencySampleSpec",
+    "payloads_from_datapoint",
+    "scan_dependencies",
+    "build_dependency_dataset",
+    "DependencyInvocationError",
+    "DependencyRecoverableError",
+    "DependencyFatalError",
+    "DependencyExecutionRequest",
+    "DependencyOutcome",
+    "DependencyRunReport",
+    "DependencyBatchError",
+    "run_dependency_autoformalizer",
+    "depmock_setup",
+    "run_depmock_for_sample",
+    "aggregate_dependency_modules",
+    "order_dependency_modules",
+]

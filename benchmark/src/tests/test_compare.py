@@ -1,8 +1,8 @@
 """Tests for A/B testing and compare-variants command."""
 
 from typer.testing import CliRunner
-from benchmark import app
-from benchmark.templates.registry import VariantRegistry
+from generate import app
+from generate.templates.spec import VariantRegistry
 
 
 class TestCompareVariantsLogic:
@@ -10,8 +10,8 @@ class TestCompareVariantsLogic:
 
     def test_compare_variants_auto_selects_control_and_treatment(self, mocker):
         """compare-variants with no args should auto-select control and treatment variants."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -29,8 +29,8 @@ class TestCompareVariantsLogic:
 
     def test_compare_variants_with_explicit_variants(self, mocker):
         """compare-variants should accept explicit variant names."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -57,8 +57,8 @@ class TestCompareVariantsLogic:
 
     def test_compare_variants_passes_options_to_tasks(self, mocker):
         """compare-variants should pass options like --no-mcp to task creation."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -84,8 +84,8 @@ class TestCompareVariantsLogic:
 
     def test_compare_variants_creates_log_dir(self, mocker):
         """compare-variants should create a timestamped log directory."""
-        _mock_fvspec = mocker.patch("benchmark.fvspec")
-        mock_eval_set = mocker.patch("benchmark.eval_set")
+        _mock_fvspec = mocker.patch("generate.fvspec")
+        mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -128,8 +128,8 @@ class TestCompareVariantsValidation:
 
     def test_compare_variants_accepts_more_than_two_variants(self, mocker):
         """compare-variants should work with 3+ variants."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -184,8 +184,8 @@ class TestCompareVariantsIntegration:
 
     def test_compare_variants_with_real_variants(self, mocker):
         """Compare-variants should work with actual variant names from registry."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
         registry = VariantRegistry()
@@ -207,8 +207,8 @@ class TestTaskCreation:
 
     def test_creates_one_task_per_variant(self, mocker):
         """Should create exactly one task instance per variant."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -228,8 +228,8 @@ class TestTaskCreation:
 
     def test_tasks_have_different_variants(self, mocker):
         """Each task should be created with a different variant."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        _mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        _mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 
@@ -255,8 +255,8 @@ class TestTaskCreation:
 
     def test_all_tasks_passed_to_eval_set(self, mocker):
         """All task instances should be passed to eval_set as a list."""
-        mock_fvspec = mocker.patch("benchmark.fvspec")
-        mock_eval_set = mocker.patch("benchmark.eval_set")
+        mock_fvspec = mocker.patch("generate.fvspec")
+        mock_eval_set = mocker.patch("generate.eval_set")
 
         runner = CliRunner()
 

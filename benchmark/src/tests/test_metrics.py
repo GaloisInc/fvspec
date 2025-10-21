@@ -5,7 +5,7 @@ Python and Lean code structure without relying on LLM self-assessment.
 """
 
 import pytest
-from benchmark.scaffold.quality_assessment import (
+from generate.scaffold.quality_assessment import (
     StructuralFaithfulness,
     _extract_python_parameters,
     _extract_python_types,

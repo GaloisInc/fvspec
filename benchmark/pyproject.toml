@@ -1,5 +1,5 @@
 [project]
-name = "benchmark"
+name = "generate"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -12,26 +12,36 @@ dependencies = [
     "codegen>=0.57.0",
     "datasets>=4.1.1",
     "hvplot>=0.12.1",
-    "inspect-ai>=0.3.137",
+    "inspect-ai>=0.3.140",
     "jinja2>=3.1.6",
     "jsonlines>=4.0.0",
-    "mcp>=1.16.0",
+    "mcp>=1.18.0",
     "pandas>=2.3.3",
     "panel>=1.8.2",
-    "pydantic>=2.12.0",
-    "pydantic-ai>=1.0.15",
+    "pydantic>=2.12.3",
+    "pydantic-ai>=1.2.1",
     "python-dotenv>=1.1.1",
+    "rich>=13.9.4",
+    "streamlit>=1.50.0",
+    "tqdm>=4.67.1",
     "trio>=0.31.0",
     "typer>=0.19.2",
 ]
 
 [project.scripts]
-preview_prompts = "benchmark.templates:main"
-fvspec = "benchmark:main"
-analyze_deps = "scripts.analyze_deps:cli"
+preview_prompts = "generate.templates:main"
+fvspec = "generate:main"
+analyze_deps_regex = "scripts.analyze_deps_regex:cli"
+analyze_deps = "scripts.analyze_deps:main"
 
 [project.entry-points.inspect_ai]
-benchmark = "benchmark._registry"
+benchmark = "generate._registry"
+
+[tool.ruff.lint]
+select = ["D"]
+
+[tool.ruff.lint.pydocstyle]
+convention = "google"
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]

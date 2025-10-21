@@ -8,7 +8,7 @@ from pathlib import Path
 
 import pytest
 
-from benchmark.scaffold.tools.utilio import (
+from generate.scaffold.tools.utilio import (
     create_sample_workspace,
     cleanup_sample_workspace,
     sample_workspace,
@@ -23,14 +23,18 @@ def mock_lake_template(tmp_path):
 
     # Create minimal Lake project structure
     (template / "lakefile.toml").write_text(
-        'name = "test"\nversion = "0.1.0"\ndefaultTargets = ["Test"]'
+        'name = "fvspec"\nversion = "0.1.0"\ndefaultTargets = ["Fvspec"]'
     )
-    (template / "lean-toolchain").write_text("leanprover/lean4:v4.23.0")
+    (template / "lake-manifest.json").write_text("{}")
 
-    # Create Test directory
-    test_dir = template / "Test"
-    test_dir.mkdir()
-    (test_dir / "Basic.lean").write_text("-- Test file\ndef test : Nat := 42")
+    # Create Fvspec directory structure mirroring the real template
+    fvspec_dir = template / "Fvspec"
+    fvspec_dir.mkdir()
+    (fvspec_dir / "Basic.lean").write_text("-- Placeholder spec\nimport Fvspec.Deps")
+    (fvspec_dir / "Deps.lean").write_text("-- Placeholder deps")
+    (template / "Fvspec.lean").write_text(
+        "-- Auto-generated entry point\nimport Fvspec.Deps\nimport Fvspec.Basic"
+    )
 
     return template
 
@@ -54,13 +58,13 @@ def test_create_sample_workspace_copies_template(mock_lake_template):
     try:
         # Verify Lake project files were copied
         assert (workspace / "lakefile.toml").exists()
-        assert (workspace / "lean-toolchain").exists()
-        assert (workspace / "Test").is_dir()
-        assert (workspace / "Test" / "Basic.lean").exists()
+        assert (workspace / "lake-manifest.json").exists()
+        assert (workspace / "Fvspec").is_dir()
+        assert (workspace / "Fvspec" / "Basic.lean").exists()
 
         # Verify content was copied correctly
-        content = (workspace / "Test" / "Basic.lean").read_text()
-        assert "def test : Nat := 42" in content
+        content = (workspace / "Fvspec" / "Basic.lean").read_text()
+        assert "import Fvspec.Deps" in content
     finally:
         cleanup_sample_workspace(workspace)
 
@@ -138,12 +142,7 @@ def test_sample_workspace_context_manager_cleans_up_on_exception(mock_lake_templ
 def test_workspace_can_write_lean_files(mock_lake_template):
     """Verify we can write Lean files to the workspace."""
     with sample_workspace("sample_008", lake_template=mock_lake_template) as workspace:
-        # Create Fvspec directory for generated files
-        fvspec_dir = workspace / "Fvspec"
-        fvspec_dir.mkdir(exist_ok=True)
-
-        # Write a sample Lean file
-        spec_file = fvspec_dir / "sample_008.lean"
+        spec_file = workspace / "Fvspec" / "Basic.lean"
         lean_code = """-- Generated spec
 def add (x y : Nat) : Nat := sorry
 

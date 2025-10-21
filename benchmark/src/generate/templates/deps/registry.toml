@@ -1,0 +1,14 @@
+[meta]
+default_variant = "functional"
+
+[variants.functional]
+description = "Functional Lean translation of Python helper routines."
+style = "functional"
+path = "variants/functional"
+tags = ["default", "functional"]
+
+[variants.mvcgen]
+description = "Imperative Lean translation using mvcgen-style Hoare triples."
+style = "mvcgen"
+path = "variants/mvcgen"
+tags = ["mvcgen", "imperative"]
