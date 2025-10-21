@@ -864,9 +864,9 @@ def cli(
         40, "--limit-symbols", help="Number of symbols to surface"
     ),
     sample_size: int | None = typer.Option(
-        100,
+        None,
         "--sample-size",
-        help="Reservoir sample this many datapoints before analysis (defaults to the full dataset).",
+        help="Reservoir sample this many datapoints before analysis (default: entire dataset).",
     ),
     seed: int = typer.Option(
         0, "--seed", help="Random seed used when sampling datapoints."
