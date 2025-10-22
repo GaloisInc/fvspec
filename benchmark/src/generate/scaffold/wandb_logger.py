@@ -61,11 +61,12 @@ class WandbLogger:
         if group:
             run_name = f"{group}__{run_name}"
 
-        # Set wandb directory to artifacts/wandb
+        # Set wandb directory to artifacts (wandb will create wandb/ subdirectory)
+        # This results in artifacts/wandb/ instead of artifacts/wandb/wandb/
         import os
 
-        wandb_dir = Path.cwd() / "artifacts" / "wandb"
-        wandb_dir.mkdir(parents=True, exist_ok=True)
+        artifacts_dir = Path.cwd() / "artifacts"
+        artifacts_dir.mkdir(parents=True, exist_ok=True)
 
         self.run = wandb.init(
             project=self.config.project,
@@ -80,7 +81,7 @@ class WandbLogger:
                 "ranseed": ranseed,
                 "timestamp": timestamp,
             },
-            dir=str(wandb_dir),
+            dir=str(artifacts_dir),
             reinit=True,
         )
 
