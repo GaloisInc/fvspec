@@ -61,6 +61,12 @@ class WandbLogger:
         if group:
             run_name = f"{group}__{run_name}"
 
+        # Set wandb directory to artifacts/wandb
+        import os
+
+        wandb_dir = Path.cwd() / "artifacts" / "wandb"
+        wandb_dir.mkdir(parents=True, exist_ok=True)
+
         self.run = wandb.init(
             project=self.config.project,
             entity=self.config.entity,
@@ -74,6 +80,7 @@ class WandbLogger:
                 "ranseed": ranseed,
                 "timestamp": timestamp,
             },
+            dir=str(wandb_dir),
             reinit=True,
         )
 

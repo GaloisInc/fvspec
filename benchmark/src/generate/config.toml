@@ -23,11 +23,11 @@ ranseed = 0
 
 [wandb]
 # Enable Weights & Biases logging
-enabled = false
+enabled = true
 # Project name in wandb
 project = "fvspec"
 # Entity/team name (optional)
-# entity = "your-team"
+entity = "fvspec"
 # Additional tags for runs
 tags = []
 # Log generated Lean code as artifacts

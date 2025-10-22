@@ -161,6 +161,17 @@ log_qa = true
 --wandb-tag experiment-1 --wandb-tag ablation-study
 ```
 
+## Artifact Organization
+
+The benchmark organizes outputs in a clean directory structure:
+
+- `artifacts/runs/` - Benchmark run outputs
+  - `2025-10-22T15-30-00__variant_control-functional/` - Timestamped run directories
+  - `comparison_2025-10-22T16-00-00/` - Multi-variant comparison runs
+- `artifacts/wandb/` - wandb cache and logs
+  - Managed automatically by wandb
+  - Can be safely deleted to free up space
+
 ## Example Workflow
 
 1. **Initial baseline:**
@@ -168,10 +179,14 @@ log_qa = true
    uv run fvspec --wandb --wandb-tag baseline --variant control-functional --sample-size 100
    ```
 
+   Results will be in `artifacts/runs/<timestamp>__variant_control-functional/`
+
 2. **Test new variant:**
    ```bash
    uv run fvspec --wandb --wandb-tag new-approach --variant terse-functional --sample-size 100
    ```
+
+   Results will be in `artifacts/runs/<timestamp>__variant_terse-functional/`
 
 3. **Compare in wandb dashboard:**
    - Navigate to your project in wandb
@@ -187,6 +202,8 @@ log_qa = true
      --wandb \
      --wandb-tag formal-comparison
    ```
+
+   Results will be in `artifacts/runs/comparison_<timestamp>/`
 
 ## Tips
 

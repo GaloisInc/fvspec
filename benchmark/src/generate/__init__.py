@@ -150,11 +150,11 @@ def main_callback(
         log_qa=cfg.wandb.log_qa,
     )
 
-    # Create log directory in artifacts
+    # Create log directory in artifacts/runs
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
     log_dir_name = f"{timestamp}__variant_{use_variant or 'default'}"
-    log_dir = Path("artifacts") / log_dir_name
+    log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Initialize wandb logger if enabled
@@ -253,7 +253,7 @@ def compare_variants(
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
     log_dir_name = f"comparison_{timestamp}"
-    log_dir = Path("artifacts") / log_dir_name
+    log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
     # Configure wandb settings (use config values for compare-variants)
@@ -382,7 +382,7 @@ def deps_autoformalize_command(
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / f"{timestamp}__variant_{path_variant}"
+    base_dir = Path("artifacts") / "runs" / f"{timestamp}__variant_{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
