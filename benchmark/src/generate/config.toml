@@ -20,3 +20,17 @@ parallelism = 25
 sample_size = 100
 # Random seed for dataset sampling
 ranseed = 0
+
+[wandb]
+# Enable Weights & Biases logging
+enabled = false
+# Project name in wandb
+project = "fvspec"
+# Entity/team name (optional)
+# entity = "your-team"
+# Additional tags for runs
+tags = []
+# Log generated Lean code as artifacts
+log_code = true
+# Log quality assessment JSON as artifacts
+log_qa = true

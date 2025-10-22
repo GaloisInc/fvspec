@@ -5,11 +5,13 @@ import json
 from datetime import datetime
 from pathlib import Path
 import random
+from typing import cast
 
 from inspect_ai import eval, eval_set
 
-from generate.config import load_config
+from generate.config import load_config, WandbConfig
 from generate.scaffold.task import fvspec, DATA_DIR
+from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.scaffold.dataset import load_datapoints, Datapoint
 from generate.scaffold.depmock import (
     DependencyPayload,
@@ -73,6 +75,24 @@ def main_callback(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
+    wandb: bool = Option(
+        None,
+        "--wandb/--no-wandb",
+        help="Enable or disable Weights & Biases logging. Overrides config.toml.",
+    ),
+    wandb_project: str = Option(
+        None,
+        help="wandb project name. Overrides config.toml (default: fvspec).",
+    ),
+    wandb_entity: str = Option(
+        None,
+        help="wandb entity/team name. Overrides config.toml.",
+    ),
+    wandb_tags: list[str] = Option(
+        None,
+        "--wandb-tag",
+        help="Additional tags for wandb run (can be specified multiple times).",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -88,6 +108,10 @@ def main_callback(
         list_variants: List available variants and exit.
         display: Display mode for eval logs (overrides config or CLI default).
         parallelism: Number of concurrent samples to evaluate.
+        wandb: Enable or disable wandb logging (overrides config.toml).
+        wandb_project: wandb project name (overrides config.toml).
+        wandb_entity: wandb entity/team name (overrides config.toml).
+        wandb_tags: Additional tags for wandb run.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -116,27 +140,53 @@ def main_callback(
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
 
+    # Configure wandb settings: CLI args > config
+    wandb_cfg = WandbConfig(
+        enabled=wandb if wandb is not None else cfg.wandb.enabled,
+        project=wandb_project or cfg.wandb.project,
+        entity=wandb_entity or cfg.wandb.entity,
+        tags=(wandb_tags or []) + cfg.wandb.tags,
+        log_code=cfg.wandb.log_code,
+        log_qa=cfg.wandb.log_qa,
+    )
+
     # Create log directory in artifacts
     now = datetime.now()
-    log_dir_name = (
-        f"{now.strftime('%Y-%m-%dT%H-%M-%S')}__variant_{use_variant or 'default'}"
-    )
+    timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
+    log_dir_name = f"{timestamp}__variant_{use_variant or 'default'}"
     log_dir = Path("artifacts") / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    eval(
-        fvspec(
-            datafile,
-            use_mcp=not no_mcp,
-            variant=use_variant,
+    # Initialize wandb logger if enabled
+    wandb_logger = init_wandb_logger(wandb_cfg)
+    if wandb_cfg.enabled:
+        wandb_logger.init_run(
+            variant=use_variant or "default",
+            model=cfg.agent.model,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
-        ),
-        model=cfg.agent.model,
-        log_dir=str(log_dir),
-        max_samples=use_parallelism,
-        max_connections=use_parallelism,
-    )
+            timestamp=timestamp,
+        )
+
+    try:
+        eval(
+            fvspec(
+                datafile,
+                use_mcp=not no_mcp,
+                variant=use_variant,
+                sample_size=use_sample_size,
+                ranseed=use_ranseed,
+            ),
+            model=cfg.agent.model,
+            log_dir=str(log_dir),
+            max_samples=use_parallelism,
+            max_connections=use_parallelism,
+        )
+    finally:
+        if wandb_cfg.enabled:
+            # Log summary metrics after eval completes
+            # Note: We'll need to read QA files from disk since we don't have them in memory
+            wandb_logger.finish()
 
 
 @app.command(name="compare-variants")
@@ -201,9 +251,31 @@ def compare_variants(
 
     # Create log directory for comparison results
     now = datetime.now()
-    log_dir_name = f"comparison_{now.strftime('%Y-%m-%dT%H-%M-%S')}"
+    timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
+    log_dir_name = f"comparison_{timestamp}"
     log_dir = Path("artifacts") / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Configure wandb settings (use config values for compare-variants)
+    wandb_cfg = cast(WandbConfig, cfg.wandb)
+
+    # Initialize wandb loggers for each variant if enabled
+    # Use the comparison timestamp as the group name for wandb
+    group_name = f"comparison_{timestamp}" if wandb_cfg.enabled else None
+
+    wandb_loggers = {}
+    if wandb_cfg.enabled:
+        for v in variants_to_compare:
+            variant_logger = init_wandb_logger(wandb_cfg)
+            variant_logger.init_run(
+                variant=v,
+                model=cfg.agent.model,
+                sample_size=use_sample_size,
+                ranseed=use_ranseed,
+                timestamp=timestamp,
+                group=group_name,
+            )
+            wandb_loggers[v] = variant_logger
 
     # Create task instances for each variant
     tasks = [
@@ -217,14 +289,19 @@ def compare_variants(
         for v in variants_to_compare
     ]
 
-    # Run all tasks together with eval_set
-    eval_set(
-        tasks,
-        log_dir=str(log_dir),
-        model=cfg.agent.model,
-        max_samples=use_parallelism,
-        max_connections=use_parallelism,
-    )
+    try:
+        # Run all tasks together with eval_set
+        eval_set(
+            tasks,
+            log_dir=str(log_dir),
+            model=cfg.agent.model,
+            max_samples=use_parallelism,
+            max_connections=use_parallelism,
+        )
+    finally:
+        if wandb_cfg.enabled:
+            for variant_logger in wandb_loggers.values():
+                variant_logger.finish()
 
 
 @deps_app.command(name="autoformalize")

@@ -273,6 +273,8 @@ async def write_to_disk(state: TaskState):
     for the current sample. The function also registers quality scores for the
     inspect_ai viewer and cleans up any temporary workspaces.
 
+    Additionally logs metrics to wandb if enabled.
+
     Args:
         state: The current state after a sample completes.
     """
@@ -298,6 +300,11 @@ async def write_to_disk(state: TaskState):
         # Extract quality assessment and register metrics as scores
         qa = QualityAssessment.from_task_state(state)
         state.scores = _qa_to_scores(qa)
+
+        # Log to wandb if enabled
+        from generate.scaffold.wandb_logger import log_sample_to_wandb
+
+        log_sample_to_wandb(state)
 
         result = ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
     else:

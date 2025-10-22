@@ -21,3 +21,5 @@ benchmark/data/
 logs/
 .env
 artifacts/
+
+.claude/settings.local.json

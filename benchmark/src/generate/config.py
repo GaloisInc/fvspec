@@ -69,6 +69,26 @@ class DatasetConfig(BaseModel):
     ranseed: int = 0
 
 
+class WandbConfig(BaseModel):
+    """Configuration for Weights & Biases logging.
+
+    Attributes:
+        enabled: Enable wandb logging
+        project: wandb project name
+        entity: wandb entity/team name (optional)
+        tags: Additional tags for runs
+        log_code: Log generated Lean code as artifacts
+        log_qa: Log quality assessment JSON as artifacts
+    """
+
+    enabled: bool = False
+    project: str = "fvspec"
+    entity: str | None = None
+    tags: list[str] = []
+    log_code: bool = True
+    log_qa: bool = True
+
+
 class Config(BaseModel):
     """Top-level configuration loaded from config.toml.
 
@@ -77,12 +97,14 @@ class Config(BaseModel):
         meta: Logging and debugging configuration
         prompt: Prompt template configuration
         dataset: Dataset sampling configuration
+        wandb: Weights & Biases configuration
     """
 
     agent: AgentConfig
     meta: MetaConfig
     prompt: PromptConfig = PromptConfig()
     dataset: DatasetConfig = DatasetConfig()
+    wandb: WandbConfig = WandbConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -96,6 +118,7 @@ class Config(BaseModel):
             meta=MetaConfig(**data["meta"]),  # type: ignore[arg-type]
             prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
             dataset=DatasetConfig(**data.get("dataset", {})),  # type: ignore[arg-type]
+            wandb=WandbConfig(**data.get("wandb", {})),  # type: ignore[arg-type]
         )
 
 
