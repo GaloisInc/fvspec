@@ -38,7 +38,7 @@ def _cache_root() -> Path:
     if override:
         root = Path(override)
     else:
-        root = _find_project_root() / "artifacts" / "dep_cache"
+        root = _find_project_root() / "artifacts" / "depcache"
     root.mkdir(parents=True, exist_ok=True)
     return root
 

@@ -1,7 +1,7 @@
 [project]
 name = "generate"
 version = "0.1.0"
-description = "Add your description here"
+description = "New Lean benchmark for real-world SWE tasks"
 readme = "README.md"
 authors = [
     { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" },

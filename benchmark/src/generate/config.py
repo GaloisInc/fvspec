@@ -77,16 +77,20 @@ class WandbConfig(BaseModel):
         project: wandb project name
         entity: wandb entity/team name (optional)
         tags: Additional tags for runs
-        log_code: Log generated Lean code as artifacts
-        log_qa: Log quality assessment JSON as artifacts
+        log_code: Log generated Lean code as artifacts (deprecated, use upload_samples)
+        log_qa: Log quality assessment JSON as artifacts (deprecated, use upload_samples)
+        upload_samples: Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)
+        sync_dep_cache: Download cache at start, upload at end of runs
     """
 
     enabled: bool = False
     project: str = "fvspec"
     entity: str | None = None
     tags: list[str] = []
-    log_code: bool = True
-    log_qa: bool = True
+    log_code: bool = True  # Deprecated, kept for backwards compatibility
+    log_qa: bool = True  # Deprecated, kept for backwards compatibility
+    upload_samples: bool = True
+    sync_dep_cache: bool = True
 
 
 class Config(BaseModel):

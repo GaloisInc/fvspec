@@ -168,6 +168,11 @@ def main_callback(
             timestamp=timestamp,
         )
 
+        # Download dep cache at start of run
+        if wandb_cfg.sync_dep_cache:
+            print("Downloading dependency cache from wandb...")
+            wandb_logger.download_dep_cache()
+
     try:
         eval(
             fvspec(
@@ -184,6 +189,11 @@ def main_callback(
         )
     finally:
         if wandb_cfg.enabled:
+            # Upload dep cache at end of run
+            if wandb_cfg.sync_dep_cache:
+                print("Uploading dependency cache to wandb...")
+                wandb_logger.upload_dep_cache()
+
             # Log summary metrics after eval completes
             # Note: We'll need to read QA files from disk since we don't have them in memory
             wandb_logger.finish()
@@ -277,6 +287,12 @@ def compare_variants(
             )
             wandb_loggers[v] = variant_logger
 
+        # Download dep cache once before all variants run
+        if wandb_cfg.sync_dep_cache and wandb_loggers:
+            print("Downloading dependency cache from wandb...")
+            first_logger = next(iter(wandb_loggers.values()))
+            first_logger.download_dep_cache()
+
     # Create task instances for each variant
     tasks = [
         fvspec(
@@ -300,6 +316,12 @@ def compare_variants(
         )
     finally:
         if wandb_cfg.enabled:
+            # Upload dep cache once after all variants complete
+            if wandb_cfg.sync_dep_cache and wandb_loggers:
+                print("Uploading dependency cache to wandb...")
+                first_logger = next(iter(wandb_loggers.values()))
+                first_logger.upload_dep_cache()
+
             for variant_logger in wandb_loggers.values():
                 variant_logger.finish()
 

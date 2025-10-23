@@ -34,6 +34,7 @@ class WandbLogger:
         self.config = config
         self.run: "Run | None" = None
         self._sample_count = 0
+        self._run_artifact: wandb.Artifact | None = None
 
     def init_run(
         self,
@@ -84,6 +85,24 @@ class WandbLogger:
             dir=str(artifacts_dir),
             reinit=True,
         )
+
+        # Initialize run artifact for incremental sample uploads
+        if self.config.upload_samples:
+            artifact_name = f"run-{variant}-{timestamp}"
+            if group:
+                artifact_name = f"{group}-{artifact_name}"
+
+            self._run_artifact = wandb.Artifact(
+                name=artifact_name,
+                type="benchmark-run",
+                description=f"Benchmark run outputs for {variant} variant",
+                metadata={
+                    "variant": variant,
+                    "model": model,
+                    "sample_size": sample_size,
+                    "timestamp": timestamp,
+                },
+            )
 
     def log_sample_metrics(
         self, qa: QualityAssessment, step: int | None = None
@@ -169,6 +188,37 @@ class WandbLogger:
         artifact.add_file(str(artifact_path))
         self.run.log_artifact(artifact)
 
+    def log_sample_to_artifact(self, sample_dir: Path, sample_id: str) -> None:
+        """Add sample files to the run artifact and log incrementally.
+
+        This method adds the sample's Lean code, QA JSON, and datapoint JSON to
+        the run artifact, then logs it. wandb handles incremental uploads efficiently,
+        only uploading new/changed files.
+
+        Args:
+            sample_dir: Directory containing the sample's output files
+            sample_id: Unique identifier for the sample
+        """
+        if not self.config.enabled or not self.config.upload_samples:
+            return
+
+        if self.run is None or self._run_artifact is None:
+            return
+
+        if not sample_dir.exists():
+            return
+
+        # Add sample files to artifact (preserving directory structure)
+        for file_path in sample_dir.glob("*"):
+            if file_path.is_file() and file_path.suffix in {".lean", ".json"}:
+                # Add with relative path to maintain structure
+                self._run_artifact.add_file(
+                    str(file_path), name=f"{sample_dir.name}/{file_path.name}"
+                )
+
+        # Log the artifact incrementally (starts async upload in background)
+        self.run.log_artifact(self._run_artifact)
+
     def log_summary_metrics(self, all_qa: list[QualityAssessment]) -> None:
         """Compute and log aggregate summary statistics across all samples.
 
@@ -236,11 +286,72 @@ class WandbLogger:
         for key, value in summary.items():
             self.run.summary[key] = value
 
+    def download_dep_cache(self) -> Path | None:
+        """Download the latest dependency cache from wandb artifacts.
+
+        Returns:
+            Path to the cache directory if successful, None otherwise
+        """
+        if not self.config.enabled or not self.config.sync_dep_cache:
+            return None
+
+        if self.run is None:
+            return None
+
+        try:
+            # Try to use the latest dep cache artifact
+            artifact = self.run.use_artifact(
+                "dep-cache:latest", type="dependency-cache"
+            )
+            cache_dir = Path.cwd() / "artifacts" / "depcache"
+            artifact.download(root=str(cache_dir))
+            return cache_dir
+        except Exception as e:
+            # Artifact doesn't exist yet (first run) or download failed
+            print(f"Note: Could not download dep cache: {e}")
+            return None
+
+    def upload_dep_cache(self) -> None:
+        """Upload the current dependency cache to wandb artifacts.
+
+        Creates a new version of the dep-cache artifact with the current state
+        of the local dependency cache.
+        """
+        if not self.config.enabled or not self.config.sync_dep_cache:
+            return
+
+        if self.run is None:
+            return
+
+        cache_dir = Path.cwd() / "artifacts" / "depcache"
+        if not cache_dir.exists() or not any(cache_dir.iterdir()):
+            # No cache to upload
+            return
+
+        try:
+            artifact = wandb.Artifact(
+                name="dep-cache",
+                type="dependency-cache",
+                description="Cached dependency formalizations",
+                metadata={
+                    "updated_at": datetime.now().isoformat(),
+                },
+            )
+
+            # Add entire cache directory
+            artifact.add_dir(str(cache_dir))
+
+            # Log the artifact
+            self.run.log_artifact(artifact)
+        except Exception as e:
+            print(f"Warning: Could not upload dep cache: {e}")
+
     def finish(self) -> None:
         """Finish the wandb run."""
         if self.run is not None:
             self.run.finish()
             self.run = None
+            self._run_artifact = None
 
 
 # Global logger instance (initialized on first use)
@@ -271,9 +382,10 @@ def get_wandb_logger() -> WandbLogger | None:
 
 
 def log_sample_to_wandb(state: TaskState) -> None:
-    """Log metrics for a completed sample to wandb.
+    """Log metrics and artifacts for a completed sample to wandb.
 
     This function is designed to be called from the write_to_disk cleanup function.
+    It logs both per-sample metrics and uploads sample files to the run artifact.
 
     Args:
         state: The task state after sample completion
@@ -286,23 +398,15 @@ def log_sample_to_wandb(state: TaskState) -> None:
     qa = QualityAssessment.from_task_state(state)
     logger.log_sample_metrics(qa)
 
-    # Log artifacts if configured
+    # Upload sample files to run artifact
     date_time = cast(str, state.metadata.get("date_time"))
     variant = cast(str, state.metadata.get("variant"))
     sample_id = str(state.sample_id)
 
     from generate.scaffold.tools import utilio
 
-    if logger.config.log_code:
-        code_file = utilio.get_output_filepath(
-            date_time, sample_id, "Spec.lean", variant=variant
-        )
-        if code_file.exists():
-            logger.log_artifact(code_file, artifact_type="lean_code")
+    # Get the sample directory
+    sample_dir = utilio.get_sample_output_dir(date_time, sample_id, variant)
 
-    if logger.config.log_qa:
-        qa_file = utilio.get_output_filepath(
-            date_time, sample_id, "qa.json", variant=variant
-        )
-        if qa_file.exists():
-            logger.log_artifact(qa_file, artifact_type="qa_json")
+    # Log all sample files to the run artifact incrementally
+    logger.log_sample_to_artifact(sample_dir, sample_id)
