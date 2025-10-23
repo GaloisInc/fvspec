@@ -5,7 +5,6 @@ import json
 from datetime import datetime
 from pathlib import Path
 import random
-from typing import cast
 
 from inspect_ai import eval, eval_set
 
