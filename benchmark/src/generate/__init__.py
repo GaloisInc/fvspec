@@ -487,7 +487,7 @@ def deps_autoformalize_command(
 
     specs = scan_dependencies(
         selected,
-        skip_cached=False,  # Always scan to get all deps, filtering happens later
+        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_regen enabled
         dedupe=True,
     )
 
