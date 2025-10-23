@@ -1,4 +1,9 @@
-"""Interactive dashboard utilities for inspecting benchmark artifacts."""
+"""Interactive dashboard utilities for inspecting benchmark artifacts.
+
+⚠️ UNMAINTAINED: This dashboard script is not actively maintained and may not
+reflect the current benchmark output structure or metrics. Use at your own risk.
+For up-to-date visualizations, use the wandb web interface or inspect_ai viewer.
+"""
 
 import argparse
 from bokeh.models import HoverTool
@@ -319,7 +324,7 @@ def dashboard():
     Examples:
         panel serve dashboard.py
           or
-        panel serve dashboard.py --args -d "../benchmark/artifacts/2025-10-01T13-26-28" -x "interest" -y "faithfulness"
+        panel serve dashboard.py --args -d "../benchmark/artifacts/runs/2025-10-01T13-26-28__variant_default" -x "interest" -y "faithfulness"
     """
     ACCENT = "blue"
     styles = {
@@ -332,13 +337,13 @@ def dashboard():
 
     if args.directory is not None:
         file_selector = panel.widgets.FileSelector(
-            directory="../benchmark/artifacts/",
+            directory="../benchmark/artifacts/runs/",
             name="Select Directory",
             value=[args.directory],
         )
     else:
         file_selector = panel.widgets.FileSelector(
-            directory="../benchmark/artifacts/", name="Select Directory"
+            directory="../benchmark/artifacts/runs/", name="Select Directory"
         )
 
     dataframe = panel.bind(load_all_data, file_selector)
