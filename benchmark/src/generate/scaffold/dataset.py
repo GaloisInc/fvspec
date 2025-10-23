@@ -1,9 +1,10 @@
 """Dataset helpers for building inspect_ai tasks."""
 
-import json
+import jsonlines
 import random
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from generate.templates.spec import VariantRegistry, get_variant_prompts
 from inspect_ai.dataset import MemoryDataset, Sample
@@ -23,6 +24,16 @@ class Datapoint(BaseModel, frozen=True):
     summary: str | None
     hash: str
     summary_vector: str | None
+    mode: str | None = None
+    summaryversion: int | None = None
+    summaryconfidence: int | None = None
+    has_overlap_data: bool | None = None
+    repo_name: str | None = None
+    repo_url: str | None = None
+    analysis_timestamp: str | None = None
+    pbt_summary: str | None = None
+    pbt_functions: list[str] | None = None
+    overlapping_tests: list[dict[str, Any]] | None = None
 
 
 class Prompt(BaseModel, frozen=True):
@@ -59,10 +70,13 @@ def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
 
 
 def load_datapoints(file_path: Path) -> list[Datapoint]:
-    """Effectful function: read a JSON file from disk."""
-    with open(file_path) as f:
-        data = json.load(f)
-    return [Datapoint(**obj) for obj in data]  # type: ignore[arg-type]
+    """Effectful function: read a JSONL file from disk.
+
+    WARNING: This loads all datapoints into memory. For the full 116GB pbts.jsonl file,
+    use sample_datapoints() instead to avoid memory exhaustion.
+    """
+    with jsonlines.open(file_path) as reader:
+        return [Datapoint(**obj) for obj in reader]  # type: ignore[arg-type]
 
 
 def sample_datapoints(
@@ -70,10 +84,26 @@ def sample_datapoints(
     n: int,
     ranseed: int | None = 0,
 ) -> list[Datapoint]:
-    """Effectful function: read a JSON file and sample ``n`` datapoints at random."""
-    dps = load_datapoints(file_path)
+    """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
+
+    Uses reservoir sampling to avoid loading the entire 116GB dataset into memory.
+    """
     rng = random.Random(ranseed)
-    return rng.sample(dps, n)
+    reservoir: list[Datapoint] = []
+
+    with jsonlines.open(file_path) as reader:
+        for idx, obj in enumerate(reader):
+            datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+            if idx < n:
+                reservoir.append(datapoint)
+            else:
+                # Reservoir sampling: randomly replace elements
+                j = rng.randint(0, idx)
+                if j < n:
+                    reservoir[j] = datapoint
+
+    return reservoir
 
 
 def mk_dataset(
@@ -86,7 +116,7 @@ def mk_dataset(
     """Create an inspect_ai dataset from scraped datapoints.
 
     Args:
-        path: Path to the JSON file containing scraped datapoints
+        path: Path to the JSONL file containing scraped datapoints
         date_time: Timestamp for organizing output artifacts
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset

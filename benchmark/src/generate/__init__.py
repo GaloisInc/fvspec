@@ -49,7 +49,7 @@ app.add_typer(deps_app, name="deps")
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
     variant: str = Option(
         None,
@@ -104,7 +104,7 @@ def main_callback(
 
     Args:
         ctx: Typer context.
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
@@ -214,7 +214,7 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
     variant: list[str] = Option(
         None,
@@ -255,7 +255,7 @@ def compare_variants(
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
     Args:
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
@@ -371,7 +371,7 @@ def compare_variants(
 
 @deps_app.command(name="autoformalize")
 def deps_autoformalize_command(
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     sample_id: list[int] = Option(
         None,
         "--sample-id",
@@ -420,7 +420,7 @@ def deps_autoformalize_command(
     """Autoformalize dependencies for selected datapoints without running the full generate.
 
     Args:
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         sample_id: Specific datapoint id(s) to autoformalize.
         sample_size: Number of datapoints to sample if --sample-id not provided.
         ranseed: Random seed for sampling.

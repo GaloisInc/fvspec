@@ -1,6 +1,6 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
-import json
+import jsonlines
 from pathlib import Path
 from typer import Typer, Option
 from generate.templates.spec import get_variant_prompts, VariantRegistry
@@ -19,7 +19,7 @@ __all__ = [
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 app = Typer()
-DEFAULT_DATASET = "scrapedtests.json"
+DEFAULT_DATASET = "pbts.jsonl"
 
 
 @app.command()
@@ -28,7 +28,7 @@ def preview_prompts(
         DEFAULT_DATASET,
         "--data",
         "-d",
-        help="Dataset JSON file under benchmark/data (default: scrapedtests.json).",
+        help="Dataset JSONL file under benchmark/data (default: pbts.jsonl).",
     ),
     variant: str = Option(
         None,
@@ -40,17 +40,30 @@ def preview_prompts(
         "-t",
         help="Which prompt family to preview: 'spec' (default) or 'deps'.",
     ),
+    limit: int = Option(
+        5,
+        "--limit",
+        "-n",
+        help="Maximum number of samples to preview (default: 5). Use -1 for unlimited (WARNING: 116GB file!).",
+    ),
 ) -> None:
     """Preview prompts for the given data file and variant.
 
     Args:
-        data: JSON file name located under benchmark/data
+        data: JSONL file name located under benchmark/data
         variant: Prompt variant to preview
         prompt_type: Which prompt family to preview ('spec' or 'deps')
+        limit: Maximum number of samples to preview
     """
-    the_json = DATA_DIR / data
-    with open(the_json) as f:
-        data_content = json.load(f)
+    the_jsonl = DATA_DIR / data
+
+    # Stream the file and only load the requested number of samples
+    data_content: list[dict] = []
+    with jsonlines.open(the_jsonl) as reader:
+        for idx, obj in enumerate(reader):
+            if limit > 0 and idx >= limit:
+                break
+            data_content.append(obj)
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.depmock.models import (

@@ -49,11 +49,12 @@ def minimal_test_data():
 
 @pytest.fixture
 def temp_data_file(minimal_test_data):
-    """Create a temporary JSON file with test data."""
-    import json
+    """Create a temporary JSONL file with test data."""
+    import jsonlines
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".json", delete=False) as tmp:
-        json.dump(minimal_test_data, tmp)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
+        with jsonlines.Writer(tmp) as writer:
+            writer.write_all(minimal_test_data)
         tmp.flush()
         yield Path(tmp.name)
     # Cleanup

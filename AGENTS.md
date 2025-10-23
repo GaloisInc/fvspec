@@ -100,7 +100,8 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 
 ### `benchmark/data` - Input data
 
-- `scrapedtests.json` - Large JSON file (~1.1GB) containing scraped Python property-based tests with dependencies
+- `pbts.jsonl` - Large JSONL file (~116GB) containing scraped Python property-based tests with dependencies
+  - **CRITICAL**: This file is 116GB! Never load it entirely into memory. All scripts use streaming/reservoir sampling.
 
 ### `/benchmark/src/scripts` - Utility scripts
 
@@ -258,7 +259,7 @@ uv add <package>
 
 ### Benchmark Flow
 
-1. `mk_dataset()` loads datapoints from JSON, samples N random items (configurable via `--sample-size`, default: 100)
+1. `mk_dataset()` loads datapoints from the JSONL file using reservoir sampling to avoid loading the 116GB file into memory, samples N random items (configurable via `--sample-size`, default: 100)
 2. Each datapoint contains a Python property-based test (`pbt`) and its dependencies (`deps`)
 3. The variant's prompt templates render system and initial prompts with the test and dependencies
 4. The agent uses the `lean_compile()` tool to typecheck generated Lean code

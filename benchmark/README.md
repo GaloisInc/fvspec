@@ -1,6 +1,8 @@
 # Benchmark
 
-**You need `scrapedtests.json` from MaxVH and put it in `./benchmark/data/`**
+**You need `pbts.jsonl` from MaxVH and put it in `./benchmark/data/`**
+
+⚠️ **IMPORTANT**: `pbts.jsonl` is ~116GB! All scripts use streaming or reservoir sampling to avoid loading the entire file into memory.
 
 ## Generating the benchmark synthetic signatures
 
