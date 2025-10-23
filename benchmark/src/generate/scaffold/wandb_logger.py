@@ -34,7 +34,6 @@ class WandbLogger:
         self.config = config
         self.run: "Run | None" = None
         self._sample_count = 0
-        self._run_artifact: wandb.Artifact | None = None
 
     def init_run(
         self,
@@ -85,24 +84,6 @@ class WandbLogger:
             dir=str(artifacts_dir),
             reinit=True,
         )
-
-        # Initialize run artifact for incremental sample uploads
-        if self.config.upload_samples:
-            artifact_name = f"run-{variant}-{timestamp}"
-            if group:
-                artifact_name = f"{group}-{artifact_name}"
-
-            self._run_artifact = wandb.Artifact(
-                name=artifact_name,
-                type="benchmark-run",
-                description=f"Benchmark run outputs for {variant} variant",
-                metadata={
-                    "variant": variant,
-                    "model": model,
-                    "sample_size": sample_size,
-                    "timestamp": timestamp,
-                },
-            )
 
     def log_sample_metrics(
         self, qa: QualityAssessment, step: int | None = None
@@ -189,11 +170,11 @@ class WandbLogger:
         self.run.log_artifact(artifact)
 
     def log_sample_to_artifact(self, sample_dir: Path, sample_id: str) -> None:
-        """Add sample files to the run artifact and log incrementally.
+        """Upload sample files to wandb run incrementally.
 
-        This method adds the sample's Lean code, QA JSON, and datapoint JSON to
-        the run artifact, then logs it. wandb handles incremental uploads efficiently,
-        only uploading new/changed files.
+        This method uploads the sample's Lean code, QA JSON, and datapoint JSON
+        directly to the wandb run using run.save(). Files are uploaded immediately
+        and incrementally, so they're preserved even if the run is canceled.
 
         Args:
             sample_dir: Directory containing the sample's output files
@@ -202,22 +183,23 @@ class WandbLogger:
         if not self.config.enabled or not self.config.upload_samples:
             return
 
-        if self.run is None or self._run_artifact is None:
+        if self.run is None:
             return
 
         if not sample_dir.exists():
             return
 
-        # Add sample files to artifact (preserving directory structure)
+        # Upload sample files directly to the run (incremental uploads)
+        # Files appear in the wandb UI under "Files" tab for the run
         for file_path in sample_dir.glob("*"):
             if file_path.is_file() and file_path.suffix in {".lean", ".json"}:
-                # Add with relative path to maintain structure
-                self._run_artifact.add_file(
-                    str(file_path), name=f"{sample_dir.name}/{file_path.name}"
+                # Use run.save() to upload files incrementally
+                # base_path determines the directory structure in wandb
+                self.run.save(
+                    str(file_path),
+                    base_path=str(sample_dir.parent),
+                    policy="now",
                 )
-
-        # Log the artifact incrementally (starts async upload in background)
-        self.run.log_artifact(self._run_artifact)
 
     def log_summary_metrics(self, all_qa: list[QualityAssessment]) -> None:
         """Compute and log aggregate summary statistics across all samples.
@@ -351,7 +333,6 @@ class WandbLogger:
         if self.run is not None:
             self.run.finish()
             self.run = None
-            self._run_artifact = None
 
 
 # Global logger instance (initialized on first use)
