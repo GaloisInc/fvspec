@@ -13,7 +13,6 @@ def disable_wandb():
     - Ensures no wandb runs are created during testing
     - Keeps artifacts/ directory clean during test runs
 
-    The fixture is session-scoped to apply once for the entire test session.
     """
     # Save original value if it exists
     original_mode = os.environ.get("WANDB_MODE")
