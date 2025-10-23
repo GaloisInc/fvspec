@@ -93,13 +93,13 @@ Logged once at run completion with `summary/` prefix:
 - `summary/mean_interest_subjective`, `summary/std_interest_subjective` - Subjective interest statistics
 - `summary/mean_structural_faithfulness`, `summary/std_structural_faithfulness` - Structural metric statistics
 
-### Artifact Upload
+### File Upload (Incremental)
 
-**All synthetic data outputs are uploaded to wandb as artifacts**, enabling:
-- Recovery from canceled runs (incremental uploads)
+**All synthetic data outputs are uploaded to wandb incrementally**, enabling:
+- Recovery from canceled runs (files upload as samples complete)
 - Reproducibility and auditing
 - Centralized storage for team collaboration
-- Version tracking across experiments
+- Easy access via wandb UI "Files" tab
 
 **What gets uploaded per sample:**
 - `Spec.lean` - Generated Lean 4 specification code
@@ -107,13 +107,15 @@ Logged once at run completion with `summary/` prefix:
 - `datapoint.json` - Original test metadata and dependencies
 
 **Implementation approach:**
-- **Single run artifact** per evaluation that grows incrementally
-- Each sample's files are added to the artifact immediately after completion
-- `wandb.run.log_artifact()` called after each sample (wandb handles efficient diffing)
-- Artifact type: `benchmark-run`
-- Naming: `run-{variant}-{timestamp}` (or `{group}-run-{variant}-{timestamp}` for comparisons)
+- Uses `run.save(path, base_path=..., policy="now")` for immediate uploads
+- Files are associated directly with the wandb run (not stored as artifacts)
+- `base_path` parameter preserves directory structure in wandb
+- `policy="now"` forces immediate upload vs waiting for run end
+- Files appear in wandb UI under "Files" tab for each run
 
-**Key benefit:** If a run is canceled mid-evaluation, all completed samples are already uploaded and accessible in wandb.
+**Key benefit:** If a run is canceled mid-evaluation, all completed samples are already uploaded and accessible in the wandb UI.
+
+**Note:** Artifacts are reserved for versioned datasets (like the dependency cache). Per-sample files use `run.save()` which is wandb's recommended pattern for incremental file uploads during a run.
 
 ### Dependency Cache Sync
 
@@ -139,18 +141,21 @@ The benchmark maintains a **shared dependency cache** that stores Lean formaliza
 
 ## Architecture Decisions
 
-### Why Single Run Artifact?
+### Why run.save() Instead of Artifacts?
 
-**Alternative considered:** Separate artifacts per sample
-- ❌ Would create hundreds of tiny artifacts
-- ❌ More complex lifecycle management
-- ❌ Harder to browse in wandb UI
+**Alternative considered:** Single run artifact that grows incrementally
+- ❌ wandb artifacts are immutable once logged (can't add files after `log_artifact()`)
+- ❌ Would require creating new artifact versions for each sample
+- ❌ Artifacts designed for versioned datasets, not incremental uploads
 
-**Chosen approach:** Single artifact that grows incrementally
-- ✅ Clean artifact organization (one per run)
-- ✅ Easy to find and download complete run data
-- ✅ wandb handles incremental uploads efficiently (content-addressed storage)
-- ✅ Better for canceled runs (artifact exists with partial data)
+**Chosen approach:** `run.save()` for direct file uploads
+- ✅ Files upload immediately as samples complete
+- ✅ Preserved even if run is canceled
+- ✅ Visible in wandb UI under "Files" tab
+- ✅ Aligns with wandb's recommended pattern for incremental uploads
+- ✅ Simpler implementation, no finalization issues
+
+**Artifacts still used for:** Dependency cache (single upload at end, versioned dataset)
 
 ### Why Serial Uploads?
 
@@ -181,12 +186,11 @@ The benchmark maintains a **shared dependency cache** that stores Lean formaliza
 
 ## How It Works
 
-### Sample Artifact Flow
+### Sample File Upload Flow
 
 ```
 1. Benchmark starts → WandbLogger.init_run()
-   ├─ Initialize wandb.Run with project/entity/tags
-   └─ Create empty wandb.Artifact (type: benchmark-run)
+   └─ Initialize wandb.Run with project/entity/tags
 
 2. For each sample:
    ├─ Agent generates Lean code
@@ -194,21 +198,22 @@ The benchmark maintains a **shared dependency cache** that stores Lean formaliza
    ├─ log_sample_to_wandb(state)
    │  ├─ logger.log_sample_metrics(qa)  # Log to run history
    │  └─ logger.log_sample_to_artifact(sample_dir, sample_id)
-   │     ├─ artifact.add_file("sample_42/Spec.lean")
-   │     ├─ artifact.add_file("sample_42/qa.json")
-   │     ├─ artifact.add_file("sample_42/datapoint.json")
-   │     └─ run.log_artifact(artifact)  # Triggers async upload
+   │     ├─ run.save("sample_42/Spec.lean", base_path=..., policy="now")
+   │     ├─ run.save("sample_42/qa.json", base_path=..., policy="now")
+   │     └─ run.save("sample_42/datapoint.json", base_path=..., policy="now")
+   │        # Files upload immediately to wandb
 
 3. Run completes → logger.finish()
    ├─ log_summary_metrics(all_qa)  # Compute and log aggregates
    └─ run.finish()  # Finalize wandb run
 ```
 
-**Key insight:** `run.log_artifact()` can be called multiple times with the same artifact object. wandb tracks changes and only uploads new/modified files, making incremental uploads efficient.
+**Key insight:** `run.save()` uploads files immediately to the wandb run. Files are associated with the run (not stored as versioned artifacts), making them perfect for incremental uploads that survive canceled runs.
 
-**File organization in artifact:**
+**File organization in wandb UI:**
+Files appear under the "Files" tab for each run, organized by sample directory:
 ```
-run-control-functional-2025-10-22T15-30-00/
+Files/
 ├── sample_0_test_numpy_array/
 │   ├── Spec.lean
 │   ├── qa.json
@@ -415,19 +420,19 @@ uv run inspect view --log-dir artifacts/runs
 - Queue-based approach: upload task pulls from completed samples queue
 - Error handling: retry logic for failed uploads
 
-### Artifact Versioning
+### File Deduplication
 
-**Current:** New artifact version created on every `log_artifact()` call
+**Current:** Files uploaded with `run.save()` for each sample
 
 **Questions:**
-- Does wandb deduplicate unchanged samples automatically?
-- Should we version artifacts differently (per-sample timestamp)?
-- How do we handle artifact browsing in wandb UI with many versions?
+- Does wandb deduplicate identical files automatically?
+- How much storage do repeated runs consume?
+- Should we implement client-side deduplication?
 
 **Testing needed:**
 - Upload same run twice, verify storage usage
-- Check wandb UI for version history browsing
-- Document best practices for artifact management
+- Check if wandb's content-addressed storage deduplicates files
+- Monitor storage consumption patterns
 
 ### Dependency Cache Conflicts
 
