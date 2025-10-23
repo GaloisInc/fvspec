@@ -388,6 +388,82 @@ This logs all metrics to wandb but doesn't upload any files.
 uv run inspect view --log-dir artifacts/runs
 ```
 
+## Cache Management
+
+The dependency cache can be managed both locally and remotely via wandb. This is useful when:
+- Starting fresh experiments with clean cache state
+- Debugging cache corruption issues
+- Coordinating cache state across team members
+- Force regenerating dependencies with updated models/prompts
+
+### Commands
+
+**Clear local cache:**
+```bash
+uv run fvspec deps cache-flush
+```
+Deletes all cached dependencies from `artifacts/depcache/`. Next run will regenerate from scratch or download from wandb.
+
+**Clear remote wandb cache:**
+```bash
+uv run fvspec deps cache-clear-remote
+```
+Deletes the `dep-cache:latest` artifact from wandb. Requires `wandb.enabled = true` in config. Next run will create a fresh cache artifact.
+
+**Force regeneration:**
+```bash
+# Main benchmark run
+uv run fvspec --force-regen --sample-size 10
+
+# Dependency autoformalization
+uv run fvspec deps autoformalize --force-regen --sample-id 42
+```
+Ignores cache and regenerates all dependencies from scratch. Overwrites existing cache entries on hash collision. When combined with wandb sync, uploads the regenerated cache at the end.
+
+### Workflows
+
+**Full cache reset (local + remote):**
+```bash
+# 1. Clear local cache
+uv run fvspec deps cache-flush
+
+# 2. Clear remote cache (optional - for team coordination)
+uv run fvspec deps cache-clear-remote
+
+# 3. Run with fresh generation
+uv run fvspec --force-regen --sample-size 10
+```
+
+**Force regenerate without affecting remote cache:**
+```bash
+# Clears local, skips download, regenerates, uploads to wandb
+uv run fvspec --force-regen --sample-size 10
+```
+
+**Selective regeneration:**
+```bash
+# Regenerate dependencies for specific datapoints
+uv run fvspec deps autoformalize --force-regen --sample-id 5 --sample-id 42
+```
+
+### Behavior Details
+
+**`--force-regen` flag:**
+1. Clears local cache at run start
+2. Skips wandb cache download (if `sync_dep_cache = true`)
+3. Marks all dependencies as uncached, forcing regeneration
+4. Overwrites cache entries on hash collision (last write wins)
+5. Uploads regenerated cache to wandb at run end (if enabled)
+
+**`cache-clear-remote` command:**
+- Uses wandb API to delete the artifact
+- Gracefully handles missing artifacts (first run case)
+- Requires `wandb.enabled = true` in config
+- Next run creates new `:v0` artifact
+
+**Cache collision handling:**
+When `--force-regen` is used and a dependency hash collides with an existing cache entry, the new generation overwrites the old one. This is intentional - allows updating cached dependencies with improved models or prompts.
+
 ## Questions & Concerns
 
 ### Storage Scaling

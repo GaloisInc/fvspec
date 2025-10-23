@@ -93,6 +93,11 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
+    force_regen: bool = Option(
+        False,
+        "--force-regen",
+        help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -112,6 +117,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
+        force_regen: Ignore cache and regenerate all dependencies.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -160,6 +166,13 @@ def main_callback(
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
+    # Handle force_regen: clear local cache before starting
+    if force_regen:
+        print(
+            "⚠️  Force regeneration enabled: clearing local cache, will overwrite existing entries"
+        )
+        clear_cache()
+
     # Initialize wandb logger if enabled
     wandb_logger = init_wandb_logger(wandb_cfg)
     if wandb_cfg.enabled:
@@ -171,8 +184,8 @@ def main_callback(
             timestamp=timestamp,
         )
 
-        # Download dep cache at start of run
-        if wandb_cfg.sync_dep_cache:
+        # Download dep cache at start of run (unless force_regen is enabled)
+        if wandb_cfg.sync_dep_cache and not force_regen:
             print("Downloading dependency cache from wandb...")
             wandb_logger.download_dep_cache()
 
@@ -403,8 +416,27 @@ def deps_autoformalize_command(
         "--validate",
         help="Typecheck aggregated dependency modules after generation.",
     ),
+    force_regen: bool = Option(
+        False,
+        "--force-regen",
+        help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
+    ),
 ) -> None:
-    """Autoformalize dependencies for selected datapoints without running the full generate."""
+    """Autoformalize dependencies for selected datapoints without running the full generate.
+
+    Args:
+        datafile: Path to the JSON file containing test data.
+        sample_id: Specific datapoint id(s) to autoformalize.
+        sample_size: Number of datapoints to sample if --sample-id not provided.
+        ranseed: Random seed for sampling.
+        variant: Variant name for metadata.
+        skip_cached: Skip dependencies already in cache (still copies to run directory).
+        max_attempts: Maximum retry attempts per dependency.
+        dry_run: Emit stubs without invoking autoformalizer.
+        batch_size: Logical batch size for dataset metadata.
+        validate: Typecheck aggregated modules after generation.
+        force_regen: Ignore cache and regenerate all dependencies.
+    """
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():
         print(f"Dataset not found at {dataset_path}")
@@ -447,15 +479,38 @@ def deps_autoformalize_command(
     )
     print(f"Artifacts will be written to {base_dir}\n")
 
+    # Force regeneration overrides skip_cached
+    effective_skip_cached = False if force_regen else skip_cached
+    if force_regen:
+        print(
+            "⚠️  Force regeneration enabled: ignoring cache, will overwrite existing entries\n"
+        )
+
     specs = scan_dependencies(
         selected,
-        skip_cached=False,
+        skip_cached=False,  # Always scan to get all deps, filtering happens later
         dedupe=True,
     )
 
     if not specs:
         print("No dependencies discovered for the selected datapoints.")
         return
+
+    # When force_regen is enabled, mark all specs as uncached to force regeneration
+    if force_regen:
+        specs = [
+            DependencySampleSpec(
+                payload=spec.payload,
+                cache_key=spec.cache_key,
+                datapoint_id=spec.datapoint_id,
+                datapoint_repo_id=spec.datapoint_repo_id,
+                datapoint_name=spec.datapoint_name,
+                dependency_index=spec.dependency_index,
+                sample_id=spec.sample_id,
+                cached=False,  # Force regeneration
+            )
+            for spec in specs
+        ]
 
     for spec in specs:
         sample_output_dir = utilio.get_sample_output_dir(
@@ -519,7 +574,11 @@ def deps_autoformalize_command(
                 log_dir=log_dir,
             )
 
-    metadata = {"timestamp": timestamp, "variant": base_variant}
+    metadata = {
+        "timestamp": timestamp,
+        "variant": base_variant,
+        "force_regen": force_regen,
+    }
 
     fatal_encountered = False
     try:
@@ -528,7 +587,7 @@ def deps_autoformalize_command(
             executor=executor,
             variant=base_variant,
             max_attempts=max_attempts,
-            skip_cached=skip_cached,
+            skip_cached=effective_skip_cached,
             dataset_batch_size=batch_size,
             metadata=metadata,
         )
@@ -670,9 +729,50 @@ def deps_autoformalize_command(
 
 @deps_app.command(name="cache-flush")
 def deps_cache_flush_command() -> None:
-    """Clear all dependency autoformalization cache artifacts."""
+    """Clear all local dependency autoformalization cache artifacts."""
     root = clear_cache()
-    print(f"Cleared dependency cache at {root}")
+    print(f"Cleared local dependency cache at {root}")
+
+
+@deps_app.command(name="cache-clear-remote")
+def deps_cache_clear_remote_command() -> None:
+    """Delete the dependency cache artifact from wandb.
+
+    This allows starting fresh with cache regeneration. The next run will
+    create a new cache artifact from scratch.
+    """
+    import wandb
+    from wandb.errors import CommError  # type: ignore[import-untyped]
+
+    if not cfg.wandb.enabled:
+        print("Error: wandb is disabled in config.toml")
+        print("Enable wandb to manage remote cache artifacts")
+        raise typer.Exit(code=1)
+
+    # Initialize a temporary wandb run to access artifacts
+    api = wandb.Api()
+
+    try:
+        artifact_path = f"{cfg.wandb.entity or api.default_entity}/{cfg.wandb.project}/dep-cache:latest"
+        print(f"Attempting to delete artifact: {artifact_path}")
+
+        artifact = api.artifact(artifact_path, type="dependency-cache")
+        artifact.delete()
+
+        print(f"✓ Successfully deleted dep-cache artifact from wandb")
+        print(f"  Project: {cfg.wandb.project}")
+        print(f"  Entity: {cfg.wandb.entity or api.default_entity}")
+        print("\nNext run will create a fresh cache artifact.")
+
+    except CommError as e:
+        if "not found" in str(e).lower():
+            print("Note: No dep-cache artifact found (may already be deleted)")
+        else:
+            print(f"Error communicating with wandb: {e}")
+            raise typer.Exit(code=1)
+    except Exception as e:
+        print(f"Error deleting artifact: {e}")
+        raise typer.Exit(code=1)
 
 
 def main() -> None:
