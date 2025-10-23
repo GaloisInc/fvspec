@@ -40,7 +40,7 @@ benchmark = "generate._registry"
 
 [tool.pytest.ini_options]
 filterwarnings = [
-    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",  # believed to be introduced by wandb dependency
+    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",  # source unconfirmed, possibly introduced by wandb dependency
 ]
 
 [tool.ruff.lint]
