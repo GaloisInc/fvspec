@@ -152,8 +152,6 @@ def main_callback(
         project=wandb_project or cfg.wandb.project,
         entity=wandb_entity or cfg.wandb.entity,
         tags=(wandb_tags or []) + cfg.wandb.tags,
-        log_code=cfg.wandb.log_code,
-        log_qa=cfg.wandb.log_qa,
         upload_samples=cfg.wandb.upload_samples,
         sync_dep_cache=cfg.wandb.sync_dep_cache,
     )
@@ -310,8 +308,6 @@ def compare_variants(
         project=wandb_project or cfg.wandb.project,
         entity=wandb_entity or cfg.wandb.entity,
         tags=(wandb_tags or []) + cfg.wandb.tags,
-        log_code=cfg.wandb.log_code,
-        log_qa=cfg.wandb.log_qa,
         upload_samples=cfg.wandb.upload_samples,
         sync_dep_cache=cfg.wandb.sync_dep_cache,
     )

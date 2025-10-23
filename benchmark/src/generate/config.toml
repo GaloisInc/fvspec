@@ -30,9 +30,6 @@ project = "fvspec"
 entity = "fvspec"
 # Additional tags for runs
 tags = []
-# Deprecated: kept for backwards compatibility (use upload_samples instead)
-log_code = true
-log_qa = true
 # Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)
 upload_samples = true
 # Sync dependency cache: download at start, upload at end of runs

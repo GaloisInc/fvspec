@@ -292,10 +292,6 @@ upload_samples = true
 
 # Sync dependency cache (download at start, upload at end)
 sync_dep_cache = true
-
-# Deprecated (kept for backwards compatibility, use upload_samples)
-log_code = true
-log_qa = true
 ```
 
 ### Via CLI
@@ -526,14 +522,9 @@ When `--force-regen` is used and a dependency hash collides with an existing cac
 
 ### Configuration Complexity
 
-**Observation:** We have deprecated fields (`log_code`, `log_qa`) and new fields (`upload_samples`, `sync_dep_cache`)
+**Observation:** Configuration is clean with clear field names (`upload_samples`, `sync_dep_cache`)
 
-**Questions:**
-- Should we remove deprecated fields in next version?
-- Is the migration path clear for existing users?
-- Do we need a config validation warning?
-
-**Cleanup task:** Add deprecation warnings when old fields are used.
+**Approach:** Keep configuration simple and well-documented in WANDB.md and config.toml comments.
 
 ### Test Isolation
 
@@ -553,9 +544,9 @@ When `--force-regen` is used and a dependency hash collides with an existing cac
 ### Immediate (This Week)
 
 1. **Test with real run**
-   - [ ] Run `uv run fvspec --sample-size 10` with wandb enabled
-   - [ ] Verify artifacts appear in wandb UI
-   - [ ] Check artifact file structure and completeness
+   - [x] Run `uv run fvspec --sample-size 10` with wandb enabled
+   - [s] Verify artifacts appear in wandb UI
+   - [x] Check artifact file structure and completeness
    - [ ] Monitor upload time per sample
    - [ ] Verify cache download/upload works
 
@@ -576,47 +567,41 @@ When `--force-regen` is used and a dependency hash collides with an existing cac
    - [ ] Support patterns: `*.lean`, `*.json`, `qa.json`
    - [ ] Document filtering options
 
-5. **Deprecation warnings**
-   - [ ] Add warning when `log_code` or `log_qa` is set
-   - [ ] Direct users to `upload_samples` instead
-   - [ ] Plan removal for v2.0
-
-6. **Documentation updates**
+5. **Documentation updates**
    - [ ] Add wandb storage recommendations to main README
    - [ ] Document artifact organization and browsing
    - [ ] Create troubleshooting guide for upload issues
 
 ### Medium Term (Next Quarter)
 
-7. **Async upload optimization**
+6. **Async upload optimization**
    - [ ] Measure upload overhead in real runs
    - [ ] If >100ms/sample, implement trio-based async uploads
    - [ ] Add upload queue with configurable batch size
    - [ ] Ensure error handling and retry logic
 
-8. **Cache conflict resolution**
+7. **Cache conflict resolution**
    - [ ] Test concurrent runs writing to cache
    - [ ] Implement cache merging if needed
    - [ ] Add cache validation checks
 
-9. **Artifact cleanup policies**
+8. **Artifact cleanup policies**
    - [ ] Design artifact retention policy (keep last N versions?)
    - [ ] Implement CLI command for artifact cleanup
    - [ ] Add automated cleanup option
 
 ### Long Term (Future Work)
 
-10. **Enhanced metrics**
-    - [ ] Add GPU memory usage tracking (if applicable)
-    - [ ] Track API rate limit consumption
-    - [ ] Log dependency generation success rates
+9. **Enhanced metrics**
+   - [ ] Track API rate limit consumption
+   - [ ] Log dependency generation success rates
 
-11. **Artifact comparison tools**
+10. **Artifact comparison tools**
     - [ ] CLI command to diff artifacts between runs
     - [ ] Visualize metric changes over artifact versions
     - [ ] Generate comparison reports
 
-12. **Integration with other tools**
+11. **Integration with other tools**
     - [ ] Export metrics to MLflow format
     - [ ] Support for custom wandb dashboards
     - [ ] Automated report generation
