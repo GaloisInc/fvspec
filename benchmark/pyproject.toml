@@ -1,7 +1,7 @@
 [project]
 name = "generate"
 version = "0.1.0"
-description = "Add your description here"
+description = "New Lean benchmark for real-world SWE tasks"
 readme = "README.md"
 authors = [
     { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" },
@@ -26,6 +26,7 @@ dependencies = [
     "tqdm>=4.67.1",
     "trio>=0.31.0",
     "typer>=0.19.2",
+    "wandb>=0.22.2",
 ]
 
 [project.scripts]
@@ -36,6 +37,11 @@ analyze_deps = "scripts.analyze_deps:main"
 
 [project.entry-points.inspect_ai]
 benchmark = "generate._registry"
+
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",  # source unconfirmed, possibly introduced by wandb dependency
+]
 
 [tool.ruff.lint]
 select = ["D"]

@@ -1,6 +1,6 @@
-# fvspec
+# `fvspec`
 
-Benchmark suite for helping evaluate how AIs perform on formal verification related tasks
+Lean benchmark for real-world SWE tasks.
 
 ## Acknowledgements
 

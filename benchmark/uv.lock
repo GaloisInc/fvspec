@@ -2,9 +2,12 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 resolution-markers = [
-    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy'",
-    "python_full_version < '3.14' and platform_python_implementation != 'PyPy'",
-    "platform_python_implementation == 'PyPy'",
+    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'",
+    "python_full_version >= '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'linux'",
+    "python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform == 'linux'",
+    "python_full_version < '3.14' and platform_python_implementation != 'PyPy' and sys_platform != 'linux'",
+    "platform_python_implementation == 'PyPy' and sys_platform == 'linux'",
+    "platform_python_implementation == 'PyPy' and sys_platform != 'linux'",
 ]
 
 [[package]]
@@ -376,7 +379,7 @@ name = "cffi"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "pycparser", marker = "implementation_name != 'PyPy'" },
+    { name = "pycparser", marker = "(implementation_name != 'PyPy' and platform_python_implementation != 'PyPy') or (implementation_name != 'PyPy' and sys_platform != 'linux')" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/eb/56/b1ba7935a17738ae8453301356628e8147c79dbb825bcbc73dc7401f9846/cffi-2.0.0.tar.gz", hash = "sha256:44d1b5909021139fe36001ae048dbdde8214afa20200eda0f64c068cac5d5529", size = 523588, upload-time = "2025-09-08T23:24:04.541Z" }
 wheels = [
@@ -1027,6 +1030,7 @@ dependencies = [
     { name = "tqdm" },
     { name = "trio" },
     { name = "typer" },
+    { name = "wandb" },
 ]
 
 [package.dev-dependencies]
@@ -1057,6 +1061,7 @@ requires-dist = [
     { name = "tqdm", specifier = ">=4.67.1" },
     { name = "trio", specifier = ">=0.31.0" },
     { name = "typer", specifier = ">=0.19.2" },
+    { name = "wandb", specifier = ">=0.22.2" },
 ]
 
 [package.metadata.requires-dev]
@@ -3673,7 +3678,7 @@ version = "0.31.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "attrs" },
-    { name = "cffi", marker = "implementation_name != 'pypy' and os_name == 'nt'" },
+    { name = "cffi", marker = "implementation_name != 'pypy' and os_name == 'nt' and sys_platform != 'linux'" },
     { name = "idna" },
     { name = "outcome" },
     { name = "sniffio" },
@@ -3847,6 +3852,35 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/71/57/1616c8274c3442d802621abf5deb230771c7a0fec9414cb6763900eb3868/uvicorn-0.37.0.tar.gz", hash = "sha256:4115c8add6d3fd536c8ee77f0e14a7fd2ebba939fed9b02583a97f80648f9e13", size = 80367, upload-time = "2025-09-23T13:33:47.486Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/85/cd/584a2ceb5532af99dd09e50919e3615ba99aa127e9850eafe5f31ddfdb9a/uvicorn-0.37.0-py3-none-any.whl", hash = "sha256:913b2b88672343739927ce381ff9e2ad62541f9f8289664fa1d1d3803fa2ce6c", size = 67976, upload-time = "2025-09-23T13:33:45.842Z" },
+]
+
+[[package]]
+name = "wandb"
+version = "0.22.2"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "click" },
+    { name = "gitpython" },
+    { name = "packaging" },
+    { name = "platformdirs" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+    { name = "pyyaml" },
+    { name = "requests" },
+    { name = "sentry-sdk" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/c1/a8/680bd77e11a278e6c14a2cb4646e8ab9525b2baaa81c3d12dc0f616aa4aa/wandb-0.22.2.tar.gz", hash = "sha256:510f5a1ac30d16921c36c3b932da852f046641d4aee98a86a7f5ec03a6e95bda", size = 41401439, upload-time = "2025-10-07T19:54:21.88Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/e7/b3/8c637fb594cfd574ce9c9f7d0ac2f2d12742eb38ec59dcbb713beae95343/wandb-0.22.2-py3-none-macosx_12_0_arm64.whl", hash = "sha256:2e29c9fa4462b5411b2cd2175ae33eff4309c91de7c426bca6bc8e7abc7e5dec", size = 18677549, upload-time = "2025-10-07T19:54:00.839Z" },
+    { url = "https://files.pythonhosted.org/packages/d3/f3/e309a726eaebddad6b8d9a73a50891e5796962ec8a091bb6a61d31692d1e/wandb-0.22.2-py3-none-macosx_12_0_x86_64.whl", hash = "sha256:c42d594cd7a9da4fd39ecdb0abbc081b61f304123277b2b6c4ba84283956fd21", size = 19715188, upload-time = "2025-10-07T19:54:03.805Z" },
+    { url = "https://files.pythonhosted.org/packages/f9/73/fad59910215876008f4781b57d828d1b19b3677c9b46af615e7229746435/wandb-0.22.2-py3-none-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:a5188d84e66d3fd584f3b3ae4d2a70e78f29403c0528e6aecaa4188a1fcf54d8", size = 18463148, upload-time = "2025-10-07T19:54:05.676Z" },
+    { url = "https://files.pythonhosted.org/packages/87/11/572c1913b5b92e4c519f735adfae572b46f2d79d99ede63eec0d6a272d6e/wandb-0.22.2-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:88ccd484af9f21cfc127976793c3cf66cfe1acd75bd8cd650086a64e88bac4bf", size = 19908645, upload-time = "2025-10-07T19:54:07.693Z" },
+    { url = "https://files.pythonhosted.org/packages/6d/0d/133aa82f5a505ba638b4fda5014cefddfe7f1f6238ef4afc0871ec61c41f/wandb-0.22.2-py3-none-musllinux_1_2_aarch64.whl", hash = "sha256:abf0ed175e791af64110e0a0b99ce02bbbbd1017722bc32d3bc328efb86450cd", size = 18501348, upload-time = "2025-10-07T19:54:10.234Z" },
+    { url = "https://files.pythonhosted.org/packages/d0/d5/776203be2601872f01dacc6a5b4274106ec0db7cd3bf2cdb3b741f8fc932/wandb-0.22.2-py3-none-musllinux_1_2_x86_64.whl", hash = "sha256:44e77c56403b90bf3473a7ca3bfc4d42c636b7c0e31a5fb9cd0382f08302f74b", size = 20001756, upload-time = "2025-10-07T19:54:12.452Z" },
+    { url = "https://files.pythonhosted.org/packages/30/43/ae3fa46e20b1d9a6508dd9abe716d57205c038ed4661c5c98ace48a60eac/wandb-0.22.2-py3-none-win32.whl", hash = "sha256:44d12bd379dbe15be5ceed6bdf23803d42f648ba0dd111297b4c47a3c7be6dbd", size = 19075950, upload-time = "2025-10-07T19:54:14.892Z" },
+    { url = "https://files.pythonhosted.org/packages/09/59/c174321e868205f7a659d1e5ec51f546e62267296d6f4179bb9119294964/wandb-0.22.2-py3-none-win_amd64.whl", hash = "sha256:c95eb221bf316c0872f7ac55071856b9f25f95a2de983ada48acf653ce259386", size = 19075953, upload-time = "2025-10-07T19:54:16.837Z" },
+    { url = "https://files.pythonhosted.org/packages/7a/a2/c7c24fda78513cab5686949d8cb36459dbbccbbb4b2b6fc67237ece31a00/wandb-0.22.2-py3-none-win_arm64.whl", hash = "sha256:20d2ab9aa10445aab3d60914a980f002a4f66566e28b0cd156b1e462f0080a0d", size = 17383217, upload-time = "2025-10-07T19:54:19.384Z" },
 ]
 
 [[package]]

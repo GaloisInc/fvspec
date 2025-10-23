@@ -8,8 +8,9 @@ import random
 
 from inspect_ai import eval, eval_set
 
-from generate.config import load_config
+from generate.config import load_config, WandbConfig
 from generate.scaffold.task import fvspec, DATA_DIR
+from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.scaffold.dataset import load_datapoints, Datapoint
 from generate.scaffold.depmock import (
     DependencyPayload,
@@ -73,6 +74,29 @@ def main_callback(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
+    wandb_disable: bool = Option(
+        False,
+        "--wandb-disable",
+        help="Disable Weights & Biases logging. Default is to enable wandb.",
+    ),
+    wandb_project: str = Option(
+        None,
+        help="wandb project name. Overrides config.toml (default: fvspec).",
+    ),
+    wandb_entity: str = Option(
+        None,
+        help="wandb entity/team name. Overrides config.toml.",
+    ),
+    wandb_tags: list[str] = Option(
+        None,
+        "--wandb-tag",
+        help="Additional tags for wandb run (can be specified multiple times).",
+    ),
+    force_regen: bool = Option(
+        False,
+        "--force-regen",
+        help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -88,6 +112,11 @@ def main_callback(
         list_variants: List available variants and exit.
         display: Display mode for eval logs (overrides config or CLI default).
         parallelism: Number of concurrent samples to evaluate.
+        wandb_disable: Disable wandb logging (default is enabled).
+        wandb_project: wandb project name (overrides config.toml).
+        wandb_entity: wandb entity/team name (overrides config.toml).
+        wandb_tags: Additional tags for wandb run.
+        force_regen: Ignore cache and regenerate all dependencies.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -116,27 +145,71 @@ def main_callback(
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
 
-    # Create log directory in artifacts
-    now = datetime.now()
-    log_dir_name = (
-        f"{now.strftime('%Y-%m-%dT%H-%M-%S')}__variant_{use_variant or 'default'}"
+    # Configure wandb settings: CLI args > config
+    # Default is enabled unless --wandb-disable flag is set
+    wandb_cfg = WandbConfig(
+        enabled=not wandb_disable,
+        project=wandb_project or cfg.wandb.project,
+        entity=wandb_entity or cfg.wandb.entity,
+        tags=(wandb_tags or []) + cfg.wandb.tags,
+        upload_samples=cfg.wandb.upload_samples,
+        sync_dep_cache=cfg.wandb.sync_dep_cache,
     )
-    log_dir = Path("artifacts") / log_dir_name
+
+    # Create log directory in artifacts/runs
+    now = datetime.now()
+    timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
+    log_dir_name = f"{timestamp}__variant_{use_variant or 'default'}"
+    log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    eval(
-        fvspec(
-            datafile,
-            use_mcp=not no_mcp,
-            variant=use_variant,
+    # Handle force_regen: clear local cache before starting
+    if force_regen:
+        print(
+            "⚠️  Force regeneration enabled: clearing local cache, will overwrite existing entries"
+        )
+        clear_cache()
+
+    # Initialize wandb logger if enabled
+    wandb_logger = init_wandb_logger(wandb_cfg)
+    if wandb_cfg.enabled:
+        wandb_logger.init_run(
+            variant=use_variant or "default",
+            model=cfg.agent.model,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
-        ),
-        model=cfg.agent.model,
-        log_dir=str(log_dir),
-        max_samples=use_parallelism,
-        max_connections=use_parallelism,
-    )
+            timestamp=timestamp,
+        )
+
+        # Download dep cache at start of run (unless force_regen is enabled)
+        if wandb_cfg.sync_dep_cache and not force_regen:
+            print("Downloading dependency cache from wandb...")
+            wandb_logger.download_dep_cache()
+
+    try:
+        eval(
+            fvspec(
+                datafile,
+                use_mcp=not no_mcp,
+                variant=use_variant,
+                sample_size=use_sample_size,
+                ranseed=use_ranseed,
+            ),
+            model=cfg.agent.model,
+            log_dir=str(log_dir),
+            max_samples=use_parallelism,
+            max_connections=use_parallelism,
+        )
+    finally:
+        if wandb_cfg.enabled:
+            # Upload dep cache at end of run
+            if wandb_cfg.sync_dep_cache:
+                print("Uploading dependency cache to wandb...")
+                wandb_logger.upload_dep_cache()
+
+            # Log summary metrics after eval completes
+            # Note: We'll need to read QA files from disk since we don't have them in memory
+            wandb_logger.finish()
 
 
 @app.command(name="compare-variants")
@@ -160,6 +233,24 @@ def compare_variants(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
+    wandb_disable: bool = Option(
+        False,
+        "--wandb-disable",
+        help="Disable Weights & Biases logging. Default is to enable wandb.",
+    ),
+    wandb_project: str = Option(
+        None,
+        help="wandb project name. Overrides config.toml (default: fvspec).",
+    ),
+    wandb_entity: str = Option(
+        None,
+        help="wandb entity/team name. Overrides config.toml.",
+    ),
+    wandb_tags: list[str] = Option(
+        None,
+        "--wandb-tag",
+        help="Additional tags for wandb run (can be specified multiple times).",
+    ),
 ) -> None:
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
@@ -170,6 +261,10 @@ def compare_variants(
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
         parallelism: Number of samples to evaluate concurrently.
+        wandb_disable: Disable wandb logging (default is enabled).
+        wandb_project: wandb project name (overrides config.toml).
+        wandb_entity: wandb entity/team name (overrides config.toml).
+        wandb_tags: Additional tags for wandb run.
     """
     registry = VariantRegistry()
 
@@ -201,9 +296,45 @@ def compare_variants(
 
     # Create log directory for comparison results
     now = datetime.now()
-    log_dir_name = f"comparison_{now.strftime('%Y-%m-%dT%H-%M-%S')}"
-    log_dir = Path("artifacts") / log_dir_name
+    timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
+    log_dir_name = f"comparison_{timestamp}"
+    log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
+
+    # Configure wandb settings: CLI args > config
+    # Default is enabled unless --wandb-disable flag is set
+    wandb_cfg = WandbConfig(
+        enabled=not wandb_disable,
+        project=wandb_project or cfg.wandb.project,
+        entity=wandb_entity or cfg.wandb.entity,
+        tags=(wandb_tags or []) + cfg.wandb.tags,
+        upload_samples=cfg.wandb.upload_samples,
+        sync_dep_cache=cfg.wandb.sync_dep_cache,
+    )
+
+    # Initialize wandb loggers for each variant if enabled
+    # Use the comparison timestamp as the group name for wandb
+    group_name = f"comparison_{timestamp}" if wandb_cfg.enabled else None
+
+    wandb_loggers = {}
+    if wandb_cfg.enabled:
+        for v in variants_to_compare:
+            variant_logger = init_wandb_logger(wandb_cfg)
+            variant_logger.init_run(
+                variant=v,
+                model=cfg.agent.model,
+                sample_size=use_sample_size,
+                ranseed=use_ranseed,
+                timestamp=timestamp,
+                group=group_name,
+            )
+            wandb_loggers[v] = variant_logger
+
+        # Download dep cache once before all variants run
+        if wandb_cfg.sync_dep_cache and wandb_loggers:
+            print("Downloading dependency cache from wandb...")
+            first_logger = next(iter(wandb_loggers.values()))
+            first_logger.download_dep_cache()
 
     # Create task instances for each variant
     tasks = [
@@ -217,14 +348,25 @@ def compare_variants(
         for v in variants_to_compare
     ]
 
-    # Run all tasks together with eval_set
-    eval_set(
-        tasks,
-        log_dir=str(log_dir),
-        model=cfg.agent.model,
-        max_samples=use_parallelism,
-        max_connections=use_parallelism,
-    )
+    try:
+        # Run all tasks together with eval_set
+        eval_set(
+            tasks,
+            log_dir=str(log_dir),
+            model=cfg.agent.model,
+            max_samples=use_parallelism,
+            max_connections=use_parallelism,
+        )
+    finally:
+        if wandb_cfg.enabled:
+            # Upload dep cache once after all variants complete
+            if wandb_cfg.sync_dep_cache and wandb_loggers:
+                print("Uploading dependency cache to wandb...")
+                first_logger = next(iter(wandb_loggers.values()))
+                first_logger.upload_dep_cache()
+
+            for variant_logger in wandb_loggers.values():
+                variant_logger.finish()
 
 
 @deps_app.command(name="autoformalize")
@@ -269,8 +411,27 @@ def deps_autoformalize_command(
         "--validate",
         help="Typecheck aggregated dependency modules after generation.",
     ),
+    force_regen: bool = Option(
+        False,
+        "--force-regen",
+        help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
+    ),
 ) -> None:
-    """Autoformalize dependencies for selected datapoints without running the full generate."""
+    """Autoformalize dependencies for selected datapoints without running the full generate.
+
+    Args:
+        datafile: Path to the JSON file containing test data.
+        sample_id: Specific datapoint id(s) to autoformalize.
+        sample_size: Number of datapoints to sample if --sample-id not provided.
+        ranseed: Random seed for sampling.
+        variant: Variant name for metadata.
+        skip_cached: Skip dependencies already in cache (still copies to run directory).
+        max_attempts: Maximum retry attempts per dependency.
+        dry_run: Emit stubs without invoking autoformalizer.
+        batch_size: Logical batch size for dataset metadata.
+        validate: Typecheck aggregated modules after generation.
+        force_regen: Ignore cache and regenerate all dependencies.
+    """
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():
         print(f"Dataset not found at {dataset_path}")
@@ -305,7 +466,7 @@ def deps_autoformalize_command(
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / f"{timestamp}__variant_{path_variant}"
+    base_dir = Path("artifacts") / "runs" / f"{timestamp}__variant_{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -313,15 +474,38 @@ def deps_autoformalize_command(
     )
     print(f"Artifacts will be written to {base_dir}\n")
 
+    # Force regeneration overrides skip_cached
+    effective_skip_cached = False if force_regen else skip_cached
+    if force_regen:
+        print(
+            "⚠️  Force regeneration enabled: ignoring cache, will overwrite existing entries\n"
+        )
+
     specs = scan_dependencies(
         selected,
-        skip_cached=False,
+        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_regen enabled
         dedupe=True,
     )
 
     if not specs:
         print("No dependencies discovered for the selected datapoints.")
         return
+
+    # When force_regen is enabled, mark all specs as uncached to force regeneration
+    if force_regen:
+        specs = [
+            DependencySampleSpec(
+                payload=spec.payload,
+                cache_key=spec.cache_key,
+                datapoint_id=spec.datapoint_id,
+                datapoint_repo_id=spec.datapoint_repo_id,
+                datapoint_name=spec.datapoint_name,
+                dependency_index=spec.dependency_index,
+                sample_id=spec.sample_id,
+                cached=False,  # Force regeneration
+            )
+            for spec in specs
+        ]
 
     for spec in specs:
         sample_output_dir = utilio.get_sample_output_dir(
@@ -385,7 +569,11 @@ def deps_autoformalize_command(
                 log_dir=log_dir,
             )
 
-    metadata = {"timestamp": timestamp, "variant": base_variant}
+    metadata = {
+        "timestamp": timestamp,
+        "variant": base_variant,
+        "force_regen": force_regen,
+    }
 
     fatal_encountered = False
     try:
@@ -394,7 +582,7 @@ def deps_autoformalize_command(
             executor=executor,
             variant=base_variant,
             max_attempts=max_attempts,
-            skip_cached=skip_cached,
+            skip_cached=effective_skip_cached,
             dataset_batch_size=batch_size,
             metadata=metadata,
         )
@@ -536,9 +724,50 @@ def deps_autoformalize_command(
 
 @deps_app.command(name="cache-flush")
 def deps_cache_flush_command() -> None:
-    """Clear all dependency autoformalization cache artifacts."""
+    """Clear all local dependency autoformalization cache artifacts."""
     root = clear_cache()
-    print(f"Cleared dependency cache at {root}")
+    print(f"Cleared local dependency cache at {root}")
+
+
+@deps_app.command(name="cache-clear-remote")
+def deps_cache_clear_remote_command() -> None:
+    """Delete the dependency cache artifact from wandb.
+
+    This allows starting fresh with cache regeneration. The next run will
+    create a new cache artifact from scratch.
+    """
+    import wandb
+    from wandb.errors import CommError  # type: ignore[import-untyped]
+
+    if not cfg.wandb.enabled:
+        print("Error: wandb is disabled in config.toml")
+        print("Enable wandb to manage remote cache artifacts")
+        raise typer.Exit(code=1)
+
+    # Initialize a temporary wandb run to access artifacts
+    api = wandb.Api()
+
+    try:
+        artifact_path = f"{cfg.wandb.entity or api.default_entity}/{cfg.wandb.project}/dep-cache:latest"
+        print(f"Attempting to delete artifact: {artifact_path}")
+
+        artifact = api.artifact(artifact_path, type="dependency-cache")
+        artifact.delete()
+
+        print(f"✓ Successfully deleted dep-cache artifact from wandb")
+        print(f"  Project: {cfg.wandb.project}")
+        print(f"  Entity: {cfg.wandb.entity or api.default_entity}")
+        print("\nNext run will create a fresh cache artifact.")
+
+    except CommError as e:
+        if "not found" in str(e).lower():
+            print("Note: No dep-cache artifact found (may already be deleted)")
+        else:
+            print(f"Error communicating with wandb: {e}")
+            raise typer.Exit(code=1)
+    except Exception as e:
+        print(f"Error deleting artifact: {e}")
+        raise typer.Exit(code=1)
 
 
 def main() -> None:

@@ -49,11 +49,21 @@ uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
 # Sample N datapoints (default 1) and generate stubs/cached Lean modules
 uv run fvspec deps autoformalize --sample-size 10 --ranseed 42
 
-# Flush the dependency cache (forces regeneration on next run)
-uv run fvspec deps cache-flush
+# Force regenerate dependencies (ignores cache, overwrites on collision)
+uv run fvspec --force-regen --sample-size 10
+uv run fvspec deps autoformalize --force-regen --sample-id 42
+
+# Cache management
+uv run fvspec deps cache-flush           # Clear local dependency cache
+uv run fvspec deps cache-clear-remote    # Delete remote wandb cache artifact
 ```
 
 `autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__variant_default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
+
+**Cache management:**
+- `--force-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
+- `cache-flush`: Clears local cache in `artifacts/depcache/`
+- `cache-clear-remote`: Deletes the wandb cache artifact to start fresh across the team (requires wandb enabled)
 
 ## Viewing Results
 

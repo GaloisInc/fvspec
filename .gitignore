@@ -20,4 +20,8 @@ data/
 benchmark/data/
 logs/
 .env
+
+# Benchmark artifacts (runs and wandb cache)
 artifacts/
+
+.claude/settings.local.json

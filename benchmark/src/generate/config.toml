@@ -20,3 +20,17 @@ parallelism = 25
 sample_size = 100
 # Random seed for dataset sampling
 ranseed = 0
+
+[wandb]
+# Enable Weights & Biases logging
+enabled = true
+# Project name in wandb
+project = "fvspec"
+# Entity/team name (optional)
+entity = "fvspec"
+# Additional tags for runs
+tags = []
+# Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)
+upload_samples = true
+# Sync dependency cache: download at start, upload at end of runs
+sync_dep_cache = true
