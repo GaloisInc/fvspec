@@ -38,6 +38,11 @@ analyze_deps = "scripts.analyze_deps:main"
 [project.entry-points.inspect_ai]
 benchmark = "generate._registry"
 
+[tool.pytest.ini_options]
+filterwarnings = [
+    "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",  # believed to be introduced by wandb dependency
+]
+
 [tool.ruff.lint]
 select = ["D"]
 

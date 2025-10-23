@@ -301,8 +301,8 @@ log_qa = true
 ### Via CLI
 
 ```bash
-# Enable/disable wandb (overrides config)
---wandb / --no-wandb
+# Disable wandb (default is enabled)
+--wandb-disable
 
 # Set project name
 --wandb-project my-project
@@ -314,7 +314,9 @@ log_qa = true
 --wandb-tag experiment-1 --wandb-tag ablation-study
 ```
 
-**Note:** `upload_samples` and `sync_dep_cache` can only be configured via `config.toml` (no CLI flags yet).
+**Note:**
+- Wandb is **enabled by default** unless `--wandb-disable` flag is specified
+- `upload_samples` and `sync_dep_cache` can only be configured via `config.toml` (no CLI flags yet)
 
 ## Usage Examples
 
@@ -353,7 +355,6 @@ uv run fvspec compare-variants \
   --variant control-functional \
   --variant terse-functional \
   --sample-size 200 \
-  --wandb \
   --wandb-tag comparison-study
 ```
 
@@ -552,7 +553,7 @@ uv run wandb login
 ```
 
 ### Metrics not appearing
-- Verify `enabled = true` in `config.toml` or `--wandb` passed
+- Verify `enabled = true` in `config.toml` (wandb is enabled by default via CLI)
 - Check for errors in console output
 - Verify wandb dashboard for your project
 
@@ -560,7 +561,7 @@ uv run wandb login
 - Check network connectivity
 - Verify wandb storage quota not exceeded
 - Look for error messages in console output
-- Try `--no-wandb` flag to isolate issue
+- Try `--wandb-disable` flag to isolate issue
 
 ### Nested wandb directories
 The integration correctly uses `dir="artifacts"` so wandb creates `artifacts/wandb/`. If you see `artifacts/wandb/wandb/`, delete the nested directory.

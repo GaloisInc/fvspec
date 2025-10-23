@@ -75,10 +75,10 @@ def main_callback(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
-    wandb: bool = Option(
-        None,
-        "--wandb/--no-wandb",
-        help="Enable or disable Weights & Biases logging. Overrides config.toml.",
+    wandb_disable: bool = Option(
+        False,
+        "--wandb-disable",
+        help="Disable Weights & Biases logging. Default is to enable wandb.",
     ),
     wandb_project: str = Option(
         None,
@@ -108,7 +108,7 @@ def main_callback(
         list_variants: List available variants and exit.
         display: Display mode for eval logs (overrides config or CLI default).
         parallelism: Number of concurrent samples to evaluate.
-        wandb: Enable or disable wandb logging (overrides config.toml).
+        wandb_disable: Disable wandb logging (default is enabled).
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
@@ -141,13 +141,16 @@ def main_callback(
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
 
     # Configure wandb settings: CLI args > config
+    # Default is enabled unless --wandb-disable flag is set
     wandb_cfg = WandbConfig(
-        enabled=wandb if wandb is not None else cfg.wandb.enabled,
+        enabled=not wandb_disable,
         project=wandb_project or cfg.wandb.project,
         entity=wandb_entity or cfg.wandb.entity,
         tags=(wandb_tags or []) + cfg.wandb.tags,
         log_code=cfg.wandb.log_code,
         log_qa=cfg.wandb.log_qa,
+        upload_samples=cfg.wandb.upload_samples,
+        sync_dep_cache=cfg.wandb.sync_dep_cache,
     )
 
     # Create log directory in artifacts/runs
@@ -220,6 +223,24 @@ def compare_variants(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
+    wandb_disable: bool = Option(
+        False,
+        "--wandb-disable",
+        help="Disable Weights & Biases logging. Default is to enable wandb.",
+    ),
+    wandb_project: str = Option(
+        None,
+        help="wandb project name. Overrides config.toml (default: fvspec).",
+    ),
+    wandb_entity: str = Option(
+        None,
+        help="wandb entity/team name. Overrides config.toml.",
+    ),
+    wandb_tags: list[str] = Option(
+        None,
+        "--wandb-tag",
+        help="Additional tags for wandb run (can be specified multiple times).",
+    ),
 ) -> None:
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
@@ -230,6 +251,10 @@ def compare_variants(
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
         parallelism: Number of samples to evaluate concurrently.
+        wandb_disable: Disable wandb logging (default is enabled).
+        wandb_project: wandb project name (overrides config.toml).
+        wandb_entity: wandb entity/team name (overrides config.toml).
+        wandb_tags: Additional tags for wandb run.
     """
     registry = VariantRegistry()
 
@@ -266,8 +291,18 @@ def compare_variants(
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Configure wandb settings (use config values for compare-variants)
-    wandb_cfg = cast(WandbConfig, cfg.wandb)
+    # Configure wandb settings: CLI args > config
+    # Default is enabled unless --wandb-disable flag is set
+    wandb_cfg = WandbConfig(
+        enabled=not wandb_disable,
+        project=wandb_project or cfg.wandb.project,
+        entity=wandb_entity or cfg.wandb.entity,
+        tags=(wandb_tags or []) + cfg.wandb.tags,
+        log_code=cfg.wandb.log_code,
+        log_qa=cfg.wandb.log_qa,
+        upload_samples=cfg.wandb.upload_samples,
+        sync_dep_cache=cfg.wandb.sync_dep_cache,
+    )
 
     # Initialize wandb loggers for each variant if enabled
     # Use the comparison timestamp as the group name for wandb
