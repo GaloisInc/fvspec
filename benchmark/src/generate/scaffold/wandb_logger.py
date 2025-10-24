@@ -78,7 +78,7 @@ class WandbLogger:
                 "timestamp": timestamp,
             },
             dir=str(artifacts_dir),
-            reinit=True,
+            reinit="return_previous",
         )
 
     def log_sample_metrics(
