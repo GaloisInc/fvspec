@@ -14,8 +14,6 @@ from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
 
-LAKE_BUILD_CMD = ["lake", "build"]
-
 
 def call_lean_lsp_mcp(
     workspace: Path, tool_name: str, arguments: dict[str, Any]
@@ -113,69 +111,6 @@ def call_lean_lsp_mcp(
 
 
 @tool  # type: ignore[arg-type]
-def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
-    """Create an inspect_ai tool that typechecks Lean code via Lake."""
-
-    async def execute(code: str) -> utilio.SubprocessResult:
-        """Typecheck Lean code using lake build in an isolated workspace.
-
-        Creates a temporary Lake project workspace for the sample if it doesn't exist yet.
-        Writes the code to Fvspec/Spec.lean and runs lake build.
-
-        Args:
-            code: The Lean code to typecheck
-
-        Returns:
-            A tuple of stdout, stderr and exitcode.
-        """
-        # Get current task state to access metadata
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        sample_id = str(state.sample_id)
-
-        # Create workspace if it doesn't exist yet
-        if "workspace" not in state.metadata:
-            workspace = utilio.create_sample_workspace(sample_id)
-            state.metadata["workspace"] = str(workspace)
-        else:
-            workspace = Path(state.metadata["workspace"])
-
-        # Write code to Fvspec/Spec.lean
-        fvspec_dir = workspace / "Fvspec"
-        fvspec_dir.mkdir(exist_ok=True)
-
-        basic_file = fvspec_dir / "Spec.lean"
-
-        # Ensure the generated file keeps the dependency import header
-        header = f"-- Auto-generated spec for sample {sample_id}\n"
-        deps_import = "import Fvspec.Deps\n\n"
-        body = code if "import Fvspec.Deps" in code else deps_import + code
-        basic_file.write_text(header + body)
-
-        deps_meta = state.metadata.get("depmock") if state else None
-        deps_file = fvspec_dir / "Deps.lean"
-        if deps_meta:
-            deps_text = deps_meta.get("lean_text")
-            if isinstance(deps_text, str) and deps_text.strip():
-                deps_file.write_text(deps_text)
-            elif not deps_file.exists():
-                deps_file.write_text("-- No dependency modules available\n")
-        elif not deps_file.exists():
-            deps_file.write_text("-- No dependency modules available\n")
-
-        # Run lake build
-        stdout, stderr, exitcode = utilio.run_cmd(LAKE_BUILD_CMD, cwd=workspace)
-
-        if exitcode != 0:
-            raise ToolError(stderr)
-        return stdout, stderr, exitcode
-
-    return execute
-
-
-@tool  # type: ignore[arg-type]
 def lean_diagnostic_messages() -> Callable[[str], Awaitable[str]]:
     """Get diagnostic messages for a Lean file using per-sample workspace."""
 
@@ -257,7 +192,6 @@ def lean_lsp_mcp_tools() -> list:
     This allows parallel execution while maintaining LSP functionality.
     """
     return [
-        lean_compile(),
         lean_diagnostic_messages(),
         lean_goal(),
     ]

@@ -20,16 +20,16 @@ from generate.scaffold.depmock.autoformalizer import (
     DependencyRecoverableError,
 )
 from generate.scaffold.depmock.models import DependencyResult
-from generate.scaffold.tools.declaration import lean_compile
+from generate.scaffold.tools.declaration import lean_diagnostic_messages
 
 
 _SUPERVISOR_PROMPT = (
     "You coordinate dependency autoformalization. Use the "
     "`autoformalize_dependency_tool` to translate the provided Python helper "
     "into Lean code. When you obtain Lean code, immediately wrap it in "
-    "<code>...</code> tags and verify it with the `lean_compile` tool. If "
-    "`lean_compile` reports diagnostics, revise the Lean module by invoking the "
-    "autoformalizer again. Only call `submit()` after the Lean module compiles, "
+    "<code>...</code> tags and verify it with the `lean_diagnostic_messages` tool. If "
+    "`lean_diagnostic_messages` reports errors, revise the Lean module by invoking the "
+    "autoformalizer again. Only call `submit()` after the Lean code has no errors, "
     "and submit the final Lean code (still wrapped in <code> tags) with no "
     "additional commentary."
 )
@@ -109,7 +109,7 @@ def _run_agent_once(
             diagnostics=request.diagnostics,
             variant=variant,
         ),
-        lean_compile(),
+        lean_diagnostic_messages(),
     ]
 
     solver_plan = [

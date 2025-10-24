@@ -5,7 +5,6 @@ from pathlib import Path
 from inspect_ai import Task, task
 from inspect_ai.solver import generate, use_tools, system_message
 from generate.scaffold.tools.declaration import (
-    lean_compile,
     lean_lsp_mcp_tools,
     write_to_disk,
 )
@@ -31,7 +30,7 @@ def fvspec(
 
     Args:
         datafile: Path to the JSON file containing test data
-        use_mcp: If True, use Lean LSP MCP tools in addition to lean_compile
+        use_mcp: If True, provide Lean LSP MCP tools (lean_diagnostic_messages, lean_goal)
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
@@ -59,35 +58,19 @@ def fvspec(
         skip_index=skip_index,
     )
 
+    tools = [autoformalize_dependency_tool(variant=deps_variant)]
     if use_mcp:
-        fvspec_task = Task(
-            dataset=dataset,
-            setup=[depmock_setup()],
-            solver=[
-                system_message(system_prompt),
-                use_tools(
-                    lean_lsp_mcp_tools()
-                    + [autoformalize_dependency_tool(variant=deps_variant)]
-                ),
-                generate(),
-            ],
-            cleanup=write_to_disk,
-        )
-    else:
-        fvspec_task = Task(
-            dataset=dataset,
-            setup=[depmock_setup()],
-            solver=[
-                system_message(system_prompt),
-                use_tools(
-                    [
-                        lean_compile(),
-                        autoformalize_dependency_tool(variant=deps_variant),
-                    ]
-                ),
-                generate(),
-            ],
-            cleanup=write_to_disk,
-        )
+        tools = lean_lsp_mcp_tools() + tools
+
+    fvspec_task = Task(
+        dataset=dataset,
+        setup=[depmock_setup()],
+        solver=[
+            system_message(system_prompt),
+            use_tools(tools),
+            generate(),
+        ],
+        cleanup=write_to_disk,
+    )
 
     return fvspec_task

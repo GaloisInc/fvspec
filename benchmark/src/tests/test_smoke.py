@@ -184,11 +184,14 @@ def test_smoke_prompt_rendering():
 
 
 def test_smoke_tool_registration():
-    """Smoke test: Verify lean_compile tool can be created."""
-    from generate.scaffold.tools.declaration import lean_compile
+    """Smoke test: Verify MCP tools can be created."""
+    from generate.scaffold.tools.declaration import lean_diagnostic_messages, lean_goal
 
-    tool = lean_compile()
-    assert callable(tool)
+    # MCP tools for interactive agent use
+    diag_tool = lean_diagnostic_messages()
+    goal_tool = lean_goal()
+    assert callable(diag_tool)
+    assert callable(goal_tool)
 
 
 def test_smoke_quality_assessment_from_mock_state():
