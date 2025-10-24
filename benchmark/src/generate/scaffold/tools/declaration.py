@@ -272,6 +272,54 @@ def lean_local_search() -> Callable[[str], Awaitable[str]]:
     return execute
 
 
+@tool  # type: ignore[arg-type]
+def write_lean_spec() -> Callable[[str], Awaitable[str]]:
+    """Write Lean code to Spec.lean in the workspace for LSP analysis.
+
+    This tool allows the agent to iteratively develop Lean code by writing it
+    to the workspace where MCP tools (lean_diagnostic_messages, lean_goal, etc.)
+    can analyze it. The agent should:
+
+    1. Write initial Lean code using this tool
+    2. Use lean_diagnostic_messages to check for errors
+    3. Use lean_goal to inspect proof states
+    4. Refine and rewrite the code as needed
+    5. Repeat until satisfied
+
+    The final code will be extracted from <code>...</code> tags during cleanup.
+    """
+
+    async def execute(code: str) -> str:
+        """Write Lean code to the workspace Spec.lean file.
+
+        Args:
+            code: The Lean code to write to Fvspec/Spec.lean
+
+        Returns:
+            Success message with file path and size
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+        spec_file = workspace / "Fvspec" / "Spec.lean"
+
+        # Ensure the directory exists
+        spec_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        spec_file.write_text(code)
+
+        return f"Wrote {len(code)} characters to {spec_file.relative_to(workspace)}"
+
+    return execute
+
+
 def lean_lsp_mcp_tools() -> list:
     """Construct custom Lean LSP tools that work with per-sample workspaces.
 
@@ -280,6 +328,7 @@ def lean_lsp_mcp_tools() -> list:
     This allows parallel execution while maintaining LSP functionality.
     """
     return [
+        write_lean_spec(),
         lean_diagnostic_messages(),
         lean_goal(),
         lean_multi_attempt(),
@@ -319,15 +368,18 @@ def write_code_to_disk(
 ) -> str:
     """Write the `<code>...</code>` snippet from text into `Spec.lean`.
 
-    Writes to both the artifacts directory (for permanent storage) and the
-    workspace tmpdir (for MCP tools to access during execution).
+    Extracts the final Lean code from <code>...</code> tags in the agent's
+    output and saves it to the artifacts directory for permanent storage.
+
+    If no <code> block is found but the workspace contains a Spec.lean file
+    (written via write_lean_spec tool during execution), uses that as a fallback.
 
     Args:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
         variant: Prompt variant name.
-        workspace: Optional workspace tmpdir path for MCP tool access.
+        workspace: Optional workspace tmpdir path for fallback.
 
     Returns:
         A message describing whether the write succeeded.
@@ -335,21 +387,25 @@ def write_code_to_disk(
     # Look for <code>...</code>
     pattern = r"(?s)<code>(.*?)</code>"
     mtch = re.search(pattern, text)
-    if not mtch:
+
+    if mtch:
+        # Prefer explicit <code> block from agent's final message
+        code_snippet = mtch.group(1)
+    elif workspace:
+        # Fallback: check if agent wrote to workspace via write_lean_spec
+        workspace_spec = workspace / "Fvspec" / "Spec.lean"
+        if workspace_spec.exists():
+            code_snippet = workspace_spec.read_text()
+        else:
+            return utilio.no_code_block_found(sample_id, text)
+    else:
         return utilio.no_code_block_found(sample_id, text)
-    code_snippet = mtch.group(1)
 
     # Write to artifacts directory (permanent storage)
     spec_file = utilio.get_output_filepath(
         date_time, sample_id, "Spec.lean", variant=variant
     )
     result = utilio.writeit(spec_file, code_snippet)
-
-    # Also write to workspace tmpdir if provided (for MCP tools)
-    if workspace:
-        workspace_spec = workspace / "Fvspec" / "Spec.lean"
-        workspace_spec.parent.mkdir(parents=True, exist_ok=True)
-        workspace_spec.write_text(code_snippet)
 
     return result
 
