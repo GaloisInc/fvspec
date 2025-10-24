@@ -58,10 +58,11 @@ def preview_prompts(
     the_jsonl = DATA_DIR / data
 
     # Stream the file and only load the requested number of samples
+    # limit == -1 means unlimited (load all)
     data_content: list[dict] = []
     with jsonlines.open(the_jsonl) as reader:
         for idx, obj in enumerate(reader):
-            if limit > 0 and idx >= limit:
+            if limit != -1 and idx >= limit:
                 break
             data_content.append(obj)
 
