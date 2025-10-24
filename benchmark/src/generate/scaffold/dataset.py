@@ -214,8 +214,8 @@ def sample_datapoints(
     """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
 
     Auto-detects if an index file exists (file_path + ".index"). If so, uses fast
-    indexed sampling (O(sample_size)). Otherwise, falls back to reservoir sampling
-    (O(total_lines)).
+    indexed sampling (O(sample_size)). Otherwise, offers to build an index or falls
+    back to reservoir sampling (O(total_lines)).
 
     For the 116GB pbts.jsonl file:
     - With index: Sample 10 items in ~1 second
@@ -223,42 +223,85 @@ def sample_datapoints(
 
     To create an index: `uv run fvspec index-data`
     """
+    from rich.console import Console
+    from rich.progress import (
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        BarColumn,
+        TaskProgressColumn,
+        TimeElapsedColumn,
+    )
+    from rich.prompt import Confirm
+
     index_path = file_path.with_suffix(file_path.suffix + ".index")
+    console = Console()
 
     if index_path.exists():
         # Fast path: Use pre-built index for O(sample_size) sampling
-        print(f"Using index file: {index_path.name}")
+        console.print(f"[green]✓[/green] Using index file: {index_path.name}")
         index_data = load_index(index_path)
         return sample_datapoints_indexed(file_path, index_data, n, ranseed)
     else:
-        # Slow path: Reservoir sampling requires streaming entire file
-        print(
-            f"No index found at {index_path.name}. Using reservoir sampling (slow for large files)."
+        # No index found - offer to build one
+        console.print(f"[yellow]⚠[/yellow] No index found for {file_path.name}")
+        console.print(f"   Building an index enables fast sampling (~1 sec vs ~10 min)")
+
+        # Interactive prompt (defaults to Yes)
+        should_build = Confirm.ask(
+            "Build index now? (one-time ~10-30 min)", default=True
         )
-        print(
-            f"Tip: Run `uv run fvspec index-data` to create an index for fast sampling."
-        )
 
-        rng = random.Random(ranseed)
-        reservoir: list[Datapoint] = []
+        if should_build:
+            # Build the index with progress bar
+            build_index(file_path, index_path)
+            console.print(f"[green]✓[/green] Index created! Using it for this run...")
+            index_data = load_index(index_path)
+            return sample_datapoints_indexed(file_path, index_data, n, ranseed)
+        else:
+            # Fall back to reservoir sampling with progress bar
+            console.print(
+                "[yellow]⚠[/yellow] Using slower reservoir sampling (streaming entire file)"
+            )
 
-        with jsonlines.open(file_path) as reader:
-            for idx, obj in enumerate(reader):
-                datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+            rng = random.Random(ranseed)
+            reservoir: list[Datapoint] = []
 
-                if idx < n:
-                    reservoir.append(datapoint)
-                else:
-                    # Reservoir sampling: randomly replace elements
-                    j = rng.randint(0, idx)
-                    if j < n:
-                        reservoir[j] = datapoint
+            # Get file size for progress tracking
+            file_size = file_path.stat().st_size
 
-                # Progress indicator for slow path
-                if (idx + 1) % 10000 == 0:
-                    print(f"  Processed {idx + 1:,} lines...")
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                BarColumn(),
+                TaskProgressColumn(),
+                TimeElapsedColumn(),
+            ) as progress:
+                task = progress.add_task(
+                    f"Sampling from {file_path.name}...", total=file_size
+                )
 
-        return reservoir
+                with open(file_path, "rb") as f:
+                    for idx in range(1000000000):  # Large number for iteration
+                        line = f.readline()
+                        if not line:
+                            break
+
+                        obj = json.loads(line)
+                        datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+                        if idx < n:
+                            reservoir.append(datapoint)
+                        else:
+                            # Reservoir sampling: randomly replace elements
+                            j = rng.randint(0, idx)
+                            if j < n:
+                                reservoir[j] = datapoint
+
+                        # Update progress based on bytes read
+                        progress.update(task, completed=f.tell())
+
+            return reservoir
 
 
 def mk_dataset(
