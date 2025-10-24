@@ -53,21 +53,21 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     assert isinstance(payloads, list) and payloads
     assert payloads[0]["dep_name"] == "helper"
 
-    deps_dir = tmp_path / "artifacts" / "00001_test" / "deps"
-    manifest_path = deps_dir / "deps_manifest.jsonl"
-    assert manifest_path.exists()
-    deps_lean = deps_dir / "Helper.lean"
-    assert deps_lean.exists()
-    file_text = deps_lean.read_text()
-    assert "Autoformalization stub" in file_text
-    assert "namespace" not in file_text
-
     # Check that consolidated Deps.lean was written to sample output directory
-    deps_lean_file = tmp_path / "artifacts" / "00001_test" / "Deps.lean"
+    sample_dir = tmp_path / "artifacts" / "00001_test"
+    deps_lean_file = sample_dir / "Deps.lean"
     assert deps_lean_file.exists()
     deps_content = deps_lean_file.read_text()
     assert "namespace Fvspec.Deps" in deps_content
     assert "helper" in deps_content.lower()
+
+    # Check that manifest was written to sample output directory (not in deps/ subdirectory)
+    manifest_path = sample_dir / "deps_manifest.jsonl"
+    assert manifest_path.exists()
+
+    # Verify no deps/ subdirectory was created
+    deps_dir = sample_dir / "deps"
+    assert not deps_dir.exists()
 
 
 def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
