@@ -1,0 +1,17 @@
+Given the following dependencies:
+<dependencies>
+{% for dep in deps %}
+{{ dep }}
+{% endfor %}
+</dependencies>
+
+Translate the following property-based test into Lean 4:
+<theorem>
+{{ pbt }}
+</theorem>
+
+**Important**: Before writing the final specification:
+1. Use `autoformalize_dependency_tool` to generate Lean implementations for each dependency listed above
+2. Once dependencies are formalized, write function signatures for the test subject
+3. Write theorem statements with `sorry` placeholders
+4. Do NOT manually implement dependencies yourself - always use the tool

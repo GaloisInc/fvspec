@@ -1,4 +1,0 @@
-## Task
-Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function signatures. You're declaring theorems and signatures with `sorry` placeholders - full implementations are not needed.
-
-You have access to the tool `autoformalize_dependency_tool` for translating Python helper snippets into Lean modules under `Fvspec.Deps`. Before drafting the specification, call this tool for every dependency listed in the prompt. Provide it with JSON arguments such as `{"dep_name": "module.helper", "python_source": "<python snippet>"}` (include any optional metadata if helpful). Only proceed to the final theorem statements once the dependency tooling succeeds or reports diagnostics you cannot fix; surface any diagnostics you receive in the reasoning.

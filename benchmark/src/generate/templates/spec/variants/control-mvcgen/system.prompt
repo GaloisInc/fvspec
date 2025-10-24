@@ -156,7 +156,7 @@ theorem trainStep_decreases_loss (model : NNModule) (data : Tensor) (lr : Float)
     grind
 ```
 
-{% include 'shared/fragments/output_format.txt' %}
+{% include 'common/fragments/output_format.txt' %}
 
 Include:
 1. **Type definitions** for dependencies (axioms/structures for torch/numpy types)

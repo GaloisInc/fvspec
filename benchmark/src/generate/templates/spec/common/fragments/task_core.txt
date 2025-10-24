@@ -1,0 +1,15 @@
+## Task
+Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function signatures. You're declaring theorems and signatures with `sorry` placeholders - full implementations are not needed for the main test subject.
+
+## Dependency Formalization (CRITICAL)
+You MUST use the tool `autoformalize_dependency_tool` for translating EVERY Python helper snippet into computable Lean modules under `Fvspec.Deps`.
+
+**Required workflow:**
+1. For EACH dependency in the `<dependencies>` block, call `autoformalize_dependency_tool` with:
+   - `dep_name`: The qualified name (e.g., "torch.nn.functional.relu")
+   - `python_source`: The exact Python code from the dependency block
+2. Wait for each tool call to complete before proceeding to the next dependency
+3. If a tool call fails, try to fix the issue or note it in your analysis
+4. Only after ALL dependencies are processed, write your final specification
+
+Do NOT write stub declarations like `def foo_stub : Unit := ()` - the tool will generate real implementations.
