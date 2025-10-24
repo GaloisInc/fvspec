@@ -227,8 +227,12 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool to get the result (tools require input parameter)
-                result_text = await agent_tool(input="")
+                # Call the agent tool with a descriptive input message
+                # Note: The agent builds its own prompts from the payload, so this
+                # input might be supplementary or ignored depending on as_tool() behavior
+                result_text = await agent_tool(
+                    input=f"Translate the `{bound_payload.dep_name}` Python dependency into computable Lean 4 code."
+                )
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
