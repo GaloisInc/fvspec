@@ -2,16 +2,20 @@
 
 from __future__ import annotations
 
-from typing import Any, Awaitable, Coroutine, Generator
+import re
+from pathlib import Path
+from typing import Any, Awaitable, Callable, Coroutine, Generator
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser
-from inspect_ai.tool import Tool
+from inspect_ai.solver._task_state import sample_state
+from inspect_ai.tool import Tool, ToolError, tool
 from inspect_ai.util._store import store
 
 from generate.templates.deps import get_dependency_prompts
-
-from generate.scaffold.depmock.models import DependencyPayload
+from generate.scaffold.depmock.cache import CacheProvenance, store_dependency_result
+from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
+from generate.scaffold.tools import utilio
 
 
 def _ensure_system_message(state: AgentState, system_prompt: str) -> None:
@@ -144,7 +148,12 @@ def autoformalize_dependency_tool(
     variant: str | None = None,
     description: str | None = None,
 ) -> Tool:
-    """Create a tool wrapping the dependency autoformalizer agent."""
+    """Create a tool wrapping the dependency autoformalizer agent.
+
+    NOTE: This is the LEGACY tool that doesn't persist results. For use in the
+    main task loop, use create_bound_dependency_tools() instead which creates
+    per-dependency tools that persist their outputs.
+    """
     tool_description = description or (
         "Autoformalize a Python dependency into computable Lean code."
     )
@@ -162,3 +171,148 @@ def autoformalize_dependency_tool(
         dependency_autoformalizer,
         **kwargs,
     )
+
+
+_CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
+
+
+def create_bound_dependency_tools(
+    payloads: list[DependencyPayload],
+    *,
+    variant: str | None = None,
+) -> list[Tool]:
+    """Create per-dependency tools that run autoformalizer and persist results.
+
+    Each tool is bound to a specific dependency payload and will:
+    1. Run the dependency autoformalizer agent when called
+    2. Extract the generated Lean code
+    3. Persist it to cache and the sample's deps/ directory
+    4. Update Deps.lean with the new module
+    5. Return a success message to the main agent
+
+    Args:
+        payloads: List of dependency payloads to create tools for
+        variant: Optional prompt variant for dependency translation
+
+    Returns:
+        List of tools, one per dependency
+    """
+    tools: list[Tool] = []
+
+    for payload in payloads:
+        tool_name = f"autoformalize_{payload.dep_name}"
+        tool_description = (
+            f"Formalize the `{payload.dep_name}` Python dependency into "
+            f"computable Lean code. This will generate the Lean module "
+            f"Fvspec.Deps.{payload.lean_module_name}."
+        )
+
+        # Create the underlying agent tool
+        base_tool = as_tool(
+            dependency_autoformalizer,
+            name=tool_name,
+            description=tool_description,
+            payload=payload,
+            variant=variant,
+        )
+
+        @tool(name=tool_name, description=tool_description)  # type: ignore[arg-type]
+        def make_tool(
+            bound_payload: DependencyPayload = payload,
+            bound_base_tool: Tool = base_tool,
+        ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
+            """Create the async execute function with bound payload."""
+
+            async def execute() -> str:
+                """Run autoformalizer and persist result for this dependency."""
+                # Get task state
+                state = sample_state()
+                if not state:
+                    raise ToolError("No task state available")
+
+                # Call the underlying agent tool (this runs the autoformalizer)
+                result_text = await bound_base_tool()
+
+                # Extract code from <code>...</code> tags
+                match = _CODE_BLOCK_PATTERN.search(result_text)
+                if not match:
+                    raise ToolError(
+                        f"Autoformalizer for {bound_payload.dep_name} did not return "
+                        "Lean code in <code>...</code> tags"
+                    )
+
+                lean_code = match.group(1).strip()
+
+                # Create result
+                result = DependencyResult(
+                    lean_module=bound_payload.lean_module_name,
+                    lean_code=lean_code,
+                    variant=variant,
+                    status="ok",
+                    diagnostics=None,
+                )
+
+                # Persist to cache
+                from generate.scaffold.depmock.cache import _cache_root
+
+                provenance = CacheProvenance(
+                    model=str(state.model) if state.model else None,
+                    run_id=str(state.sample_id),
+                )
+                record = store_dependency_result(
+                    bound_payload,
+                    result,
+                    cache_root=_cache_root(),
+                    provenance=provenance,
+                )
+
+                # Write to sample's deps/ directory
+                date_time = state.metadata.get("date_time")
+                variant_meta = state.metadata.get("variant")
+                if date_time and variant_meta:
+                    sample_dir = utilio.get_sample_output_dir(
+                        str(date_time), str(state.sample_id), str(variant_meta)
+                    )
+                    deps_dir = sample_dir / "deps"
+                    deps_dir.mkdir(parents=True, exist_ok=True)
+
+                    module_file = deps_dir / f"{bound_payload.lean_module_name}.lean"
+                    module_file.write_text(lean_code)
+
+                    # Update Deps.lean (regenerate from all modules in deps/)
+                    _update_deps_lean(deps_dir, sample_dir)
+
+                return (
+                    f"Successfully formalized {bound_payload.dep_name} as "
+                    f"Fvspec.Deps.{bound_payload.lean_module_name}. "
+                    f"Use `import Fvspec.Deps` to access it."
+                )
+
+            return execute
+
+        tools.append(make_tool())
+
+    return tools
+
+
+def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
+    """Regenerate Deps.lean from all module files in deps/ directory.
+
+    Args:
+        deps_dir: Directory containing individual .lean module files
+        sample_dir: Sample output directory where Deps.lean should be written
+    """
+    modules: list[str] = []
+
+    for lean_file in sorted(deps_dir.glob("*.lean")):
+        if lean_file.name != "Deps.lean":
+            modules.append(lean_file.read_text().strip())
+
+    if modules:
+        body = "\n\n".join(modules)
+        lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
+    else:
+        lean_text = "-- No dependencies\n"
+
+    deps_lean_file = sample_dir / "Deps.lean"
+    deps_lean_file.write_text(lean_text)

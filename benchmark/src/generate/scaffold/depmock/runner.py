@@ -195,7 +195,16 @@ def _process_payloads(
 
 @solver
 def depmock_setup() -> Solver:
-    """Prepare dependency payload stubs within the inspect_ai task loop."""
+    """Prepare dependency directories and metadata within the inspect_ai task loop.
+
+    This solver no longer creates stub implementations. Instead, it:
+    1. Creates the deps/ directory structure
+    2. Initializes an empty Deps.lean
+    3. Stores dependency metadata for tools to use later
+
+    The actual dependency formalization happens when the agent calls the
+    per-dependency tools registered by register_dependency_tools().
+    """
 
     async def run(state: TaskState, generate: Generate) -> TaskState:
         datapoint = state.metadata.get("datapoint")
@@ -215,13 +224,26 @@ def depmock_setup() -> Solver:
         sample_output_dir = utilio.get_sample_output_dir(
             date_time, str(state.sample_id), variant or "default"
         )
-        meta = _process_payloads(
-            datapoint,
-            payloads,
-            sample_output_dir,
-            variant if isinstance(variant, str) else None,
+
+        # Create deps/ directory
+        deps_dir = sample_output_dir / "deps"
+        deps_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize empty Deps.lean (will be populated as tools are called)
+        deps_lean_file = sample_output_dir / "Deps.lean"
+        deps_lean_file.write_text(
+            "-- Dependencies will be added here as they are formalized\n"
         )
-        state.metadata["depmock"] = meta
+
+        # Store metadata for later use
+        state.metadata["depmock"] = {
+            "manifest": [],
+            "lean_text": "",
+            "deps_dir": str(deps_dir),
+            "variant": variant,
+            "payload_count": len(payloads),
+        }
+
         return state
 
     return run

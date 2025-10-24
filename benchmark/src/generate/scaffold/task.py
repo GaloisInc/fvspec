@@ -17,10 +17,11 @@ from generate.scaffold.tools.declaration import (
     write_to_disk,
 )
 from generate.scaffold.tools import utilio
-from generate.scaffold.dataset import mk_dataset
+from generate.scaffold.dataset import mk_dataset, Datapoint
 from generate.templates.spec import get_variant_prompts, VariantRegistry
 from generate.scaffold.depmock.runner import depmock_setup
-from generate.scaffold.depmock.agent import autoformalize_dependency_tool
+from generate.scaffold.depmock.agent import create_bound_dependency_tools
+from generate.scaffold.depmock.dataset import payloads_from_datapoint
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
@@ -54,6 +55,48 @@ def workspace_setup() -> Solver:
 
         # Store workspace path in metadata for MCP tools to use
         state.metadata["workspace"] = str(workspace)
+
+        return state
+
+    return run
+
+
+@solver
+def register_dependency_tools(variant: str | None = None) -> Solver:
+    """Register LSP and per-dependency autoformalization tools.
+
+    This solver:
+    1. Registers Lean LSP MCP tools (diagnostic_messages, goal, etc.)
+    2. Creates one autoformalization tool per dependency in the datapoint
+    3. Each dependency tool is bound to its specific payload
+
+    When the main agent calls a dependency tool, it will:
+    1. Run the dependency autoformalizer
+    2. Persist the result to cache and sample directory
+    3. Update Deps.lean incrementally
+    4. Return success message to the agent
+
+    Args:
+        variant: Optional prompt variant for dependency translation
+
+    Returns:
+        Solver that registers all tools in TaskState
+    """
+
+    async def run(state: TaskState, generate: Generate) -> TaskState:
+        # Always add LSP tools
+        all_tools = lean_lsp_mcp_tools()
+
+        # Add dependency tools if datapoint has dependencies
+        datapoint = state.metadata.get("datapoint")
+        if isinstance(datapoint, Datapoint):
+            payloads = payloads_from_datapoint(datapoint)
+            if payloads:
+                dep_tools = create_bound_dependency_tools(payloads, variant=variant)
+                all_tools.extend(dep_tools)
+
+        # Set tools on state
+        state.tools = all_tools
 
         return state
 
@@ -100,15 +143,17 @@ def fvspec(
         skip_index=skip_index,
     )
 
-    # MCP tools are always enabled - they provide objectively better LSP integration
-    tools = lean_lsp_mcp_tools() + [autoformalize_dependency_tool(variant=deps_variant)]
-
+    # Tools are registered dynamically in setup based on each sample's dependencies
     fvspec_task = Task(
         dataset=dataset,
-        setup=[workspace_setup(), depmock_setup()],
+        setup=[
+            workspace_setup(),
+            depmock_setup(),
+            register_dependency_tools(variant=deps_variant),
+        ],
         solver=[
             system_message(system_prompt),
-            use_tools(tools),
+            use_tools(),  # Uses tools registered in setup
             generate(),
         ],
         cleanup=write_to_disk,
