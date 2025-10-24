@@ -770,6 +770,45 @@ def deps_cache_clear_remote_command() -> None:
         raise typer.Exit(code=1)
 
 
+@app.command(name="index-data")
+def index_data_command(
+    datafile: str = Option("pbts.jsonl", help="Path to JSONL file to index"),
+) -> None:
+    """Build a byte-offset index for fast random sampling of the dataset.
+
+    This is a one-time operation that creates an index file (datafile + ".index")
+    mapping line numbers to byte positions. The index enables O(sample_size) sampling
+    instead of O(total_lines) reservoir sampling.
+
+    For the 116GB pbts.jsonl file:
+    - Indexing takes: ~10-30 minutes (one-time cost)
+    - Index file size: ~1-2 MB
+    - Sampling speed: ~1 second for any sample size (vs ~10 minutes without index)
+
+    The index is automatically used by all sampling operations once created.
+
+    Args:
+        datafile: JSONL file to index (default: pbts.jsonl)
+    """
+    from generate.scaffold.dataset import build_index
+
+    dataset_path = (DATA_DIR / datafile).resolve()
+
+    if not dataset_path.exists():
+        print(f"Error: Dataset not found at {dataset_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        index_path = build_index(dataset_path)
+        print(f"\n✓ Index successfully created at {index_path}")
+        print(
+            f"  All future sampling operations will automatically use this index for fast random access."
+        )
+    except Exception as e:
+        print(f"Error building index: {e}")
+        raise typer.Exit(code=1)
+
+
 def main() -> None:
     """Entry point for the `uv run fvspec` CLI."""
     app()

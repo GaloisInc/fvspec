@@ -4,6 +4,21 @@
 
 ⚠️ **IMPORTANT**: `pbts.jsonl` is ~116GB! All scripts use streaming or reservoir sampling to avoid loading the entire file into memory.
 
+## Performance: Indexing for Fast Sampling
+
+For development work with small sample sizes, you'll want to create an index file:
+
+```bash
+# One-time setup (~10-30 minutes)
+uv run fvspec index-data
+```
+
+This creates `pbts.jsonl.index` (~1-2MB) that enables:
+- ✅ **With index**: Sample 10 items in ~1 second
+- ❌ **Without index**: Sample 10 items in ~10 minutes (streams entire 116GB file)
+
+The index is automatically detected and used by all sampling operations.
+
 ## Generating the benchmark synthetic signatures
 
 ```bash

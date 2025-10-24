@@ -1,5 +1,6 @@
 """Dataset helpers for building inspect_ai tasks."""
 
+import json
 import jsonlines
 import random
 from datetime import datetime
@@ -69,6 +70,101 @@ def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
     return initial_template.render(pbt=prompt.pbt, deps=prompt.deps)
 
 
+def build_index(file_path: Path, index_path: Path | None = None) -> Path:
+    """Build a byte-offset index for fast random access to JSONL file.
+
+    Creates an index file that maps line numbers to byte positions in the JSONL file.
+    This enables O(1) random access instead of O(n) streaming for sampling.
+
+    Args:
+        file_path: Path to the JSONL file to index
+        index_path: Optional custom path for index file (defaults to file_path + ".index")
+
+    Returns:
+        Path to the created index file
+
+    Note:
+        This is a one-time operation that takes ~10-30 minutes for the 116GB pbts.jsonl.
+        The index file is small (~1-2MB for 60k lines) and enables sub-second sampling.
+    """
+    if index_path is None:
+        index_path = file_path.with_suffix(file_path.suffix + ".index")
+
+    print(f"Building index for {file_path.name}...")
+    print(f"This is a one-time operation that may take 10-30 minutes for large files.")
+
+    offsets: list[int] = []
+    with open(file_path, "rb") as f:
+        offsets.append(0)  # First line starts at byte 0
+        line_count = 0
+        while f.readline():
+            offsets.append(f.tell())
+            line_count += 1
+            if line_count % 10000 == 0:
+                print(f"  Indexed {line_count:,} lines...")
+
+    # Remove the final offset (it's past EOF)
+    offsets = offsets[:-1]
+
+    print(f"Writing index to {index_path.name}...")
+    with open(index_path, "w") as f:
+        json.dump({"offsets": offsets, "total_lines": len(offsets)}, f)
+
+    print(
+        f"✓ Index complete: {len(offsets):,} lines indexed ({index_path.stat().st_size / 1024 / 1024:.2f} MB)"
+    )
+    return index_path
+
+
+def load_index(index_path: Path) -> dict[str, Any]:
+    """Load a pre-built index file.
+
+    Args:
+        index_path: Path to the index file
+
+    Returns:
+        Dictionary with 'offsets' (list of byte positions) and 'total_lines' (int)
+    """
+    with open(index_path) as f:
+        return json.load(f)  # type: ignore[no-any-return]
+
+
+def sample_datapoints_indexed(
+    file_path: Path, index_data: dict[str, Any], n: int, ranseed: int | None = 0
+) -> list[Datapoint]:
+    """Sample datapoints using a pre-built index for fast random access.
+
+    Args:
+        file_path: Path to the JSONL file
+        index_data: Index data from load_index()
+        n: Number of samples to draw
+        ranseed: Random seed for reproducibility
+
+    Returns:
+        List of randomly sampled Datapoint objects
+    """
+    offsets: list[int] = index_data["offsets"]
+    total_lines: int = index_data["total_lines"]
+
+    rng = random.Random(ranseed)
+    # Sample random line numbers
+    sample_size = min(n, total_lines)
+    selected_lines = rng.sample(range(total_lines), sample_size)
+
+    # Seek directly to each line and read it
+    datapoints: list[Datapoint] = []
+    with open(file_path, "rb") as f:
+        for line_num in sorted(selected_lines):  # Sort for sequential I/O
+            f.seek(offsets[line_num])
+            line = f.readline()
+            obj = json.loads(line)
+            datapoints.append(Datapoint(**obj))  # type: ignore[arg-type]
+
+    # Shuffle to original random order
+    rng.shuffle(datapoints)
+    return datapoints
+
+
 def load_datapoints(file_path: Path) -> list[Datapoint]:
     """Effectful function: read a JSONL file from disk.
 
@@ -86,24 +182,52 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
 
-    Uses reservoir sampling to avoid loading the entire 116GB dataset into memory.
+    Auto-detects if an index file exists (file_path + ".index"). If so, uses fast
+    indexed sampling (O(sample_size)). Otherwise, falls back to reservoir sampling
+    (O(total_lines)).
+
+    For the 116GB pbts.jsonl file:
+    - With index: Sample 10 items in ~1 second
+    - Without index: Sample 10 items in ~10 minutes (streams entire file)
+
+    To create an index: `uv run fvspec index-data`
     """
-    rng = random.Random(ranseed)
-    reservoir: list[Datapoint] = []
+    index_path = file_path.with_suffix(file_path.suffix + ".index")
 
-    with jsonlines.open(file_path) as reader:
-        for idx, obj in enumerate(reader):
-            datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+    if index_path.exists():
+        # Fast path: Use pre-built index for O(sample_size) sampling
+        print(f"Using index file: {index_path.name}")
+        index_data = load_index(index_path)
+        return sample_datapoints_indexed(file_path, index_data, n, ranseed)
+    else:
+        # Slow path: Reservoir sampling requires streaming entire file
+        print(
+            f"No index found at {index_path.name}. Using reservoir sampling (slow for large files)."
+        )
+        print(
+            f"Tip: Run `uv run fvspec index-data` to create an index for fast sampling."
+        )
 
-            if idx < n:
-                reservoir.append(datapoint)
-            else:
-                # Reservoir sampling: randomly replace elements
-                j = rng.randint(0, idx)
-                if j < n:
-                    reservoir[j] = datapoint
+        rng = random.Random(ranseed)
+        reservoir: list[Datapoint] = []
 
-    return reservoir
+        with jsonlines.open(file_path) as reader:
+            for idx, obj in enumerate(reader):
+                datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+                if idx < n:
+                    reservoir.append(datapoint)
+                else:
+                    # Reservoir sampling: randomly replace elements
+                    j = rng.randint(0, idx)
+                    if j < n:
+                        reservoir[j] = datapoint
+
+                # Progress indicator for slow path
+                if (idx + 1) % 10000 == 0:
+                    print(f"  Processed {idx + 1:,} lines...")
+
+        return reservoir
 
 
 def mk_dataset(
