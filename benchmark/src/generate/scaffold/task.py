@@ -6,7 +6,7 @@ from inspect_ai import Task, task
 from inspect_ai.solver import generate, use_tools, system_message
 from generate.scaffold.tools.declaration import (
     lean_compile,
-    lean_lsp_mcp,
+    lean_lsp_mcp_tools,
     write_to_disk,
 )
 from generate.scaffold.dataset import mk_dataset
@@ -66,7 +66,7 @@ def fvspec(
             solver=[
                 system_message(system_prompt),
                 use_tools(
-                    lean_lsp_mcp()
+                    lean_lsp_mcp_tools()
                     + [autoformalize_dependency_tool(variant=deps_variant)]
                 ),
                 generate(),

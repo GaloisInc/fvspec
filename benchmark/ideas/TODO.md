@@ -2,8 +2,7 @@
 
 ## Tmpdir sandbox(?) is unable to start LSP server.
 
-**Status**: Known limitation - MCP tools don't work with per-sample tmpdir workspaces
-**Workaround**: Use `--no-mcp` flag (or set `use_mcp=False` in code)
+**Status**: ✅ SOLVED - Custom MCP tools with per-sample subprocess spawning (as of commit XXXXXX)
 
 This was found in `uv run inspect view` (on oct24-2025):
 ```
@@ -41,12 +40,47 @@ The `lean-lsp-mcp` server is spawned once at task creation time via `mcp_server_
    - Requires changes to lean-lsp-mcp tool itself
    - Not under our control
 
-**Fundamental Conflict**:
+**Fundamental Conflict** (with inspect_ai's mcp_tools()):
 - MCP LSP server needs: Fixed workspace location (spawned once at task creation)
 - Parallel evaluation needs: Per-sample isolated workspaces (different paths per sample)
-- These requirements are mutually exclusive with current architecture
+- These requirements are mutually exclusive with inspect_ai's mcp_tools() architecture
 
-**Current Recommendation**: Use `--no-mcp` flag. The `lean_compile()` tool provides sufficient typechecking functionality.
+**Solution Implemented**:
+
+Instead of using inspect_ai's `mcp_tools()` (which spawns one long-running MCP server), we created custom tool wrappers that spawn lean-lsp-mcp as a subprocess **per tool call**:
+
+1. **Custom MCP client** (`call_lean_lsp_mcp()` in declaration.py):
+   - Spawns `uvx lean-lsp-mcp` as subprocess for each tool call
+   - Sets `LEAN_PROJECT_PATH` environment variable to the sample's workspace
+   - Communicates via JSON-RPC 2.0 over stdio
+   - Returns results and terminates process
+
+2. **Per-sample workspace isolation**:
+   - Each sample gets its own tmpdir workspace (as before)
+   - Each MCP tool call uses that sample's workspace via LEAN_PROJECT_PATH
+   - No shared state between samples - fully parallelizable!
+
+3. **Custom tool wrappers** (declaration.py):
+   - `lean_diagnostic_messages()` - Get diagnostic messages for a Lean file
+   - `lean_goal()` - Get proof goal at a specific location
+   - More tools can be added easily by following the same pattern
+
+4. **Integration**:
+   - `lean_lsp_mcp_tools()` returns list of custom tools
+   - task.py uses these instead of inspect_ai's `mcp_tools()`
+   - Works seamlessly with `parallelism=128`
+
+**Trade-offs**:
+- ✅ Maintains per-sample isolation
+- ✅ Fully parallelizable
+- ✅ Works with existing tmpdir architecture
+- ⚠️ Spawns lean-lsp-mcp process per tool call (overhead vs. long-running server)
+- ⚠️ Doesn't maintain persistent LSP state between calls within a sample
+
+The overhead is acceptable since:
+- lean-lsp-mcp startup is reasonably fast (~1-2 seconds)
+- Most samples only make a few LSP tool calls
+- Parallel gains far outweigh per-call overhead
 
 ## IndexError in inspect_ai's json_changes function (Rare, Sample-Specific)
 

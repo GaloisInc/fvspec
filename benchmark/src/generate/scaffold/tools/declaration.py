@@ -2,8 +2,10 @@
 
 import os
 import re
+import json
+import subprocess
 from pathlib import Path
-from typing import Callable, Awaitable, cast
+from typing import Callable, Awaitable, cast, Any
 from inspect_ai.tool import tool, ToolError, mcp_server_stdio, mcp_tools
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import Score
@@ -13,6 +15,75 @@ from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
 
 LAKE_BUILD_CMD = ["lake", "build"]
+
+
+def call_lean_lsp_mcp(
+    workspace: Path, tool_name: str, arguments: dict[str, Any]
+) -> dict[str, Any]:
+    """Call a lean-lsp-mcp tool with the given workspace context.
+
+    Args:
+        workspace: Path to the Lake project workspace
+        tool_name: Name of the MCP tool to call (e.g., "lean_diagnostic_messages")
+        arguments: Tool arguments as a dictionary
+
+    Returns:
+        The tool result as a dictionary
+
+    Raises:
+        ToolError: If the MCP call fails
+    """
+    # Set up environment with project path
+    env = os.environ.copy()
+    env["LEAN_PROJECT_PATH"] = str(workspace)
+    env["LEAN_LOG_LEVEL"] = "ERROR"  # Reduce noise
+
+    # Create MCP JSON-RPC request
+    # MCP uses the JSON-RPC 2.0 protocol for tool calls
+    request = {
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/call",
+        "params": {"name": tool_name, "arguments": arguments},
+    }
+
+    try:
+        # Spawn lean-lsp-mcp subprocess
+        process = subprocess.Popen(
+            ["uvx", "lean-lsp-mcp"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            env=env,
+            text=True,
+        )
+
+        # Send request and get response
+        request_str = json.dumps(request) + "\n"
+        stdout, stderr = process.communicate(input=request_str, timeout=30)
+
+        # Parse JSON-RPC response
+        # MCP may send multiple JSON objects (initialization, response, etc.)
+        # We need to find the response with matching id
+        for line in stdout.strip().split("\n"):
+            if not line.strip():
+                continue
+            try:
+                response = json.loads(line)
+                if response.get("id") == 1:
+                    if "error" in response:
+                        raise ToolError(f"MCP error: {response['error']}")
+                    return response.get("result", {})
+            except json.JSONDecodeError:
+                continue
+
+        raise ToolError(f"No valid response from lean-lsp-mcp. stderr: {stderr}")
+
+    except subprocess.TimeoutExpired:
+        process.kill()
+        raise ToolError("lean-lsp-mcp call timed out")
+    except Exception as e:
+        raise ToolError(f"Failed to call lean-lsp-mcp: {e}")
 
 
 @tool  # type: ignore[arg-type]
@@ -78,36 +149,91 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
     return execute
 
 
-def lean_lsp_mcp() -> list:
-    """Construct the Lean LSP MCP tool bundle used by benchmark agents.
+@tool  # type: ignore[arg-type]
+def lean_diagnostic_messages() -> Callable[[str], Awaitable[str]]:
+    """Get diagnostic messages for a Lean file using per-sample workspace."""
 
-    Note: MCP tools have a known limitation with per-sample tmpdir workspaces.
-    The LSP server can't dynamically switch between workspaces. Use --no-mcp
-    flag if you encounter "Unable to start LSP server" errors.
+    async def execute(file_path: str) -> str:
+        """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
+
+        Args:
+            file_path: Path to the Lean file (relative to workspace or absolute)
+
+        Returns:
+            Diagnostic messages as formatted text
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        # Get workspace path
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        # Call lean-lsp-mcp with this sample's workspace
+        result = call_lean_lsp_mcp(
+            workspace=workspace,
+            tool_name="lean_diagnostic_messages",
+            arguments={"file_path": file_path},
+        )
+
+        return str(result.get("content", [{}])[0].get("text", "No diagnostics"))
+
+    return execute
+
+
+@tool  # type: ignore[arg-type]
+def lean_goal() -> Callable[[str, int, int | None], Awaitable[str]]:
+    """Get proof goal at a specific location in a Lean file."""
+
+    async def execute(file_path: str, line: int, column: int | None = None) -> str:
+        """Get the proof goal at a specific location.
+
+        Args:
+            file_path: Path to the Lean file
+            line: Line number
+            column: Optional column number
+
+        Returns:
+            Goal state information
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        arguments = {"file_path": file_path, "line": line}
+        if column is not None:
+            arguments["column"] = column
+
+        result = call_lean_lsp_mcp(
+            workspace=workspace, tool_name="lean_goal", arguments=arguments
+        )
+
+        return str(result.get("content", [{}])[0].get("text", "No goal information"))
+
+    return execute
+
+
+def lean_lsp_mcp_tools() -> list:
+    """Construct custom Lean LSP tools that work with per-sample workspaces.
+
+    These tools spawn lean-lsp-mcp as a subprocess per call, setting the
+    LEAN_PROJECT_PATH environment variable to the sample's workspace.
+    This allows parallel execution while maintaining LSP functionality.
     """
-    # Pass current environment so lean-lsp-mcp can find elan/lake
-    env = os.environ.copy()
-
-    lean_server = mcp_server_stdio(
-        name="lean-lsp",
-        command="uvx",
-        args=["lean-lsp-mcp"],
-        env=env,
-    )
-
     return [
         lean_compile(),
-        mcp_tools(
-            lean_server,
-            tools=[
-                "lean_run_code",
-                "lean_diagnostic_messages",
-                "lean_hover_info",
-                "lean_goal",
-                "lean_completions",
-                "lean_multi_attempt",
-            ],
-        ),
+        lean_diagnostic_messages(),
+        lean_goal(),
     ]
 
 
