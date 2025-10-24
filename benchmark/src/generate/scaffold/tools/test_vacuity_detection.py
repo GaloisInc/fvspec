@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""
-Simple test script for vacuity detection functionality.
+"""Simple test script for vacuity detection functionality.
 
 Tests the VacuityMetrics class with example Lean code containing
 theorems of varying degrees of vacuity.
@@ -91,6 +90,7 @@ def multiply (x y : ℕ) : ℕ := x * y
 
 
 def main():
+    """Main function check gather vacuous metrics."""
     print("=" * 60)
     print("VACUITY DETECTION TEST")
     print("=" * 60)

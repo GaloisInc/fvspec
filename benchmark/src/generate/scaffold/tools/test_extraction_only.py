@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Test only the theorem extraction without Lean compilation.
-"""
+"""Test only the theorem extraction without Lean compilation."""
 
 from generate.scaffold.quality_assessment import _extract_theorem_statements
 
 
 def test_theorem_extraction():
+    """Tests some simple theorem extractions."""
     print("=" * 60)
     print("THEOREM EXTRACTION TEST")
     print("=" * 60)
@@ -69,4 +68,5 @@ def multiply (x y : ℕ) : ℕ := x * y
 
 
 if __name__ == "__main__":
+    "Main function to call the test theorem extractions."
     test_theorem_extraction()

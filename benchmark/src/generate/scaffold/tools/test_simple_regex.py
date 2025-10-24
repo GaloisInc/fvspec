@@ -1,12 +1,11 @@
 #!/usr/bin/env python3
-"""
-Test simple regex patterns step by step.
-"""
+"""Test simple regex patterns step by step."""
 
 import re
 
 
 def test_basic_theorem_match():
+    """Simple test for basic equality."""
     lean_code = "theorem trivial_equality (x : Int) : x = x := by sorry"
 
     print(f"Input: {lean_code}")
@@ -34,4 +33,5 @@ def test_basic_theorem_match():
 
 
 if __name__ == "__main__":
+    "Main function to call basic theorem match."
     test_basic_theorem_match()
