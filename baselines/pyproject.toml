@@ -1,17 +1,26 @@
 [project]
 name = "baselines"
 version = "0.1.0"
-description = "Add your description here"
+description = "Baseline evaluation tools for fvspec benchmark"
 readme = "README.md"
 authors = [
     { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" }
 ]
 requires-python = ">=3.13"
-dependencies = []
-
-[project.scripts]
-baselines = "baselines:main"
+dependencies = [
+    "datasets>=4.3.0",
+    "pydantic>=2.12.3",
+    "pydantic-ai>=1.5.0",
+]
 
 [build-system]
 requires = ["uv_build>=0.8.2,<0.9.0"]
 build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "hypothesis>=6.142.3",
+    "pytest>=8.4.2",
+    "ruff>=0.14.2",
+    "ty>=0.0.1a24",
+]
