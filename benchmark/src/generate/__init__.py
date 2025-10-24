@@ -141,6 +141,11 @@ def main_callback(
 
     # Determine variant: CLI arg > config > registry default
     use_variant = variant or cfg.prompt.variant
+    if use_variant is None:
+        # Resolve default variant from registry so log_dir matches sample output dirs
+        registry = VariantRegistry()
+        use_variant = registry.default_variant()
+
     # Determine sample_size: CLI arg > config
     use_sample_size = (
         sample_size if sample_size is not None else cfg.dataset.sample_size
@@ -163,7 +168,7 @@ def main_callback(
     # Create log directory in artifacts/runs
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
-    log_dir_name = f"{timestamp}__{use_variant or 'default'}"
+    log_dir_name = f"{timestamp}__{use_variant}"
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
