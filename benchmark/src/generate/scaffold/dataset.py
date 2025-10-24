@@ -277,7 +277,8 @@ def sample_datapoints(
         task = progress.add_task(f"Sampling from {file_path.name}...", total=file_size)
 
         with open(file_path, "rb") as f:
-            for idx in range(1000000000):  # Large number for iteration
+            idx = 0
+            while True:
                 line = f.readline()
                 if not line:
                     break
@@ -295,6 +296,7 @@ def sample_datapoints(
 
                 # Update progress based on bytes read
                 progress.update(task, completed=f.tell())
+                idx += 1
 
     return reservoir
 
