@@ -15,5 +15,5 @@
 </theorem>
 {% if deps|length > 0 %}
 
-After dependencies are formalized, they will be available as `Fvspec.Deps.<module>.<function>` for use in your specification.
+After dependencies are formalized, use `import Fvspec.Deps` to access them in your specification.
 {% endif %}
