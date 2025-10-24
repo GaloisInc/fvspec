@@ -202,9 +202,11 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
         ),
         "success": Score(
             value="C" if qa.success else "I",
-            explanation="Successfully generated Lean code in <code> tags"
-            if qa.success
-            else "Failed to generate valid Lean code",
+            explanation=(
+                "Successfully generated Lean code in <code> tags"
+                if qa.success
+                else "Failed to generate valid Lean code"
+            ),
         ),
         "num_sorries": Score(
             value=qa.num_sorries,
@@ -261,6 +263,50 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
         scores["dependency_coverage"] = Score(
             value=sf.dependency_coverage,
             explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
+        )
+
+    # Add vacuity metrics if available
+    if qa.vacuity_metrics is not None:
+        vm = qa.vacuity_metrics
+        scores["vacuity_score"] = Score(
+            value=vm.vacuity_score,
+            explanation=f"Overall vacuity score: {vm.vacuity_score:.2f} (1.0=very vacuous, 0.0=requires work)",
+        )
+        scores["proves_with_rfl"] = Score(
+            value="C" if vm.proves_with_rfl else "I",
+            explanation=(
+                "Proves with 'rfl' tactic (most vacuous - trivial equality)"
+                if vm.proves_with_rfl
+                else "Does not prove with 'rfl' tactic"
+            ),
+        )
+        scores["proves_with_trivial"] = Score(
+            value="C" if vm.proves_with_trivial else "I",
+            explanation=(
+                "Proves with 'trivial' tactic (vacuous - no real constraints)"
+                if vm.proves_with_trivial
+                else "Does not prove with 'trivial' tactic"
+            ),
+        )
+        scores["proves_with_simp"] = Score(
+            value="C" if vm.proves_with_simp else "I",
+            explanation=(
+                "Proves with 'simp' tactic (somewhat vacuous)"
+                if vm.proves_with_simp
+                else "Does not prove with 'simp' tactic"
+            ),
+        )
+        scores["proves_with_decide"] = Score(
+            value="C" if vm.proves_with_decide else "I",
+            explanation=(
+                "Proves with 'decide' tactic (least vacuous)"
+                if vm.proves_with_decide
+                else "Does not prove with 'decide' tactic"
+            ),
+        )
+        scores["num_theorems_tested"] = Score(
+            value=vm.num_theorems_tested,
+            explanation=f"Number of theorem statements tested for vacuity: {vm.num_theorems_tested}",
         )
 
     return scores

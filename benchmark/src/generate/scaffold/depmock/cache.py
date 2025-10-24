@@ -105,9 +105,9 @@ class CacheRecord:
             "diagnostics": self.metadata.diagnostics,
             "cache_path": str(self.lean_path),
             "timestamp": datetime.now(UTC).isoformat(),
-            "model": self.metadata.provenance.model
-            if self.metadata.provenance
-            else None,
+            "model": (
+                self.metadata.provenance.model if self.metadata.provenance else None
+            ),
             "generated_at": (
                 self.metadata.provenance.generated_at
                 if self.metadata.provenance
