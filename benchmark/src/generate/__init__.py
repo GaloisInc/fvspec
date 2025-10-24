@@ -378,10 +378,12 @@ def compare_variants(
 
                 for variant_logger in wandb_loggers.values():
                     variant_logger.finish()
+
+            # Clean up empty log directory (handles both failures and mocked eval_set in tests)
+            if log_dir.exists() and not any(log_dir.iterdir()):
+                log_dir.rmdir()
     except (KeyboardInterrupt, Exception):
-        # Clean up empty log directory if run was aborted before any output
-        if log_dir.exists() and not any(log_dir.iterdir()):
-            log_dir.rmdir()
+        # Re-raise to propagate the error
         raise
 
 
