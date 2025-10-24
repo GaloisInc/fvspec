@@ -616,10 +616,55 @@ When `--force-deps-regen` is used and a dependency hash collides with an existin
 
 ## Troubleshooting
 
-### "wandb not logged in"
+### "wandb not logged in" or Authentication Issues
+
+If someone can access wandb webapp but not via CLI/fvspec:
+
+**Step 1: Login with uv run**
 ```bash
+cd benchmark
 uv run wandb login
 ```
+
+**Step 2: Verify authentication**
+```bash
+# Check if API key is set
+uv run wandb verify
+
+# Check current login status
+uv run wandb status
+```
+
+**Step 3: Check entity access**
+The `entity = "fvspec"` setting requires team membership. Verify:
+- User is invited to the "fvspec" team on wandb.ai
+- User has accepted the team invitation
+- Try accessing https://wandb.ai/fvspec/fvspec directly
+
+**Step 4: Clear and re-authenticate**
+```bash
+# Logout and login again
+uv run wandb logout
+uv run wandb login
+
+# When prompted, paste the API key from: https://wandb.ai/authorize
+```
+
+**Step 5: Check wandb config file**
+```bash
+# View current wandb config
+cat ~/.netrc  # or ~/.config/wandb/settings on some systems
+
+# If corrupted, delete and re-login
+rm ~/.netrc
+uv run wandb login
+```
+
+**Common Issues:**
+- **"Permission denied" or "Forbidden"**: User not added to "fvspec" team - ask project admin to invite
+- **"Invalid API key"**: Key expired or wrong - get new key from https://wandb.ai/authorize
+- **Works in webapp, not CLI**: Different auth method - webapp uses session cookies, CLI uses API key
+- **"Entity not found"**: Typo in config.toml or user not in team
 
 ### Metrics not appearing
 - Verify `enabled = true` in `config.toml` (wandb is enabled by default via CLI)
