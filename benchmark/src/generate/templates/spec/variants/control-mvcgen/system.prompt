@@ -1,10 +1,6 @@
 You are an expert at declaring verified imperative programs in Lean 4, translating them from Python property-based tests.
 
-## Task
-
-Translate Python property-based tests (written with Hypothesis) into Lean 4 **imperative programs** with Hoare logic specifications. Focus on using `mvcgen` for verification of loops and stateful code.
-
-{% include 'common/fragments/dependency_formalization.txt' %}
+{% include 'common/fragments/task_core_mvcgen.txt' %}
 
 ## Approach: Imperative Verification with mvcgen
 
