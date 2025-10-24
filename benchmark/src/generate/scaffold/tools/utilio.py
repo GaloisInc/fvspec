@@ -176,21 +176,29 @@ def create_sample_workspace(
     1. Created here with tempfile.mkdtemp() - not TemporaryDirectory() because we
        need manual control across inspect_ai's setup/solver/cleanup phases
     2. Registered in global _active_workspaces for atexit cleanup safety net
-    3. Used during sample execution (workspace_setup → solver → write_to_disk)
-    4. Cleaned up in write_to_disk() cleanup phase (normal path)
-    5. If cleanup fails, atexit handler ensures removal on process exit (safety net)
+    3. Lake template copied (EXCLUDING .lake/ to avoid disk quota issues)
+    4. `lake exe cache get` run to fetch prebuilt mathlib artifacts from cache server
+    5. Used during sample execution (workspace_setup → solver → write_to_disk)
+    6. Cleaned up in write_to_disk() cleanup phase (normal path)
+    7. If cleanup fails, atexit handler ensures removal on process exit (safety net)
 
     Memory bounds: With parallelism=N, max N tmpdirs exist simultaneously
     (O(parallelism) not O(total_samples))
 
     Thread safety: Uses _workspace_lock for registry access in parallel execution
 
+    Lake Cache Strategy:
+    - Skips copying .lake/ from template (causes disk quota exceeded)
+    - Runs `lake exe cache get` to fetch prebuilt mathlib artifacts from cache server
+    - Avoids redundant rebuilds without storing large .lake/ directories
+    - Falls back gracefully if cache operations fail
+
     Args:
         sample_id: Unique identifier for the sample (used in tmpdir prefix)
         lake_template: Path to the Lake project template to copy
 
     Returns:
-        Path: Temporary workspace directory containing a Lake project
+        Path: Temporary workspace directory containing a Lake project with cache
 
     Raises:
         FileNotFoundError: If lake_template doesn't exist
@@ -208,16 +216,32 @@ def create_sample_workspace(
     with _workspace_lock:
         _active_workspaces.add(tmpdir)
 
-    # Copy Lake project template into workspace (excluding .lake/ cache)
+    # Copy Lake project template into workspace (excluding .lake/ to avoid disk quota)
     if lake_template.exists():
         for item in lake_template.iterdir():
-            # Skip .lake directory - it's huge and Lake will rebuild as needed
+            # Skip .lake directory - it's huge and causes disk quota issues
+            # We'll fetch prebuilt artifacts with `lake exe cache get` instead
             if item.name == ".lake":
                 continue
             if item.is_dir():
                 shutil.copytree(item, tmpdir / item.name, dirs_exist_ok=True)
             else:
                 shutil.copy2(item, tmpdir / item.name)
+
+        # Fetch prebuilt artifacts from cache server to avoid redundant rebuilds
+        # This downloads cached mathlib and dependencies without copying .lake
+        try:
+            subprocess.run(
+                ["lake", "exe", "cache", "get"],
+                cwd=tmpdir,
+                capture_output=True,
+                timeout=60,
+                check=False,  # Don't fail if cache get fails
+            )
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            # If cache get fails or times out, Lake will just rebuild as needed
+            # This is not fatal - just slower
+            pass
     else:
         raise FileNotFoundError(
             f"Lake template not found at {lake_template}. "
