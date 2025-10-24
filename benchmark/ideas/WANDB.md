@@ -396,13 +396,13 @@ The dependency cache can be managed both locally and remotely via wandb. This is
 
 **Clear local cache:**
 ```bash
-uv run fvspec deps cache-flush
+uv run fvspec deps cache-clear-local
 ```
 Deletes all cached dependencies from `artifacts/depcache/`. Next run will regenerate from scratch or download from wandb.
 
 **Clear remote wandb cache:**
 ```bash
-uv run fvspec deps cache-clear-remote
+uv run fvspec deps cache-clear-wandb
 ```
 Deletes the `dep-cache:latest` artifact from wandb. Requires `wandb.enabled = true` in config. Next run will create a fresh cache artifact.
 
@@ -421,44 +421,44 @@ Ignores cache and regenerates all dependencies from scratch. Overwrites existing
 **Full cache reset (local + remote):**
 ```bash
 # 1. Clear local cache
-uv run fvspec deps cache-flush
+uv run fvspec deps cache-clear-local
 
 # 2. Clear remote cache (optional - for team coordination)
-uv run fvspec deps cache-clear-remote
+uv run fvspec deps cache-clear-wandb
 
 # 3. Run with fresh generation
-uv run fvspec --force-regen --sample-size 10
+uv run fvspec --force-deps-regen --sample-size 10
 ```
 
 **Force regenerate without affecting remote cache:**
 ```bash
 # Clears local, skips download, regenerates, uploads to wandb
-uv run fvspec --force-regen --sample-size 10
+uv run fvspec --force-deps-regen --sample-size 10
 ```
 
 **Selective regeneration:**
 ```bash
 # Regenerate dependencies for specific datapoints
-uv run fvspec deps autoformalize --force-regen --sample-id 5 --sample-id 42
+uv run fvspec deps autoformalize --force-deps-regen --sample-id 5 --sample-id 42
 ```
 
 ### Behavior Details
 
-**`--force-regen` flag:**
+**`--force-deps-regen` flag:**
 1. Clears local cache at run start
 2. Skips wandb cache download (if `sync_dep_cache = true`)
 3. Marks all dependencies as uncached, forcing regeneration
 4. Overwrites cache entries on hash collision (last write wins)
 5. Uploads regenerated cache to wandb at run end (if enabled)
 
-**`cache-clear-remote` command:**
+**`cache-clear-wandb` command:**
 - Uses wandb API to delete the artifact
 - Gracefully handles missing artifacts (first run case)
 - Requires `wandb.enabled = true` in config
 - Next run creates new `:v0` artifact
 
 **Cache collision handling:**
-When `--force-regen` is used and a dependency hash collides with an existing cache entry, the new generation overwrites the old one. This is intentional - allows updating cached dependencies with improved models or prompts.
+When `--force-deps-regen` is used and a dependency hash collides with an existing cache entry, the new generation overwrites the old one. This is intentional - allows updating cached dependencies with improved models or prompts.
 
 ## Questions & Concerns
 

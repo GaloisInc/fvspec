@@ -10,7 +10,7 @@ from generate.scaffold.tools.declaration import (
     write_to_disk,
 )
 from generate.scaffold.dataset import mk_dataset
-from generate.templates.spec import get_variant_prompts
+from generate.templates.spec import get_variant_prompts, VariantRegistry
 from generate.scaffold.depmock.runner import depmock_setup
 from generate.scaffold.depmock.agent import autoformalize_dependency_tool
 
@@ -38,7 +38,15 @@ def fvspec(
     """
     now = datetime.now()
 
-    # Load variant prompts (will use registry default if variant is None)
+    # Resolve variant and get its style for deps consistency
+    registry = VariantRegistry()
+    resolved_variant = variant or registry.default_variant()
+    variant_config = registry.get_variant(resolved_variant)
+    deps_variant = (
+        variant_config.style
+    )  # Use the same style (functional/mvcgen) for deps
+
+    # Load variant prompts
     system_prompt, _ = get_variant_prompts(variant)
     dataset = mk_dataset(
         DATA_DIR / datafile,
@@ -55,7 +63,10 @@ def fvspec(
             setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
-                use_tools(lean_lsp_mcp() + [autoformalize_dependency_tool()]),
+                use_tools(
+                    lean_lsp_mcp()
+                    + [autoformalize_dependency_tool(variant=deps_variant)]
+                ),
                 generate(),
             ],
             cleanup=write_to_disk,
@@ -66,7 +77,12 @@ def fvspec(
             setup=[depmock_setup()],
             solver=[
                 system_message(system_prompt),
-                use_tools([lean_compile(), autoformalize_dependency_tool()]),
+                use_tools(
+                    [
+                        lean_compile(),
+                        autoformalize_dependency_tool(variant=deps_variant),
+                    ]
+                ),
                 generate(),
             ],
             cleanup=write_to_disk,

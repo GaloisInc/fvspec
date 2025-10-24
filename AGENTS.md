@@ -1,6 +1,6 @@
-# CLAUDE.md
+# AGENTS.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+> **Note**: This file is symlinked from `CLAUDE.md` and `KNOWLEDGE.md` to ensure consistent guidance across different AI code assistants.
 
 ## Project Overview
 
@@ -173,7 +173,7 @@ uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
 uv run fvspec deps autoformalize --sample-size 10 --ranseed 42
 
 # Clear dependency cache (forces regeneration next time)
-uv run fvspec deps cache-flush
+uv run fvspec deps cache-clear-local
 ```
 
 `autoformalize` produces one Lean file per dependency under the run's `deps/` directory; if no cached Lean exists a computable stub is emitted and recorded for later refinement. Aggregated output in `Fvspec/Deps.lean` wraps all modules inside the namespace exactly once.

@@ -95,9 +95,9 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
-    force_regen: bool = Option(
+    force_deps_regen: bool = Option(
         False,
-        "--force-regen",
+        "--force-deps-regen",
         help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
     ),
 ) -> None:
@@ -120,7 +120,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
-        force_regen: Ignore cache and regenerate all dependencies.
+        force_deps_regen: Ignore cache and regenerate all dependencies.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -167,8 +167,8 @@ def main_callback(
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Handle force_regen: clear local cache before starting
-    if force_regen:
+    # Handle force_deps_regen: clear local cache before starting
+    if force_deps_regen:
         print(
             "⚠️  Force regeneration enabled: clearing local cache, will overwrite existing entries"
         )
@@ -185,8 +185,8 @@ def main_callback(
             timestamp=timestamp,
         )
 
-        # Download dep cache at start of run (unless force_regen is enabled)
-        if wandb_cfg.sync_dep_cache and not force_regen:
+        # Download dep cache at start of run (unless force_deps_regen is enabled)
+        if wandb_cfg.sync_dep_cache and not force_deps_regen:
             print("Downloading dependency cache from wandb...")
             wandb_logger.download_dep_cache()
 
@@ -421,9 +421,9 @@ def deps_autoformalize_command(
         "--validate",
         help="Typecheck aggregated dependency modules after generation.",
     ),
-    force_regen: bool = Option(
+    force_deps_regen: bool = Option(
         False,
-        "--force-regen",
+        "--force-deps-regen",
         help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
     ),
 ) -> None:
@@ -440,7 +440,7 @@ def deps_autoformalize_command(
         dry_run: Emit stubs without invoking autoformalizer.
         batch_size: Logical batch size for dataset metadata.
         validate: Typecheck aggregated modules after generation.
-        force_regen: Ignore cache and regenerate all dependencies.
+        force_deps_regen: Ignore cache and regenerate all dependencies.
     """
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():
@@ -485,15 +485,15 @@ def deps_autoformalize_command(
     print(f"Artifacts will be written to {base_dir}\n")
 
     # Force regeneration overrides skip_cached
-    effective_skip_cached = False if force_regen else skip_cached
-    if force_regen:
+    effective_skip_cached = False if force_deps_regen else skip_cached
+    if force_deps_regen:
         print(
             "⚠️  Force regeneration enabled: ignoring cache, will overwrite existing entries\n"
         )
 
     specs = scan_dependencies(
         selected,
-        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_regen enabled
+        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_deps_regen enabled
         dedupe=True,
     )
 
@@ -501,8 +501,8 @@ def deps_autoformalize_command(
         print("No dependencies discovered for the selected datapoints.")
         return
 
-    # When force_regen is enabled, mark all specs as uncached to force regeneration
-    if force_regen:
+    # When force_deps_regen is enabled, mark all specs as uncached to force regeneration
+    if force_deps_regen:
         specs = [
             DependencySampleSpec(
                 payload=spec.payload,
@@ -582,7 +582,7 @@ def deps_autoformalize_command(
     metadata = {
         "timestamp": timestamp,
         "variant": base_variant,
-        "force_regen": force_regen,
+        "force_deps_regen": force_deps_regen,
     }
 
     fatal_encountered = False
@@ -732,15 +732,15 @@ def deps_autoformalize_command(
     )
 
 
-@deps_app.command(name="cache-flush")
-def deps_cache_flush_command() -> None:
+@deps_app.command(name="cache-clear-local")
+def deps_cache_clear_local_command() -> None:
     """Clear all local dependency autoformalization cache artifacts."""
     root = clear_cache()
     print(f"Cleared local dependency cache at {root}")
 
 
-@deps_app.command(name="cache-clear-remote")
-def deps_cache_clear_remote_command() -> None:
+@deps_app.command(name="cache-clear-wandb")
+def deps_cache_clear_wandb_command() -> None:
     """Delete the dependency cache artifact from wandb.
 
     This allows starting fresh with cache regeneration. The next run will
