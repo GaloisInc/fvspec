@@ -8,12 +8,9 @@ from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 
-# import logfire
 from generate import config
 
 cfg = config.load_config()
-# if cfg.meta.logging:
-#     config.setup_logfire()
 
 # Path to the Lake project template (relative to project root)
 LAKE_TEMPLATE = Path(__file__).parent.parent.parent.parent.parent / "lake-template"
@@ -70,8 +67,6 @@ def run_cmd(
     Returns:
         A tuple of stdout, stderr and exitcode.
     """
-    # if cfg.meta.logging:
-    #     logfire.info("Running command", cmd=" ".join(cmd))
     try:
         result = subprocess.run(
             cmd,
@@ -81,15 +76,7 @@ def run_cmd(
             cwd=cwd,
         )
     except subprocess.TimeoutExpired:
-        # logfire.info(f"Command timed out: {' '.join(cmd)}")
         return "", "Timeout", 1
-    # if cfg.meta.logging:
-    # logfire.info(
-    #     "Command output",
-    #     stdout=result.stdout,
-    #     stderr=result.stderr,
-    #     exitcode=result.returncode,
-    # )
     return result.stdout, result.stderr, result.returncode
 
 
@@ -104,8 +91,6 @@ def no_code_block_found(sample_id: str, text: str) -> str:
         A formatted error message string
     """
     msg = "No <code> block found"
-    # if cfg.meta.logging:
-    #     logfire.info(msg, sample_id=sample_id, text=text)
     return f"{msg} for sample_id={sample_id}"
 
 
@@ -179,8 +164,6 @@ def writeit(spfile: Path, code: str) -> str:
     with spfile.open("w", encoding="utf-8") as the_file:
         the_file.write(code)
     msg = "Code block written to disk"
-    # if cfg.meta.logging:
-    #     logfire.info(msg, spec_file=spfile, code_snippet=code)
     return f"{msg} at {spfile}"
 
 

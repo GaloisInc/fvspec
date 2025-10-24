@@ -3,19 +3,7 @@
 import tomllib
 from pathlib import Path
 
-# import logfire
 from pydantic import BaseModel
-
-
-#   def setup_logfire() -> None:
-#       """Configure logfire with token from .env"""
-#       load_dotenv()
-#
-#       logfire_token = os.getenv("LOGFIRE_WRITE_TOKEN")
-#       if not logfire_token:
-#           raise ValueError("LOGFIRE__WRITE_TOKEN not found in .env file")
-#
-#       logfire.configure(token=logfire_token)
 
 
 class AgentConfig(BaseModel):
@@ -31,17 +19,13 @@ class AgentConfig(BaseModel):
 
 
 class MetaConfig(BaseModel):
-    """Configuration for logging and debugging.
+    """Configuration for runtime behavior.
 
     Attributes:
-        logging: Enable logging functionality
-        debug: Enable debug mode for verbose output
         display: Display mode for inspect_ai eval TUI (full, conversation, rich, plain, log, none)
         parallelism: Number of samples to evaluate in parallel
     """
 
-    logging: bool
-    debug: bool = False
     display: str = "plain"
     parallelism: int = 25
 
@@ -94,7 +78,7 @@ class Config(BaseModel):
 
     Attributes:
         agent: Agent configuration settings
-        meta: Logging and debugging configuration
+        meta: Runtime behavior configuration
         prompt: Prompt template configuration
         dataset: Dataset sampling configuration
         wandb: Weights & Biases configuration

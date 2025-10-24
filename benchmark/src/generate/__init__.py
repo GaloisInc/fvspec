@@ -38,8 +38,6 @@ from typer import Typer, Option
 import typer
 
 cfg = load_config()
-# if cfg.meta.logging:
-#     setup_logfire()
 
 app = Typer(no_args_is_help=False, invoke_without_command=True)
 deps_app = Typer(help="Dependency management utilities")
