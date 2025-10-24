@@ -24,10 +24,27 @@ The `lean-lsp-mcp` server is spawned once at task creation time via `mcp_server_
 - `lean_compile()` spawns `lake build` as a subprocess with `cwd=workspace` per sample
 - MCP tools use a single long-running LSP server process that doesn't know which workspace to use
 
-**Possible Solutions** (not yet implemented):
-1. Spawn a new MCP server per sample (inefficient, may not be supported by inspect_ai)
-2. Use a shared workspace for all samples (defeats isolation purpose of tmpdir)
-3. Modify lean-lsp-mcp to accept `LEAN_PROJECT_PATH` per request (requires upstream changes)
+**Why Attempted Solutions Don't Work**:
+
+1. **Shared workspace for all samples** (attempted and reverted):
+   - Would allow MCP server to have fixed workspace location
+   - BUT: Breaks parallelism! All samples would overwrite the same `Fvspec/Spec.lean`
+   - Parallel execution is mandatory (parallelism=128), so this is not viable
+
+2. **Spawn new MCP server per sample**:
+   - Would allow per-sample workspaces
+   - BUT: Inefficient, may not be supported by inspect_ai's tool architecture
+   - MCP server is spawned at task definition time, not per-sample
+
+3. **Modify lean-lsp-mcp upstream**:
+   - Would need to accept workspace path per tool call
+   - Requires changes to lean-lsp-mcp tool itself
+   - Not under our control
+
+**Fundamental Conflict**:
+- MCP LSP server needs: Fixed workspace location (spawned once at task creation)
+- Parallel evaluation needs: Per-sample isolated workspaces (different paths per sample)
+- These requirements are mutually exclusive with current architecture
 
 **Current Recommendation**: Use `--no-mcp` flag. The `lean_compile()` tool provides sufficient typechecking functionality.
 
