@@ -87,7 +87,7 @@ uv run fvspec deps cache-clear-local     # Clear local dependency cache
 uv run fvspec deps cache-clear-wandb     # Delete remote wandb cache artifact
 ```
 
-`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
+`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__control-functional-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
 
 **Cache management:**
 - `--force-deps-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
