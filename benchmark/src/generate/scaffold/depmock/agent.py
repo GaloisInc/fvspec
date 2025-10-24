@@ -207,14 +207,11 @@ def create_bound_dependency_tools(
             f"Fvspec.Deps.{payload.lean_module_name}."
         )
 
-        # Create tool wrapper that calls agent and persists results
-        @tool(name=tool_name, description=tool_description)  # type: ignore[arg-type]
-        def make_tool(
+        # Set docstring dynamically (used as tool description)
+        def make_tool_func(
             bound_payload: DependencyPayload = payload,
             bound_variant: str | None = variant,
         ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
-            """Create the async execute function with bound payload."""
-
             async def execute() -> str:
                 """Run autoformalizer and persist result for this dependency."""
                 # Get task state
@@ -290,7 +287,10 @@ def create_bound_dependency_tools(
 
             return execute
 
-        tools.append(make_tool())
+        # Set the docstring and apply tool decorator
+        make_tool_func.__doc__ = tool_description
+        decorated_tool = tool(name=tool_name)(make_tool_func)  # type: ignore[arg-type]
+        tools.append(decorated_tool())
 
     return tools
 
