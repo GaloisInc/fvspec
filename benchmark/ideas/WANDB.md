@@ -340,7 +340,7 @@ If `config.toml` has `enabled = true`, this automatically:
 Output structure:
 ```
 artifacts/
-├── runs/2025-10-22T15-30-00__variant_control-functional/
+├── runs/2025-10-22T15-30-00__control-functional/
 │   ├── sample_0_test_example/
 │   │   ├── Spec.lean
 │   │   ├── qa.json

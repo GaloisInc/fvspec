@@ -86,7 +86,7 @@ def get_output_filepath(
 ) -> Path:
     """Construct output file path in the artifacts directory structure.
 
-    Creates a directory structure: artifacts/runs/<date_time>__variant_<variant>/<sample_id>/<file_name>
+    Creates a directory structure: artifacts/runs/<date_time>__<variant>/<sample_id>/<file_name>
 
     The function locates the project root by searching for pyproject.toml.
 
@@ -115,7 +115,7 @@ def get_output_filepath(
         root_dir = root_dir.parent
 
     # Create directory name based on variant
-    timestamped_dir = f"{date_time}__variant_{variant}"
+    timestamped_dir = f"{date_time}__{variant}"
     output_dir = root_dir / "artifacts" / "runs" / timestamped_dir / sample_id
     output_dir.mkdir(parents=True, exist_ok=True)
 

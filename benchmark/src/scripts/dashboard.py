@@ -324,7 +324,7 @@ def dashboard():
     Examples:
         panel serve dashboard.py
           or
-        panel serve dashboard.py --args -d "../benchmark/artifacts/runs/2025-10-01T13-26-28__variant_default" -x "interest" -y "faithfulness"
+        panel serve dashboard.py --args -d "../benchmark/artifacts/runs/2025-10-01T13-26-28__default" -x "interest" -y "faithfulness"
     """
     ACCENT = "blue"
     styles = {

@@ -112,7 +112,7 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 
 Organized by timestamp/variant, then by `<sample_id>_<test_name>/`:
 
-- `<timestamp>__variant_<name>/` - Single variant run directories
+- `<timestamp>__<name>/` - Single variant run directories
 - `comparison_<timestamp>/` - Multi-variant A/B testing results
 - `.eval` files - Binary inspect_ai log files (viewable with `uv run inspect view --log-dir artifacts`)
 - `datapoint.json` - Original test metadata
@@ -184,7 +184,7 @@ Additional behavior to know:
 - `--skip-cached/--no-skip-cached` controls whether cached dependencies are regenerated. Even when skipping, cached files are copied into the run-specific `deps/` directory.
 - `--validate` typechecks the aggregated `Deps.lean` per sample and records exit codes in the run report.
 - Each invocation writes `dependency_report.json` at the root of the artifacts directory. The report captures timing, retry counts, dependency outcomes, diagnostics, and validation results, enabling quick inspection without opening every sample directory.
-- Sample directories under `artifacts/<timestamp>__variant_<variant>-deps/` contain ordered Lean modules (`<Module>.lean`) and a consolidated `Deps.lean`, mirroring the module graph used during validation.
+- Sample directories under `artifacts/<timestamp>__<variant>-deps/` contain ordered Lean modules (`<Module>.lean`) and a consolidated `Deps.lean`, mirroring the module graph used during validation.
 
 ### Viewing Results
 
@@ -193,7 +193,7 @@ Additional behavior to know:
 uv run inspect view --log-dir artifacts
 
 # View specific run
-uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__variant_control-functional
+uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__control-functional
 
 # View comparison results
 uv run inspect view --log-dir artifacts/comparison_2025-10-14T15-45-00

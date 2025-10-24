@@ -87,7 +87,7 @@ uv run fvspec deps cache-clear-local     # Clear local dependency cache
 uv run fvspec deps cache-clear-wandb     # Delete remote wandb cache artifact
 ```
 
-`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__variant_default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
+`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
 
 **Cache management:**
 - `--force-deps-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
@@ -105,7 +105,7 @@ View evaluation logs with the official inspect_ai viewer:
 uv run inspect view --log-dir artifacts
 
 # View specific run
-uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__variant_control-functional
+uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__control-functional
 
 # View comparison results
 uv run inspect view --log-dir artifacts/comparison_2025-10-14T15-45-00
@@ -151,8 +151,8 @@ uv run fvspec --variant terse-functional
 **Output organization:**
 ```
 artifacts/
-  2025-10-14T15-30-00__variant_control-functional/
-  2025-10-14T16-45-00__variant_terse-functional/
+  2025-10-14T15-30-00__control-functional/
+  2025-10-14T16-45-00__terse-functional/
 ```
 
 ### Architecture
@@ -293,8 +293,8 @@ uv run fvspec --variant my-experiment
 
 **Compare outputs:**
 ```bash
-diff artifacts/2025-*__variant_control-functional/00123_test_foo/qa.json \
-     artifacts/2025-*__variant_my-experiment/00123_test_foo/qa.json
+diff artifacts/2025-*__control-functional/00123_test_foo/qa.json \
+     artifacts/2025-*__my-experiment/00123_test_foo/qa.json
 ```
 
 **Metrics to compare:**
@@ -342,7 +342,7 @@ Priority: CLI args (`--variant`, `--sample-size`) > config.toml > defaults
 1. CLI (`__init__.py`): Parse `--variant` flag
 2. Task (`task.py`): Load via `get_variant_prompts()`
 3. Dataset (`dataset.py`): Render with variant template
-4. Output (`declaration.py`): Write to `artifacts/<timestamp>__variant_<name>/`
+4. Output (`declaration.py`): Write to `artifacts/<timestamp>__<name>/`
 
 **Key classes:**
 - `VariantRegistry`: Loads/validates from `registry.toml`
