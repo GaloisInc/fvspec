@@ -207,19 +207,11 @@ def create_bound_dependency_tools(
             f"Fvspec.Deps.{payload.lean_module_name}."
         )
 
-        # Create the underlying agent tool
-        base_tool = as_tool(
-            dependency_autoformalizer,
-            name=tool_name,
-            description=tool_description,
-            payload=payload,
-            variant=variant,
-        )
-
+        # Create tool wrapper that calls agent and persists results
         @tool(name=tool_name, description=tool_description)  # type: ignore[arg-type]
         def make_tool(
             bound_payload: DependencyPayload = payload,
-            bound_base_tool: Tool = base_tool,
+            bound_variant: str | None = variant,
         ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
             """Create the async execute function with bound payload."""
 
@@ -230,8 +222,16 @@ def create_bound_dependency_tools(
                 if not state:
                     raise ToolError("No task state available")
 
-                # Call the underlying agent tool (this runs the autoformalizer)
-                result_text = await bound_base_tool()
+                # Create the agent tool (without name parameter!)
+                agent_tool = as_tool(
+                    dependency_autoformalizer,
+                    description=tool_description,
+                    payload=bound_payload,
+                    variant=bound_variant,
+                )
+
+                # Call the agent tool to get the result
+                result_text = await agent_tool()
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
