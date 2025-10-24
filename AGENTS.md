@@ -245,9 +245,9 @@ uv run ty check
 # Run tests
 uv run pytest
 
-# Preview prompt templates (both styles)
-uv run preview_prompts test_prompts.json --style functional
-uv run preview_prompts test_prompts.json --style mvcgen
+# Preview prompt templates (randomly samples from dataset)
+uv run preview-prompts test_prompts.json --prompt-type spec
+uv run preview-prompts test_prompts.json --prompt-type deps --sample-size 10 --ranseed 42
 ```
 
 ### Commit discipline

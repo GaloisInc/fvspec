@@ -12,8 +12,8 @@ Outputs (written to ``benchmark/data`` by default):
 - ``dependency_report.md`` as a human-readable brief
 
 Usage:
-    uv run analyze_deps [--limit-modules 30] [--limit-symbols 40]
-                         [--sample-size 100] [--seed 0]
+    uv run analyze-deps [--limit-modules 30] [--limit-symbols 40]
+                        [--sample-size 100] [--seed 0]
 """
 
 from __future__ import annotations

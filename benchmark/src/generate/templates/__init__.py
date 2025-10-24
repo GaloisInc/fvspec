@@ -1,5 +1,6 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
+import random
 import jsonlines
 from pathlib import Path
 from typer import Typer, Option
@@ -8,6 +9,7 @@ from generate.templates.deps import (
     get_dependency_prompts,
     DependencyVariantRegistry,
 )
+from generate.config import load_config
 
 __all__ = [
     "get_variant_prompts",
@@ -40,31 +42,55 @@ def preview_prompts(
         "-t",
         help="Which prompt family to preview: 'spec' (default) or 'deps'.",
     ),
-    limit: int = Option(
-        5,
-        "--limit",
+    sample_size: int | None = Option(
+        None,
+        "--sample-size",
         "-n",
-        help="Maximum number of samples to preview (default: 5). Use -1 for unlimited (WARNING: 116GB file!).",
+        help="Number of samples to randomly select. If not specified, uses value from config.toml (default: 100).",
+    ),
+    ranseed: int | None = Option(
+        None,
+        "--ranseed",
+        help="Random seed for sampling. If not specified, uses value from config.toml (default: 0).",
     ),
 ) -> None:
     """Preview prompts for the given data file and variant.
+
+    Randomly samples from the dataset using reservoir sampling.
 
     Args:
         data: JSONL file name located under benchmark/data
         variant: Prompt variant to preview
         prompt_type: Which prompt family to preview ('spec' or 'deps')
-        limit: Maximum number of samples to preview
+        sample_size: Number of samples to randomly select
+        ranseed: Random seed for deterministic sampling
     """
+    # Load config for defaults
+    config = load_config()
+
+    # Use CLI args if provided, otherwise fall back to config
+    actual_sample_size = (
+        sample_size if sample_size is not None else config.dataset.sample_size
+    )
+    actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
+
     the_jsonl = DATA_DIR / data
 
-    # Stream the file and only load the requested number of samples
-    # limit == -1 means unlimited (load all)
-    data_content: list[dict] = []
+    # Use reservoir sampling to randomly select samples
+    rng = random.Random(actual_ranseed)
+    reservoir: list[dict] = []
+
     with jsonlines.open(the_jsonl) as reader:
         for idx, obj in enumerate(reader):
-            if limit != -1 and idx >= limit:
-                break
-            data_content.append(obj)
+            if idx < actual_sample_size:
+                reservoir.append(obj)
+            else:
+                # Reservoir sampling: randomly replace elements
+                j = rng.randint(0, idx)
+                if j < actual_sample_size:
+                    reservoir[j] = obj
+
+    data_content = reservoir
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.depmock.models import (

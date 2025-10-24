@@ -371,15 +371,18 @@ uv run pytest
 Preview prompt templates:
 
 ```bash
-# Preview prompts with functional or mvcgen style
-uv run preview_prompts <data_file.json> --style functional
-uv run preview_prompts <data_file.json> --style mvcgen
+# Preview prompts (randomly samples from dataset using reservoir sampling)
+uv run preview-prompts <data_file.json> --prompt-type spec
+uv run preview-prompts <data_file.json> --prompt-type deps
+
+# Control sample size and random seed (defaults from config.toml: sample_size=100, ranseed=0)
+uv run preview-prompts <data_file.json> --sample-size 10 --ranseed 42
 ```
 
 Analyze dependencies in scraped tests:
 
 ```bash
-uv run analyze_deps
+uv run analyze-deps
 ```
 
 ## Verification Styles

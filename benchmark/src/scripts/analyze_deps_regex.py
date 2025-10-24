@@ -11,7 +11,7 @@ The output (import_counts.csv) helps understand:
 - The breadth of the Python ecosystem covered by the dataset
 
 Usage:
-    uv run analyze_deps_regex
+    uv run analyze-deps-regex
 
 Output:
     benchmark/data/import_counts.csv - CSV file with columns:
