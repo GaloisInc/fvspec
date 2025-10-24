@@ -1,5 +1,6 @@
 """Utility functions for persisting benchmark artifacts and tooling hooks."""
 
+import os
 import re
 from pathlib import Path
 from typing import Callable, Awaitable, cast
@@ -78,9 +79,20 @@ def lean_compile() -> Callable[[str], Awaitable[utilio.SubprocessResult]]:
 
 
 def lean_lsp_mcp() -> list:
-    """Construct the Lean LSP MCP tool bundle used by benchmark agents."""
+    """Construct the Lean LSP MCP tool bundle used by benchmark agents.
+
+    Note: MCP tools have a known limitation with per-sample tmpdir workspaces.
+    The LSP server can't dynamically switch between workspaces. Use --no-mcp
+    flag if you encounter "Unable to start LSP server" errors.
+    """
+    # Pass current environment so lean-lsp-mcp can find elan/lake
+    env = os.environ.copy()
+
     lean_server = mcp_server_stdio(
-        name="lean-lsp", command="uvx", args=["lean-lsp-mcp"]
+        name="lean-lsp",
+        command="uvx",
+        args=["lean-lsp-mcp"],
+        env=env,
     )
 
     return [

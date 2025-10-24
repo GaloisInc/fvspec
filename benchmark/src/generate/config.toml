@@ -6,7 +6,7 @@ max_tokens = -1
 logging = true
 debug = true
 # Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
-display = "log"
+display = "rich"
 # Number of samples to evaluate in parallel
 parallelism = 128
 
@@ -17,7 +17,7 @@ parallelism = 128
 
 [dataset]
 # Number of samples to draw from the dataset
-sample_size = 100
+sample_size = 10
 # Random seed for dataset sampling
 ranseed = 0
 

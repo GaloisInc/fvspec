@@ -2,10 +2,13 @@
 
 ## Tmpdir sandbox(?) is unable to start LSP server.
 
-This was found in `uv run inspect view` (on oct21-2025):
+**Status**: Known limitation - MCP tools don't work with per-sample tmpdir workspaces
+**Workaround**: Use `--no-mcp` flag (or set `use_mcp=False` in code)
+
+This was found in `uv run inspect view` (on oct24-2025):
 ```
 Tool: lean_diagnostic_messages (0.5 sec)
-lean_diagnostic_messages(file_path: "/tmp/tmp.eOiLb6kBuO/Fvspec/Basic.lean")
+lean_diagnostic_messages(file_path: "/tmp/tmp.eOiLb6kBuO/Fvspec/Spec.lean")
 Invalid Lean file path: Unable to start LSP server or load file
 ```
 
@@ -13,6 +16,20 @@ We also see in inspect logs:
 ```
 No valid lean project path found. ... or set the LEAN_PROJECT_PATH environment variable.
 ```
+
+**Root Cause**:
+The `lean-lsp-mcp` server is spawned once at task creation time via `mcp_server_stdio()`, but each sample has its own tmpdir workspace (e.g., `/tmp/tmp.eOiLb6kBuO/`). The MCP server can't dynamically switch between workspaces for different samples.
+
+**Why `lean_compile()` works but MCP tools don't**:
+- `lean_compile()` spawns `lake build` as a subprocess with `cwd=workspace` per sample
+- MCP tools use a single long-running LSP server process that doesn't know which workspace to use
+
+**Possible Solutions** (not yet implemented):
+1. Spawn a new MCP server per sample (inefficient, may not be supported by inspect_ai)
+2. Use a shared workspace for all samples (defeats isolation purpose of tmpdir)
+3. Modify lean-lsp-mcp to accept `LEAN_PROJECT_PATH` per request (requires upstream changes)
+
+**Current Recommendation**: Use `--no-mcp` flag. The `lean_compile()` tool provides sufficient typechecking functionality.
 
 ## IndexError in inspect_ai's json_changes function (Rare, Sample-Specific)
 
