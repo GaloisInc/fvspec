@@ -227,8 +227,8 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool to get the result
-                result_text = await agent_tool()
+                # Call the agent tool to get the result (tools require input parameter)
+                result_text = await agent_tool(input="")
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
