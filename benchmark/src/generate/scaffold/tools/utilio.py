@@ -1,10 +1,12 @@
 """Utility helpers for managing benchmark workspaces and filesystem I/O."""
 
+import atexit
 import subprocess
 import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from threading import Lock
 
 # import logfire
 from generate import config
@@ -18,6 +20,35 @@ LAKE_TEMPLATE = Path(__file__).parent.parent.parent.parent.parent / "lake-templa
 
 
 type SubprocessResult = tuple[str, str, int]
+
+
+# Global registry for tracking active workspace tmpdirs (for atexit cleanup)
+_active_workspaces: set[Path] = set()
+_workspace_lock = Lock()
+
+
+def _cleanup_all_workspaces() -> None:
+    """Emergency cleanup of all active workspaces on process exit.
+
+    This is registered as an atexit handler to ensure tmpdir cleanup even if:
+    - Process crashes or receives SIGTERM
+    - inspect_ai cleanup phase doesn't run
+    - Exceptions occur during normal cleanup
+
+    Note: This is a safety net. Normal cleanup happens in write_to_disk().
+    """
+    with _workspace_lock:
+        for workspace in list(_active_workspaces):
+            if workspace.exists():
+                try:
+                    shutil.rmtree(workspace)
+                except Exception:
+                    # Silently fail on atexit - process is exiting anyway
+                    pass
+
+
+# Register the emergency cleanup handler
+atexit.register(_cleanup_all_workspaces)
 
 
 def run_cmd(
@@ -156,16 +187,20 @@ def writeit(spfile: Path, code: str) -> str:
 def create_sample_workspace(
     sample_id: str, lake_template: Path = LAKE_TEMPLATE
 ) -> Path:
-    """Create an isolated workspace for one sample.
+    """Create an isolated workspace tmpdir for one sample.
 
-    This function creates a temporary directory with a Lake project for the sample.
-    The caller is responsible for cleanup via cleanup_sample_workspace().
+    Tmpdir Lifecycle:
+    1. Created here with tempfile.mkdtemp() - not TemporaryDirectory() because we
+       need manual control across inspect_ai's setup/solver/cleanup phases
+    2. Registered in global _active_workspaces for atexit cleanup safety net
+    3. Used during sample execution (workspace_setup → solver → write_to_disk)
+    4. Cleaned up in write_to_disk() cleanup phase (normal path)
+    5. If cleanup fails, atexit handler ensures removal on process exit (safety net)
 
-    Advantages over global state tracking:
-    - Explicit lifecycle management
-    - No global state needed
-    - Works naturally with parallel execution
-    - Cleanup happens immediately after sample (bounded memory: O(n_parallel) not O(n_total))
+    Memory bounds: With parallelism=N, max N tmpdirs exist simultaneously
+    (O(parallelism) not O(total_samples))
+
+    Thread safety: Uses _workspace_lock for registry access in parallel execution
 
     Args:
         sample_id: Unique identifier for the sample (used in tmpdir prefix)
@@ -174,15 +209,21 @@ def create_sample_workspace(
     Returns:
         Path: Temporary workspace directory containing a Lake project
 
+    Raises:
+        FileNotFoundError: If lake_template doesn't exist
+
     Example:
+        # Normal usage in inspect_ai task
         workspace = create_sample_workspace("sample_42")
-        spec_file = workspace / "Fvspec" / "Spec.lean"
-        spec_file.write_text("def foo := 42")
-        result = subprocess.run(["lake", "build"], cwd=workspace)
-        save_artifacts(workspace, "sample_42")
-        cleanup_sample_workspace(workspace)
+        state.metadata["workspace"] = str(workspace)
+        # ... sample executes ...
+        # cleanup_sample_workspace(workspace) called in write_to_disk()
     """
     tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_"))
+
+    # Register for atexit cleanup (safety net)
+    with _workspace_lock:
+        _active_workspaces.add(tmpdir)
 
     # Copy Lake project template into workspace
     if lake_template.exists():
@@ -203,14 +244,26 @@ def create_sample_workspace(
 def cleanup_sample_workspace(workspace: Path) -> None:
     """Clean up a sample workspace created by create_sample_workspace().
 
+    This is the normal cleanup path, called in write_to_disk() after sample
+    completes. Removes the tmpdir and unregisters it from atexit tracking.
+
+    If this fails, the atexit handler will attempt cleanup on process exit.
+
+    Thread safety: Uses _workspace_lock for registry access in parallel execution
+
     Args:
         workspace: Path to the workspace directory to remove
     """
+    # Unregister from atexit tracking (normal cleanup succeeded)
+    with _workspace_lock:
+        _active_workspaces.discard(workspace)
+
     if workspace.exists():
         try:
             shutil.rmtree(workspace)
         except Exception as e:
             # Log but don't fail on cleanup errors
+            # atexit handler will retry on process exit
             print(f"Warning: Error cleaning up workspace {workspace}: {e}")
 
 

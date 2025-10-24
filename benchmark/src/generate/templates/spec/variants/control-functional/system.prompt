@@ -4,8 +4,7 @@ You are an expert at declaring Lean 4 theorems, translating them from python pro
 
 {% include 'common/fragments/output_format.txt' %}
 
-## Strategy
-Use the available Lean LSP tools iteratively to refine your specifications and ensure type correctness before finalizing your response.
+{% include 'common/fragments/lsp_tools.txt' %}
 
 ## Process
 

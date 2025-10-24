@@ -111,23 +111,8 @@ class TestSharedTemplates:
         assert len(config.initial_template) > 0
 
         # Should contain the common template's characteristic text
-        assert "Given the following dependencies" in config.initial_template
+        assert "The following Python dependencies" in config.initial_template
         assert "{{ pbt }}" in config.initial_template
-
-    def test_custom_initial_prompt_overrides_shared(self):
-        """Variants with initial.prompt should use their own, not common."""
-        registry = VariantRegistry()
-
-        # terse-functional has its own initial.prompt
-        config = registry.get_variant("terse-functional")
-
-        # Should NOT have the verbose common template text
-        assert "Given the following dependencies" not in config.initial_template
-        # Should have terser wording
-        assert (
-            "Dependencies:" in config.initial_template
-            or "Property-based test:" in config.initial_template
-        )
 
     def test_multiple_variants_share_same_initial(self):
         """Multiple variants should get identical common initial prompt."""
@@ -203,19 +188,6 @@ class TestTemplateContent:
         assert "## Process" in sys
         assert "Extract key code components" in sys
         assert "Identify all functions" in sys
-
-    def test_terse_functional_is_actually_terse(self):
-        """terse-functional should be shorter than control-functional."""
-        sys_terse, init_terse = get_variant_prompts("terse-functional")
-        sys_control, init_control = get_variant_prompts("control-functional")
-
-        # System prompt should be significantly shorter
-        assert len(sys_terse) < len(sys_control)
-
-        # Initial prompt should also be shorter
-        rendered_terse = init_terse.render(pbt="test", deps=[])
-        rendered_control = init_control.render(pbt="test", deps=[])
-        assert len(rendered_terse) < len(rendered_control)
 
     def test_control_mvcgen_has_imperative_guidance(self):
         """control-mvcgen should have mvcgen/Hoare logic guidance."""

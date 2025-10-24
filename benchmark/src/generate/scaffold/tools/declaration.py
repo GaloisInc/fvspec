@@ -303,14 +303,19 @@ def write_code_to_disk(
     sample_id: str,
     text: str,
     variant: str,
+    workspace: Path | None = None,
 ) -> str:
     """Write the `<code>...</code>` snippet from text into `Spec.lean`.
+
+    Writes to both the artifacts directory (for permanent storage) and the
+    workspace tmpdir (for MCP tools to access during execution).
 
     Args:
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
         variant: Prompt variant name.
+        workspace: Optional workspace tmpdir path for MCP tool access.
 
     Returns:
         A message describing whether the write succeeded.
@@ -322,10 +327,19 @@ def write_code_to_disk(
         return utilio.no_code_block_found(sample_id, text)
     code_snippet = mtch.group(1)
 
+    # Write to artifacts directory (permanent storage)
     spec_file = utilio.get_output_filepath(
         date_time, sample_id, "Spec.lean", variant=variant
     )
-    return utilio.writeit(spec_file, code_snippet)
+    result = utilio.writeit(spec_file, code_snippet)
+
+    # Also write to workspace tmpdir if provided (for MCP tools)
+    if workspace:
+        workspace_spec = workspace / "Fvspec" / "Spec.lean"
+        workspace_spec.parent.mkdir(parents=True, exist_ok=True)
+        workspace_spec.write_text(code_snippet)
+
+    return result
 
 
 def write_qa_to_disk(
@@ -453,6 +467,15 @@ async def write_to_disk(state: TaskState):
     for the current sample. The function also registers quality scores for the
     inspect_ai viewer and cleans up any temporary workspaces.
 
+    Tmpdir Cleanup (Normal Path):
+    This is the cleanup phase of the tmpdir lifecycle:
+    1. Extracts workspace path from state.metadata["workspace"]
+    2. Writes Lean code to both artifacts dir (permanent) and workspace (for MCP)
+    3. Calls cleanup_sample_workspace() which:
+       - Removes the tmpdir
+       - Unregisters from atexit _active_workspaces tracking
+    4. If cleanup fails, atexit handler ensures cleanup on process exit
+
     Additionally logs metrics to wandb if enabled.
 
     Args:
@@ -462,6 +485,10 @@ async def write_to_disk(state: TaskState):
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
     variant = cast(str, state.metadata.get("variant"))
     sample_id = str(state.sample_id)
+
+    # Get workspace path if available
+    workspace_path = state.metadata.get("workspace")
+    workspace = Path(workspace_path) if workspace_path else None
 
     ret_str_dp = write_datapoint_to_disk(
         date_time, sample_id, datapoint, variant=variant
@@ -474,6 +501,7 @@ async def write_to_disk(state: TaskState):
             sample_id,
             state.output.message.text,
             variant=variant,
+            workspace=workspace,
         )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, variant=variant)
 
