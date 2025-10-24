@@ -158,11 +158,17 @@ def _process_payloads(
         lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
     else:
         lean_text = ""
+
+    # Write consolidated Deps.lean file to sample output directory
+    deps_lean_file = sample_output_dir / "Deps.lean"
+    deps_lean_file.write_text(lean_text if lean_text else "-- No dependencies\n")
+
     return {
         "manifest": manifest,
         "aggregated": ordered_modules,
         "lean_text": lean_text,
         "deps_dir": str(deps_dir),
+        "deps_lean_file": str(deps_lean_file),
         "variant": variant,
         "payloads": payload_dumps,
     }
