@@ -153,6 +153,7 @@ def main_callback(
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
+    use_display = display if display is not None else cfg.meta.display
 
     # Configure wandb settings: CLI args > config
     # Default is enabled unless --wandb-disable flag is set
@@ -210,6 +211,7 @@ def main_callback(
             log_dir=str(log_dir),
             max_samples=use_parallelism,
             max_connections=use_parallelism,
+            display=use_display,
         )
     finally:
         if wandb_cfg.enabled:
@@ -247,6 +249,10 @@ def compare_variants(
         None,
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
+    display: str = Option(
+        None,
+        help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
+    ),
     wandb_disable: bool = Option(
         False,
         "--wandb-disable",
@@ -276,6 +282,7 @@ def compare_variants(
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
         parallelism: Number of samples to evaluate concurrently.
+        display: Display mode for eval logs (overrides config.toml).
         wandb_disable: Disable wandb logging (default is enabled).
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
@@ -308,6 +315,7 @@ def compare_variants(
     )
     use_ranseed = ranseed if ranseed is not None else cfg.dataset.ranseed
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
+    use_display = display if display is not None else cfg.meta.display
 
     # Create log directory for comparison results
     now = datetime.now()
@@ -374,6 +382,7 @@ def compare_variants(
                 model=cfg.agent.model,
                 max_samples=use_parallelism,
                 max_connections=use_parallelism,
+                display=use_display,
             )
         finally:
             if wandb_cfg.enabled:
