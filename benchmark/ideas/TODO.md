@@ -2,7 +2,7 @@
 
 ## Tmpdir sandbox(?) is unable to start LSP server.
 
-**Status**: ✅ SOLVED - Custom MCP tools with per-sample subprocess spawning (as of commit XXXXXX)
+**Status**: ✅ SOLVED - Custom MCP tools with per-sample subprocess spawning (as of commit 03f7575)
 
 This was found in `uv run inspect view` (on oct24-2025):
 ```
