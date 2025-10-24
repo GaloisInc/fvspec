@@ -87,28 +87,59 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
         This is a one-time operation that takes ~10-30 minutes for the 116GB pbts.jsonl.
         The index file is small (~1-2MB for 60k lines) and enables sub-second sampling.
     """
+    from rich.progress import (
+        Progress,
+        SpinnerColumn,
+        TextColumn,
+        BarColumn,
+        TaskProgressColumn,
+        TimeRemainingColumn,
+        TimeElapsedColumn,
+    )
+
     if index_path is None:
         index_path = file_path.with_suffix(file_path.suffix + ".index")
 
-    print(f"Building index for {file_path.name}...")
-    print(f"This is a one-time operation that may take 10-30 minutes for large files.")
+    # Get file size for progress tracking
+    file_size = file_path.stat().st_size
 
     offsets: list[int] = []
-    with open(file_path, "rb") as f:
-        offsets.append(0)  # First line starts at byte 0
-        line_count = 0
-        while f.readline():
-            offsets.append(f.tell())
-            line_count += 1
-            if line_count % 10000 == 0:
-                print(f"  Indexed {line_count:,} lines...")
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task = progress.add_task(f"Indexing {file_path.name}...", total=file_size)
+
+        with open(file_path, "rb") as f:
+            offsets.append(0)  # First line starts at byte 0
+            line_count = 0
+            last_pos = 0
+
+            while f.readline():
+                current_pos = f.tell()
+                offsets.append(current_pos)
+                line_count += 1
+
+                # Update progress based on bytes read
+                progress.update(task, completed=current_pos)
+                last_pos = current_pos
 
     # Remove the final offset (it's past EOF)
     offsets = offsets[:-1]
 
-    print(f"Writing index to {index_path.name}...")
-    with open(index_path, "w") as f:
-        json.dump({"offsets": offsets, "total_lines": len(offsets)}, f)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+    ) as progress:
+        task = progress.add_task(f"Writing index to {index_path.name}...")
+        with open(index_path, "w") as f:
+            json.dump({"offsets": offsets, "total_lines": len(offsets)}, f)
+        progress.update(task, completed=1, total=1)
 
     print(
         f"✓ Index complete: {len(offsets):,} lines indexed ({index_path.stat().st_size / 1024 / 1024:.2f} MB)"
