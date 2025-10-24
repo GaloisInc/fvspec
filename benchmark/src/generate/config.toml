@@ -8,7 +8,7 @@ debug = true
 # Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
 display = "full"
 # Number of samples to evaluate in parallel
-parallelism = 25
+parallelism = 64
 
 [prompt]
 # Prompt variant from registry.toml
