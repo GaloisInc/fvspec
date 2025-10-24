@@ -310,73 +310,79 @@ def compare_variants(
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Configure wandb settings: CLI args > config
-    # Default is enabled unless --wandb-disable flag is set
-    wandb_cfg = WandbConfig(
-        enabled=not wandb_disable,
-        project=wandb_project or cfg.wandb.project,
-        entity=wandb_entity or cfg.wandb.entity,
-        tags=(wandb_tags or []) + cfg.wandb.tags,
-        upload_samples=cfg.wandb.upload_samples,
-        sync_dep_cache=cfg.wandb.sync_dep_cache,
-    )
+    try:
+        # Configure wandb settings: CLI args > config
+        # Default is enabled unless --wandb-disable flag is set
+        wandb_cfg = WandbConfig(
+            enabled=not wandb_disable,
+            project=wandb_project or cfg.wandb.project,
+            entity=wandb_entity or cfg.wandb.entity,
+            tags=(wandb_tags or []) + cfg.wandb.tags,
+            upload_samples=cfg.wandb.upload_samples,
+            sync_dep_cache=cfg.wandb.sync_dep_cache,
+        )
 
-    # Initialize wandb loggers for each variant if enabled
-    # Use the comparison timestamp as the group name for wandb
-    group_name = f"comparison_{timestamp}" if wandb_cfg.enabled else None
+        # Initialize wandb loggers for each variant if enabled
+        # Use the comparison timestamp as the group name for wandb
+        group_name = f"comparison_{timestamp}" if wandb_cfg.enabled else None
 
-    wandb_loggers = {}
-    if wandb_cfg.enabled:
-        for v in variants_to_compare:
-            variant_logger = init_wandb_logger(wandb_cfg)
-            variant_logger.init_run(
+        wandb_loggers = {}
+        if wandb_cfg.enabled:
+            for v in variants_to_compare:
+                variant_logger = init_wandb_logger(wandb_cfg)
+                variant_logger.init_run(
+                    variant=v,
+                    model=cfg.agent.model,
+                    sample_size=use_sample_size,
+                    ranseed=use_ranseed,
+                    timestamp=timestamp,
+                    group=group_name,
+                )
+                wandb_loggers[v] = variant_logger
+
+            # Download dep cache once before all variants run
+            if wandb_cfg.sync_dep_cache and wandb_loggers:
+                print("Downloading dependency cache from wandb...")
+                first_logger = next(iter(wandb_loggers.values()))
+                first_logger.download_dep_cache()
+
+        # Create task instances for each variant
+        tasks = [
+            fvspec(
+                datafile,
+                use_mcp=not no_mcp,
                 variant=v,
-                model=cfg.agent.model,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
-                timestamp=timestamp,
-                group=group_name,
+                skip_index=skip_index,
             )
-            wandb_loggers[v] = variant_logger
+            for v in variants_to_compare
+        ]
 
-        # Download dep cache once before all variants run
-        if wandb_cfg.sync_dep_cache and wandb_loggers:
-            print("Downloading dependency cache from wandb...")
-            first_logger = next(iter(wandb_loggers.values()))
-            first_logger.download_dep_cache()
+        try:
+            # Run all tasks together with eval_set
+            eval_set(
+                tasks,
+                log_dir=str(log_dir),
+                model=cfg.agent.model,
+                max_samples=use_parallelism,
+                max_connections=use_parallelism,
+            )
+        finally:
+            if wandb_cfg.enabled:
+                # Upload dep cache once after all variants complete
+                if wandb_cfg.sync_dep_cache and wandb_loggers:
+                    print("Uploading dependency cache to wandb...")
+                    first_logger = next(iter(wandb_loggers.values()))
+                    first_logger.upload_dep_cache()
 
-    # Create task instances for each variant
-    tasks = [
-        fvspec(
-            datafile,
-            use_mcp=not no_mcp,
-            variant=v,
-            sample_size=use_sample_size,
-            ranseed=use_ranseed,
-            skip_index=skip_index,
-        )
-        for v in variants_to_compare
-    ]
-
-    try:
-        # Run all tasks together with eval_set
-        eval_set(
-            tasks,
-            log_dir=str(log_dir),
-            model=cfg.agent.model,
-            max_samples=use_parallelism,
-            max_connections=use_parallelism,
-        )
-    finally:
-        if wandb_cfg.enabled:
-            # Upload dep cache once after all variants complete
-            if wandb_cfg.sync_dep_cache and wandb_loggers:
-                print("Uploading dependency cache to wandb...")
-                first_logger = next(iter(wandb_loggers.values()))
-                first_logger.upload_dep_cache()
-
-            for variant_logger in wandb_loggers.values():
-                variant_logger.finish()
+                for variant_logger in wandb_loggers.values():
+                    variant_logger.finish()
+    except (KeyboardInterrupt, Exception):
+        # Clean up empty log directory if run was aborted before any output
+        if log_dir.exists() and not any(log_dir.iterdir()):
+            log_dir.rmdir()
+        raise
 
 
 @deps_app.command(name="autoformalize")
