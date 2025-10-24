@@ -51,6 +51,9 @@ def main_callback(
     ctx: typer.Context,
     datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
+    skip_index: bool = Option(
+        False, help="Skip using index file and use slower reservoir sampling"
+    ),
     variant: str = Option(
         None,
         help="Prompt variant name from registry.toml (e.g., 'control-functional', 'terse-functional'). If not specified, uses default from registry or config.toml.",
@@ -106,6 +109,7 @@ def main_callback(
         ctx: Typer context.
         datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
+        skip_index: Skip using index file and use reservoir sampling.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
@@ -194,6 +198,7 @@ def main_callback(
                 variant=use_variant,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
+                skip_index=skip_index,
             ),
             model=cfg.agent.model,
             log_dir=str(log_dir),
@@ -216,6 +221,9 @@ def main_callback(
 def compare_variants(
     datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
+    skip_index: bool = Option(
+        False, help="Skip using index file and use slower reservoir sampling"
+    ),
     variant: list[str] = Option(
         None,
         "--variant",
@@ -257,6 +265,7 @@ def compare_variants(
     Args:
         datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
+        skip_index: Skip using index file and use reservoir sampling.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
@@ -344,6 +353,7 @@ def compare_variants(
             variant=v,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
+            skip_index=skip_index,
         )
         for v in variants_to_compare
     ]

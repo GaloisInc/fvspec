@@ -10,6 +10,17 @@ from typing import Any
 from generate.templates.spec import VariantRegistry, get_variant_prompts
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
+from rich.console import Console
+from rich.progress import (
+    Progress,
+    SpinnerColumn,
+    TextColumn,
+    BarColumn,
+    TaskProgressColumn,
+    TimeRemainingColumn,
+    TimeElapsedColumn,
+)
+from rich.prompt import Confirm
 
 
 class Datapoint(BaseModel, frozen=True):
@@ -87,16 +98,6 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
         This is a one-time operation that takes ~10-30 minutes for the 116GB pbts.jsonl.
         The index file is small (~1-2MB for 60k lines) and enables sub-second sampling.
     """
-    from rich.progress import (
-        Progress,
-        SpinnerColumn,
-        TextColumn,
-        BarColumn,
-        TaskProgressColumn,
-        TimeRemainingColumn,
-        TimeElapsedColumn,
-    )
-
     if index_path is None:
         index_path = file_path.with_suffix(file_path.suffix + ".index")
 
@@ -210,6 +211,7 @@ def sample_datapoints(
     file_path: Path,
     n: int,
     ranseed: int | None = 0,
+    skip_index: bool = False,
 ) -> list[Datapoint]:
     """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
 
@@ -223,21 +225,15 @@ def sample_datapoints(
 
     To create an index: `uv run fvspec index-data`
     """
-    from rich.console import Console
-    from rich.progress import (
-        Progress,
-        SpinnerColumn,
-        TextColumn,
-        BarColumn,
-        TaskProgressColumn,
-        TimeElapsedColumn,
-    )
-    from rich.prompt import Confirm
-
     index_path = file_path.with_suffix(file_path.suffix + ".index")
     console = Console()
 
-    if index_path.exists():
+    if skip_index:
+        # User explicitly requested to skip index
+        console.print(
+            "[yellow]⚠[/yellow] Skipping index (--skip-index), using reservoir sampling"
+        )
+    elif index_path.exists():
         # Fast path: Use pre-built index for O(sample_size) sampling
         console.print(f"[green]✓[/green] Using index file: {index_path.name}")
         index_data = load_index(index_path)
@@ -264,44 +260,43 @@ def sample_datapoints(
                 "[yellow]⚠[/yellow] Using slower reservoir sampling (streaming entire file)"
             )
 
-            rng = random.Random(ranseed)
-            reservoir: list[Datapoint] = []
+    # Reservoir sampling path (reached if skip_index=True or no index and user declined to build)
+    rng = random.Random(ranseed)
+    reservoir: list[Datapoint] = []
 
-            # Get file size for progress tracking
-            file_size = file_path.stat().st_size
+    # Get file size for progress tracking
+    file_size = file_path.stat().st_size
 
-            with Progress(
-                SpinnerColumn(),
-                TextColumn("[progress.description]{task.description}"),
-                BarColumn(),
-                TaskProgressColumn(),
-                TimeElapsedColumn(),
-            ) as progress:
-                task = progress.add_task(
-                    f"Sampling from {file_path.name}...", total=file_size
-                )
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+    ) as progress:
+        task = progress.add_task(f"Sampling from {file_path.name}...", total=file_size)
 
-                with open(file_path, "rb") as f:
-                    for idx in range(1000000000):  # Large number for iteration
-                        line = f.readline()
-                        if not line:
-                            break
+        with open(file_path, "rb") as f:
+            for idx in range(1000000000):  # Large number for iteration
+                line = f.readline()
+                if not line:
+                    break
 
-                        obj = json.loads(line)
-                        datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+                obj = json.loads(line)
+                datapoint = Datapoint(**obj)  # type: ignore[arg-type]
 
-                        if idx < n:
-                            reservoir.append(datapoint)
-                        else:
-                            # Reservoir sampling: randomly replace elements
-                            j = rng.randint(0, idx)
-                            if j < n:
-                                reservoir[j] = datapoint
+                if idx < n:
+                    reservoir.append(datapoint)
+                else:
+                    # Reservoir sampling: randomly replace elements
+                    j = rng.randint(0, idx)
+                    if j < n:
+                        reservoir[j] = datapoint
 
-                        # Update progress based on bytes read
-                        progress.update(task, completed=f.tell())
+                # Update progress based on bytes read
+                progress.update(task, completed=f.tell())
 
-            return reservoir
+    return reservoir
 
 
 def mk_dataset(
@@ -310,6 +305,7 @@ def mk_dataset(
     variant: str | None = None,
     sample_size: int = 100,
     ranseed: int | None = 0,
+    skip_index: bool = False,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from scraped datapoints.
 
@@ -319,6 +315,7 @@ def mk_dataset(
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset
         ranseed: Random seed used for sampling datapoints
+        skip_index: Skip using index file and use reservoir sampling
 
     Returns:
         MemoryDataset with randomly sampled datapoints
@@ -340,6 +337,8 @@ def mk_dataset(
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(path, n=sample_size, ranseed=ranseed)
+            for datapoint in sample_datapoints(
+                path, n=sample_size, ranseed=ranseed, skip_index=skip_index
+            )
         ]
     )
