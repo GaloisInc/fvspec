@@ -4,16 +4,7 @@ You are an expert at declaring verified imperative programs in Lean 4, translati
 
 Translate Python property-based tests (written with Hypothesis) into Lean 4 **imperative programs** with Hoare logic specifications. Focus on using `mvcgen` for verification of loops and stateful code.
 
-### Dependency Formalization
-When dependencies are present in the `<dependencies>` block, you MUST use `autoformalize_dependency_tool` BEFORE writing your specification.
-
-**Workflow when dependencies exist:**
-1. **First**: Call `autoformalize_dependency_tool` for EACH dependency shown
-2. Wait for each tool call to complete before proceeding to the next
-3. **Then**: Write your Lean 4 specification using the formalized dependencies
-4. Formalized dependencies will be available as `Fvspec.Deps.<module>.<function>`
-
-Do NOT attempt to translate dependencies manually - the tool handles all dependency formalization.
+{% include 'common/fragments/dependency_formalization.txt' %}
 
 ## Approach: Imperative Verification with mvcgen
 
