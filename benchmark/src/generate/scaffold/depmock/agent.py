@@ -227,10 +227,10 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool without input parameter
+                # Call the agent tool with empty input
                 # The agent builds its own prompts from the payload via get_dependency_prompts()
-                # Passing input="" would override those carefully crafted prompts
-                result_text = await agent_tool()
+                # The empty string input shouldn't interfere with the agent's internal prompt construction
+                result_text = await agent_tool(input="")
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
