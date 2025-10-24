@@ -6,4 +6,9 @@ Compilation or validation failed with the following feedback:
 Please update the Lean code for module `{{ dep_module }}` (in `Fvspec.Deps`) to address the issues.
 Keep prior successful definitions if they still compile. Focus on the failing lines.
 
-Return the revised Lean file inside `<code>...</code>` tags.
+## Output Format
+CRITICAL: Always respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example format: <code>def helper : Nat := 42</code>
+
+Do NOT include any additional text outside these tags. The code extraction system requires this exact format.

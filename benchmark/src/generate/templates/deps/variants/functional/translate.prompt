@@ -57,4 +57,10 @@ Guidelines:
 3. Include at least one small evaluation (`#eval`, `#reduce`, or a decidable lemma) that demonstrates the Lean code reduces to the expected result.
 4. Minimise `sorry`; when unavoidable, leave a `-- TODO:` comment that explains the missing reasoning.
 5. Generate only the dependency implementation and any minimal support it requires. Do **not** emit property-based tests, benchmark specs, or unrelated scaffolding.
-6. Return the Lean code alone, wrapped in `<code>...</code>` tags for downstream tooling.
+
+## Output Format
+CRITICAL: Always respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example format: <code>def helper : Nat := 42</code>
+
+Do NOT include any additional text outside these tags. The code extraction system requires this exact format.
