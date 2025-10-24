@@ -9,7 +9,10 @@ from generate.templates.deps.registry import DependencyVariantRegistry
 
 @dataclass(frozen=True)
 class DependencyPromptBundle:
-    """Group of prompts used by the dependency autoformalization subagent."""
+    """Group of prompts used by the dependency autoformalization subagent.
+
+    Is not a `pydantic.BaseModel` because it contains Jinja2 `Template` objects.
+    """
 
     system_prompt: str
     translate_template: Template
