@@ -100,7 +100,9 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
 
 ### `benchmark/data` - Input data
 
-- `scrapedtests.json` - Large JSON file (~1.1GB) containing scraped Python property-based tests with dependencies
+- `pbts.jsonl` - Large JSONL file (~116GB) containing scraped Python property-based tests with dependencies
+  - **CRITICAL**: This file is 116GB! Never load it entirely into memory. All scripts use streaming/reservoir sampling.
+  - **Performance tip**: Run `uv run fvspec index-data` once to create `pbts.jsonl.index` (~1-2MB). This enables sub-second sampling instead of 10+ minute reservoir sampling.
 
 ### `/benchmark/src/scripts` - Utility scripts
 
@@ -118,6 +120,16 @@ Organized by timestamp/variant, then by `<sample_id>_<test_name>/`:
 - `qa.json` - Quality assessment metrics with scores
 
 ## Common Commands
+
+### Indexing the dataset (one-time setup for fast sampling)
+
+```bash
+# Create an index file for fast random sampling (one-time, ~10-30 minutes)
+uv run fvspec index-data
+
+# This creates data/pbts.jsonl.index (~1-2MB)
+# All future sampling will be ~1 second instead of ~10 minutes
+```
 
 ### Running the benchmark
 
@@ -258,7 +270,9 @@ uv add <package>
 
 ### Benchmark Flow
 
-1. `mk_dataset()` loads datapoints from JSON, samples N random items (configurable via `--sample-size`, default: 100)
+1. `mk_dataset()` samples N random datapoints (configurable via `--sample-size`, default: 100) from the JSONL file:
+   - If `pbts.jsonl.index` exists: Fast O(sample_size) indexed sampling (~1 second)
+   - If no index: Slow O(total_lines) reservoir sampling that streams entire 116GB file (~10 minutes)
 2. Each datapoint contains a Python property-based test (`pbt`) and its dependencies (`deps`)
 3. The variant's prompt templates render system and initial prompts with the test and dependencies
 4. The agent uses the `lean_compile()` tool to typecheck generated Lean code

@@ -1,7 +1,7 @@
 """Analyze import dependencies in scraped property-based test data.
 
 This script processes the scraped Hypothesis property-based tests from
-scrapedtests.json and extracts all Python import statements from both the
+pbts.jsonl and extracts all Python import statements from both the
 test code (pbt) and its dependencies (deps). It then generates a CSV report
 counting how many datapoints use each import, sorted by frequency.
 
@@ -20,10 +20,12 @@ Output:
 """
 
 import asyncio
-import json
+import jsonlines
 import logging
 import re
+from collections import Counter
 from pathlib import Path
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -47,47 +49,59 @@ class Datapoint(BaseModel):
     summary: str | None
     hash: str
     summary_vector: str | None
-    mode: str
-    summaryversion: int | None
-    summaryconfidence: int | None
+    mode: str | None = None
+    summaryversion: int | None = None
+    summaryconfidence: int | None = None
+    has_overlap_data: bool | None = None
+    repo_name: str | None = None
+    repo_url: str | None = None
+    analysis_timestamp: str | None = None
+    pbt_summary: str | None = None
+    pbt_functions: list[str] | None = None
+    overlapping_tests: list[dict[str, Any]] | None = None
 
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 async def main() -> None:
-    """Parse the scraped dataset and write a CSV of import frequencies."""
+    """Parse the scraped dataset and write a CSV of import frequencies.
+
+    Uses streaming to avoid loading the entire 116GB pbts.jsonl file into memory.
+    """
     logging.basicConfig(level=logging.INFO)
 
-    # Read the content of the file
+    # Stream the file and count imports without loading everything into memory
+    import_counter: Counter[str] = Counter()
 
-    with open(BASE_DIR / "data" / "scrapedtests.json", "r") as file:
-        data = json.load(file)
+    with jsonlines.open(BASE_DIR / "data" / "pbts.jsonl") as reader:
+        for idx, obj in enumerate(reader):
+            try:
+                datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+            except Exception as e:
+                logging.warning(f"Failed to parse datapoint at index {idx}: {e}")
+                continue
 
-    # Find all the imports in each datapoint
-    imports_per_datapoint: list[str] = []
-    for datapoint in [Datapoint(**obj) for obj in data]:  # type: ignore[arg-type]
-        import_strs: list[str] = []
-        import_strs += process(datapoint.pbt)
-        for dep in datapoint.deps:
-            import_strs += process(dep)
-        import_strs = list(set(import_strs))  # remove duplicates
-        imports_per_datapoint += import_strs
+            import_strs: list[str] = []
+            import_strs += process(datapoint.pbt)
+            for dep in datapoint.deps:
+                import_strs += process(dep)
+            import_strs = list(set(import_strs))  # remove duplicates within datapoint
 
-    # Count up each import
-    import_list: list[tuple[str, int]] = []
-    processed_str: list[str] = []
-    for imp in imports_per_datapoint:
-        if processed_str.count(imp) == 0:
-            processed_str.append(imp)
-            import_list.append((imp, imports_per_datapoint.count(imp)))
+            # Update counter with unique imports from this datapoint
+            import_counter.update(import_strs)
+
+            if (idx + 1) % 10000 == 0:
+                logging.info(f"Processed {idx + 1} datapoints...")
 
     # Output results
-    import_list.sort(key=lambda x: x[1])
+    import_list = sorted(import_counter.items(), key=lambda x: x[1])
     with open(BASE_DIR / "data" / "import_counts.csv", "w") as file:
         file.write("import,number of datapoints using the import\n")
         for imp, n in import_list:
             file.write(imp + ", " + str(n) + "\n")
+
+    logging.info(f"Wrote import counts to {BASE_DIR / 'data' / 'import_counts.csv'}")
 
 
 FROM_IMPORT_RE = (

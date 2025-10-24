@@ -20,12 +20,13 @@ from __future__ import annotations
 
 import ast
 import json
+import jsonlines
 import logging
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Iterator, Literal, Sequence
+from typing import Any, Iterable, Iterator, Literal, Sequence
 
 import random
 
@@ -44,7 +45,7 @@ from pydantic_ai.models.function import FunctionModel
 SCRIPT_PATH = Path(__file__).resolve()
 BENCHMARK_DIR = SCRIPT_PATH.parents[2]
 DATA_DIR = BENCHMARK_DIR / "data"
-DEFAULT_DATASET_PATH = DATA_DIR / "scrapedtests.json"
+DEFAULT_DATASET_PATH = DATA_DIR / "pbts.jsonl"
 DEFAULT_OUTPUT_DIR = DATA_DIR
 
 # --------------------------------------------------------------------------- #
@@ -65,9 +66,16 @@ class Datapoint(BaseModel):
     summary: str | None
     hash: str
     summary_vector: str | None
-    mode: str
-    summaryversion: int | None
-    summaryconfidence: int | None
+    mode: str | None = None
+    summaryversion: int | None = None
+    summaryconfidence: int | None = None
+    has_overlap_data: bool | None = None
+    repo_name: str | None = None
+    repo_url: str | None = None
+    analysis_timestamp: str | None = None
+    pbt_summary: str | None = None
+    pbt_functions: list[str] | None = None
+    overlapping_tests: list[dict[str, Any]] | None = None
 
 
 class CallExample(BaseModel):
@@ -298,54 +306,13 @@ class CodeAnalyzer(ast.NodeVisitor):
 # --------------------------------------------------------------------------- #
 
 
-def stream_json_array(path: Path) -> Iterator[dict]:
-    """Streaming JSON array reader to avoid loading the 1.1GB dataset into RAM."""
-    decoder = json.JSONDecoder()
-    with path.open("r", encoding="utf-8") as handle:
-        buffer = ""
-        in_array = False
-        while chunk := handle.read(131072):
-            buffer += chunk
-            idx = 0
-            length = len(buffer)
-            while idx < length:
-                if not in_array:
-                    while idx < length and buffer[idx].isspace():
-                        idx += 1
-                    if idx < length and buffer[idx] == "[":
-                        in_array = True
-                        idx += 1
-                    else:
-                        break
-                else:
-                    while idx < length and buffer[idx].isspace():
-                        idx += 1
-                    if idx >= length:
-                        break
-                    if buffer[idx] == "]":
-                        return
-                    if buffer[idx] == ",":
-                        idx += 1
-                        continue
-                    try:
-                        obj, consumed = decoder.raw_decode(buffer[idx:])
-                    except json.JSONDecodeError:
-                        break
-                    yield obj
-                    idx += consumed
-            buffer = buffer[idx:]
-            length = len(buffer)
-        # Drain any trailing whitespace/closing bracket
-        buffer = buffer.strip()
-        if buffer and buffer not in {"", "]"}:
-            try:
-                obj, _ = decoder.raw_decode(buffer)
-            except json.JSONDecodeError:
-                return
-            yield obj
+def stream_jsonl(path: Path) -> Iterator[dict]:
+    """Stream JSONL file line by line to avoid loading the entire dataset into RAM."""
+    with jsonlines.open(path) as reader:
+        yield from reader
 
 
-def reservoir_sample_json(
+def reservoir_sample_jsonl(
     iterator: Iterator[dict], sample_size: int, seed: int
 ) -> list[dict]:
     """Reservoir sample a fixed number of objects from an iterator."""
@@ -800,10 +767,10 @@ def iter_datapoints(
     """Yield datapoints from ``dataset_path``, optionally sampling deterministically."""
     source_iter: Iterable[dict]
     if sample_size is None:
-        source_iter = stream_json_array(dataset_path)
+        source_iter = stream_jsonl(dataset_path)
     else:
-        source_iter = reservoir_sample_json(
-            stream_json_array(dataset_path), sample_size, seed
+        source_iter = reservoir_sample_jsonl(
+            stream_jsonl(dataset_path), sample_size, seed
         )
     for obj in source_iter:
         try:
@@ -850,7 +817,7 @@ def cli(
     dataset: Path = typer.Option(
         DEFAULT_DATASET_PATH,
         "--dataset",
-        help="Path to scrapedtests.json",
+        help="Path to pbts.jsonl",
     ),
     output_dir: Path = typer.Option(
         DEFAULT_OUTPUT_DIR,

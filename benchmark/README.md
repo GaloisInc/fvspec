@@ -1,6 +1,35 @@
 # Benchmark
 
-**You need `scrapedtests.json` from MaxVH and put it in `./benchmark/data/`**
+**You need `pbts.jsonl` from MaxVH and put it in `./benchmark/data/`**
+
+⚠️ **IMPORTANT**: `pbts.jsonl` is ~116GB! All scripts use streaming or reservoir sampling to avoid loading the entire file into memory.
+
+## Performance: Indexing for Fast Sampling
+
+For development work with small sample sizes, you'll want to create an index file:
+
+```bash
+# One-time setup (~10-30 minutes)
+uv run fvspec index-data
+```
+
+This creates `pbts.jsonl.index` (~1-2MB) that enables:
+- ✅ **With index**: Sample 10 items in ~1 second
+- ❌ **Without index**: Sample 10 items in ~10 minutes (streams entire 116GB file)
+
+The index is automatically detected and used by all sampling operations.
+
+### Troubleshooting: IndexError Workaround
+
+If you encounter an `IndexError` in `inspect_ai/_util/json.py` during evaluation, this is a known issue with certain samples triggering an inspect_ai bug. The indexed sampling and reservoir sampling produce different sample orders, so you can work around this by using the `--skip-index` flag:
+
+```bash
+# Use reservoir sampling instead of indexed sampling
+uv run fvspec --skip-index
+uv run fvspec compare-variants --skip-index
+```
+
+This will use slower reservoir sampling (streams the entire file) but produces a different sample order that may avoid the problematic sample. Note: This takes ~10 minutes for small sample sizes instead of ~1 second.
 
 ## Generating the benchmark synthetic signatures
 

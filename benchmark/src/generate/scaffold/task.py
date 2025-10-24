@@ -24,6 +24,7 @@ def fvspec(
     variant: str | None = None,
     sample_size: int = 100,
     ranseed: int | None = 0,
+    skip_index: bool = False,
 ) -> Task:
     """A task generating the fvspec generate.
 
@@ -33,6 +34,7 @@ def fvspec(
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
+        skip_index: Skip using index file and use reservoir sampling
     """
     now = datetime.now()
 
@@ -44,6 +46,7 @@ def fvspec(
         variant=variant,
         sample_size=sample_size,
         ranseed=ranseed,
+        skip_index=skip_index,
     )
 
     if use_mcp:

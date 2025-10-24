@@ -47,7 +47,7 @@ We will handle dependency mocking by autoformalizing the actual Python snippets 
 
 2. **Preflight Analyzer**
    - Re-use `analyze_deps_regex.py` counts to prioritize high-impact helpers.
-   - Add utility to fetch representative examples from `scrapedtests.json`.
+   - Add utility to fetch representative examples from `pbts.jsonl`.
 
 3. **Agent Orchestration**
    - Define Typer command `uv run deps-autoformalize --id <dp>` that drives the loop for a single datapoint.

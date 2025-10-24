@@ -49,8 +49,11 @@ app.add_typer(deps_app, name="deps")
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
+    skip_index: bool = Option(
+        False, help="Skip using index file and use slower reservoir sampling"
+    ),
     variant: str = Option(
         None,
         help="Prompt variant name from registry.toml (e.g., 'control-functional', 'terse-functional'). If not specified, uses default from registry or config.toml.",
@@ -104,8 +107,9 @@ def main_callback(
 
     Args:
         ctx: Typer context.
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
+        skip_index: Skip using index file and use reservoir sampling.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
@@ -194,6 +198,7 @@ def main_callback(
                 variant=use_variant,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
+                skip_index=skip_index,
             ),
             model=cfg.agent.model,
             log_dir=str(log_dir),
@@ -214,8 +219,11 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
+    skip_index: bool = Option(
+        False, help="Skip using index file and use slower reservoir sampling"
+    ),
     variant: list[str] = Option(
         None,
         "--variant",
@@ -255,8 +263,9 @@ def compare_variants(
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
     Args:
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         no_mcp: Disable Lean LSP MCP tools.
+        skip_index: Skip using index file and use reservoir sampling.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
@@ -344,6 +353,7 @@ def compare_variants(
             variant=v,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
+            skip_index=skip_index,
         )
         for v in variants_to_compare
     ]
@@ -371,7 +381,7 @@ def compare_variants(
 
 @deps_app.command(name="autoformalize")
 def deps_autoformalize_command(
-    datafile: str = Option("scrapedtests.json", help="Path to test data JSON file"),
+    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
     sample_id: list[int] = Option(
         None,
         "--sample-id",
@@ -420,7 +430,7 @@ def deps_autoformalize_command(
     """Autoformalize dependencies for selected datapoints without running the full generate.
 
     Args:
-        datafile: Path to the JSON file containing test data.
+        datafile: Path to the JSONL file containing test data.
         sample_id: Specific datapoint id(s) to autoformalize.
         sample_size: Number of datapoints to sample if --sample-id not provided.
         ranseed: Random seed for sampling.
@@ -767,6 +777,45 @@ def deps_cache_clear_remote_command() -> None:
             raise typer.Exit(code=1)
     except Exception as e:
         print(f"Error deleting artifact: {e}")
+        raise typer.Exit(code=1)
+
+
+@app.command(name="index-data")
+def index_data_command(
+    datafile: str = Option("pbts.jsonl", help="Path to JSONL file to index"),
+) -> None:
+    """Build a byte-offset index for fast random sampling of the dataset.
+
+    This is a one-time operation that creates an index file (datafile + ".index")
+    mapping line numbers to byte positions. The index enables O(sample_size) sampling
+    instead of O(total_lines) reservoir sampling.
+
+    For the 116GB pbts.jsonl file:
+    - Indexing takes: ~10-30 minutes (one-time cost)
+    - Index file size: ~1-2 MB
+    - Sampling speed: ~1 second for any sample size (vs ~10 minutes without index)
+
+    The index is automatically used by all sampling operations once created.
+
+    Args:
+        datafile: JSONL file to index (default: pbts.jsonl)
+    """
+    from generate.scaffold.dataset import build_index
+
+    dataset_path = (DATA_DIR / datafile).resolve()
+
+    if not dataset_path.exists():
+        print(f"Error: Dataset not found at {dataset_path}")
+        raise typer.Exit(code=1)
+
+    try:
+        index_path = build_index(dataset_path)
+        print(f"\n✓ Index successfully created at {index_path}")
+        print(
+            f"  All future sampling operations will automatically use this index for fast random access."
+        )
+    except Exception as e:
+        print(f"Error building index: {e}")
         raise typer.Exit(code=1)
 
 
