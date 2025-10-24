@@ -141,7 +141,10 @@ def lean_diagnostic_messages() -> Callable[[str], Awaitable[str]]:
             arguments={"file_path": file_path},
         )
 
-        return str(result.get("content", [{}])[0].get("text", "No diagnostics"))
+        content = result.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            return str(content[0].get("text", "No diagnostics"))
+        return "No diagnostics"
 
     return execute
 
@@ -179,7 +182,10 @@ def lean_goal() -> Callable[[str, int, int | None], Awaitable[str]]:
             workspace=workspace, tool_name="lean_goal", arguments=arguments
         )
 
-        return str(result.get("content", [{}])[0].get("text", "No goal information"))
+        content = result.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            return str(content[0].get("text", "No goal information"))
+        return "No goal information"
 
     return execute
 
@@ -218,7 +224,10 @@ def lean_multi_attempt() -> Callable[[str, int, list[str]], Awaitable[str]]:
             arguments={"file_path": file_path, "line": line, "snippets": snippets},
         )
 
-        return str(result.get("content", [{}])[0].get("text", "No results"))
+        content = result.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            return str(content[0].get("text", "No results"))
+        return "No results"
 
     return execute
 
@@ -255,7 +264,10 @@ def lean_local_search() -> Callable[[str], Awaitable[str]]:
             arguments={"query": query},
         )
 
-        return str(result.get("content", [{}])[0].get("text", "No results found"))
+        content = result.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            return str(content[0].get("text", "No results found"))
+        return "No results found"
 
     return execute
 
