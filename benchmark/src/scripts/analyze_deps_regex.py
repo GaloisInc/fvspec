@@ -23,6 +23,7 @@ import asyncio
 import jsonlines
 import logging
 import re
+from collections import Counter
 from pathlib import Path
 from typing import Any
 
@@ -71,8 +72,6 @@ async def main() -> None:
     logging.basicConfig(level=logging.INFO)
 
     # Stream the file and count imports without loading everything into memory
-    from collections import Counter
-
     import_counter: Counter[str] = Counter()
 
     with jsonlines.open(BASE_DIR / "data" / "pbts.jsonl") as reader:
