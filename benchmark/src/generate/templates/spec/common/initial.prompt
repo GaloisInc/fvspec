@@ -1,17 +1,23 @@
-Given the following dependencies:
+{% if deps|length > 0 %}**CRITICAL FIRST STEP**: The following Python dependencies must be formalized before writing your specification:
+
 <dependencies>
 {% for dep in deps %}
 {{ dep }}
 {% endfor %}
 </dependencies>
 
-Translate the following property-based test into Lean 4:
+**You MUST do this FIRST**:
+1. Call `autoformalize_dependency_tool` once for each dependency above
+2. Pass the exact Python source shown for each dependency
+3. Wait for all dependency formalizations to complete
+4. ONLY THEN write your Lean 4 specification
+
+{% endif %}Translate the following property-based test into Lean 4:
+
 <theorem>
 {{ pbt }}
 </theorem>
+{% if deps|length > 0 %}
 
-**Important**: Before writing the final specification:
-1. Use `autoformalize_dependency_tool` to generate Lean implementations for each dependency listed above
-2. Once dependencies are formalized, write function signatures for the test subject
-3. Write theorem statements with `sorry` placeholders
-4. Do NOT manually implement dependencies yourself - always use the tool
+After dependencies are formalized, they will be available as `Fvspec.Deps.<module>.<function>` for use in your specification.
+{% endif %}
