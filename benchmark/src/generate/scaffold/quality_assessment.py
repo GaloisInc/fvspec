@@ -421,6 +421,7 @@ class QualityAssessment(BaseModel):
     num_sorries: int
     lines_pbt: int
     lines_code: int
+    num_deps: int = Field(description="Number of dependencies in the sample")
     percent_lines_added: float | None = Field(
         None, description="(lines_code - lines_pbt) / lines_pbt"
     )
@@ -504,6 +505,7 @@ class QualityAssessment(BaseModel):
             success=success,
             num_sorries=num_sorries,
             lines_code=lines_code,
+            num_deps=len(datapoint.deps) if datapoint.deps else 0,
             percent_lines_added=percent_lines_added,
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,

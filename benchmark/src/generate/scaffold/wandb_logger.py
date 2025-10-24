@@ -111,6 +111,7 @@ class WandbLogger:
             "num_sorries": qa.num_sorries,
             "lines_pbt": qa.lines_pbt,
             "lines_code": qa.lines_code,
+            "num_deps": qa.num_deps,
         }
 
         # Optional metrics

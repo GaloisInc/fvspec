@@ -214,6 +214,10 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
             value=qa.lines_code,
             explanation=f"Lines of Lean code generated: {qa.lines_code}",
         ),
+        "num_deps": Score(
+            value=qa.num_deps,
+            explanation=f"Number of dependencies in sample: {qa.num_deps}",
+        ),
     }
 
     # Add optional metrics if available
