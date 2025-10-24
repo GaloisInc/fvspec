@@ -225,9 +225,12 @@ def create_sample_workspace(
     with _workspace_lock:
         _active_workspaces.add(tmpdir)
 
-    # Copy Lake project template into workspace
+    # Copy Lake project template into workspace (excluding .lake/ cache)
     if lake_template.exists():
         for item in lake_template.iterdir():
+            # Skip .lake directory - it's huge and Lake will rebuild as needed
+            if item.name == ".lake":
+                continue
             if item.is_dir():
                 shutil.copytree(item, tmpdir / item.name, dirs_exist_ok=True)
             else:
