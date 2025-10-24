@@ -176,7 +176,7 @@ def create_sample_workspace(
 
     Example:
         workspace = create_sample_workspace("sample_42")
-        spec_file = workspace / "Fvspec" / "Basic.lean"
+        spec_file = workspace / "Fvspec" / "Spec.lean"
         spec_file.write_text("def foo := 42")
         result = subprocess.run(["lake", "build"], cwd=workspace)
         save_artifacts(workspace, "sample_42")
@@ -229,7 +229,7 @@ def sample_workspace(sample_id: str, lake_template: Path = LAKE_TEMPLATE):
 
     Example:
         with sample_workspace("sample_42") as workspace:
-            spec_file = workspace / "Fvspec" / "Basic.lean"
+            spec_file = workspace / "Fvspec" / "Spec.lean"
             spec_file.write_text("def foo := 42")
             result = subprocess.run(["lake", "build"], cwd=workspace)
             save_artifacts(workspace, "sample_42")
