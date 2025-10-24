@@ -166,6 +166,8 @@ def sample_datapoints_indexed(
 ) -> list[Datapoint]:
     """Sample datapoints using a pre-built index for fast random access.
 
+    Filters out samples with >100 dependencies during sampling.
+
     Args:
         file_path: Path to the JSONL file
         index_data: Index data from load_index()
@@ -173,15 +175,17 @@ def sample_datapoints_indexed(
         ranseed: Random seed for reproducibility
 
     Returns:
-        List of randomly sampled Datapoint objects
+        List of randomly sampled Datapoint objects (may be fewer than n if many samples filtered)
     """
     offsets: list[int] = index_data["offsets"]
     total_lines: int = index_data["total_lines"]
 
     rng = random.Random(ranseed)
-    # Sample random line numbers
-    sample_size = min(n, total_lines)
-    selected_lines = rng.sample(range(total_lines), sample_size)
+
+    # Sample extra lines to account for filtering (sample 2x to be safe)
+    # We'll filter and then take the first n valid samples
+    oversample_size = min(n * 2, total_lines)
+    selected_lines = rng.sample(range(total_lines), oversample_size)
 
     # Seek directly to each line and read it
     datapoints: list[Datapoint] = []
@@ -190,7 +194,14 @@ def sample_datapoints_indexed(
             f.seek(offsets[line_num])
             line = f.readline()
             obj = json.loads(line)
-            datapoints.append(Datapoint(**obj))  # type: ignore[arg-type]
+            datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+            # Filter out samples with >100 dependencies
+            if len(datapoint.deps) <= 100:
+                datapoints.append(datapoint)
+                # Stop once we have enough valid samples
+                if len(datapoints) >= n:
+                    break
 
     # Shuffle to original random order
     rng.shuffle(datapoints)
@@ -215,6 +226,8 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
 
+    Filters out samples with >100 dependencies during sampling.
+
     Auto-detects if an index file exists (file_path + ".index"). If so, uses fast
     indexed sampling (O(sample_size)). Otherwise, offers to build an index or falls
     back to reservoir sampling (O(total_lines)).
@@ -237,7 +250,12 @@ def sample_datapoints(
         # Fast path: Use pre-built index for O(sample_size) sampling
         console.print(f"[green]✓[/green] Using index file: {index_path.name}")
         index_data = load_index(index_path)
-        return sample_datapoints_indexed(file_path, index_data, n, ranseed)
+        samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
+        if len(samples) < n:
+            console.print(
+                f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(samples)} removed)"
+            )
+        return samples
     else:
         # No index found - offer to build one
         console.print(f"[yellow]⚠[/yellow] No index found for {file_path.name}")
@@ -253,7 +271,12 @@ def sample_datapoints(
             build_index(file_path, index_path)
             console.print(f"[green]✓[/green] Index created! Using it for this run...")
             index_data = load_index(index_path)
-            return sample_datapoints_indexed(file_path, index_data, n, ranseed)
+            samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
+            if len(samples) < n:
+                console.print(
+                    f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(samples)} removed)"
+                )
+            return samples
         else:
             # Fall back to reservoir sampling with progress bar
             console.print(
@@ -261,6 +284,7 @@ def sample_datapoints(
             )
 
     # Reservoir sampling path (reached if skip_index=True or no index and user declined to build)
+    # Filters out samples with >100 dependencies during sampling
     rng = random.Random(ranseed)
     reservoir: list[Datapoint] = []
 
@@ -277,7 +301,8 @@ def sample_datapoints(
         task = progress.add_task(f"Sampling from {file_path.name}...", total=file_size)
 
         with open(file_path, "rb") as f:
-            idx = 0
+            idx = 0  # Index of valid samples only
+            total_read = 0  # Total samples read (including filtered)
             while True:
                 line = f.readline()
                 if not line:
@@ -285,6 +310,12 @@ def sample_datapoints(
 
                 obj = json.loads(line)
                 datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+                total_read += 1
+
+                # Filter out samples with >100 dependencies
+                if len(datapoint.deps) > 100:
+                    progress.update(task, completed=f.tell())
+                    continue
 
                 if idx < n:
                     reservoir.append(datapoint)
@@ -297,6 +328,12 @@ def sample_datapoints(
                 # Update progress based on bytes read
                 progress.update(task, completed=f.tell())
                 idx += 1
+
+    # Report if samples were filtered
+    if len(reservoir) < n:
+        console.print(
+            f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(reservoir)} removed)"
+        )
 
     return reservoir
 
