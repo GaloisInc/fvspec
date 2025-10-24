@@ -37,11 +37,14 @@ The fvspec benchmark integrates with [Weights & Biases](https://wandb.ai/) to pr
    [wandb]
    enabled = true
    project = "fvspec"
-   entity = "your-team"  # optional
+   entity = "fvspec"  # IMPORTANT: This is the correct team entity - do not change
    tags = ["experiment-1"]
    upload_samples = true
    sync_dep_cache = true
    ```
+
+   **Note:** The `entity = "fvspec"` setting is correct and should not be changed.
+   This is the shared team workspace for the project.
 
 ## Current Implementation
 
@@ -281,8 +284,9 @@ enabled = true
 # Project name (creates if doesn't exist)
 project = "fvspec"
 
-# Entity/team name (defaults to personal workspace)
-entity = "your-team"  # optional
+# Entity/team name - IMPORTANT: Use "fvspec" for the shared team workspace
+# Do NOT change this value - it ensures all team members share artifacts and runs
+entity = "fvspec"
 
 # Tags applied to all runs
 tags = ["experiment-1", "baseline"]
@@ -293,6 +297,10 @@ upload_samples = true
 # Sync dependency cache (download at start, upload at end)
 sync_dep_cache = true
 ```
+
+> **⚠️ Important:** The `entity` should always be set to `"fvspec"` for team collaboration.
+> This ensures all runs, artifacts, and cache are stored in the shared team workspace.
+> Do not change this to your personal entity.
 
 ### Via CLI
 

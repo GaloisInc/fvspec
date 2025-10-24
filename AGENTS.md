@@ -317,8 +317,11 @@ Edit `benchmark/src/generate/config.toml` to change:
 - Dataset sample size (default: 100)
 - Default prompt variant
 - Debug/logging flags
+- **Wandb entity** - **IMPORTANT:** Keep `entity = "fvspec"` unchanged for team collaboration
 
 All settings can be overridden via CLI arguments.
+
+**Note on wandb entity:** The `entity = "fvspec"` setting in the `[wandb]` section should not be changed. This ensures all team members share the same workspace for runs, artifacts, and cache. See `benchmark/ideas/WANDB.md` for details.
 
 ## Code Style & Conventions
 

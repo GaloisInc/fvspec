@@ -27,7 +27,7 @@ enabled = true
 # Project name in wandb
 project = "fvspec"
 # Entity/team name (optional, defaults to your personal account)
-entity = "vericoding"
+entity = "fvspec"
 # Additional tags for runs
 tags = []
 # Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)
