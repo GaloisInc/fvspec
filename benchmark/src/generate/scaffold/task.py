@@ -25,6 +25,7 @@ def fvspec(
     sample_size: int = 100,
     ranseed: int | None = 0,
     skip_index: bool = False,
+    timestamp: datetime | None = None,
 ) -> Task:
     """A task generating the fvspec generate.
 
@@ -35,8 +36,9 @@ def fvspec(
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
         skip_index: Skip using index file and use reservoir sampling
+        timestamp: Pre-created timestamp to use (defaults to now if None)
     """
-    now = datetime.now()
+    now = timestamp or datetime.now()
 
     # Resolve variant and get its style for deps consistency
     registry = VariantRegistry()

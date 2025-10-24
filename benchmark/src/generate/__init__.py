@@ -204,6 +204,7 @@ def main_callback(
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
                 skip_index=skip_index,
+                timestamp=now,
             ),
             model=cfg.agent.model,
             log_dir=str(log_dir),
@@ -351,7 +352,7 @@ def compare_variants(
                 first_logger = next(iter(wandb_loggers.values()))
                 first_logger.download_dep_cache()
 
-        # Create task instances for each variant
+        # Create task instances for each variant (use same timestamp for all)
         tasks = [
             fvspec(
                 datafile,
@@ -360,6 +361,7 @@ def compare_variants(
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
                 skip_index=skip_index,
+                timestamp=now,
             )
             for v in variants_to_compare
         ]
