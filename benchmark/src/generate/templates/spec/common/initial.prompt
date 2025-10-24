@@ -1,4 +1,4 @@
-{% if deps|length > 0 %}**CRITICAL FIRST STEP**: The following Python dependencies must be formalized before writing your specification:
+{% if deps|length > 0 %}The following Python dependencies must be formalized before writing your specification:
 
 <dependencies>
 {% for dep in deps %}
@@ -6,11 +6,7 @@
 {% endfor %}
 </dependencies>
 
-**You MUST do this FIRST**:
-1. Call `autoformalize_dependency_tool` once for each dependency above
-2. Pass the exact Python source shown for each dependency
-3. Wait for all dependency formalizations to complete
-4. ONLY THEN write your Lean 4 specification
+{% include 'common/fragments/dependency_formalization.txt' %}
 
 {% endif %}Translate the following property-based test into Lean 4:
 
