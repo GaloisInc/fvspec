@@ -184,6 +184,82 @@ def lean_goal() -> Callable[[str, int, int | None], Awaitable[str]]:
     return execute
 
 
+@tool  # type: ignore[arg-type]
+def lean_multi_attempt() -> Callable[[str, int, list[str]], Awaitable[str]]:
+    """Try multiple proof tactics and return goal states for each."""
+
+    async def execute(file_path: str, line: int, snippets: list[str]) -> str:
+        """Attempt multiple Lean code snippets at a line and return diagnostics.
+
+        This tool is useful to screen different proof attempts before committing
+        to the most promising one.
+
+        Args:
+            file_path: Path to the Lean file
+            line: Line number where to attempt the snippets
+            snippets: List of Lean code snippets to try
+
+        Returns:
+            Goal states and diagnostics for each snippet
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        result = call_lean_lsp_mcp(
+            workspace=workspace,
+            tool_name="lean_multi_attempt",
+            arguments={"file_path": file_path, "line": line, "snippets": snippets},
+        )
+
+        return str(result.get("content", [{}])[0].get("text", "No results"))
+
+    return execute
+
+
+@tool  # type: ignore[arg-type]
+def lean_local_search() -> Callable[[str], Awaitable[str]]:
+    """Search for Lean definitions and theorems in the local project and stdlib."""
+
+    async def execute(query: str) -> str:
+        """Search for definitions and theorems matching the query.
+
+        This tool helps find existing declarations to prevent hallucinating APIs.
+        Requires ripgrep (rg) to be installed.
+
+        Args:
+            query: Search query (identifier or pattern)
+
+        Returns:
+            Matching declarations from the local project and standard library
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        result = call_lean_lsp_mcp(
+            workspace=workspace,
+            tool_name="lean_local_search",
+            arguments={"query": query},
+        )
+
+        return str(result.get("content", [{}])[0].get("text", "No results found"))
+
+    return execute
+
+
 def lean_lsp_mcp_tools() -> list:
     """Construct custom Lean LSP tools that work with per-sample workspaces.
 
@@ -194,6 +270,8 @@ def lean_lsp_mcp_tools() -> list:
     return [
         lean_diagnostic_messages(),
         lean_goal(),
+        lean_multi_attempt(),
+        lean_local_search(),
     ]
 
 

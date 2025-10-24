@@ -105,7 +105,7 @@ async def test_smoke_task_creation(temp_data_file):
         ]
 
         # Just create the task - don't run it
-        task = fvspec(datafile=str(temp_data_file), use_mcp=False)
+        task = fvspec(datafile=str(temp_data_file))
 
         # Verify task was created properly
         assert task is not None

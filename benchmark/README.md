@@ -47,9 +47,6 @@ uv run fvspec --variant terse-functional
 # Run with control mvcgen variant
 uv run fvspec --variant control-mvcgen
 
-# Disable MCP tools for faster execution
-uv run fvspec --no-mcp
-
 # Control dataset sample size (default: 100)
 uv run fvspec --sample-size 50
 uv run fvspec --sample-size 200
@@ -59,7 +56,7 @@ uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
 
 # Combine options
-uv run fvspec --variant terse-functional --sample-size 50 --no-mcp
+uv run fvspec --variant terse-functional --sample-size 50
 uv run fvspec compare-variants --sample-size 200
 
 # Control parallelism (default: config.meta.parallelism)
@@ -280,7 +277,7 @@ uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
 
 # Compare with custom options
-uv run fvspec compare-variants --variant control-mvcgen --variant control-functional --no-mcp
+uv run fvspec compare-variants --variant control-mvcgen --variant control-functional --sample-size 50
 ```
 
 The `compare-variants` subcommand uses `inspect_ai`'s `eval_set()` to run multiple variants in parallel with unified logging. Results are stored in `artifacts/comparison_<timestamp>/`.

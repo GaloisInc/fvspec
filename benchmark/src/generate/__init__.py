@@ -50,7 +50,6 @@ app.add_typer(deps_app, name="deps")
 def main_callback(
     ctx: typer.Context,
     datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
-    no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
     skip_index: bool = Option(
         False, help="Skip using index file and use slower reservoir sampling"
     ),
@@ -108,7 +107,6 @@ def main_callback(
     Args:
         ctx: Typer context.
         datafile: Path to the JSONL file containing test data.
-        no_mcp: Disable Lean LSP MCP tools.
         skip_index: Skip using index file and use reservoir sampling.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
@@ -200,7 +198,6 @@ def main_callback(
         eval(
             fvspec(
                 datafile,
-                use_mcp=not no_mcp,
                 variant=use_variant,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
@@ -228,7 +225,6 @@ def main_callback(
 @app.command(name="compare-variants")
 def compare_variants(
     datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
-    no_mcp: bool = Option(False, help="Disable Lean LSP MCP tools"),
     skip_index: bool = Option(
         False, help="Skip using index file and use slower reservoir sampling"
     ),
@@ -276,7 +272,6 @@ def compare_variants(
 
     Args:
         datafile: Path to the JSONL file containing test data.
-        no_mcp: Disable Lean LSP MCP tools.
         skip_index: Skip using index file and use reservoir sampling.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
@@ -364,7 +359,6 @@ def compare_variants(
         tasks = [
             fvspec(
                 datafile,
-                use_mcp=not no_mcp,
                 variant=v,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,

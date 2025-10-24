@@ -42,7 +42,7 @@ This project addresses these concerns by:
 - Using real-world Hypothesis tests as ground truth (not LLM-generated)
 - Evaluating specification quality with faithfulness metrics
 - Leveraging property-based tests which express invariants without leaking implementations
-- Using Lean's type checker for post-hoc verification via `lean_compile()` tool
+- Using Lean LSP tools via MCP for real-time error checking and diagnostics
 
 **Funding**: Advanced Research + Invention Agency (ARIA)
 
@@ -77,7 +77,7 @@ Python package using `inspect_ai` framework for AI evaluations. Key components:
   - `agent.py` - Agent configuration using `inspect_ai` basic_agent with Lean MCP tools
   - `dataset.py` - Loads and samples datapoints from JSON, creates `inspect_ai` datasets (configurable sample size)
   - `quality_assessment.py` - Extracts metrics from TaskState (token usage, timing, faithfulness, interest, structural metrics)
-  - `tools/declaration.py` - Defines `lean_compile()` tool, cleanup functions, and score registration for inspect_ai viewer
+  - `tools/declaration.py` - Provides Lean LSP tools via MCP (diagnostics, goals, multi-attempt, local search), cleanup functions, and score registration for inspect_ai viewer
   - `tools/utilio.py` - Utility functions for subprocess execution and file operations
 
 - **`src/benchmark/_registry.py`** - Task registration for inspect_ai
@@ -131,9 +131,9 @@ uv run fvspec index-data
 # All future sampling will be ~1 second instead of ~10 minutes
 ```
 
-### Running the benchmark
+### Generating the benchmark data
 
-You actually shouldn't run the benchmark as an agent. i'll do that in a different terminal.
+  * [ ] **You actually shouldn't run the benchmark as an agent**. i'll do that in a different terminal.
 
 ```bash
 # Default run with control-functional variant and 100 samples
@@ -152,11 +152,8 @@ uv run fvspec --sample-size 50
 # Control parallelism (default: config.meta.parallelism)
 uv run fvspec --parallelism 10
 
-# Disable MCP tools (faster, but less interactive)
-uv run fvspec --no-mcp
-
 # Combine options
-uv run fvspec --variant control-mvcgen --sample-size 200 --no-mcp
+uv run fvspec --variant control-mvcgen --sample-size 200 --parallelism 5
 
 # A/B testing: compare multiple variants in parallel
 uv run fvspec compare-variants
@@ -275,7 +272,7 @@ uv add <package>
    - If no index: Slow O(total_lines) reservoir sampling that streams entire 116GB file (~10 minutes)
 2. Each datapoint contains a Python property-based test (`pbt`) and its dependencies (`deps`)
 3. The variant's prompt templates render system and initial prompts with the test and dependencies
-4. The agent uses the `lean_compile()` tool to typecheck generated Lean code
+4. The agent uses Lean LSP MCP tools (`lean_diagnostic_messages`, `lean_goal`, `lean_multi_attempt`, `lean_local_search`) to interactively develop and verify Lean code
 5. The model responds with Lean 4 code in `<code>...</code>` tags, including faithfulness/interest metrics
 6. Cleanup (`write_to_disk`) extracts the code, runs quality assessment, registers scores, and saves all outputs
 7. All metrics are registered as inspect_ai `Score` objects with explanations for the viewer
@@ -306,7 +303,14 @@ This enables `eval_set()` to serialize tasks for retry support and log managemen
 
 ### MCP Integration
 
-The benchmark uses the `lean-lsp-mcp` server (via `uvx lean-lsp-mcp`) to provide Lean LSP functionality through the Model Context Protocol. MCP is enabled by default. Disable with `--no-mcp` flag for faster execution.
+The benchmark uses the `lean-lsp-mcp` server (via `uvx lean-lsp-mcp`) to provide Lean LSP functionality through the Model Context Protocol. MCP tools are always enabled and provide:
+
+- **`lean_diagnostic_messages`**: Structured error messages with severity levels and line/column positions
+- **`lean_goal`**: Proof state inspection showing "Before" and "After" goal states
+- **`lean_multi_attempt`**: Try multiple proof tactics in parallel to find promising approaches
+- **`lean_local_search`**: Search for definitions/theorems in the local project and stdlib to prevent hallucinating APIs
+
+These tools enable interactive, iterative development of Lean specifications with real-time feedback.
 
 ## Configuration
 

@@ -19,7 +19,6 @@ DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 @task
 def fvspec(
     datafile: str,
-    use_mcp: bool = False,
     variant: str | None = None,
     sample_size: int = 100,
     ranseed: int | None = 0,
@@ -30,7 +29,6 @@ def fvspec(
 
     Args:
         datafile: Path to the JSON file containing test data
-        use_mcp: If True, provide Lean LSP MCP tools (lean_diagnostic_messages, lean_goal)
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
@@ -58,9 +56,8 @@ def fvspec(
         skip_index=skip_index,
     )
 
-    tools = [autoformalize_dependency_tool(variant=deps_variant)]
-    if use_mcp:
-        tools = lean_lsp_mcp_tools() + tools
+    # MCP tools are always enabled - they provide objectively better LSP integration
+    tools = lean_lsp_mcp_tools() + [autoformalize_dependency_tool(variant=deps_variant)]
 
     fvspec_task = Task(
         dataset=dataset,
