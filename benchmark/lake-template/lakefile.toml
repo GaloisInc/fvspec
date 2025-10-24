@@ -4,3 +4,18 @@ defaultTargets = ["Fvspec"]
 
 [[lean_lib]]
 name = "Fvspec"
+
+[[require]]
+name = "mathlib"
+scope = "leanprover-community"
+rev = "v4.25.0-rc2"
+
+[[require]]
+name = "aesop"
+scope = "leanprover-community"
+rev = "v4.25.0-rc2"
+
+[[require]]
+name = "plausible"
+scope = "leanprover-community"
+rev = "v4.25.0-rc2"
