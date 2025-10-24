@@ -173,25 +173,23 @@ def create_sample_workspace(
     """Create an isolated workspace tmpdir for one sample.
 
     Tmpdir Lifecycle:
-    1. Created here with tempfile.mkdtemp() - not TemporaryDirectory() because we
-       need manual control across inspect_ai's setup/solver/cleanup phases
+    1. Created in artifacts/.tmp/ (on main disk, not /tmp tmpfs) to avoid quota issues
     2. Registered in global _active_workspaces for atexit cleanup safety net
     3. Lake template copied (EXCLUDING .lake/ to avoid disk quota issues)
-    4. `lake exe cache get` run to fetch prebuilt mathlib artifacts from cache server
-    5. Used during sample execution (workspace_setup → solver → write_to_disk)
-    6. Cleaned up in write_to_disk() cleanup phase (normal path)
-    7. If cleanup fails, atexit handler ensures removal on process exit (safety net)
+    4. Used during sample execution (workspace_setup → solver → write_to_disk)
+    5. Cleaned up in write_to_disk() cleanup phase (normal path)
+    6. If cleanup fails, atexit handler ensures removal on process exit (safety net)
 
     Memory bounds: With parallelism=N, max N tmpdirs exist simultaneously
     (O(parallelism) not O(total_samples))
 
     Thread safety: Uses _workspace_lock for registry access in parallel execution
 
-    Lake Cache Strategy:
-    - Skips copying .lake/ from template (causes disk quota exceeded)
-    - Runs `lake exe cache get` to fetch prebuilt mathlib artifacts from cache server
-    - Avoids redundant rebuilds without storing large .lake/ directories
-    - Falls back gracefully if cache operations fail
+    Lake Build Strategy:
+    - Copies .lake/ from template (6GB cached artifacts per workspace)
+    - Safe because tmpdir is on main disk (3.7TB available) not /tmp (32GB tmpfs)
+    - With parallelism=10: 10 × 6GB = 60GB (manageable)
+    - No rebuilds needed (much faster than rebuilding mathlib from scratch)
 
     Args:
         sample_id: Unique identifier for the sample (used in tmpdir prefix)
@@ -210,38 +208,25 @@ def create_sample_workspace(
         # ... sample executes ...
         # cleanup_sample_workspace(workspace) called in write_to_disk()
     """
-    tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_"))
+    # Use custom tmpdir location to avoid /tmp (tmpfs) disk quota issues
+    # Default to project's artifacts/.tmp to use main disk instead of RAM-based /tmp
+    tmpdir_base = Path(__file__).parent.parent.parent.parent / "artifacts" / ".tmp"
+    tmpdir_base.mkdir(parents=True, exist_ok=True)
+
+    tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_", dir=tmpdir_base))
 
     # Register for atexit cleanup (safety net)
     with _workspace_lock:
         _active_workspaces.add(tmpdir)
 
-    # Copy Lake project template into workspace (excluding .lake/ to avoid disk quota)
+    # Copy Lake project template into workspace (including .lake/ for cached builds)
+    # Now safe because workspaces are on main disk (artifacts/.tmp/) not /tmp tmpfs
     if lake_template.exists():
         for item in lake_template.iterdir():
-            # Skip .lake directory - it's huge and causes disk quota issues
-            # We'll fetch prebuilt artifacts with `lake exe cache get` instead
-            if item.name == ".lake":
-                continue
             if item.is_dir():
                 shutil.copytree(item, tmpdir / item.name, dirs_exist_ok=True)
             else:
                 shutil.copy2(item, tmpdir / item.name)
-
-        # Fetch prebuilt artifacts from cache server to avoid redundant rebuilds
-        # This downloads cached mathlib and dependencies without copying .lake
-        try:
-            subprocess.run(
-                ["lake", "exe", "cache", "get"],
-                cwd=tmpdir,
-                capture_output=True,
-                timeout=60,
-                check=False,  # Don't fail if cache get fails
-            )
-        except (subprocess.TimeoutExpired, FileNotFoundError):
-            # If cache get fails or times out, Lake will just rebuild as needed
-            # This is not fatal - just slower
-            pass
     else:
         raise FileNotFoundError(
             f"Lake template not found at {lake_template}. "
