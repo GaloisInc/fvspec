@@ -52,7 +52,10 @@ Instead of using inspect_ai's `mcp_tools()` (which spawns one long-running MCP s
 1. **Custom MCP client** (`call_lean_lsp_mcp()` in declaration.py):
    - Spawns `uvx lean-lsp-mcp` as subprocess for each tool call
    - Sets `LEAN_PROJECT_PATH` environment variable to the sample's workspace
-   - Communicates via JSON-RPC 2.0 over stdio
+   - Communicates via JSON-RPC 2.0 over stdio with proper MCP initialization handshake:
+     1. Send `initialize` request (id=1) with protocol version "2024-11-05"
+     2. Send `initialized` notification (no id)
+     3. Send tool call request (id=2)
    - Returns results and terminates process
 
 2. **Per-sample workspace isolation**:

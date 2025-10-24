@@ -38,11 +38,30 @@ def call_lean_lsp_mcp(
     env["LEAN_PROJECT_PATH"] = str(workspace)
     env["LEAN_LOG_LEVEL"] = "ERROR"  # Reduce noise
 
-    # Create MCP JSON-RPC request
-    # MCP uses the JSON-RPC 2.0 protocol for tool calls
-    request = {
+    # MCP requires a proper initialization handshake before tool calls:
+    # 1. Send initialize request (id=1)
+    # 2. Send initialized notification (no id)
+    # 3. Send tool call request (id=2)
+
+    initialize_request = {
         "jsonrpc": "2.0",
         "id": 1,
+        "method": "initialize",
+        "params": {
+            "protocolVersion": "2024-11-05",
+            "capabilities": {},
+            "clientInfo": {"name": "fvspec-benchmark", "version": "1.0.0"},
+        },
+    }
+
+    initialized_notification = {
+        "jsonrpc": "2.0",
+        "method": "notifications/initialized",
+    }
+
+    tool_call_request = {
+        "jsonrpc": "2.0",
+        "id": 2,
         "method": "tools/call",
         "params": {"name": tool_name, "arguments": arguments},
     }
@@ -58,19 +77,26 @@ def call_lean_lsp_mcp(
             text=True,
         )
 
-        # Send request and get response
-        request_str = json.dumps(request) + "\n"
-        stdout, stderr = process.communicate(input=request_str, timeout=30)
+        # Send all requests as newline-separated JSON objects
+        requests = (
+            json.dumps(initialize_request)
+            + "\n"
+            + json.dumps(initialized_notification)
+            + "\n"
+            + json.dumps(tool_call_request)
+            + "\n"
+        )
+        stdout, stderr = process.communicate(input=requests, timeout=30)
 
-        # Parse JSON-RPC response
-        # MCP may send multiple JSON objects (initialization, response, etc.)
-        # We need to find the response with matching id
+        # Parse JSON-RPC responses
+        # We're looking for the tool call response with id=2
         for line in stdout.strip().split("\n"):
             if not line.strip():
                 continue
             try:
                 response = json.loads(line)
-                if response.get("id") == 1:
+                # Look for tool call response (id=2)
+                if response.get("id") == 2:
                     if "error" in response:
                         raise ToolError(f"MCP error: {response['error']}")
                     return response.get("result", {})
