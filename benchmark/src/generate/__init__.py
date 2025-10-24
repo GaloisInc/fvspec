@@ -762,6 +762,14 @@ def deps_cache_clear_wandb_command() -> None:
         print(f"Attempting to delete artifact: {artifact_path}")
 
         artifact = api.artifact(artifact_path, type="dependency-cache")
+
+        # First, delete the 'latest' alias to allow artifact deletion
+        print("Removing 'latest' alias from artifact...")
+        artifact.aliases.remove("latest")
+        artifact.save()
+
+        # Now delete all versions of the artifact
+        print("Deleting artifact...")
         artifact.delete()
 
         print(f"✓ Successfully deleted dep-cache artifact from wandb")
