@@ -44,7 +44,9 @@ def _cleanup_all_workspaces() -> None:
                     pass
 
         # Also clean up the artifacts/.tmp parent directory if empty
-        tmpdir_base = Path(__file__).parent.parent.parent.parent / "artifacts" / ".tmp"
+        tmpdir_base = (
+            Path(__file__).parent.parent.parent.parent.parent / "artifacts" / ".tmp"
+        )
         if tmpdir_base.exists():
             try:
                 tmpdir_base.rmdir()  # Only removes if empty
@@ -219,7 +221,11 @@ def create_sample_workspace(
     """
     # Use custom tmpdir location to avoid /tmp (tmpfs) disk quota issues
     # Default to project's artifacts/.tmp to use main disk instead of RAM-based /tmp
-    tmpdir_base = Path(__file__).parent.parent.parent.parent / "artifacts" / ".tmp"
+    # __file__ = .../benchmark/src/generate/scaffold/tools/utilio.py
+    # Need 5 parents to get to benchmark/ directory
+    tmpdir_base = (
+        Path(__file__).parent.parent.parent.parent.parent / "artifacts" / ".tmp"
+    )
     tmpdir_base.mkdir(parents=True, exist_ok=True)
 
     tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_", dir=tmpdir_base))
