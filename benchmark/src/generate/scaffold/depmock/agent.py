@@ -227,10 +227,12 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool with empty input
-                # The agent builds its own prompts from the payload via get_dependency_prompts()
-                # The empty string input shouldn't interfere with the agent's internal prompt construction
-                result_text = await agent_tool(input="")
+                # Call the agent tool with descriptive input
+                # The agent uses this input plus its internal prompts from get_dependency_prompts()
+                # to generate the Lean formalization
+                result_text = await agent_tool(
+                    input=f"Translate the `{bound_payload.dep_name}` Python dependency into computable Lean 4 code."
+                )
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
