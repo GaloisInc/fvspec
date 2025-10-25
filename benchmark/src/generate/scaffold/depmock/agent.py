@@ -219,6 +219,16 @@ def create_bound_dependency_tools(
                 if not state:
                     raise ToolError("No task state available")
 
+                # Get the dependency prompts to extract the full user message
+                from generate.templates.deps import get_dependency_prompts
+
+                prompts = get_dependency_prompts(bound_variant)
+
+                # Render the full translate prompt with all dependency metadata
+                user_message = prompts.translate_template.render(
+                    bound_payload.prompt_context()
+                )
+
                 # Create the agent tool (without name parameter!)
                 agent_tool = as_tool(
                     dependency_autoformalizer,
@@ -227,12 +237,9 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool with descriptive input
-                # The agent uses this input plus its internal prompts from get_dependency_prompts()
-                # to generate the Lean formalization
-                result_text = await agent_tool(
-                    input=f"Translate the `{bound_payload.dep_name}` Python dependency into computable Lean 4 code."
-                )
+                # Call the agent tool with the fully rendered prompt
+                # This includes all dependency metadata: source, docstrings, normalization plan, etc.
+                result_text = await agent_tool(input=user_message)
 
                 # Extract code from <code>...</code> tags
                 match = _CODE_BLOCK_PATTERN.search(result_text)
