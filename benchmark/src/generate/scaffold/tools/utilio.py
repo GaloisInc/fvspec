@@ -43,6 +43,15 @@ def _cleanup_all_workspaces() -> None:
                     # Silently fail on atexit - process is exiting anyway
                     pass
 
+        # Also clean up the artifacts/.tmp parent directory if empty
+        tmpdir_base = Path(__file__).parent.parent.parent.parent / "artifacts" / ".tmp"
+        if tmpdir_base.exists():
+            try:
+                tmpdir_base.rmdir()  # Only removes if empty
+            except OSError:
+                # Directory not empty or other error - that's fine
+                pass
+
 
 # Register the emergency cleanup handler
 atexit.register(_cleanup_all_workspaces)
