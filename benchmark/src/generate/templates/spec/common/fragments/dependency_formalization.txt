@@ -1,8 +1,8 @@
 ## Dependency Formalization
-When dependencies are present in the `<dependencies>` block, you MUST use `autoformalize_dependency_tool` BEFORE writing your specification.
+When dependencies are present in the `<dependencies>` block, you MUST use the corresponding `autoformalize_{dep_name}` tool for each dependency BEFORE writing your specification.
 
 **Workflow when dependencies exist:**
-1. **First**: Call `autoformalize_dependency_tool` for EACH dependency shown
+1. **First**: Call the corresponding `autoformalize_{dep_name}` tool for EACH dependency shown
 2. Wait for each tool call to complete before proceeding to the next
 3. **Then**: Write your Lean 4 specification using the formalized dependencies
 4. Access formalized dependencies via `import Fvspec.Deps`
