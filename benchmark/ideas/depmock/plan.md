@@ -1,73 +1,65 @@
 # Depmock Subagent Integration Plan
 
-Goal: ship `uv run fvspec` with real dependency autoformalization by embedding the depmock agent as an inspect_ai subagent (agent-as-tool). No stretch goals, no future roadmap—just the blockers between today's implementation and a working multi-agent flow.
+## Make sure dep autoformalizer is actually shipping code.
 
-## Current Status (Oct 24, 2025)
+We're still getting a lot of this in `uv run inspect view`:
 
-**✅ SHIPPED - Depmock is fully integrated and working**
-
-The dependency autoformalization pipeline is complete and production-ready:
-
-### What's Working
-1. **Agent Architecture**:
-   - Main spec agent has `autoformalize_dependency_tool` available
-   - Dependency subagent runs via `run_dependency_agent` in agent_runner.py
-   - Both agents use lean-lsp-mcp tools (`lean_diagnostic_messages`, `lean_goal`) for verification
-
-2. **File Organization**:
-   - All dependencies consolidated into single `Deps.lean` file per sample
-   - Wrapped in `namespace Fvspec.Deps` / `end Fvspec.Deps`
-   - Manifest written to `deps_manifest.jsonl` at sample output root
-   - No subdirectories, clean flat structure
-
-3. **Caching & Efficiency**:
-   - SHA256-based cache in `artifacts/depcache/`
-   - Cache hits avoid redundant generation
-   - Topological ordering respects import dependencies
-
-4. **Tooling**:
-   - Replaced all `lean_compile` (lake build) with `lean_diagnostic_messages` from MCP
-   - Custom MCP client with proper handshake (initialize → initialized → tool call)
-   - Per-sample workspace isolation maintains parallelism (parallelism=128)
-
-5. **Variants**:
-   - Functional style for recursive/mathematical functions
-   - mvcgen style for imperative/stateful code
-   - Deps variant automatically matches spec variant
-
-### Architecture Highlights
-- **Per-sample tmpdir workspaces**: Each sample gets isolated Lake project
-- **MCP subprocess spawning**: Each tool call spawns `uvx lean-lsp-mcp` with `LEAN_PROJECT_PATH`
-- **Parallel execution**: Full parallelism maintained with no shared state
-- **No custom lake build**: All verification through lean-lsp-mcp protocol
-
-### Files Written Per Sample
 ```
-artifacts/runs/{timestamp}__{variant}/{sample_id}/
-├── Deps.lean              # Consolidated dependencies with namespace
-├── deps_manifest.jsonl    # Dependency metadata
-├── Spec.lean              # Main spec code
-├── datapoint.json         # Input metadata
-└── qa.json                # Quality metrics
+assistant
+I'll start by formalizing the dependencies, then translate the property-based test.
+
+Tool: autoformalize_settings (0.0 sec)
+autoformalize_settings
+Autoformalizer for settings did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,051 tokens, 2.2 sec)
+Summary
+All
+Tools
+API
+assistant
+Tool: autoformalize_range_push (0.0 sec)
+autoformalize_range_push
+Autoformalizer for range_push did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,137 tokens, 2.4 sec)
+Summary
+All
+Tools
+API
+assistant
+Tool: autoformalize_given (0.0 sec)
+autoformalize_given
+Autoformalizer for given did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,228 tokens, 2.3 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+Tool: autoformalize_range_pop (0.0 sec)
+autoformalize_range_pop
+Autoformalizer for range_pop did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,314 tokens, 2.2 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+Tool: autoformalize_range (0.0 sec)
+autoformalize_range
+Autoformalizer for range did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (5,359 tokens, 36.9 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+I see the autoformalization tools are not returning results. Let me proceed with analyzing the test and writing the Lean specification directly, treating the dependencies as opaque functions that I'll need to declare.
 ```
 
-### Known Issues
-None blocking. The IndexError in inspect_ai (TODO.md) is unrelated to depmock and has a workaround.
-
-## Completed Tasks
-1. [x] make sure it actually tries to implement the dep functions, instead of stubbing them with unit.
-   - Fixed contradictory prompts: removed "Do not implement" from initial.prompt
-   - Enhanced task_core.txt with explicit CRITICAL instructions to use autoformalize_dependency_tool
-   - Ensured deps variant matches spec variant (functional/mvcgen) by extracting style from VariantConfig
-2. [x] In the tmp lean sandbox, make sure you're writing all deps to `Fvspec.Deps`, not `Fvspec.Deps.Whatever`. its ok to have all the dep functions just stacked in `Deps.lean`!
-   - Fixed functional variant's translate.prompt to NOT include namespace blocks
-   - Already correct in mvcgen variant
-   - Runner aggregates all deps into single `namespace Fvspec.Deps` block
-3. [x] MCP integration with per-sample workspaces
-   - Custom MCP client with subprocess spawning per tool call
-   - Proper JSON-RPC 2.0 handshake implementation
-   - Maintains parallel execution with isolated workspaces
-4. [x] Remove lean_compile in favor of MCP tools
-   - All agents use lean_diagnostic_messages for verification
-   - Consistent tooling across main and dependency agents
-   - No custom lake build subprocess management 
+I think it'll start really coming together once that is solved. 
