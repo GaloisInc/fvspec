@@ -22,6 +22,14 @@ from rich.progress import (
 )
 from rich.prompt import Confirm
 
+# Maximum number of dependencies allowed per sample before filtering
+# Rationale: Samples with >100 dependencies are extreme outliers that:
+# 1. Generate excessively large prompts (degraded model performance)
+# 2. Take disproportionately long to autoformalize (hurt parallelism)
+# 3. Are often synthetic/generated code rather than real-world tests
+# 4. Exceed practical limits for meaningful specification generation
+MAX_DEPENDENCIES = 100
+
 
 class Datapoint(BaseModel, frozen=True):
     """A scraped property-based test datapoint with metadata."""
@@ -166,7 +174,7 @@ def sample_datapoints_indexed(
 ) -> list[Datapoint]:
     """Sample datapoints using a pre-built index for fast random access.
 
-    Filters out samples with >100 dependencies during sampling.
+    Filters out samples with >MAX_DEPENDENCIES dependencies during sampling.
 
     Args:
         file_path: Path to the JSONL file
@@ -196,8 +204,8 @@ def sample_datapoints_indexed(
             obj = json.loads(line)
             datapoint = Datapoint(**obj)  # type: ignore[arg-type]
 
-            # Filter out samples with >100 dependencies
-            if len(datapoint.deps) <= 100:
+            # Filter out samples with too many dependencies
+            if len(datapoint.deps) <= MAX_DEPENDENCIES:
                 datapoints.append(datapoint)
                 # Stop once we have enough valid samples
                 if len(datapoints) >= n:
@@ -226,7 +234,7 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Effectful function: read a JSONL file and sample ``n`` datapoints at random.
 
-    Filters out samples with >100 dependencies during sampling.
+    Filters out samples with >MAX_DEPENDENCIES dependencies during sampling.
 
     Auto-detects if an index file exists (file_path + ".index"). If so, uses fast
     indexed sampling (O(sample_size)). Otherwise, offers to build an index or falls
@@ -253,7 +261,7 @@ def sample_datapoints(
         samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
         if len(samples) < n:
             console.print(
-                f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(samples)} removed)"
+                f"[yellow]⚠[/yellow] Filtered out samples with >{MAX_DEPENDENCIES} dependencies ({n - len(samples)} removed)"
             )
         return samples
     else:
@@ -274,7 +282,7 @@ def sample_datapoints(
             samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
             if len(samples) < n:
                 console.print(
-                    f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(samples)} removed)"
+                    f"[yellow]⚠[/yellow] Filtered out samples with >{MAX_DEPENDENCIES} dependencies ({n - len(samples)} removed)"
                 )
             return samples
         else:
@@ -284,7 +292,7 @@ def sample_datapoints(
             )
 
     # Reservoir sampling path (reached if skip_index=True or no index and user declined to build)
-    # Filters out samples with >100 dependencies during sampling
+    # Filters out samples with >MAX_DEPENDENCIES dependencies during sampling
     rng = random.Random(ranseed)
     reservoir: list[Datapoint] = []
 
@@ -312,8 +320,8 @@ def sample_datapoints(
                 datapoint = Datapoint(**obj)  # type: ignore[arg-type]
                 total_read += 1
 
-                # Filter out samples with >100 dependencies
-                if len(datapoint.deps) > 100:
+                # Filter out samples with too many dependencies
+                if len(datapoint.deps) > MAX_DEPENDENCIES:
                     progress.update(task, completed=f.tell())
                     continue
 
@@ -332,7 +340,7 @@ def sample_datapoints(
     # Report if samples were filtered
     if len(reservoir) < n:
         console.print(
-            f"[yellow]⚠[/yellow] Filtered out samples with >100 dependencies ({n - len(reservoir)} removed)"
+            f"[yellow]⚠[/yellow] Filtered out samples with >{MAX_DEPENDENCIES} dependencies ({n - len(reservoir)} removed)"
         )
 
     return reservoir
