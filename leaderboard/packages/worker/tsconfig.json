@@ -9,5 +9,6 @@
     "outDir": "dist",
     "types": ["node"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [{ "path": "../common" }]
 }

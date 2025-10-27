@@ -53,7 +53,7 @@ jobs:
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "24"
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -75,6 +75,9 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Build common package
+        run: pnpm --filter @fvspec/common run build
 
       - name: Format check
         run: pnpm exec prettier --check --ignore-path ./../.gitignore .
