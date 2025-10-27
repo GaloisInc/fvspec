@@ -9,6 +9,7 @@ The fvspec leaderboard is a public-facing platform for tracking formal verificat
 **What makes this different:** Instead of just displaying static results, the leaderboard integrates with a secure CI backend that executes `lake build` on submitted repositories, producing cryptographically-signed attestations of verification results.
 
 **Key features:**
+
 - Public submission interface (GitHub repo + commit SHA)
 - Secure sandboxed execution (Docker containers with resource limits)
 - Cryptographic attestations for reproducibility
@@ -21,13 +22,14 @@ The fvspec leaderboard is a public-facing platform for tracking formal verificat
 
 Three-service architecture connected via **BullMQ** job queue (Redis):
 
-| App               | Purpose                                                                              | Deployment                                         | Runs long-lived jobs? |
-| ----------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- | --------------------- |
-| **`packages/web`**    | Frontend SSR, static pages, user dashboard                                           | e.g. Vercel / nginx / static host                  | ❌                     |
-| **`packages/api`**    | HTTP API — accepts `/submit`, `/runs`, `/leaderboard`                                | Container / service (short-lived request handlers) | ❌                     |
-| **`packages/worker`** | Background executors — consumes BullMQ queues, does `lake build`, signs attestations | Dedicated VM / runner pool                         | ✅                     |
+| App                   | Purpose                                                                              | Deployment                                         | Runs long-lived jobs? |
+| --------------------- | ------------------------------------------------------------------------------------ | -------------------------------------------------- | --------------------- |
+| **`packages/web`**    | Frontend SSR, static pages, user dashboard                                           | e.g. Vercel / nginx / static host                  | ❌                    |
+| **`packages/api`**    | HTTP API — accepts `/submit`, `/runs`, `/leaderboard`                                | Container / service (short-lived request handlers) | ❌                    |
+| **`packages/worker`** | Background executors — consumes BullMQ queues, does `lake build`, signs attestations | Dedicated VM / runner pool                         | ✅                    |
 
 **Data flow:**
+
 1. User submits via `packages/web` → POST to `packages/api`
 2. API validates submission, inserts DB record, pushes job to Redis queue
 3. `packages/worker` picks up job, clones repo, runs `lake build` in sandbox
@@ -41,6 +43,7 @@ Three-service architecture connected via **BullMQ** job queue (Redis):
 ### `packages/web` — Next.js Frontend
 
 **Tech stack:**
+
 - Next.js 16 (App Router, React 19, React Compiler enabled)
 - Tailwind CSS v4 + shadcn/ui components
 - TypeScript
@@ -48,6 +51,7 @@ Three-service architecture connected via **BullMQ** job queue (Redis):
 - Static site generation (all routes pre-rendered)
 
 **Structure:**
+
 ```
 src/
   app/
@@ -70,6 +74,7 @@ src/
 **Page Structure:**
 
 **Home (`/`)** - Single scrollable page with sections:
+
 1. **Hero** - Title, subtitle, CTAs to leaderboard and submit
 2. **About** - Benchmark overview with 3 stat cards (200 problems, 2 tracks, 5 submissions)
 3. **Top Models** - Table showing top 5 models, link to full leaderboard
@@ -78,12 +83,14 @@ src/
 6. **Footer** - Links to FVAPPS and ARIA
 
 **Leaderboard (`/leaderboard`)** - Full rankings:
+
 - Tabbed interface (Functional, MVCGen, Overall)
 - Interactive filtering (search by model/organization)
 - Sorting (by rank, score, or date)
 - Scoring explanation cards
 
 **Submit (`/submit`)** - Comprehensive guide:
+
 - Requirements checklist
 - Repository structure examples
 - 5-step evaluation process
@@ -91,12 +98,14 @@ src/
 - FAQ section
 
 **Paper (`/paper`)** - Full research paper:
+
 - Abstract, Introduction, Benchmark Design
 - Infrastructure, Results, Related Work
 - Conclusion, References, Acknowledgments
 - Download PDF and arXiv links
 
 **Key UI Features:**
+
 - Sticky header with navigation to all pages + GitHub
 - No client-side routing on homepage (pure scrolling)
 - Hover effects and smooth transitions
@@ -104,23 +113,25 @@ src/
 - Fully responsive (mobile-friendly)
 
 **Data Models:**
+
 ```typescript
 type Submission = {
   id: number
   rank: number
-  model: string           // e.g., "GPT-4o", "Claude 3.5 Sonnet"
-  organization: string    // e.g., "OpenAI", "Anthropic"
-  track: string           // "functional" | "mvcgen"
-  score: number           // Percentage (0-100)
-  passRate: string        // e.g., "175/200"
-  avgTime: string         // e.g., "45s"
-  status: string          // "verified" | "pending" | "failed"
-  date: string            // ISO date string
-  commitSha: string       // Git commit (7+ chars)
+  model: string // e.g., "GPT-4o", "Claude 3.5 Sonnet"
+  organization: string // e.g., "OpenAI", "Anthropic"
+  track: string // "functional" | "mvcgen"
+  score: number // Percentage (0-100)
+  passRate: string // e.g., "175/200"
+  avgTime: string // e.g., "45s"
+  status: string // "verified" | "pending" | "failed"
+  date: string // ISO date string
+  commitSha: string // Git commit (7+ chars)
 }
 ```
 
 **shadcn/ui Components Used:**
+
 - `Button` - CTAs, navigation links
 - `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` - Content containers
 - `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell` - Leaderboard display
@@ -132,6 +143,7 @@ type Submission = {
 - `Alert`, `AlertDescription` - Info banners (beta notice on submit page)
 
 **Component Patterns:**
+
 - Server Components by default (all pages)
 - Client Components only where needed (`'use client'` in `leaderboard-table.tsx` for interactivity)
 - Composition pattern (cards contain headers/content, tables contain rows)
@@ -139,18 +151,21 @@ type Submission = {
 - Dark mode via CSS variables (`--background`, `--foreground`, etc.)
 
 **Development:**
+
 ```bash
 pnpm dev:web          # Start dev server on :3000
 pnpm build:web        # Production build (static export)
 ```
 
 **Deployment:**
+
 - Static export → Vercel/Netlify/Cloudflare Pages
 - All routes pre-rendered at build time
 - No server-side runtime needed
 
 **Current State (Mock Data):**
 The frontend currently uses hardcoded mock data defined in `page.tsx` files:
+
 ```typescript
 // packages/web/src/app/page.tsx (top 5 for homepage)
 // packages/web/src/app/leaderboard/page.tsx (full dataset)
@@ -162,6 +177,7 @@ const mockSubmissions = [
 
 **Migration to Real API:**
 Once `packages/api` is fully implemented with database:
+
 1. Replace mock data with `fetch()` calls to API endpoints
 2. Add loading states and error handling
 3. Consider adding React Query for caching and real-time updates
@@ -172,6 +188,7 @@ Once `packages/api` is fully implemented with database:
 ### `packages/api` — Hono REST API
 
 **Tech stack:**
+
 - Hono (lightweight web framework)
 - Drizzle ORM + PostgreSQL
 - BullMQ (job queue client)
@@ -179,12 +196,14 @@ Once `packages/api` is fully implemented with database:
 - Pino for logging
 
 **Endpoints:**
+
 - `POST /submit` — Accept new submission, enqueue job
 - `GET /runs/:id` — Fetch submission status + results
 - `GET /leaderboard` — Query ranked submissions by track
 - `POST /ingest` — (Internal) Worker callback with results
 
 **Structure:**
+
 ```
 src/
   index.ts           # Main app, routes
@@ -197,6 +216,7 @@ src/
 ```
 
 **Key responsibilities:**
+
 - Validate submissions (Zod schemas)
 - Rate limiting / spam protection
 - Database transactions (submissions, runs, results)
@@ -204,11 +224,13 @@ src/
 - Serve leaderboard data with pagination
 
 **Development:**
+
 ```bash
 pnpm dev:api          # Start dev server on :3001
 ```
 
 **Environment variables:**
+
 ```bash
 DATABASE_URL=postgresql://...
 REDIS_URL=redis://localhost:6379
@@ -221,12 +243,14 @@ PORT=3001
 ### `packages/worker` — Background Job Executor
 
 **Tech stack:**
+
 - BullMQ Worker
 - execa for subprocess management
 - Docker SDK (for sandboxed execution)
 - undici for HTTP ingestion
 
 **Structure:**
+
 ```
 src/
   worker.ts                # Main worker loop
@@ -241,6 +265,7 @@ src/
 ```
 
 **Execution flow:**
+
 1. Pull job from `submissions` queue
 2. Clone repo to temp directory
 3. Checkout specified commit SHA
@@ -250,6 +275,7 @@ src/
 7. POST results to API `/ingest` endpoint
 
 **Execution modes:**
+
 - **Docker mode** (production): Runs build in isolated container
   - Network disabled (`--network none`)
   - Memory/CPU limits enforced
@@ -259,16 +285,19 @@ src/
   - No sandboxing
 
 **Key files:**
+
 - `lean.ts:7-104` — Main build orchestration
 - `attestation.ts:1-17` — Cryptographic attestation format
 - `worker.ts:11-61` — BullMQ worker with retry logic
 
 **Development:**
+
 ```bash
 pnpm dev:worker       # Start worker (listens to Redis)
 ```
 
 **Environment variables:**
+
 ```bash
 REDIS_URL=redis://localhost:6379
 API_BASE_URL=http://localhost:3001
@@ -283,6 +312,7 @@ WORKER_CONCURRENCY=1          # Parallel jobs
 ```
 
 **Attestation format:**
+
 ```typescript
 {
   schema: "https://lean4-bench.org/attestation/v1",
@@ -306,6 +336,7 @@ WORKER_CONCURRENCY=1          # Parallel jobs
 ### Local Development Setup
 
 **Prerequisites:**
+
 - Node.js >= 20
 - pnpm (via `corepack enable` or global install)
 - Docker & Docker Compose
@@ -334,11 +365,13 @@ pnpm dev
 ```
 
 **What runs:**
+
 - `packages/web` on http://localhost:3000 (Next.js dev server)
 - `packages/api` on http://localhost:3001 (Hono with tsx watch)
 - `packages/worker` as background process (tsx watch, connects to Redis)
 
 **Stopping services:**
+
 ```bash
 # Stop application services (Ctrl+C in terminal)
 # Stop infrastructure
@@ -396,16 +429,19 @@ curl http://localhost:3001/runs/123
 ## Code Style
 
 **TypeScript:**
+
 - Use `import { foo } from 'bar'` (not `import * as`)
 - Zod for all data validation
 - Async/await over promises
 - Explicit return types for exported functions
 
 **File naming:**
+
 - kebab-case for files: `job-schema.ts`, `lean-executor.ts`
 - PascalCase for components: `LeaderboardTable.tsx`
 
 **Git commits:**
+
 - Conventional commits (`feat:`, `fix:`, `docs:`, etc.)
 - Exhaustive bodies explaining the "why"
 - All pre-commit hooks must pass
@@ -423,11 +459,13 @@ The frontend (`packages/web`) can be deployed to Vercel/Netlify/Cloudflare Pages
 **Option 1: Split Deployment (Frontend + Backend)**
 
 **Frontend:**
+
 - Platform: Vercel, Netlify, or Cloudflare Pages
 - Deploy: `packages/web` as static site
 - Config: Set `NEXT_PUBLIC_API_URL` to point to your API
 
 **Backend (API + Worker + Database):**
+
 - Platform options:
   - **Railway** - Easiest, all-in-one platform with Postgres + Redis + app hosting
   - **Fly.io** - Good for Docker-based deployments, supports persistent volumes
@@ -436,17 +474,20 @@ The frontend (`packages/web`) can be deployed to Vercel/Netlify/Cloudflare Pages
   - **Self-hosted VPS** - Docker Compose on DigitalOcean/Hetzner/etc.
 
 **Database Services:**
+
 - PostgreSQL: Neon, Supabase, Railway DB, AWS RDS, or self-hosted
 - Redis: Upstash, Redis Cloud, Railway Redis, ElastiCache, or self-hosted
 
 **Option 2: All-in-One Platform**
 
 Deploy all three services to a single platform:
+
 - **Railway** (recommended for simplicity)
 - **Fly.io** (better for scaling)
 - **Render** (middle ground)
 
 These platforms can host:
+
 - Web service (Next.js SSR or static + serve)
 - API service (Hono server)
 - Worker service (background process)
@@ -455,6 +496,7 @@ These platforms can host:
 **Option 3: Self-Hosted (VPS with Docker Compose)**
 
 Single VPS running Docker Compose with all services:
+
 ```bash
 # On your VPS
 git clone <repo>
@@ -500,6 +542,7 @@ Cost-effective but requires sysadmin experience.
 ### Tracks
 
 Different benchmark categories (e.g., `functional`, `mvcgen`). Each track has its own:
+
 - Dataset of problems
 - Scoring criteria
 - Leaderboard ranking
@@ -507,6 +550,7 @@ Different benchmark categories (e.g., `functional`, `mvcgen`). Each track has it
 ### Attestations
 
 Signed objects proving a build was executed with specific constraints:
+
 - Toolchain version (Lean/Lake)
 - Resource limits (time, memory)
 - Runner identity (internal/partner/community trust levels)
@@ -525,6 +569,7 @@ Signed objects proving a build was executed with specific constraints:
 ### Artifacts
 
 Build outputs stored for analysis:
+
 - `results/summary.json` — Metrics (pass@k, time, etc.)
 - `build.log` — Full build output
 - (Future) Proof traces, coverage reports
@@ -534,6 +579,7 @@ Build outputs stored for analysis:
 ## Implementation Status
 
 **✅ Completed (packages/web):**
+
 - Landing page with scrollable sections (about, top models, submit preview, paper abstract)
 - Full leaderboard page with tabs (Functional, MVCGen, Overall)
 - Interactive leaderboard table (search, sorting by rank/score/date)
@@ -545,6 +591,7 @@ Build outputs stored for analysis:
 - Static site generation (all routes pre-rendered)
 
 **✅ Completed (packages/worker):**
+
 - BullMQ worker consuming submissions queue
 - Lean build executor (Docker + host modes)
 - Attestation generation with SHA-256 hashing
@@ -552,11 +599,13 @@ Build outputs stored for analysis:
 - Error handling and retry logic
 
 **🚧 In Progress:**
+
 - Database schema (`packages/api/src/db/schema.ts`)
 - API implementation (currently has stubs)
 - Connecting frontend to real API (currently uses mock data)
 
 **❌ Missing:**
+
 - Authentication (GitHub OAuth for submissions)
 - Actual submission form (currently just documentation)
 - Real-time job status tracking UI
@@ -568,6 +617,7 @@ Build outputs stored for analysis:
 - Submission history per organization
 
 **Research questions:**
+
 - How to score partial verification (some theorems proven)?
 - Multi-track aggregation (overall leaderboard)?
 - Cost accounting (CPU-hours per submission)?
@@ -580,6 +630,7 @@ Build outputs stored for analysis:
 The `/paper` page contains the full fvspec research paper with the following structure:
 
 **Abstract** (also shown on homepage):
+
 - Introduces fvspec as a benchmark for evaluating AI on formal verification
 - Emphasizes real-world tests over synthetic problems
 - Describes two verification paradigms (functional, mvcgen)
@@ -587,6 +638,7 @@ The `/paper` page contains the full fvspec research paper with the following str
 - Presents initial results from leading models
 
 **Main Sections:**
+
 1. **Introduction** - Motivation, challenges in evaluating AI-assisted formal verification
 2. **Benchmark Design** - Problem selection, verification tracks (Functional, MVCGen), evaluation metrics
 3. **Infrastructure** - MCP integration for LSP, sandboxed evaluation, cryptographic attestations
@@ -597,6 +649,7 @@ The `/paper` page contains the full fvspec research paper with the following str
 8. **Acknowledgments** - ARIA funding, Lean community support
 
 **Key Claims:**
+
 - 200 real-world problems from GitHub (not synthetic)
 - Focus on specification quality over proof completion
 - Cryptographic attestations for reproducibility
@@ -617,16 +670,19 @@ The `/paper` page contains the full fvspec research paper with the following str
 ## Troubleshooting
 
 **Worker not picking up jobs:**
+
 - Check Redis connection: `redis-cli -u $REDIS_URL ping`
 - Verify queue name matches (`submissions`)
 - Check worker logs for errors
 
 **Build timeouts:**
+
 - Increase `TIME_LIMIT_SEC` env var
 - Check for infinite loops in submitted code
 - Monitor memory usage (may OOM before timeout)
 
 **Attestation verification failed:**
+
 - Ensure artifact files weren't modified post-build
 - Check SHA-256 hashes match
 - Verify toolchain image digest

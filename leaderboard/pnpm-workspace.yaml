@@ -1,5 +1,5 @@
 packages:
-  - "packages/*"
+  - 'packages/*'
 # Optional shared settings you can uncomment later:
 # neverBuiltDependencies:
 #   - esbuild # if shipping prebuilt binaries

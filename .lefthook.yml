@@ -21,7 +21,7 @@ pre-commit:
       run: uv run pytest
     format-leaderboard:
       root: "leaderboard"
-      glob: "*.{ts,json}"
+      glob: "*.{ts,json,md,yaml,yml}"
       run: pnpm run format
       stage_fixed: true
     lint-leaderboard:

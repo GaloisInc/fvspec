@@ -5,6 +5,7 @@ Public-facing leaderboard website for the fvspec formal verification benchmark.
 ## Quick Start (Local Development)
 
 ### Prerequisites
+
 - Node.js >= 20
 - pnpm (installed globally or via `corepack enable`)
 - Docker & Docker Compose
@@ -38,11 +39,13 @@ pnpm install
 ### 4. Run Services
 
 **Option A: All services in parallel**
+
 ```bash
 pnpm dev
 ```
 
 **Option B: Individual services**
+
 ```bash
 # Terminal 1: Web frontend (http://localhost:3000)
 pnpm dev:web
