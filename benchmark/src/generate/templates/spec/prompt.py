@@ -6,7 +6,7 @@ from pathlib import Path
 from generate.templates.spec.registry import VariantRegistry
 
 # Configure Jinja2 to load templates from the filesystem
-# This allows {% include %} to work for shared fragments
+# This allows {% include %} to work for common fragments
 _templates_dir = Path(__file__).parent
 env = Environment(loader=FileSystemLoader(_templates_dir))
 
@@ -32,7 +32,7 @@ def get_variant_prompts(variant_name: str | None = None) -> tuple[str, Template]
     variant_config = registry.get_variant(variant_name)
 
     # Create a Jinja2 template from the initial prompt string
-    # This now supports {% include %} directives for shared fragments
+    # This now supports {% include %} directives for common fragments
     initial_template = env.from_string(variant_config.initial_template)
 
     # Also process system prompt to resolve any {% include %} directives

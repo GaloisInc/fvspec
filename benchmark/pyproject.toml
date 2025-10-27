@@ -30,10 +30,10 @@ dependencies = [
 ]
 
 [project.scripts]
-preview_prompts = "generate.templates:main"
+preview-prompts = "generate.templates:main"
 fvspec = "generate:main"
-analyze_deps_regex = "scripts.analyze_deps_regex:cli"
-analyze_deps = "scripts.analyze_deps:main"
+analyze-deps-regex = "scripts.analyze_deps_regex:cli"
+analyze-deps = "scripts.analyze_deps:main"
 
 [project.entry-points.inspect_ai]
 benchmark = "generate._registry"

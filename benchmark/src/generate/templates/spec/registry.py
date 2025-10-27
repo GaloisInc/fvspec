@@ -118,15 +118,15 @@ class VariantRegistry:
 
         system_prompt = system_prompt_path.read_text()
 
-        # Fall back to shared initial prompt if variant doesn't have its own
+        # Fall back to common initial prompt if variant doesn't have its own
         if not initial_prompt_path.exists():
-            shared_initial = self.templates_dir / "shared" / "initial.prompt"
-            if not shared_initial.exists():
+            common_initial = self.templates_dir / "common" / "initial.prompt"
+            if not common_initial.exists():
                 raise FileNotFoundError(
                     f"Neither variant-specific initial prompt at {initial_prompt_path} "
-                    f"nor shared initial prompt at {shared_initial} found for variant '{name}'"
+                    f"nor common initial prompt at {common_initial} found for variant '{name}'"
                 )
-            initial_template = shared_initial.read_text()
+            initial_template = common_initial.read_text()
         else:
             initial_template = initial_prompt_path.read_text()
 

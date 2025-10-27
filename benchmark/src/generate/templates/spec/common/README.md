@@ -1,11 +1,11 @@
-# Shared Prompt Templates (Single Source of Truth)
+# Common Prompt Templates (Single Source of Truth)
 
-This directory contains shared prompt components used across multiple variants to maintain consistency and reduce duplication.
+This directory contains common prompt components used across multiple variants to maintain consistency and reduce duplication.
 
 ## Structure
 
 ```
-shared/
+common/
   initial.prompt           # Default initial user prompt (SSoT)
   fragments/               # Reusable system prompt sections
     task_core.txt         # Core task description
@@ -19,9 +19,9 @@ shared/
 
 The `initial.prompt` file is the **single source of truth** for the initial user prompt. Variants will automatically use this unless they provide their own override.
 
-**To use the shared initial prompt:**
+**To use the common initial prompt:**
 - Simply don't create an `initial.prompt` file in your variant directory
-- The system will automatically fall back to `shared/initial.prompt`
+- The system will automatically fall back to `common/initial.prompt`
 
 **To override with custom wording:**
 - Create `initial.prompt` in your variant directory
@@ -36,21 +36,21 @@ Fragments are reusable sections that can be included in variant system prompts u
 ```jinja
 You are an expert at declaring Lean 4 theorems.
 
-{% include 'shared/fragments/task_core.txt' %}
+{% include 'common/fragments/task_core.txt' %}
 
 ## Output Format
-{% include 'shared/fragments/output_format.txt' %}
+{% include 'common/fragments/output_format.txt' %}
 
 ## Strategy
 Use the available Lean LSP tools...
 
 ## Metrics
-{% include 'shared/fragments/metrics.txt' %}
+{% include 'common/fragments/metrics.txt' %}
 ```
 
 ## Adding New Shared Content
 
-**When to create a shared fragment:**
+**When to create a common fragment:**
 1. Content is identical across 2+ variants
 2. Content represents a conceptual standard (output format, metrics)
 3. Consistency matters more than customization
@@ -65,19 +65,19 @@ Use the available Lean LSP tools...
 ```
 1. Variant-specific file (variants/my-variant/initial.prompt)
    ↓ (if not found)
-2. Shared default (shared/initial.prompt)
+2. Common default (common/initial.prompt)
    ↓ (if not found)
 3. Error: template not found
 ```
 
 ## Examples
 
-**Variant using shared initial prompt:**
+**Variant using common initial prompt:**
 ```
 variants/control-functional/
-  system.prompt    # Uses {% include %} for shared fragments
+  system.prompt    # Uses {% include %} for common fragments
   metadata.toml
-  # No initial.prompt - uses shared/initial.prompt
+  # No initial.prompt - uses common/initial.prompt
 ```
 
 **Variant with custom initial prompt:**
@@ -90,8 +90,8 @@ variants/terse-functional/
 
 ## Maintaining SSoT
 
-When updating shared content:
-1. Update the fragment in `shared/fragments/`
+When updating common content:
+1. Update the fragment in `common/fragments/`
 2. All variants that include it will automatically use the new version
 3. Variants with overrides are unaffected
 

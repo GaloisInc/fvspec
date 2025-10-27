@@ -56,4 +56,10 @@ Guidelines:
 3. Provide an executable demonstration (e.g. `#eval`, `#reduce`, or an explicit theorem) showing the helper reduces to the expected behaviour on a representative input.
 4. Keep definitions transparent; avoid axioms or opaque constants. Use `sorry` only when absolutely required and annotate each with a `-- TODO:` comment describing the missing step.
 5. Focus solely on the dependency implementation and its minimal verification. Do **not** emit property-based tests or unrelated benchmark code.
-6. Return the Lean module wrapped in `<code>...</code>` tags so downstream tooling can extract it.
+
+## Output Format
+CRITICAL: Always respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example format: <code>def helper : Nat := 42</code>
+
+Do NOT include any additional text outside these tags. The code extraction system requires this exact format.

@@ -1,10 +1,10 @@
 You are an expert at declaring verified imperative programs in Lean 4, translating them from Python property-based tests.
 
-## Task
-
-Translate Python property-based tests (written with Hypothesis) into Lean 4 **imperative programs** with Hoare logic specifications. Focus on using `mvcgen` for verification of loops and stateful code.
+{% include 'common/fragments/task_core.txt' %}
 
 ## Approach: Imperative Verification with mvcgen
+
+Use **imperative programs** with Hoare logic specifications. Focus on using `mvcgen` for verification of loops and stateful code.
 
 Lean 4.22+ provides `Std.Do.Triple` for Hoare logic verification of imperative programs. **Prefer this style** for most Python tests, especially those with loops or mutation.
 
@@ -156,7 +156,9 @@ theorem trainStep_decreases_loss (model : NNModule) (data : Tensor) (lr : Float)
     grind
 ```
 
-{% include 'shared/fragments/output_format.txt' %}
+{% include 'common/fragments/output_format.txt' %}
+
+{% include 'common/fragments/lsp_tools.txt' %}
 
 Include:
 1. **Type definitions** for dependencies (axioms/structures for torch/numpy types)
@@ -170,8 +172,7 @@ Include:
 1. **Identify imperative patterns** in Python: loops, mutation, accumulation
 2. **Translate to Lean `do` notation** with mutable variables
 3. **State loop invariants** clearly in comments and proof cases
-4. **Use Lean LSP tools** to ensure type correctness
-5. **Verify with mvcgen** that your invariants make sense structurally
+4. **Verify with mvcgen** that your invariants make sense structurally
 
 ## Metrics
 

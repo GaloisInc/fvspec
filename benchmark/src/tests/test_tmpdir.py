@@ -30,10 +30,10 @@ def mock_lake_template(tmp_path):
     # Create Fvspec directory structure mirroring the real template
     fvspec_dir = template / "Fvspec"
     fvspec_dir.mkdir()
-    (fvspec_dir / "Basic.lean").write_text("-- Placeholder spec\nimport Fvspec.Deps")
+    (fvspec_dir / "Spec.lean").write_text("-- Placeholder spec\nimport Fvspec.Deps")
     (fvspec_dir / "Deps.lean").write_text("-- Placeholder deps")
     (template / "Fvspec.lean").write_text(
-        "-- Auto-generated entry point\nimport Fvspec.Deps\nimport Fvspec.Basic"
+        "-- Auto-generated entry point\nimport Fvspec.Deps\nimport Fvspec.Spec"
     )
 
     return template
@@ -60,10 +60,10 @@ def test_create_sample_workspace_copies_template(mock_lake_template):
         assert (workspace / "lakefile.toml").exists()
         assert (workspace / "lake-manifest.json").exists()
         assert (workspace / "Fvspec").is_dir()
-        assert (workspace / "Fvspec" / "Basic.lean").exists()
+        assert (workspace / "Fvspec" / "Spec.lean").exists()
 
         # Verify content was copied correctly
-        content = (workspace / "Fvspec" / "Basic.lean").read_text()
+        content = (workspace / "Fvspec" / "Spec.lean").read_text()
         assert "import Fvspec.Deps" in content
     finally:
         cleanup_sample_workspace(workspace)
@@ -142,7 +142,7 @@ def test_sample_workspace_context_manager_cleans_up_on_exception(mock_lake_templ
 def test_workspace_can_write_lean_files(mock_lake_template):
     """Verify we can write Lean files to the workspace."""
     with sample_workspace("sample_008", lake_template=mock_lake_template) as workspace:
-        spec_file = workspace / "Fvspec" / "Basic.lean"
+        spec_file = workspace / "Fvspec" / "Spec.lean"
         lean_code = """-- Generated spec
 def add (x y : Nat) : Nat := sorry
 

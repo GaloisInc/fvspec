@@ -37,11 +37,14 @@ The fvspec benchmark integrates with [Weights & Biases](https://wandb.ai/) to pr
    [wandb]
    enabled = true
    project = "fvspec"
-   entity = "your-team"  # optional
+   entity = "fvspec"  # IMPORTANT: This is the correct team entity - do not change
    tags = ["experiment-1"]
    upload_samples = true
    sync_dep_cache = true
    ```
+
+   **Note:** The `entity = "fvspec"` setting is correct and should not be changed.
+   This is the shared team workspace for the project.
 
 ## Current Implementation
 
@@ -281,8 +284,9 @@ enabled = true
 # Project name (creates if doesn't exist)
 project = "fvspec"
 
-# Entity/team name (defaults to personal workspace)
-entity = "your-team"  # optional
+# Entity/team name - IMPORTANT: Use "fvspec" for the shared team workspace
+# Do NOT change this value - it ensures all team members share artifacts and runs
+entity = "fvspec"
 
 # Tags applied to all runs
 tags = ["experiment-1", "baseline"]
@@ -293,6 +297,10 @@ upload_samples = true
 # Sync dependency cache (download at start, upload at end)
 sync_dep_cache = true
 ```
+
+> **⚠️ Important:** The `entity` should always be set to `"fvspec"` for team collaboration.
+> This ensures all runs, artifacts, and cache are stored in the shared team workspace.
+> Do not change this to your personal entity.
 
 ### Via CLI
 
@@ -332,7 +340,7 @@ If `config.toml` has `enabled = true`, this automatically:
 Output structure:
 ```
 artifacts/
-├── runs/2025-10-22T15-30-00__variant_control-functional/
+├── runs/2025-10-22T15-30-00__control-functional/
 │   ├── sample_0_test_example/
 │   │   ├── Spec.lean
 │   │   ├── qa.json
@@ -396,13 +404,13 @@ The dependency cache can be managed both locally and remotely via wandb. This is
 
 **Clear local cache:**
 ```bash
-uv run fvspec deps cache-flush
+uv run fvspec deps cache-clear-local
 ```
 Deletes all cached dependencies from `artifacts/depcache/`. Next run will regenerate from scratch or download from wandb.
 
 **Clear remote wandb cache:**
 ```bash
-uv run fvspec deps cache-clear-remote
+uv run fvspec deps cache-clear-wandb
 ```
 Deletes the `dep-cache:latest` artifact from wandb. Requires `wandb.enabled = true` in config. Next run will create a fresh cache artifact.
 
@@ -421,44 +429,44 @@ Ignores cache and regenerates all dependencies from scratch. Overwrites existing
 **Full cache reset (local + remote):**
 ```bash
 # 1. Clear local cache
-uv run fvspec deps cache-flush
+uv run fvspec deps cache-clear-local
 
 # 2. Clear remote cache (optional - for team coordination)
-uv run fvspec deps cache-clear-remote
+uv run fvspec deps cache-clear-wandb
 
 # 3. Run with fresh generation
-uv run fvspec --force-regen --sample-size 10
+uv run fvspec --force-deps-regen --sample-size 10
 ```
 
 **Force regenerate without affecting remote cache:**
 ```bash
 # Clears local, skips download, regenerates, uploads to wandb
-uv run fvspec --force-regen --sample-size 10
+uv run fvspec --force-deps-regen --sample-size 10
 ```
 
 **Selective regeneration:**
 ```bash
 # Regenerate dependencies for specific datapoints
-uv run fvspec deps autoformalize --force-regen --sample-id 5 --sample-id 42
+uv run fvspec deps autoformalize --force-deps-regen --sample-id 5 --sample-id 42
 ```
 
 ### Behavior Details
 
-**`--force-regen` flag:**
+**`--force-deps-regen` flag:**
 1. Clears local cache at run start
 2. Skips wandb cache download (if `sync_dep_cache = true`)
 3. Marks all dependencies as uncached, forcing regeneration
 4. Overwrites cache entries on hash collision (last write wins)
 5. Uploads regenerated cache to wandb at run end (if enabled)
 
-**`cache-clear-remote` command:**
+**`cache-clear-wandb` command:**
 - Uses wandb API to delete the artifact
 - Gracefully handles missing artifacts (first run case)
 - Requires `wandb.enabled = true` in config
 - Next run creates new `:v0` artifact
 
 **Cache collision handling:**
-When `--force-regen` is used and a dependency hash collides with an existing cache entry, the new generation overwrites the old one. This is intentional - allows updating cached dependencies with improved models or prompts.
+When `--force-deps-regen` is used and a dependency hash collides with an existing cache entry, the new generation overwrites the old one. This is intentional - allows updating cached dependencies with improved models or prompts.
 
 ## Questions & Concerns
 
@@ -545,7 +553,7 @@ When `--force-regen` is used and a dependency hash collides with an existing cac
 
 1. **Test with real run**
    - [x] Run `uv run fvspec --sample-size 10` with wandb enabled
-   - [s] Verify artifacts appear in wandb UI
+   - [x] Verify artifacts appear in wandb UI
    - [x] Check artifact file structure and completeness
    - [ ] Monitor upload time per sample
    - [ ] Verify cache download/upload works
@@ -607,11 +615,6 @@ When `--force-regen` is used and a dependency hash collides with an existing cac
     - [ ] Automated report generation
 
 ## Troubleshooting
-
-### "wandb not logged in"
-```bash
-uv run wandb login
-```
 
 ### Metrics not appearing
 - Verify `enabled = true` in `config.toml` (wandb is enabled by default via CLI)

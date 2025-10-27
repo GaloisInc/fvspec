@@ -3,12 +3,10 @@ model = "anthropic/claude-sonnet-4-5-20250929"
 max_tokens = -1
 
 [meta]
-logging = true
-debug = true
 # Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
-display = "full"
+display = "rich"
 # Number of samples to evaluate in parallel
-parallelism = 25
+parallelism = 128
 
 [prompt]
 # Prompt variant from registry.toml
@@ -17,7 +15,7 @@ parallelism = 25
 
 [dataset]
 # Number of samples to draw from the dataset
-sample_size = 100
+sample_size = 10
 # Random seed for dataset sampling
 ranseed = 0
 
@@ -27,7 +25,7 @@ enabled = true
 # Project name in wandb
 project = "fvspec"
 # Entity/team name (optional, defaults to your personal account)
-entity = "vericoding"
+entity = "fvspec"
 # Additional tags for runs
 tags = []
 # Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)

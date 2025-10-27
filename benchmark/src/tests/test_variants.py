@@ -103,47 +103,32 @@ class TestSharedTemplates:
     """Tests for Single Source of Truth (SSoT) template mechanics."""
 
     def test_shared_initial_prompt_is_default(self):
-        """Variants without initial.prompt should use shared/initial.prompt."""
+        """Variants without initial.prompt should use common/initial.prompt."""
         registry = VariantRegistry()
 
-        # control-functional has no initial.prompt → uses shared
+        # control-functional has no initial.prompt → uses common
         config = registry.get_variant("control-functional")
         assert len(config.initial_template) > 0
 
-        # Should contain the shared template's characteristic text
-        assert "Given the following dependencies" in config.initial_template
+        # Should contain the common template's characteristic text
+        assert "The following Python dependencies" in config.initial_template
         assert "{{ pbt }}" in config.initial_template
 
-    def test_custom_initial_prompt_overrides_shared(self):
-        """Variants with initial.prompt should use their own, not shared."""
-        registry = VariantRegistry()
-
-        # terse-functional has its own initial.prompt
-        config = registry.get_variant("terse-functional")
-
-        # Should NOT have the verbose shared template text
-        assert "Given the following dependencies" not in config.initial_template
-        # Should have terser wording
-        assert (
-            "Dependencies:" in config.initial_template
-            or "Property-based test:" in config.initial_template
-        )
-
     def test_multiple_variants_share_same_initial(self):
-        """Multiple variants should get identical shared initial prompt."""
+        """Multiple variants should get identical common initial prompt."""
         registry = VariantRegistry()
 
         config1 = registry.get_variant("control-functional")
         config2 = registry.get_variant("control-mvcgen")
 
-        # Both use shared/initial.prompt, so should be identical
+        # Both use common/initial.prompt, so should be identical
         assert config1.initial_template == config2.initial_template
 
     def test_jinja_includes_work_in_system_prompt(self):
         """System prompts should resolve {% include %} directives."""
         sys_prompt, _ = get_variant_prompts("control-functional")
 
-        # Should have content from shared fragments
+        # Should have content from common fragments
         assert "## Task" in sys_prompt
         assert "## Output Format" in sys_prompt
         assert "## Metrics" in sys_prompt
@@ -151,11 +136,11 @@ class TestSharedTemplates:
         assert "Faithfulness" in sys_prompt  # From metrics.txt
 
     def test_jinja_includes_propagate_changes(self):
-        """Changes to shared fragments should appear in all variants that include them."""
+        """Changes to common fragments should appear in all variants that include them."""
         sys1, _ = get_variant_prompts("control-functional")
         sys2, _ = get_variant_prompts("control-mvcgen")
 
-        # Both should have content from shared fragments
+        # Both should have content from common fragments
         # Check for user's edit: "intricacy" instead of "complexity"
         assert "intricacy" in sys1 or "complexity" in sys1 or "sophistication" in sys1
 
@@ -204,19 +189,6 @@ class TestTemplateContent:
         assert "Extract key code components" in sys
         assert "Identify all functions" in sys
 
-    def test_terse_functional_is_actually_terse(self):
-        """terse-functional should be shorter than control-functional."""
-        sys_terse, init_terse = get_variant_prompts("terse-functional")
-        sys_control, init_control = get_variant_prompts("control-functional")
-
-        # System prompt should be significantly shorter
-        assert len(sys_terse) < len(sys_control)
-
-        # Initial prompt should also be shorter
-        rendered_terse = init_terse.render(pbt="test", deps=[])
-        rendered_control = init_control.render(pbt="test", deps=[])
-        assert len(rendered_terse) < len(rendered_control)
-
     def test_control_mvcgen_has_imperative_guidance(self):
         """control-mvcgen should have mvcgen/Hoare logic guidance."""
         sys, _ = get_variant_prompts("control-mvcgen")
@@ -234,16 +206,16 @@ class TestTemplateContent:
 
 
 class TestSharedFragments:
-    """Tests for shared fragment files."""
+    """Tests for common fragment files."""
 
     def test_shared_fragments_exist(self):
-        """All expected shared fragment files should exist."""
+        """All expected common fragment files should exist."""
         fragments_dir = (
             Path(__file__).parent.parent
             / "generate"
             / "templates"
             / "spec"
-            / "shared"
+            / "common"
             / "fragments"
         )
 
@@ -251,12 +223,12 @@ class TestSharedFragments:
         assert (fragments_dir / "output_format.txt").exists()
         assert (fragments_dir / "metrics.txt").exists()
 
-    def test_shared_initial_prompt_exists(self):
-        """Shared initial prompt should exist."""
-        shared_dir = (
-            Path(__file__).parent.parent / "generate" / "templates" / "spec" / "shared"
+    def test_common_initial_prompt_exists(self):
+        """Common initial prompt should exist."""
+        common_dir = (
+            Path(__file__).parent.parent / "generate" / "templates" / "spec" / "common"
         )
-        assert (shared_dir / "initial.prompt").exists()
+        assert (common_dir / "initial.prompt").exists()
 
     def test_task_core_fragment_content(self):
         """task_core.txt should have expected content."""
@@ -265,7 +237,7 @@ class TestSharedFragments:
             / "generate"
             / "templates"
             / "spec"
-            / "shared"
+            / "common"
             / "fragments"
         )
         content = (fragments_dir / "task_core.txt").read_text()
@@ -281,7 +253,7 @@ class TestSharedFragments:
             / "generate"
             / "templates"
             / "spec"
-            / "shared"
+            / "common"
             / "fragments"
         )
         content = (fragments_dir / "output_format.txt").read_text()
@@ -297,7 +269,7 @@ class TestSharedFragments:
             / "generate"
             / "templates"
             / "spec"
-            / "shared"
+            / "common"
             / "fragments"
         )
         content = (fragments_dir / "metrics.txt").read_text()

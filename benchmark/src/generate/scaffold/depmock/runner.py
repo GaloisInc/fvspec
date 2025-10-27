@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
+import json
 import re
 from pathlib import Path
 
@@ -14,9 +15,8 @@ from generate.scaffold.tools import utilio
 from generate.scaffold.depmock.cache import (
     CacheRecord,
     load_cached_dependency,
-    persist_generated_dependency,
-    read_manifest,
-    record_cache_hit,
+    store_dependency_result,
+    _cache_root,
 )
 from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
@@ -131,38 +131,63 @@ def _process_payloads(
     sample_output_dir: Path,
     variant: str | None,
 ) -> dict[str, object]:
-    deps_dir = sample_output_dir / "deps"
-    deps_dir.mkdir(parents=True, exist_ok=True)
-
     prepared_records: list[CacheRecord] = []
     payload_dumps: list[dict[str, object]] = []
 
+    # Load or generate records for each payload
     for payload in payloads:
         record = load_cached_dependency(payload)
-        if record is not None:
-            record_cache_hit(record, sample_output_dir, source="cache")
-            prepared_records.append(record)
-            payload_dumps.append(payload.model_dump())
-            continue
+        if record is None:
+            stub_result = _stub_result(payload, variant)
+            record = store_dependency_result(
+                payload,
+                stub_result,
+                cache_root=_cache_root(),
+                provenance=None,
+            )
 
-        stub_result = _stub_result(payload, variant)
-        record = persist_generated_dependency(payload, stub_result, sample_output_dir)
         prepared_records.append(record)
         payload_dumps.append(payload.model_dump())
 
-    manifest = read_manifest(deps_dir)
-    aggregated = aggregate_dependency_modules(deps_dir, manifest)
+    # Build aggregated modules directly from records in memory
+    aggregated: list[dict[str, str]] = []
+    manifest: list[dict[str, object]] = []
+
+    for record in prepared_records:
+        lean_code = record.lean_path.read_text().strip()
+        aggregated.append(
+            {
+                "module": record.metadata.lean_module,
+                "path": str(record.lean_path),
+                "code": lean_code,
+            }
+        )
+        manifest.append(record.to_manifest_entry(source="cache"))
+
+    # Order modules by dependencies
     ordered_modules = order_dependency_modules(aggregated)
     body = "\n\n".join(item["code"] for item in ordered_modules if item["code"])
     if body:
         lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
     else:
         lean_text = ""
+
+    # Write consolidated Deps.lean to sample output directory
+    deps_lean_file = sample_output_dir / "Deps.lean"
+    deps_lean_file.write_text(lean_text if lean_text else "-- No dependencies\n")
+
+    # Write manifest to sample output directory (not in deps/ subdirectory)
+    manifest_file = sample_output_dir / "deps_manifest.jsonl"
+    with manifest_file.open("w", encoding="utf-8") as f:
+        for entry in manifest:
+            f.write(json.dumps(entry) + "\n")
+
     return {
         "manifest": manifest,
         "aggregated": ordered_modules,
         "lean_text": lean_text,
-        "deps_dir": str(deps_dir),
+        "deps_lean_file": str(deps_lean_file),
+        "manifest_file": str(manifest_file),
         "variant": variant,
         "payloads": payload_dumps,
     }
@@ -170,7 +195,16 @@ def _process_payloads(
 
 @solver
 def depmock_setup() -> Solver:
-    """Prepare dependency payload stubs within the inspect_ai task loop."""
+    """Prepare dependency directories and metadata within the inspect_ai task loop.
+
+    This solver no longer creates stub implementations. Instead, it:
+    1. Creates the deps/ directory structure
+    2. Initializes an empty Deps.lean
+    3. Stores dependency metadata for tools to use later
+
+    The actual dependency formalization happens when the agent calls the
+    per-dependency tools registered by register_dependency_tools().
+    """
 
     async def run(state: TaskState, generate: Generate) -> TaskState:
         datapoint = state.metadata.get("datapoint")
@@ -190,13 +224,26 @@ def depmock_setup() -> Solver:
         sample_output_dir = utilio.get_sample_output_dir(
             date_time, str(state.sample_id), variant or "default"
         )
-        meta = _process_payloads(
-            datapoint,
-            payloads,
-            sample_output_dir,
-            variant if isinstance(variant, str) else None,
+
+        # Create deps/ directory
+        deps_dir = sample_output_dir / "deps"
+        deps_dir.mkdir(parents=True, exist_ok=True)
+
+        # Initialize empty Deps.lean (will be populated as tools are called)
+        deps_lean_file = sample_output_dir / "Deps.lean"
+        deps_lean_file.write_text(
+            "-- Dependencies will be added here as they are formalized\n"
         )
-        state.metadata["depmock"] = meta
+
+        # Store metadata for later use
+        state.metadata["depmock"] = {
+            "manifest": [],
+            "lean_text": "",
+            "deps_dir": str(deps_dir),
+            "variant": variant,
+            "payload_count": len(payloads),
+        }
+
         return state
 
     return run

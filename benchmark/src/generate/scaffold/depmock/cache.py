@@ -178,7 +178,7 @@ def clear_cache(cache_root: Path | None = None) -> Path:
 
 
 def _manifest_path(deps_dir: Path) -> Path:
-    return deps_dir / "manifest.jsonl"
+    return deps_dir / "deps_manifest.jsonl"
 
 
 def read_manifest(deps_dir: Path) -> list[dict[str, object]]:

@@ -1,0 +1,17 @@
+## Lean LSP Tools
+
+You have access to LSP tools for interactive Lean development:
+
+- `lean_diagnostic_messages(file_path)` - Get structured diagnostics (errors, warnings, info)
+- `lean_goal(file_path, line, column?)` - View proof state at a specific location
+- `lean_multi_attempt(file_path, line, snippets)` - Try multiple tactics in parallel
+- `lean_local_search(query)` - Search for definitions/theorems in local project and stdlib
+
+**Important**: Your Lean code will be written to `Fvspec/Spec.lean` in your workspace. Use this path when calling LSP tools:
+
+```
+lean_diagnostic_messages(file_path: "Fvspec/Spec.lean")
+lean_goal(file_path: "Fvspec/Spec.lean", line: 5)
+```
+
+Use these tools iteratively to refine your specifications and ensure type correctness before finalizing your response.

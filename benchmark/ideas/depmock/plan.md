@@ -1,6 +1,65 @@
 # Depmock Subagent Integration Plan
 
-Goal: ship `uv run fvspec` with real dependency autoformalization by embedding the depmock agent as an inspect_ai subagent (agent-as-tool). No stretch goals, no future roadmap—just the blockers between today’s implementation and a working multi-agent flow.
+## Make sure dep autoformalizer is actually shipping code.
 
-## TODO
-1. [ ] make sure it actually tries to implement the dep functions, instead of stubbing them with unit. 
+We're still getting a lot of this in `uv run inspect view`:
+
+```
+assistant
+I'll start by formalizing the dependencies, then translate the property-based test.
+
+Tool: autoformalize_settings (0.0 sec)
+autoformalize_settings
+Autoformalizer for settings did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,051 tokens, 2.2 sec)
+Summary
+All
+Tools
+API
+assistant
+Tool: autoformalize_range_push (0.0 sec)
+autoformalize_range_push
+Autoformalizer for range_push did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,137 tokens, 2.4 sec)
+Summary
+All
+Tools
+API
+assistant
+Tool: autoformalize_given (0.0 sec)
+autoformalize_given
+Autoformalizer for given did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,228 tokens, 2.3 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+Tool: autoformalize_range_pop (0.0 sec)
+autoformalize_range_pop
+Autoformalizer for range_pop did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (3,314 tokens, 2.2 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+Tool: autoformalize_range (0.0 sec)
+autoformalize_range
+Autoformalizer for range did not return Lean code in <code>...</code> tags
+Model Call: anthropic/claude-sonnet-4-5-20250929 (5,359 tokens, 36.9 sec)
+Summary
+All
+Tools
+API
+assistant
+(no content)
+
+I see the autoformalization tools are not returning results. Let me proceed with analyzing the test and writing the Lean specification directly, treating the dependencies as opaque functions that I'll need to declare.
+```
+
+I think it'll start really coming together once that is solved. 

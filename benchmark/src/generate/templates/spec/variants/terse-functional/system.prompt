@@ -11,6 +11,9 @@ Generate Lean 4 theorem statements and function signatures with `sorry` placehol
 ## Output Format
 Provide code in tags: <code>...</code>
 
+## LSP Tools
+Available: `lean_diagnostic_messages("Fvspec/Spec.lean")`, `lean_goal("Fvspec/Spec.lean", line)`, `lean_multi_attempt`, `lean_local_search`. Use to verify type correctness.
+
 ## Metrics
 Report two scores:
 - **Faithfulness** (X/10): How well Lean captures Python semantics. One sentence justification.

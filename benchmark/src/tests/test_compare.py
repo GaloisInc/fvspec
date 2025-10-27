@@ -56,7 +56,7 @@ class TestCompareVariantsLogic:
         assert "terse-functional" in variant_args
 
     def test_compare_variants_passes_options_to_tasks(self, mocker):
-        """compare-variants should pass options like --no-mcp to task creation."""
+        """compare-variants should pass options to task creation."""
         mock_fvspec = mocker.patch("generate.fvspec")
         _mock_eval_set = mocker.patch("generate.eval_set")
 
@@ -70,17 +70,18 @@ class TestCompareVariantsLogic:
                 "control-functional",
                 "--variant",
                 "control-mvcgen",
-                "--no-mcp",
+                "--sample-size",
+                "50",
             ],
         )
 
         assert result.exit_code == 0
 
-        # Should have passed use_mcp=False to fvspec
+        # Should have passed sample_size=50 to fvspec
         calls = mock_fvspec.call_args_list
         for call_args in calls:
             _, kwargs = call_args
-            assert kwargs.get("use_mcp") is False
+            assert kwargs.get("sample_size") == 50
 
     def test_compare_variants_creates_log_dir(self, mocker):
         """compare-variants should create a timestamped log directory."""

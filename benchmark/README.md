@@ -47,9 +47,6 @@ uv run fvspec --variant terse-functional
 # Run with control mvcgen variant
 uv run fvspec --variant control-mvcgen
 
-# Disable MCP tools for faster execution
-uv run fvspec --no-mcp
-
 # Control dataset sample size (default: 100)
 uv run fvspec --sample-size 50
 uv run fvspec --sample-size 200
@@ -59,7 +56,7 @@ uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
 
 # Combine options
-uv run fvspec --variant terse-functional --sample-size 50 --no-mcp
+uv run fvspec --variant terse-functional --sample-size 50
 uv run fvspec compare-variants --sample-size 200
 
 # Control parallelism (default: config.meta.parallelism)
@@ -79,20 +76,20 @@ uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
 uv run fvspec deps autoformalize --sample-size 10 --ranseed 42
 
 # Force regenerate dependencies (ignores cache, overwrites on collision)
-uv run fvspec --force-regen --sample-size 10
-uv run fvspec deps autoformalize --force-regen --sample-id 42
+uv run fvspec --force-deps-regen --sample-size 10
+uv run fvspec deps autoformalize --force-deps-regen --sample-id 42
 
 # Cache management
-uv run fvspec deps cache-flush           # Clear local dependency cache
-uv run fvspec deps cache-clear-remote    # Delete remote wandb cache artifact
+uv run fvspec deps cache-clear-local     # Clear local dependency cache
+uv run fvspec deps cache-clear-wandb     # Delete remote wandb cache artifact
 ```
 
-`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__variant_default-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
+`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__control-functional-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
 
 **Cache management:**
-- `--force-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
-- `cache-flush`: Clears local cache in `artifacts/depcache/`
-- `cache-clear-remote`: Deletes the wandb cache artifact to start fresh across the team (requires wandb enabled)
+- `--force-deps-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
+- `cache-clear-local`: Clears local cache in `artifacts/depcache/`
+- `cache-clear-wandb`: Deletes the wandb cache artifact to start fresh across the team (requires wandb enabled)
 
 ## Viewing Results
 
@@ -105,7 +102,7 @@ View evaluation logs with the official inspect_ai viewer:
 uv run inspect view --log-dir artifacts
 
 # View specific run
-uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__variant_control-functional
+uv run inspect view --log-dir artifacts/2025-10-14T15-30-00__control-functional
 
 # View comparison results
 uv run inspect view --log-dir artifacts/comparison_2025-10-14T15-45-00
@@ -151,8 +148,8 @@ uv run fvspec --variant terse-functional
 **Output organization:**
 ```
 artifacts/
-  2025-10-14T15-30-00__variant_control-functional/
-  2025-10-14T16-45-00__variant_terse-functional/
+  2025-10-14T15-30-00__control-functional/
+  2025-10-14T16-45-00__terse-functional/
 ```
 
 ### Architecture
@@ -280,7 +277,7 @@ uv run fvspec compare-variants
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
 
 # Compare with custom options
-uv run fvspec compare-variants --variant control-mvcgen --variant control-functional --no-mcp
+uv run fvspec compare-variants --variant control-mvcgen --variant control-functional --sample-size 50
 ```
 
 The `compare-variants` subcommand uses `inspect_ai`'s `eval_set()` to run multiple variants in parallel with unified logging. Results are stored in `artifacts/comparison_<timestamp>/`.
@@ -293,8 +290,8 @@ uv run fvspec --variant my-experiment
 
 **Compare outputs:**
 ```bash
-diff artifacts/2025-*__variant_control-functional/00123_test_foo/qa.json \
-     artifacts/2025-*__variant_my-experiment/00123_test_foo/qa.json
+diff artifacts/2025-*__control-functional/00123_test_foo/qa.json \
+     artifacts/2025-*__my-experiment/00123_test_foo/qa.json
 ```
 
 **Metrics to compare:**
@@ -342,7 +339,7 @@ Priority: CLI args (`--variant`, `--sample-size`) > config.toml > defaults
 1. CLI (`__init__.py`): Parse `--variant` flag
 2. Task (`task.py`): Load via `get_variant_prompts()`
 3. Dataset (`dataset.py`): Render with variant template
-4. Output (`declaration.py`): Write to `artifacts/<timestamp>__variant_<name>/`
+4. Output (`declaration.py`): Write to `artifacts/<timestamp>__<name>/`
 
 **Key classes:**
 - `VariantRegistry`: Loads/validates from `registry.toml`
@@ -371,15 +368,18 @@ uv run pytest
 Preview prompt templates:
 
 ```bash
-# Preview prompts with functional or mvcgen style
-uv run preview_prompts <data_file.json> --style functional
-uv run preview_prompts <data_file.json> --style mvcgen
+# Preview prompts (randomly samples from dataset using reservoir sampling)
+uv run preview-prompts <data_file.json> --prompt-type spec
+uv run preview-prompts <data_file.json> --prompt-type deps
+
+# Control sample size and random seed (defaults from config.toml: sample_size=100, ranseed=0)
+uv run preview-prompts <data_file.json> --sample-size 10 --ranseed 42
 ```
 
 Analyze dependencies in scraped tests:
 
 ```bash
-uv run analyze_deps
+uv run analyze-deps
 ```
 
 ## Verification Styles

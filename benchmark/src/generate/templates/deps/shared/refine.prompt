@@ -1,9 +1,0 @@
-Compilation or validation failed with the following feedback:
-```
-{{ diagnostics }}
-```
-
-Please update the Lean code for `Fvspec.Deps.{{ dep_module }}` to address the issues.
-Keep prior successful definitions if they still compile. Focus on the failing lines.
-
-Return the revised Lean file inside `<code>...</code>` tags.

@@ -25,6 +25,7 @@
             pandoc
             util-linux  # ionice
             claude-code
+            ripgrep
           ];
         in pkgs.mkShell { inherit name buildInputs; };
       };

@@ -61,7 +61,7 @@ class DependencyVariantRegistry:
         system_prompt_path = variant_path / "system.prompt"
         translate_prompt_path = variant_path / "translate.prompt"
         refine_prompt_path = variant_path / "refine.prompt"
-        shared_refine_path = self.templates_dir / "shared" / "refine.prompt"
+        common_refine_path = self.templates_dir / "common" / "refine.prompt"
 
         if not system_prompt_path.exists():
             raise FileNotFoundError(
@@ -74,11 +74,11 @@ class DependencyVariantRegistry:
 
         if refine_prompt_path.exists():
             refine_template = refine_prompt_path.read_text()
-        elif shared_refine_path.exists():
-            refine_template = shared_refine_path.read_text()
+        elif common_refine_path.exists():
+            refine_template = common_refine_path.read_text()
         else:
             raise FileNotFoundError(
-                "No refine.prompt found in variant or shared directory."
+                "No refine.prompt found in variant or common directory."
             )
 
         return DependencyVariantConfig(
