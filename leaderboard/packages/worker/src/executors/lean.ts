@@ -11,7 +11,7 @@ export async function executeLeanBuild(opts: {
   memoryMB: number
   artifactsDir: string
   toolchainImage?: string // docker image with lean/lake
-}) {
+}): Promise<{ artifacts: Array<{ path: string; sha256: string }>; logPath: string }> {
   const work = await mkwork()
   const logs: string[] = []
   const cmdLogs = async (title: string, fn: () => Promise<{ exitCode: number; log: string }>) => {
@@ -105,7 +105,7 @@ export async function executeLeanBuild(opts: {
   return { artifacts, logPath }
 }
 
-async function mkwork() {
+async function mkwork(): Promise<string> {
   const dir = join(tmpdir(), `lean-work-${process.pid}-${Date.now()}`)
   await mkdir(dir, { recursive: true })
   return dir

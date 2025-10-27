@@ -1,6 +1,6 @@
-import { Worker, QueueEvents } from 'bullmq'
+import { Worker, QueueEvents, type Job } from 'bullmq'
 import IORedis from 'ioredis'
-import { SubmissionJob } from './lib/job-schema.js'
+import { SubmissionJob, type SubmissionJob as SubmissionJobType } from './lib/job-schema.js'
 import { executeLeanBuild } from './executors/lean.js'
 import { buildAttestation } from './lib/attestation.js'
 import { reportIngest } from './lib/report.js'
@@ -8,10 +8,10 @@ import { reportIngest } from './lib/report.js'
 const connection = new IORedis(process.env.REDIS_URL!)
 const queueName = 'submissions'
 
-const worker = new Worker(
+const worker = new Worker<SubmissionJobType>(
   queueName,
-  async job => {
-    const data = SubmissionJob.parse(job.data)
+  async (job: Job<SubmissionJobType>) => {
+    const data: SubmissionJobType = SubmissionJob.parse(job.data)
     const startedAt = new Date().toISOString()
 
     const { artifacts, logPath } = await executeLeanBuild({
