@@ -12,31 +12,23 @@ jobs:
     defaults:
       run:
         working-directory: benchmark
-
     steps:
       - uses: actions/checkout@v4
-
       - name: Install uv
         uses: astral-sh/setup-uv@v5
         with:
           enable-cache: true
           cache-dependency-glob: "benchmark/uv.lock"
-
       - name: Set up Python
         run: uv python install
-
       - name: Install dependencies
         run: uv sync
-
       - name: Format check
         run: uv run ruff format --check
-
       - name: Lint
         run: uv run ruff check
-
       - name: Type check
         run: uv run ty check
-
       - name: Run tests
         run: uv run pytest -xvs
 
@@ -49,22 +41,18 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-
       - name: Install pnpm
         uses: pnpm/action-setup@v4
         with:
           version: 10.19.0
-
       - name: Get pnpm store directory
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
       - name: Setup pnpm cache
         uses: actions/cache@v4
         with:
@@ -72,18 +60,13 @@ jobs:
           key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
-
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      - name: Build all packages
-        run: pnpm run build
-
       - name: Format check
         run: pnpm exec prettier --check --ignore-path ./../.gitignore .
-
       - name: Lint
         run: pnpm run lint
-
       - name: Type check
         run: pnpm run typecheck
+      - name: Build all packages
+        run: pnpm run build
