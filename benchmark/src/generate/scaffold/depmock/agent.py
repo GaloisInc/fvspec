@@ -190,7 +190,7 @@ def autoformalize_dependency_tool(
 
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
-_MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\n(.*?)```")
+_MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\s*(.*?)```")
 
 
 def create_bound_dependency_tools(
