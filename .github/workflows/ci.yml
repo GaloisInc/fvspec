@@ -47,8 +47,8 @@ jobs:
           version: 10
       - name: Configure pnpm store
         run: |
-          mkdir -p ~/.pnpm-store
-          pnpm config set store-dir ~/.pnpm-store
+          mkdir -p "$HOME/.pnpm-store"
+          pnpm config set store-dir "$HOME/.pnpm-store"
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
