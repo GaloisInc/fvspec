@@ -191,6 +191,7 @@ def autoformalize_dependency_tool(
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
 _MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\s*(.*?)```")
+_IMPORT_PATTERN = re.compile(r"^import\s+.*$", re.MULTILINE)
 
 
 def create_bound_dependency_tools(
@@ -408,10 +409,10 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
 
         for module in modules:
             # Extract imports from this module
-            imports = IMPORT_PATTERN.findall(module)
+            imports = _IMPORT_PATTERN.findall(module)
             all_imports.extend(imports)
             # Remove imports from module content
-            cleaned = IMPORT_PATTERN.sub("", module).strip()
+            cleaned = _IMPORT_PATTERN.sub("", module).strip()
             if cleaned:  # Only add non-empty modules
                 cleaned_modules.append(cleaned)
 
