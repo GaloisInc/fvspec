@@ -83,18 +83,16 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
         state.messages.append(ChatMessageUser(content=user_prompt))
 
-        # Actually call the model to generate a response
-        # (only if running in an evaluation context with a model available)
+        # Call the model to generate a response if available.
+        # get_model() raises ValueError when no model is configured (e.g., in unit tests).
+        # In test contexts, we return the state with just the prompts added for validation.
         try:
             model = get_model()
             response = await model.generate(state.messages)
-
-            # Add the assistant's response to the state
             state.messages.append(response.message)
             state.output = response
         except ValueError:
-            # No model available (likely running in test context)
-            # Just return the state with the prompts added
+            # No model configured - return state with prompts for inspection
             pass
 
         return state
@@ -196,7 +194,12 @@ def autoformalize_dependency_tool(
 
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
-_MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\n(.*?)```")
+_DEFINITION_PATTERN = re.compile(
+    r"^\s*(?:def|abbrev|structure|inductive|theorem|class|instance)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.MULTILINE,
+)
+_MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\s*(.*?)```")
+_IMPORT_PATTERN = re.compile(r"^import\s+.*$", re.MULTILINE)
 
 
 def create_bound_dependency_tools(
@@ -319,11 +322,7 @@ def create_bound_dependency_tools(
 
                 # Extract the actual function/definition names from the Lean code
                 # Look for def, abbrev, structure, inductive, theorem patterns
-                definition_pattern = re.compile(
-                    r"^\s*(?:def|abbrev|structure|inductive|theorem|class|instance)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-                    re.MULTILINE,
-                )
-                definitions = definition_pattern.findall(lean_code)
+                definitions = _DEFINITION_PATTERN.findall(lean_code)
 
                 # Build a human-readable list of definitions
                 if definitions:
@@ -412,10 +411,10 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
 
         for module in modules:
             # Extract imports from this module
-            imports = IMPORT_PATTERN.findall(module)
+            imports = _IMPORT_PATTERN.findall(module)
             all_imports.extend(imports)
             # Remove imports from module content
-            cleaned = IMPORT_PATTERN.sub("", module).strip()
+            cleaned = _IMPORT_PATTERN.sub("", module).strip()
             if cleaned:  # Only add non-empty modules
                 cleaned_modules.append(cleaned)
 
