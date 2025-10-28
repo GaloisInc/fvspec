@@ -6,9 +6,27 @@ on:
   pull_request:
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      benchmark: ${{ steps.filter.outputs.benchmark }}
+      leaderboard: ${{ steps.filter.outputs.leaderboard }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            benchmark:
+              - 'benchmark/**'
+            leaderboard:
+              - 'leaderboard/**'
+
   benchmark-checks:
     name: ruff, ty, and tests
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.benchmark == 'true'
     defaults:
       run:
         working-directory: benchmark
@@ -35,6 +53,8 @@ jobs:
   leaderboard-checks:
     name: prettier, eslint, typecheck, and build
     runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.leaderboard == 'true'
     defaults:
       run:
         working-directory: leaderboard

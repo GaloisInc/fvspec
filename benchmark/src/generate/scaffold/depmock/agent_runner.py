@@ -21,18 +21,13 @@ from generate.scaffold.depmock.autoformalizer import (
 )
 from generate.scaffold.depmock.models import DependencyResult
 from generate.scaffold.tools.declaration import lean_diagnostic_messages
+from generate.templates.deps.strings import get_dependency_strings
 
 
-_SUPERVISOR_PROMPT = (
-    "You coordinate dependency autoformalization. Use the "
-    "`autoformalize_dependency_tool` to translate the provided Python helper "
-    "into Lean code. When you obtain Lean code, immediately wrap it in "
-    "<code>...</code> tags and verify it with the `lean_diagnostic_messages` tool. If "
-    "`lean_diagnostic_messages` reports errors, revise the Lean module by invoking the "
-    "autoformalizer again. Only call `submit()` after the Lean code has no errors, "
-    "and submit the final Lean code (still wrapped in <code> tags) with no "
-    "additional commentary."
-)
+def _get_supervisor_prompt() -> str:
+    """Load the supervisor prompt from templates."""
+    return get_dependency_strings().supervisor_prompt
+
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
 
@@ -113,7 +108,7 @@ def _run_agent_once(
     ]
 
     solver_plan = [
-        system_message(_SUPERVISOR_PROMPT),
+        system_message(_get_supervisor_prompt()),
         use_tools(tool_stack),
         basic_agent(max_attempts=max_attempts, message_limit=message_limit),
     ]

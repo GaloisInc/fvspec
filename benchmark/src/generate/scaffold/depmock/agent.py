@@ -2,20 +2,25 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Coroutine, Generator
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import Tool, ToolError, tool
 from inspect_ai.util._store import store
 
 from generate.templates.deps import get_dependency_prompts
+from generate.templates.deps.strings import get_dependency_strings
 from generate.scaffold.depmock.cache import CacheProvenance, store_dependency_result
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
+
+# Module-level logger to avoid multiple instantiations
+logger = logging.getLogger(__name__)
 
 
 def _ensure_system_message(state: AgentState, system_prompt: str) -> None:
@@ -74,6 +79,19 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
             )
 
         state.messages.append(ChatMessageUser(content=user_prompt))
+
+        # Call the model to generate a response if available.
+        # get_model() raises ValueError when no model is configured (e.g., in unit tests).
+        # In test contexts, we return the state with just the prompts added for validation.
+        try:
+            model = get_model()
+            response = await model.generate(state.messages)
+            state.messages.append(response.message)
+            state.output = response
+        except ValueError:
+            # No model configured - return state with prompts for inspection
+            pass
+
         return state
 
     def __await__(self) -> Generator[AgentState, None, AgentState]:
@@ -111,7 +129,7 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
         )
 
 
-@agent(description="Translate a Python dependency snippet into Lean 4 code.")
+@agent(description=get_dependency_strings().agent_description)
 def dependency_autoformalizer(
     state: AgentState,
     *,
@@ -154,9 +172,8 @@ def autoformalize_dependency_tool(
     main task loop, use create_bound_dependency_tools() instead which creates
     per-dependency tools that persist their outputs.
     """
-    tool_description = description or (
-        "Autoformalize a Python dependency into computable Lean code."
-    )
+    strings = get_dependency_strings()
+    tool_description = description or strings.legacy_tool_description
     kwargs: dict[str, object] = {
         "description": tool_description,
     }
@@ -174,6 +191,12 @@ def autoformalize_dependency_tool(
 
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
+_DEFINITION_PATTERN = re.compile(
+    r"^\s*(?:def|abbrev|structure|inductive|theorem|class|instance)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.MULTILINE,
+)
+_MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\s*(.*?)```")
+_IMPORT_PATTERN = re.compile(r"^import\s+.*$", re.MULTILINE)
 
 
 def create_bound_dependency_tools(
@@ -197,14 +220,14 @@ def create_bound_dependency_tools(
     Returns:
         List of tools, one per dependency
     """
+    strings = get_dependency_strings()
     tools: list[Tool] = []
 
     for payload in payloads:
         tool_name = f"autoformalize_{payload.dep_name}"
-        tool_description = (
-            f"Formalize the `{payload.dep_name}` Python dependency into "
-            f"computable Lean code. This will generate the Lean module "
-            f"Fvspec.Deps.{payload.lean_module_name}."
+        tool_description = strings.bound_tool.description.format(
+            dep_name=payload.dep_name,
+            lean_module_name=payload.lean_module_name,
         )
 
         # Set docstring dynamically (used as tool description)
@@ -214,22 +237,15 @@ def create_bound_dependency_tools(
         ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
             async def execute() -> str:
                 """Run autoformalizer and persist result for this dependency."""
+                strings = get_dependency_strings()
+
                 # Get task state
                 state = sample_state()
                 if not state:
-                    raise ToolError("No task state available")
+                    raise ToolError(strings.errors.no_task_state)
 
-                # Get the dependency prompts to extract the full user message
-                from generate.templates.deps import get_dependency_prompts
-
-                prompts = get_dependency_prompts(bound_variant)
-
-                # Render the full translate prompt with all dependency metadata
-                user_message = prompts.translate_template.render(
-                    bound_payload.prompt_context()
-                )
-
-                # Create the agent tool (without name parameter!)
+                # Create the agent tool with bound payload and variant
+                # The agent will internally render the full translation prompt
                 agent_tool = as_tool(
                     dependency_autoformalizer,
                     description=tool_description,
@@ -237,19 +253,85 @@ def create_bound_dependency_tools(
                     variant=bound_variant,
                 )
 
-                # Call the agent tool with the fully rendered prompt
-                # This includes all dependency metadata: source, docstrings, normalization plan, etc.
-                result_text = await agent_tool(input=user_message)
+                # Call the agent tool with a simple trigger message
+                # The agent handles all prompt rendering internally based on bound payload/variant
+                trigger = strings.bound_tool.trigger_message.format(
+                    dep_name=bound_payload.dep_name
+                )
+                result = await agent_tool(input=trigger)
 
-                # Extract code from <code>...</code> tags
-                match = _CODE_BLOCK_PATTERN.search(result_text)
-                if not match:
+                # Convert result to string (handle list of content blocks or plain string)
+                if isinstance(result, list):
+                    # Extract text from content blocks (ContentText objects)
+                    text_parts = []
+                    for item in result:
+                        if hasattr(item, "text"):
+                            text_parts.append(item.text)
+                        elif isinstance(item, str):
+                            text_parts.append(item)
+                        else:
+                            # Unexpected content type - log and convert to string
+                            logger.warning(
+                                f"Unexpected content type in agent result for {bound_payload.dep_name}: "
+                                f"{type(item).__name__}. Converting to string."
+                            )
+                            text_parts.append(str(item))
+                    result_text = "".join(text_parts)
+                elif isinstance(result, str):
+                    result_text = result
+                else:
+                    # Unexpected result type - log and convert to string
+                    logger.warning(
+                        f"Unexpected agent result type for {bound_payload.dep_name}: "
+                        f"{type(result).__name__}. Converting to string."
+                    )
+                    result_text = str(result)
+
+                # Defensive: ensure result_text is actually a string
+                if not isinstance(result_text, str):
                     raise ToolError(
-                        f"Autoformalizer for {bound_payload.dep_name} did not return "
-                        "Lean code in <code>...</code> tags"
+                        f"Internal error: result_text is {type(result_text).__name__} "
+                        f"instead of str for {bound_payload.dep_name}"
                     )
 
-                lean_code = match.group(1).strip()
+                # Extract code from <code>...</code> tags or markdown ```lean ... ``` blocks
+                match = _CODE_BLOCK_PATTERN.search(result_text)
+                if match:
+                    lean_code = match.group(1).strip()
+                else:
+                    # Try markdown code fence format as silent fallback
+                    match = _MARKDOWN_CODE_BLOCK_PATTERN.search(result_text)
+                    if match:
+                        lean_code = match.group(1).strip()
+                    else:
+                        # Neither format found - provide helpful context
+                        preview = (
+                            result_text[:512] + "..."
+                            if len(result_text) > 512
+                            else result_text
+                        )
+                        raise ToolError(
+                            strings.errors.missing_code_tags_with_preview.format(
+                                dep_name=bound_payload.dep_name,
+                                preview=preview,
+                            )
+                        )
+
+                # Extract the actual function/definition names from the Lean code
+                # Look for def, abbrev, structure, inductive, theorem patterns
+                definitions = _DEFINITION_PATTERN.findall(lean_code)
+
+                # Build a human-readable list of definitions
+                if definitions:
+                    # Use the first definition as the primary one for the message
+                    primary_def = definitions[0]
+                    if len(definitions) > 1:
+                        def_list = f"`{primary_def}` (and {len(definitions) - 1} other definition(s))"
+                    else:
+                        def_list = f"`{primary_def}`"
+                else:
+                    # Fallback if we can't parse definitions
+                    def_list = "definitions"
 
                 # Create result
                 result = DependencyResult(
@@ -290,10 +372,9 @@ def create_bound_dependency_tools(
                     # Update Deps.lean (regenerate from all modules in deps/)
                     _update_deps_lean(deps_dir, sample_dir)
 
-                return (
-                    f"Successfully formalized {bound_payload.dep_name} as "
-                    f"Fvspec.Deps.{bound_payload.lean_module_name}. "
-                    f"Use `import Fvspec.Deps` to access it."
+                return strings.bound_tool.success_message.format(
+                    dep_name=bound_payload.dep_name,
+                    def_list=def_list,
                 )
 
             return execute
@@ -313,6 +394,7 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
         deps_dir: Directory containing individual .lean module files
         sample_dir: Sample output directory where Deps.lean should be written
     """
+    strings = get_dependency_strings()
     modules: list[str] = []
 
     for lean_file in sorted(deps_dir.glob("*.lean")):
@@ -320,10 +402,32 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
             modules.append(lean_file.read_text().strip())
 
     if modules:
-        body = "\n\n".join(modules)
-        lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
+        # Extract all imports and move them to the top
+        all_imports: list[str] = []
+        cleaned_modules: list[str] = []
+
+        for module in modules:
+            # Extract imports from this module
+            imports = _IMPORT_PATTERN.findall(module)
+            all_imports.extend(imports)
+            # Remove imports from module content
+            cleaned = _IMPORT_PATTERN.sub("", module).strip()
+            if cleaned:  # Only add non-empty modules
+                cleaned_modules.append(cleaned)
+
+        # Deduplicate and sort imports
+        unique_imports = sorted(set(all_imports))
+
+        # Build final file: imports at top, then module contents
+        parts = []
+        if unique_imports:
+            parts.append("\n".join(unique_imports))
+        if cleaned_modules:
+            parts.append("\n\n".join(cleaned_modules))
+
+        lean_text = "\n\n".join(parts) + "\n"
     else:
-        lean_text = "-- No dependencies\n"
+        lean_text = strings.deps_lean.empty
 
     deps_lean_file = sample_dir / "Deps.lean"
     deps_lean_file.write_text(lean_text)

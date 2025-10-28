@@ -59,9 +59,9 @@ class DependencyVariantRegistry:
                 metadata = tomllib.load(f)
 
         system_prompt_path = variant_path / "system.prompt"
-        translate_prompt_path = variant_path / "translate.prompt"
-        refine_prompt_path = variant_path / "refine.prompt"
-        common_refine_path = self.templates_dir / "common" / "refine.prompt"
+        translate_prompt_path = variant_path / "translate.prompt.template"
+        refine_prompt_path = variant_path / "refine.prompt.template"
+        common_refine_path = self.templates_dir / "common" / "refine.prompt.template"
 
         if not system_prompt_path.exists():
             raise FileNotFoundError(
@@ -69,7 +69,7 @@ class DependencyVariantRegistry:
             )
         if not translate_prompt_path.exists():
             raise FileNotFoundError(
-                f"Translate prompt not found for dependency variant '{name}'"
+                f"Translate prompt template not found for dependency variant '{name}'"
             )
 
         if refine_prompt_path.exists():
@@ -78,7 +78,7 @@ class DependencyVariantRegistry:
             refine_template = common_refine_path.read_text()
         else:
             raise FileNotFoundError(
-                "No refine.prompt found in variant or common directory."
+                "No refine.prompt.template found in variant or common directory."
             )
 
         return DependencyVariantConfig(
