@@ -28,6 +28,11 @@ fvspec is a benchmark suite for evaluating AI models on formal verification task
 - **`/baselines`** - Baseline implementations (see `baselines/AGENTS.md`)
   - Minimal currently; will contain baseline model evaluations
 
+- **`/leaderboard`** - Public leaderboard website (see `leaderboard/AGENTS.md`)
+  - Three-service architecture: Next.js frontend, Hono API, BullMQ worker
+  - Secure sandboxed execution of `lake build` with attestations
+  - Real-time submission tracking and results display
+
 - **`/benchmark/artifacts`** - Benchmark outputs (gitignored)
   - Timestamped run directories with `.eval` logs, Lean specs, metrics
 
@@ -40,6 +45,7 @@ Requires `uv`, `elan`, `lefthook`, maybe more (like `ripgrep` is a dep of an mcp
 See subdirectory `AGENTS.md` files for detailed documentation:
 - **Benchmark generation:** `benchmark/AGENTS.md`
 - **Baselines:** `baselines/AGENTS.md`
+- **Leaderboard website:** `leaderboard/AGENTS.md`
 
 ## General Code Style
 
