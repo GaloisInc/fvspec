@@ -8,6 +8,5 @@
     "skipLibCheck": true,
     "outDir": "dist"
   },
-  "include": ["src"],
-  "references": [{ "path": "../common" }]
+  "include": ["src"]
 }
