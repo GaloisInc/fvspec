@@ -4,7 +4,6 @@ Dependency metadata:
 - Qualified Python name: {{ dep_name }}
 {% if module_path %}- Python module path: {{ module_path }}{% endif %}
 - Callable kind: {{ callable_kind }}
-- Target Lean module: {{ lean_module_qualified }}
 
 {% if callable_signature %}
 Python signature:

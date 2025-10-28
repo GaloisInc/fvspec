@@ -1,0 +1,53 @@
+# Common strings used across dependency autoformalization
+
+[agent]
+description = "Translate a Python dependency snippet into Lean 4 code."
+
+[legacy_tool]
+description = "Autoformalize a Python dependency into computable Lean code."
+
+[bound_tool]
+# Template for per-dependency tool descriptions
+# Variables: {dep_name}, {lean_module_name}
+description = """Formalize the `{dep_name}` Python dependency into computable Lean code. This will generate the Lean module Fvspec.Deps.{lean_module_name}. CRITICAL: Always wrap your Lean code response in <code>...</code> tags."""
+
+# Trigger message sent to agent tool
+# Variables: {dep_name}
+trigger_message = """Translate the {dep_name} dependency to Lean 4. Return ONLY the Lean code wrapped in <code>...</code> tags."""
+
+# Success message returned after tool execution
+# Variables: {dep_name}, {def_list}, {lean_module_name}
+success_message = """Successfully formalized {dep_name} as {def_list} in module Fvspec.Deps.{lean_module_name}. Use `import Fvspec.Deps` to access it."""
+
+[errors]
+# Error when code block extraction fails
+# Variables: {dep_name}
+missing_code_tags = """Autoformalizer for {dep_name} did not return Lean code in <code>...</code> tags"""
+
+# Error with response preview when code extraction fails
+# Variables: {dep_name}, {preview}
+missing_code_tags_with_preview = """Autoformalizer for {dep_name} did not return Lean code in <code>...</code> tags
+
+Response preview:
+{preview}
+
+The agent must wrap Lean code in <code>...</code> tags as specified in the tool description."""
+
+no_task_state = "No task state available"
+
+[supervisor]
+# System prompt for the standalone supervisor agent (agent_runner.py)
+prompt = """You coordinate dependency autoformalization. Use the `autoformalize_dependency_tool` to translate the provided Python helper into Lean code. When you obtain Lean code, immediately wrap it in <code>...</code> tags and verify it with the `lean_diagnostic_messages` tool. If `lean_diagnostic_messages` reports errors, revise the Lean module by invoking the autoformalizer again. Only call `submit()` after the Lean code has no errors, and submit the final Lean code (still wrapped in <code> tags) with no additional commentary."""
+
+[deps_lean]
+# Header for empty Deps.lean file
+empty = "-- No dependencies\n"
+
+# Namespace wrapper template
+# Variables: {body}
+namespace = """namespace Fvspec.Deps
+
+{body}
+
+end Fvspec.Deps
+"""
