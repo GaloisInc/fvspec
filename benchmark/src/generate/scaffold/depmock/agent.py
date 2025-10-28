@@ -397,9 +397,6 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
     strings = get_dependency_strings()
     modules: list[str] = []
 
-    # Pattern for extracting import statements from Lean code
-    import_pattern = re.compile(r"^import\s+.*$", re.MULTILINE)
-
     for lean_file in sorted(deps_dir.glob("*.lean")):
         if lean_file.name != "Deps.lean":
             modules.append(lean_file.read_text().strip())
