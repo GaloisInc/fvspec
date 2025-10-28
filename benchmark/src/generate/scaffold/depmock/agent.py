@@ -22,9 +22,6 @@ from generate.scaffold.tools import utilio
 # Module-level logger to avoid multiple instantiations
 logger = logging.getLogger(__name__)
 
-# Pattern for extracting import statements from Lean code
-IMPORT_PATTERN = re.compile(r"^import\s+.*$", re.MULTILINE)
-
 
 def _ensure_system_message(state: AgentState, system_prompt: str) -> None:
     """Ensure the conversation contains a system prompt."""
@@ -399,6 +396,9 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
     """
     strings = get_dependency_strings()
     modules: list[str] = []
+    
+    # Pattern for extracting import statements from Lean code
+    import_pattern = re.compile(r"^import\s+.*$", re.MULTILINE)
 
     for lean_file in sorted(deps_dir.glob("*.lean")):
         if lean_file.name != "Deps.lean":
