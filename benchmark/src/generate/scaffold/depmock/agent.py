@@ -19,6 +19,9 @@ from generate.scaffold.depmock.cache import CacheProvenance, store_dependency_re
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
 
+# Module-level logger to avoid multiple instantiations
+logger = logging.getLogger(__name__)
+
 
 def _ensure_system_message(state: AgentState, system_prompt: str) -> None:
     """Ensure the conversation contains a system prompt."""
@@ -268,7 +271,6 @@ def create_bound_dependency_tools(
                             text_parts.append(item)
                         else:
                             # Unexpected content type - log and convert to string
-                            logger = logging.getLogger("generate.depmock.agent")
                             logger.warning(
                                 f"Unexpected content type in agent result for {bound_payload.dep_name}: "
                                 f"{type(item).__name__}. Converting to string."
@@ -279,7 +281,6 @@ def create_bound_dependency_tools(
                     result_text = result
                 else:
                     # Unexpected result type - log and convert to string
-                    logger = logging.getLogger("generate.depmock.agent")
                     logger.warning(
                         f"Unexpected agent result type for {bound_payload.dep_name}: "
                         f"{type(result).__name__}. Converting to string."
