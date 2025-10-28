@@ -54,6 +54,7 @@ dist/
 build/
 out/
 lib/
+!leaderboard/packages/web/src/lib/
 .esbuild/
 tsbuildinfo/
 *.tsbuildinfo
