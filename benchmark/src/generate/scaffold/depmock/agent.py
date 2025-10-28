@@ -77,18 +77,16 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
         state.messages.append(ChatMessageUser(content=user_prompt))
 
-        # Actually call the model to generate a response
-        # (only if running in an evaluation context with a model available)
+        # Call the model to generate a response if available.
+        # get_model() raises ValueError when no model is configured (e.g., in unit tests).
+        # In test contexts, we return the state with just the prompts added for validation.
         try:
             model = get_model()
             response = await model.generate(state.messages)
-
-            # Add the assistant's response to the state
             state.messages.append(response.message)
             state.output = response
         except ValueError:
-            # No model available (likely running in test context)
-            # Just return the state with the prompts added
+            # No model configured - return state with prompts for inspection
             pass
 
         return state
