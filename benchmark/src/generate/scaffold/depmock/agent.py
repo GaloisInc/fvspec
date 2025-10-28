@@ -403,16 +403,15 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
 
     if modules:
         # Extract all imports and move them to the top
-        import_pattern = re.compile(r"^import\s+.*$", re.MULTILINE)
         all_imports: list[str] = []
         cleaned_modules: list[str] = []
 
         for module in modules:
             # Extract imports from this module
-            imports = import_pattern.findall(module)
+            imports = IMPORT_PATTERN.findall(module)
             all_imports.extend(imports)
             # Remove imports from module content
-            cleaned = import_pattern.sub("", module).strip()
+            cleaned = IMPORT_PATTERN.sub("", module).strip()
             if cleaned:  # Only add non-empty modules
                 cleaned_modules.append(cleaned)
 
