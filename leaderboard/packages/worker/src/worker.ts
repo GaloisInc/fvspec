@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { Worker, QueueEvents, type Job } from 'bullmq'
 import IORedis from 'ioredis'
 import { SubmissionJob, type SubmissionJob as SubmissionJobType } from './lib/job-schema.js'

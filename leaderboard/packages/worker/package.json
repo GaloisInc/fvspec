@@ -22,6 +22,7 @@
   "dependencies": {
     "@fvspec/common": "workspace:*",
     "bullmq": "^5.61.2",
+    "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "ioredis": "^5.8.2",
     "undici": "^7.16.0",

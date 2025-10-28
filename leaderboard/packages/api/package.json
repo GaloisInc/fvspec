@@ -26,6 +26,7 @@
     "@fvspec/common": "workspace:*",
     "@hono/node-server": "^1.19.5",
     "bullmq": "^5.61.2",
+    "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.7",
     "hono": "^4.10.3",
