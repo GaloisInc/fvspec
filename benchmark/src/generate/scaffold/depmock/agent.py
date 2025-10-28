@@ -375,7 +375,6 @@ def create_bound_dependency_tools(
                 return strings.bound_tool.success_message.format(
                     dep_name=bound_payload.dep_name,
                     def_list=def_list,
-                    lean_module_name=bound_payload.lean_module_name,
                 )
 
             return execute
@@ -403,8 +402,8 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
             modules.append(lean_file.read_text().strip())
 
     if modules:
-        body = "\n\n".join(modules)
-        lean_text = strings.deps_lean.namespace.format(body=body)
+        # Just concatenate modules without namespace wrapping
+        lean_text = "\n\n".join(modules) + "\n"
     else:
         lean_text = strings.deps_lean.empty
 

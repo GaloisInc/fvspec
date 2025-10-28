@@ -16,8 +16,8 @@ description = """Formalize the `{dep_name}` Python dependency into computable Le
 trigger_message = """Translate the {dep_name} dependency to Lean 4. Return ONLY the Lean code wrapped in <code>...</code> tags."""
 
 # Success message returned after tool execution
-# Variables: {dep_name}, {def_list}, {lean_module_name}
-success_message = """Successfully formalized {dep_name} as {def_list} in module Fvspec.Deps.{lean_module_name}. Use `import Fvspec.Deps` to access it."""
+# Variables: {dep_name}, {def_list}
+success_message = """Successfully formalized {dep_name} as {def_list}. Use `import Fvspec.Deps` to access it."""
 
 [errors]
 # Error when code block extraction fails
@@ -42,12 +42,3 @@ prompt = """You coordinate dependency autoformalization. Use the `autoformalize_
 [deps_lean]
 # Header for empty Deps.lean file
 empty = "-- No dependencies\n"
-
-# Namespace wrapper template
-# Variables: {body}
-namespace = """namespace Fvspec.Deps
-
-{body}
-
-end Fvspec.Deps
-"""

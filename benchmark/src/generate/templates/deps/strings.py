@@ -3,12 +3,12 @@
 from __future__ import annotations
 
 import tomllib
-from dataclasses import dataclass
 from pathlib import Path
 
+from pydantic import BaseModel
 
-@dataclass(frozen=True)
-class BoundToolStrings:
+
+class BoundToolStrings(BaseModel, frozen=True):
     """Strings for bound dependency tools."""
 
     description: str
@@ -16,8 +16,7 @@ class BoundToolStrings:
     success_message: str
 
 
-@dataclass(frozen=True)
-class ErrorStrings:
+class ErrorStrings(BaseModel, frozen=True):
     """Error message templates."""
 
     missing_code_tags: str
@@ -25,16 +24,13 @@ class ErrorStrings:
     no_task_state: str
 
 
-@dataclass(frozen=True)
-class DepsLeanStrings:
+class DepsLeanStrings(BaseModel, frozen=True):
     """Strings for Deps.lean file generation."""
 
     empty: str
-    namespace: str
 
 
-@dataclass(frozen=True)
-class DependencyStrings:
+class DependencyStrings(BaseModel, frozen=True):
     """All dependency autoformalization strings."""
 
     agent_description: str
@@ -79,7 +75,6 @@ def get_dependency_strings() -> DependencyStrings:
         ),
         deps_lean=DepsLeanStrings(
             empty=data["deps_lean"]["empty"],
-            namespace=data["deps_lean"]["namespace"],
         ),
     )
 
