@@ -396,7 +396,7 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
     """
     strings = get_dependency_strings()
     modules: list[str] = []
-    
+
     # Pattern for extracting import statements from Lean code
     import_pattern = re.compile(r"^import\s+.*$", re.MULTILINE)
 
