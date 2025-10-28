@@ -12,7 +12,11 @@
     "lint:fix": "eslint . --fix",
     "test": "echo \"Error: no test specified\" && exit 1",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf dist"
+    "clean": "rm -rf dist",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:push": "drizzle-kit push",
+    "db:studio": "drizzle-kit studio"
   },
   "keywords": [],
   "author": "",
@@ -20,6 +24,7 @@
   "packageManager": "pnpm@10.19.0",
   "dependencies": {
     "@fvspec/common": "workspace:*",
+    "@hono/node-server": "^1.19.5",
     "bullmq": "^5.61.2",
     "drizzle-kit": "^0.31.5",
     "drizzle-orm": "^0.44.7",

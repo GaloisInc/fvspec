@@ -7,6 +7,7 @@ import type { Track } from '@fvspec/common'
  */
 export const SubmissionJob = z.object({
   submissionId: z.number(),
+  runId: z.number(),
   repoUrl: z.string().url(),
   commitSha: z.string().min(7),
   trackId: z.string() as z.ZodType<Track>,

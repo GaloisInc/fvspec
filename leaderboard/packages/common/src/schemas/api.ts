@@ -84,10 +84,11 @@ export const RunDetailSchema = z.object({
 export type RunDetail = z.infer<typeof RunDetailSchema>
 
 /**
- * POST /ingest request (worker -> API)
+ * POST /results request (worker -> API)
  */
-export const IngestRequestSchema = z.object({
+export const ResultsRequestSchema = z.object({
   submissionId: z.number(),
+  runId: z.number().optional(), // Optional: worker may not know run ID
   status: z.enum(['succeeded', 'failed']),
   metrics: z.object({
     score: z.number().nullable(),
@@ -103,13 +104,19 @@ export const IngestRequestSchema = z.object({
   errorMessage: z.string().optional(),
 })
 
-export type IngestRequest = z.infer<typeof IngestRequestSchema>
+export type ResultsRequest = z.infer<typeof ResultsRequestSchema>
 
 /**
- * POST /ingest response
+ * POST /results response
  */
-export const IngestResponseSchema = z.object({
+export const ResultsResponseSchema = z.object({
   ok: z.boolean(),
 })
 
-export type IngestResponse = z.infer<typeof IngestResponseSchema>
+export type ResultsResponse = z.infer<typeof ResultsResponseSchema>
+
+// Legacy aliases for backwards compatibility
+export const IngestRequestSchema = ResultsRequestSchema
+export type IngestRequest = ResultsRequest
+export const IngestResponseSchema = ResultsResponseSchema
+export type IngestResponse = ResultsResponse

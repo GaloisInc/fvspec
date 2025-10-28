@@ -1,7 +1,7 @@
 import { fetch } from 'undici'
 
-export async function reportIngest(apiBase: string, token: string, body: unknown): Promise<void> {
-  const res = await fetch(`${apiBase}/ingest`, {
+export async function reportResults(apiBase: string, token: string, body: unknown): Promise<void> {
+  const res = await fetch(`${apiBase}/results`, {
     method: 'POST',
     headers: {
       'content-type': 'application/json',
@@ -9,5 +9,8 @@ export async function reportIngest(apiBase: string, token: string, body: unknown
     },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error(`ingest failed: ${res.status} ${await res.text()}`)
+  if (!res.ok) throw new Error(`results report failed: ${res.status} ${await res.text()}`)
 }
+
+// Legacy alias for backwards compatibility
+export const reportIngest = reportResults

@@ -3,7 +3,7 @@ import IORedis from 'ioredis'
 import { SubmissionJob, type SubmissionJob as SubmissionJobType } from './lib/job-schema.js'
 import { executeLeanBuild } from './executors/lean.js'
 import { buildAttestation } from './lib/attestation.js'
-import { reportIngest } from './lib/report.js'
+import { reportResults } from './lib/report.js'
 
 const connection = new IORedis(process.env.REDIS_URL!)
 const queueName = 'submissions'
@@ -44,15 +44,16 @@ const worker = new Worker<SubmissionJobType>(
     })
 
     // TODO: parse results/summary.json for metrics if your harness writes it
-    const ingestBody = {
+    const resultsBody = {
       submissionId: data.submissionId,
+      runId: data.runId,
       status: 'succeeded',
-      metrics: { score: null, passAtK: null, timeSec: null }, // fill from results
+      metrics: { score: null, passRate: null, avgTime: null }, // fill from results
       attestation,
       logs: { logPath }, // or upload to S3 and send URL instead
     }
 
-    await reportIngest(process.env.API_BASE_URL!, process.env.API_TOKEN!, ingestBody)
+    await reportResults(process.env.API_BASE_URL!, process.env.API_TOKEN!, resultsBody)
   },
   {
     connection,
