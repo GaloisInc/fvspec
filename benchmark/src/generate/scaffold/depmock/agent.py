@@ -78,18 +78,12 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
         state.messages.append(ChatMessageUser(content=user_prompt))
 
         # Actually call the model to generate a response
-        # (only if running in an evaluation context with a model available)
-        try:
-            model = get_model()
-            response = await model.generate(state.messages)
+        model = get_model()
+        response = await model.generate(state.messages)
 
-            # Add the assistant's response to the state
-            state.messages.append(response.message)
-            state.output = response
-        except ValueError:
-            # No model available (likely running in test context)
-            # Just return the state with the prompts added
-            pass
+        # Add the assistant's response to the state
+        state.messages.append(response.message)
+        state.output = response
 
         return state
 
