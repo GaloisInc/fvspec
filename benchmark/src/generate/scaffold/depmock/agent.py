@@ -191,6 +191,10 @@ def autoformalize_dependency_tool(
 
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
 _MARKDOWN_CODE_BLOCK_PATTERN = re.compile(r"(?s)```(?:lean)?\n(.*?)```")
+_DEFINITION_PATTERN = re.compile(
+    r"^\s*(?:def|abbrev|structure|inductive|theorem|class|instance)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
+    re.MULTILINE,
+)
 
 
 def create_bound_dependency_tools(
@@ -315,11 +319,7 @@ def create_bound_dependency_tools(
 
                 # Extract the actual function/definition names from the Lean code
                 # Look for def, abbrev, structure, inductive, theorem patterns
-                definition_pattern = re.compile(
-                    r"^\s*(?:def|abbrev|structure|inductive|theorem|class|instance)\s+([a-zA-Z_][a-zA-Z0-9_]*)",
-                    re.MULTILINE,
-                )
-                definitions = definition_pattern.findall(lean_code)
+                definitions = _DEFINITION_PATTERN.findall(lean_code)
 
                 # Build a human-readable list of definitions
                 if definitions:
