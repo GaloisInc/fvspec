@@ -45,17 +45,11 @@ jobs:
         uses: pnpm/action-setup@v4
         with:
           version: 10
-      - name: Configure pnpm store
-        run: |
-          mkdir -p "$HOME/.pnpm-store"
-          pnpm config set store-dir "$HOME/.pnpm-store"
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-          package-manager-cache: false
-          cache: pnpm
-          cache-dependency-path: pnpm-lock.yaml
+        # TODO: Have cache
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Format check
