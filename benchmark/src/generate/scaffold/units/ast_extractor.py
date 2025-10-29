@@ -332,6 +332,7 @@ class ASTExtractor(ast.NodeVisitor):
                     elif isinstance(node.op, ast.Mult):
                         return left * right
                 except (TypeError, ValueError):
+                    # Ignore type/value errors: operation not evaluable with current values
                     pass
 
         # Handle subscript operations (e.g., [1, 2, 3][i])
