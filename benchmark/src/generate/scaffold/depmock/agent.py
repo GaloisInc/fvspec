@@ -136,6 +136,20 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
                                         ),
                                     )
                                 )
+                        else:
+                            # Tool not found - return error so API doesn't complain about missing tool_result
+                            available_tools = ", ".join(tools_by_name.keys())
+                            tool_results.append(
+                                ChatMessageTool(
+                                    tool_call_id=tool_call.id,
+                                    function=tool_call.function,
+                                    content=f"Tool '{tool_call.function}' not available. Available tools: {available_tools}",
+                                    error=ToolCallError(
+                                        message=f"Tool '{tool_call.function}' not found",
+                                        type="unknown",
+                                    ),
+                                )
+                            )
 
                     # Append all tool results together
                     state.messages.extend(tool_results)
