@@ -306,7 +306,7 @@ def create_bound_dependency_tools(
     tools: list[Tool] = []
 
     for payload in payloads:
-        tool_name = f"autoformalize_{payload.dep_name}"
+        tool_name = f"depmock_autoformalize_{payload.dep_name}"
         tool_description = strings.bound_tool.description.format(
             dep_name=payload.dep_name,
             lean_module_name=payload.lean_module_name,
