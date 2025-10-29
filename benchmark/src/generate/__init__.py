@@ -485,7 +485,7 @@ def deps_autoformalize_command(
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / "runs" / f"{timestamp}__variant_{path_variant}"
+    base_dir = Path("artifacts") / "runs" / f"{timestamp}__{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -801,23 +801,24 @@ def deps_cache_clear_wandb_command() -> None:
 def index_data_command(
     datafile: str = Option("pbts.jsonl", help="Path to JSONL file to index"),
 ) -> None:
-    """Build a byte-offset index for fast random sampling of the dataset.
+    """Build indexes for fast dataset access.
 
-    This is a one-time operation that creates an index file (datafile + ".index")
-    mapping line numbers to byte positions. The index enables O(sample_size) sampling
-    instead of O(total_lines) reservoir sampling.
+    This is a one-time operation that creates two index files:
+    1. Byte-offset index (datafile + ".index") - for random sampling
+    2. ID index (datafile + ".id_index") - for fast ID-based lookup
 
     For the 116GB pbts.jsonl file:
-    - Indexing takes: ~10-30 minutes (one-time cost)
-    - Index file size: ~1-2 MB
-    - Sampling speed: ~1 second for any sample size (vs ~10 minutes without index)
+    - Indexing takes: ~10-30 minutes per index (one-time cost)
+    - Index file sizes: ~1-2 MB each
+    - Random sampling: ~1 second (vs ~10 minutes without index)
+    - ID lookup: instant (vs scanning entire file)
 
-    The index is automatically used by all sampling operations once created.
+    Both indexes are automatically used by sampling and lookup operations once created.
 
     Args:
         datafile: JSONL file to index (default: pbts.jsonl)
     """
-    from generate.scaffold.dataset import build_index
+    from generate.scaffold.dataset import build_index, build_id_index
 
     dataset_path = (DATA_DIR / datafile).resolve()
 
@@ -826,13 +827,19 @@ def index_data_command(
         raise typer.Exit(code=1)
 
     try:
+        # Build byte-offset index for random sampling
         index_path = build_index(dataset_path)
-        print(f"\n✓ Index successfully created at {index_path}")
+        print(f"\n✓ Byte-offset index created at {index_path}")
+
+        # Build ID index for fast ID lookups
+        id_index_path = build_id_index(dataset_path)
+        print(f"\n✓ ID index created at {id_index_path}")
+
         print(
-            f"  All future sampling operations will automatically use this index for fast random access."
+            f"\n  All future operations will automatically use these indexes for fast access."
         )
     except Exception as e:
-        print(f"Error building index: {e}")
+        print(f"Error building indexes: {e}")
         raise typer.Exit(code=1)
 
 
