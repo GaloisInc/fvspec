@@ -132,8 +132,10 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
                             try:
                                 # ToolCallView.call expects ToolCallContent, which is in tool_call.view
                                 view = ToolCallView(call=tool_call.view)
-                                # Unpack arguments dict and pass view as final argument
-                                result = await tool(**tool_call.arguments, view=view)
+                                # Unpack arguments dict with view included
+                                result = await tool(
+                                    **{**tool_call.arguments, "view": view}
+                                )
                                 tool_results.append(
                                     ChatMessageTool(
                                         tool_call_id=tool_call.id,
