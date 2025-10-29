@@ -126,13 +126,18 @@ def test_sample_workspace_context_manager_cleans_up_on_exception(mock_lake_templ
     """Verify context manager cleans up even when exception is raised."""
     workspace_path = None
 
-    with pytest.raises(ValueError, match="test error"):
+    def raise_in_workspace():
+        """Helper to raise exception within workspace context."""
         with sample_workspace(
             "sample_007", lake_template=mock_lake_template
         ) as workspace:
+            nonlocal workspace_path
             workspace_path = workspace
             assert workspace.exists()
             raise ValueError("test error")
+
+    with pytest.raises(ValueError, match="test error"):
+        raise_in_workspace()
 
     # Workspace should still be cleaned up after exception
     assert workspace_path is not None

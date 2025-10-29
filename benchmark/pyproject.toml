@@ -45,7 +45,7 @@ filterwarnings = [
 ]
 
 [tool.ruff.lint]
-select = ["F", "UP", "I", "D"]
+select = ["F", "UP", "I", "D", "PT"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"

@@ -50,7 +50,8 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     assert "namespace Fvspec.Deps" in lean_text
     assert "helper" in lean_text
     payloads = meta.get("payloads")
-    assert isinstance(payloads, list) and payloads
+    assert isinstance(payloads, list)
+    assert payloads
     assert payloads[0]["dep_name"] == "helper"
 
     # Check that consolidated Deps.lean was written to sample output directory

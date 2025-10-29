@@ -83,10 +83,10 @@ uv run fvspec compare-variants --skip-index
 
 don't try to symlink the whole lakedir, but maybe just the `.lake/pkgs` part.
 
-## reasses difficulty levels in unit test classification script
-
-it got some of the difficulties wrong.
-
 ## actually implement central fn (not just sig) at benchmark-generation-time.
 
 Optionally drop it out / replace body with sorry later. 
+
+## double check that lean deps are getting appended to the main spec-agent prompt. 
+
+I think this is not happening. Its reverting to symbolic interfaces, which is pretty terrible. 
