@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Coroutine, Generator, cast
+from typing import Any, Awaitable, Callable, Coroutine, Generator
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
 from inspect_ai.model import (
