@@ -107,7 +107,10 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
                 # Check if model wants to call tools
                 if response.message.tool_calls:
-                    # Execute tool calls
+                    # Execute all tool calls and collect results
+                    # IMPORTANT: All tool results must be appended together as consecutive messages
+                    # immediately after the assistant's tool_use message
+                    tool_results = []
                     for tool_call in response.message.tool_calls:
                         tool = tools_by_name.get(tool_call.function)
                         if tool:
@@ -115,7 +118,7 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
                                 # ToolCallView takes the tool_call as context
                                 view = ToolCallView(call=cast(Any, tool_call))
                                 result = await tool(tool_call.arguments, view)
-                                state.messages.append(
+                                tool_results.append(
                                     ChatMessageTool(
                                         tool_call_id=tool_call.id,
                                         function=tool_call.function,
@@ -123,7 +126,7 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
                                     )
                                 )
                             except Exception as e:
-                                state.messages.append(
+                                tool_results.append(
                                     ChatMessageTool(
                                         tool_call_id=tool_call.id,
                                         function=tool_call.function,
@@ -133,6 +136,9 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
                                         ),
                                     )
                                 )
+
+                    # Append all tool results together
+                    state.messages.extend(tool_results)
                 else:
                     # No tool calls - agent is done
                     break
