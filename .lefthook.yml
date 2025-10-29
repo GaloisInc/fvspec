@@ -4,12 +4,12 @@ pre-commit:
     format-benchmark:
       root: "benchmark/"
       glob: "*.py"
-      run: uv run ruff format --check {staged_files}
+      run: uv run ruff format {staged_files}
       stage_fixed: true
     lint-benchmark:
       root: "benchmark/"
       glob: "*.py"
-      run: uv run ruff check {staged_files}
+      run: uv run ruff check --fix {staged_files}
       stage_fixed: true
     typecheck-benchmark:
       root: "benchmark/"
