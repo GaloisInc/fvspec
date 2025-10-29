@@ -1,0 +1,159 @@
+"""External validation for floating-point unit tests.
+
+This module provides runtime validation of float tests by running Lean's #eval
+and comparing outputs with tolerance. Used during benchmark evaluation, not generation.
+"""
+
+import re
+import subprocess
+from pathlib import Path
+
+
+class FloatTestValidator:
+    """Validator for floating-point unit tests with tolerance checking.
+
+    This is used DURING EVALUATION (not generation) to validate model implementations
+    against float tests. It runs `lean --run` to execute #eval statements and
+    compares outputs with expected values using numpy.isclose semantics.
+
+    Example:
+        >>> validator = FloatTestValidator()
+        >>> # Parse Lean output
+        >>> output = "1.41421356"
+        >>> result = validator.parse_lean_output(output)
+        >>> result
+        1.41421356
+        >>> # Validate against expected value
+        >>> validator.validate_float_test("1.41421356", 1.41421, 1e-5, 1e-8)
+        True
+    """
+
+    def parse_lean_output(self, output: str) -> float | list[float] | None:
+        """Parse Lean #eval output to extract numeric values.
+
+        Args:
+            output: Raw output from Lean #eval
+
+        Returns:
+            Parsed numeric value(s), or None if parsing fails
+
+        Examples:
+            >>> validator = FloatTestValidator()
+            >>> validator.parse_lean_output("1.5")
+            1.5
+            >>> validator.parse_lean_output("[1.0, 2.0, 3.0]")
+            [1.0, 2.0, 3.0]
+        """
+        # Remove whitespace
+        output = output.strip()
+
+        # Try to parse as single float
+        try:
+            return float(output)
+        except ValueError:
+            pass
+
+        # Try to parse as list of floats: [1.0, 2.0, 3.0]
+        list_match = re.match(r"\[([\d\., ]+)\]", output)
+        if list_match:
+            try:
+                numbers_str = list_match.group(1)
+                numbers = [float(x.strip()) for x in numbers_str.split(",")]
+                return numbers
+            except ValueError:
+                pass
+
+        # Can't parse
+        return None
+
+    def validate_float_test(
+        self, actual: str, expected: float, rtol: float, atol: float
+    ) -> bool:
+        """Validate a float test with tolerance (numpy.isclose semantics).
+
+        Args:
+            actual: Actual output from Lean #eval
+            expected: Expected value
+            rtol: Relative tolerance
+            atol: Absolute tolerance
+
+        Returns:
+            True if values match within tolerance
+
+        Formula:
+            abs(actual - expected) <= atol + rtol * abs(expected)
+
+        Example:
+            >>> validator = FloatTestValidator()
+            >>> validator.validate_float_test("1.41421356", 1.41421, 1e-5, 1e-8)
+            True
+            >>> validator.validate_float_test("1.5", 1.0, 1e-5, 1e-8)
+            False
+        """
+        actual_val = self.parse_lean_output(actual)
+        if actual_val is None:
+            return False
+
+        # Handle single float
+        if isinstance(actual_val, float):
+            return abs(actual_val - expected) <= atol + rtol * abs(expected)
+
+        # Handle list of floats (for now, not implemented)
+        # TODO: Add support for comparing lists with tolerance
+        return False
+
+    def validate_test_file(self, spec_file: Path) -> dict[str, list[str]]:
+        """Run a Lean file and validate all float tests.
+
+        This is used during evaluation to check if model implementations
+        pass the float tests.
+
+        Args:
+            spec_file: Path to Lean file containing #eval statements
+
+        Returns:
+            Dictionary with 'passed', 'failed', and 'errors' lists
+
+        Example:
+            >>> validator = FloatTestValidator()
+            >>> # During evaluation, after model implements the function
+            >>> results = validator.validate_test_file(Path("spec.lean"))
+            >>> results.keys()
+            dict_keys(['passed', 'failed', 'errors'])
+        """
+        # Run Lean file
+        try:
+            result = subprocess.run(
+                ["lean", "--run", str(spec_file)],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+        except subprocess.TimeoutExpired:
+            return {
+                "passed": [],
+                "failed": [],
+                "errors": ["Timeout running Lean file"],
+            }
+        except FileNotFoundError:
+            return {
+                "passed": [],
+                "failed": [],
+                "errors": ["Lean executable not found"],
+            }
+
+        if result.returncode != 0:
+            return {
+                "passed": [],
+                "failed": [],
+                "errors": [f"Lean compilation failed: {result.stderr}"],
+            }
+
+        # TODO: Parse output and match with expected values from comments
+        # For now, just return the raw output
+        return {
+            "passed": [],
+            "failed": [],
+            "errors": [],
+            "raw_output": result.stdout,
+        }

@@ -912,6 +912,11 @@ The remaining 20% requires:
 7. Integrate with `inspect_ai` scoring system
 
 **Future work (post-MVP):**
+- **pytest.mark.parametrize support** - extract concrete tests from parametrized test cases
+  - Common pattern: `@pytest.mark.parametrize("x,y,expected", [(1,2,3), (5,10,15)])`
+  - Parse decorator with `ast.FunctionDef.decorator_list`
+  - Extract parameter names and value tuples, generate one test case per combination
+  - Would capture many real-world test cases that currently get missed
 - **PBT executor** - runtime execution to capture Hypothesis-generated examples
   - Would handle additional 35-45% of tests
   - Requires setting up Python execution environment
