@@ -18,6 +18,8 @@ class TestCase(BaseModel, frozen=True):
         extraction_method: How this test was extracted (currently only "ast")
     """
 
+    __test__ = False  # Tell pytest this is not a test class
+
     func_name: str
     inputs: list[str]
     expected_output: str
@@ -36,6 +38,8 @@ class TestSuite(BaseModel, frozen=True):
         float_tests: Tests with approximate equality (use external validation)
         extraction_stats: Metadata about the extraction process
     """
+
+    __test__ = False  # Tell pytest this is not a test class
 
     exact_tests: list[TestCase]
     float_tests: list[TestCase]
