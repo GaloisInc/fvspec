@@ -384,7 +384,8 @@ def load_datapoints_by_id(
 
             with open(file_path, "rb") as f:
                 for idx, datapoint_id in enumerate(datapoint_ids):
-                    # Convert int ID to str for JSON dict key lookup
+                    # JSON only allows string keys in objects, so IDs are stored as strings in the index file.
+                    # Convert int ID to str for JSON dict key lookup.
                     line_num = id_to_line.get(str(datapoint_id))
                     if line_num is not None and line_num < len(offsets):
                         # Direct seek to the line
