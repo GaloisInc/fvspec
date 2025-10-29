@@ -465,8 +465,9 @@ def write_unit_tests_to_disk(
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
 
     # Generate Tests.lean content
+    # Note: Imports are provided by lake-template/Fvspec/Tests.lean
     if unit_tests_lspec:
-        # We have extracted tests - prepend imports and metadata
+        # We have extracted tests - add metadata and test code
         func_name = ""
         if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
             func_name = datapoint.pbt_functions[0]
@@ -477,10 +478,7 @@ def write_unit_tests_to_disk(
         num_exact = unit_tests_lspec.count('test "')
         num_float = unit_tests_lspec.count("-- Float tests")
 
-        tests_content = f"""import LSpec
-import Fvspec.Spec
-
--- Unit tests extracted from property-based test
+        tests_content = f"""-- Unit tests extracted from property-based test
 -- Function: {func_name}
 -- Extraction method: AST analysis with pytest.mark.parametrize support
 -- Tests: {num_exact} exact, {num_float} float
@@ -488,11 +486,8 @@ import Fvspec.Spec
 {unit_tests_lspec}
 """
     else:
-        # No tests extracted - write empty file with explanation
-        tests_content = """import LSpec
-import Fvspec.Spec
-
--- No unit tests could be extracted from the property-based test
+        # No tests extracted - write explanation
+        tests_content = """-- No unit tests could be extracted from the property-based test
 -- This may be because:
 --   - The test uses only Hypothesis strategies (no concrete examples)
 --   - The test logic is too complex for static analysis
@@ -500,16 +495,28 @@ import Fvspec.Spec
 """
 
     # Write to artifacts directory (permanent storage)
+    # For artifacts, prepend the template imports since we're writing from scratch
+    template_imports = """import LSpec
+import Fvspec.Spec
+
+"""
     tests_file = utilio.get_output_filepath(
         date_time, sample_id, "Tests.lean", variant=variant
     )
-    result = utilio.writeit(tests_file, tests_content)
+    result = utilio.writeit(tests_file, template_imports + tests_content)
 
     # Also write to workspace if provided (for potential MCP usage)
+    # For workspace, append to existing template file to preserve imports
     if workspace:
         workspace_tests = workspace / "Fvspec" / "Tests.lean"
-        workspace_tests.parent.mkdir(parents=True, exist_ok=True)
-        workspace_tests.write_text(tests_content)
+        if workspace_tests.exists():
+            # Append to existing template content
+            existing = workspace_tests.read_text()
+            workspace_tests.write_text(existing + "\n" + tests_content)
+        else:
+            # Template not copied yet, write with imports
+            workspace_tests.parent.mkdir(parents=True, exist_ok=True)
+            workspace_tests.write_text(template_imports + tests_content)
 
     return result
 
