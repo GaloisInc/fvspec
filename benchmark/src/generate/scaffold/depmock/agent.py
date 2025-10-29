@@ -98,8 +98,8 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
             tools_by_name = {k: v for k, v in tools_by_name.items() if k is not None}
 
             # Run an agent loop manually to allow iterative tool usage
-            # Max 5 attempts to call/respond with tools
-            max_tool_iterations = 5
+            # Max 16 iterations to allow sufficient refinement for complex dependencies
+            max_tool_iterations = 16
             for _ in range(max_tool_iterations):
                 response = await model.generate(state.messages, tools=tools)
                 state.messages.append(response.message)
