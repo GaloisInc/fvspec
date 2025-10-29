@@ -7,6 +7,7 @@ concrete test cases through constant propagation and symbolic execution.
 import ast
 import warnings
 from typing import Any
+
 from generate.scaffold.units.structures import TestCase
 
 

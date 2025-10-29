@@ -1,6 +1,7 @@
 """Tests for A/B testing and compare-variants command."""
 
 from typer.testing import CliRunner
+
 from generate import app
 from generate.templates.spec import VariantRegistry
 

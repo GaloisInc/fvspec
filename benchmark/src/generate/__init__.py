@@ -1,32 +1,32 @@
 """Generate the benchmark."""
 
-from collections import defaultdict
 import json
+from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 
+import typer
 from inspect_ai import eval, eval_set
+from typer import Option, Typer
 
-from generate.config import load_config, WandbConfig
-from generate.scaffold.task import fvspec, DATA_DIR
-from generate.scaffold.wandb_logger import init_wandb_logger
+from generate.config import WandbConfig, load_config
 from generate.scaffold.dataset import (
+    Datapoint,
     load_datapoints_by_id,
     sample_datapoints,
-    Datapoint,
 )
 from generate.scaffold.depmock import (
-    DependencyPayload,
     DependencyBatchError,
     DependencyExecutionRequest,
+    DependencyPayload,
     DependencyResult,
     DependencySampleSpec,
-    run_dependency_agent,
     build_dependency_dataset,
     clear_cache,
     load_cached_dependency,
     persist_generated_dependency,
     record_cache_hit,
+    run_dependency_agent,
     run_dependency_autoformalizer,
     scan_dependencies,
 )
@@ -35,10 +35,10 @@ from generate.scaffold.depmock.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]
+from generate.scaffold.task import DATA_DIR, fvspec
 from generate.scaffold.tools import utilio
+from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.templates.spec import VariantRegistry
-from typer import Typer, Option
-import typer
 
 cfg = load_config()
 
@@ -817,7 +817,7 @@ def index_data_command(
     Args:
         datafile: JSONL file to index (default: pbts.jsonl)
     """
-    from generate.scaffold.dataset import build_index, build_id_index
+    from generate.scaffold.dataset import build_id_index, build_index
 
     dataset_path = (DATA_DIR / datafile).resolve()
 

@@ -20,16 +20,15 @@ from __future__ import annotations
 
 import ast
 import json
-import jsonlines
 import logging
+import random
 import sys
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Iterator, Literal, Sequence
 
-import random
-
+import jsonlines
 import typer
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent

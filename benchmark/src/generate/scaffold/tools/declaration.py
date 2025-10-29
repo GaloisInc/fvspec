@@ -1,15 +1,17 @@
 """Utility functions for persisting benchmark artifacts and tooling hooks."""
 
+import json
 import os
 import re
-import json
 import subprocess
 from pathlib import Path
-from typing import Callable, Awaitable, cast, Any
-from inspect_ai.tool import tool, ToolCallView, ToolError
-from inspect_ai.solver import TaskState
+from typing import Any, Awaitable, Callable, cast
+
 from inspect_ai.scorer import Score
+from inspect_ai.solver import TaskState
 from inspect_ai.solver._task_state import sample_state
+from inspect_ai.tool import ToolCallView, ToolError, tool
+
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio

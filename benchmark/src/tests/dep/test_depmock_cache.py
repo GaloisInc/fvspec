@@ -7,11 +7,11 @@ import pytest
 from generate.scaffold.depmock import (
     DependencyPayload,
     DependencyResult,
-    store_dependency_result,
     load_cached_dependency,
-    write_dependency_artifact,
     persist_generated_dependency,
     record_cache_hit,
+    store_dependency_result,
+    write_dependency_artifact,
 )
 from generate.scaffold.depmock.cache import CacheProvenance, CacheRecord, read_manifest
 

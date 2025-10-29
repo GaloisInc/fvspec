@@ -1,7 +1,8 @@
 """Load prompt templates for specification generation variants."""
 
-from jinja2 import Environment, FileSystemLoader, Template
 from pathlib import Path
+
+from jinja2 import Environment, FileSystemLoader, Template
 
 from generate.templates.spec.registry import VariantRegistry
 

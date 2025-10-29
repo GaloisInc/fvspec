@@ -1,15 +1,17 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
 import random
-import jsonlines
 from pathlib import Path
-from typer import Typer, Option
-from generate.templates.spec import get_variant_prompts, VariantRegistry
-from generate.templates.deps import (
-    get_dependency_prompts,
-    DependencyVariantRegistry,
-)
+
+import jsonlines
+from typer import Option, Typer
+
 from generate.config import load_config
+from generate.templates.deps import (
+    DependencyVariantRegistry,
+    get_dependency_prompts,
+)
+from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 __all__ = [
     "get_variant_prompts",

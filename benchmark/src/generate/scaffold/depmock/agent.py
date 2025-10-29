@@ -7,6 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Coroutine, Generator
 
+from inspect_ai._util.registry import registry_info  # type: ignore
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
 from inspect_ai.model import (
     ChatMessageSystem,
@@ -17,13 +18,12 @@ from inspect_ai.model import (
 from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
-from inspect_ai._util.registry import registry_info  # type: ignore
 
-from generate.templates.deps import get_dependency_prompts
-from generate.templates.deps.strings import get_dependency_strings
 from generate.scaffold.depmock.cache import CacheProvenance, store_dependency_result
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
+from generate.templates.deps import get_dependency_prompts
+from generate.templates.deps.strings import get_dependency_strings
 
 # Module-level logger to avoid multiple instantiations
 logger = logging.getLogger(__name__)

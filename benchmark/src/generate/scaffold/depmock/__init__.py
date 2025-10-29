@@ -1,5 +1,38 @@
 """Dependency autoformalization toolkit."""
 
+from generate.scaffold.depmock.agent import (
+    autoformalize_dependency_tool,
+    create_bound_dependency_tools,
+    dependency_autoformalizer,
+)
+from generate.scaffold.depmock.agent_runner import run_dependency_agent
+from generate.scaffold.depmock.autoformalizer import (
+    DependencyBatchError,
+    DependencyExecutionRequest,
+    DependencyFatalError,
+    DependencyInvocationError,
+    DependencyOutcome,
+    DependencyRecoverableError,
+    DependencyRunReport,
+    run_dependency_autoformalizer,
+)
+from generate.scaffold.depmock.cache import (
+    CacheRecord,
+    clear_cache,
+    compute_cache_key,
+    load_cached_dependency,
+    persist_generated_dependency,
+    read_manifest,
+    record_cache_hit,
+    store_dependency_result,
+    write_dependency_artifact,
+)
+from generate.scaffold.depmock.dataset import (
+    DependencySampleSpec,
+    build_dependency_dataset,
+    payloads_from_datapoint,
+    scan_dependencies,
+)
 from generate.scaffold.depmock.models import (
     ArgumentRole,
     ArgumentSpec,
@@ -8,42 +41,9 @@ from generate.scaffold.depmock.models import (
     DependencyCallable,
     DependencyPayload,
     DependencyResult,
+    LeanArtifactSpec,
     NormalizationPlan,
     NormalizationStrategy,
-    LeanArtifactSpec,
-)
-from generate.scaffold.depmock.agent import (
-    dependency_autoformalizer,
-    autoformalize_dependency_tool,
-    create_bound_dependency_tools,
-)
-from generate.scaffold.depmock.agent_runner import run_dependency_agent
-from generate.scaffold.depmock.cache import (
-    CacheRecord,
-    compute_cache_key,
-    load_cached_dependency,
-    persist_generated_dependency,
-    record_cache_hit,
-    store_dependency_result,
-    write_dependency_artifact,
-    read_manifest,
-    clear_cache,
-)
-from generate.scaffold.depmock.dataset import (
-    DependencySampleSpec,
-    build_dependency_dataset,
-    payloads_from_datapoint,
-    scan_dependencies,
-)
-from generate.scaffold.depmock.autoformalizer import (
-    DependencyBatchError,
-    DependencyExecutionRequest,
-    DependencyOutcome,
-    DependencyRecoverableError,
-    DependencyFatalError,
-    DependencyInvocationError,
-    DependencyRunReport,
-    run_dependency_autoformalizer,
 )
 from generate.scaffold.depmock.runner import (
     aggregate_dependency_modules,

@@ -6,7 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, cast
 
-from inspect_ai import Task, eval as inspect_eval
+from inspect_ai import Task
+from inspect_ai import eval as inspect_eval
 from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.log import EvalLog, EvalSample
 from inspect_ai.model import ChatMessageAssistant

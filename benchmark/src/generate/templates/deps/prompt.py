@@ -1,6 +1,7 @@
 """Load dependency prompt bundles for autoformalization variants."""
 
 from pathlib import Path
+
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel, ConfigDict
 

@@ -2,8 +2,8 @@
 
 from generate.scaffold.depmock import DependencyPayload
 from generate.templates.deps import (
-    DependencyVariantRegistry,
     DependencyPromptBundle,
+    DependencyVariantRegistry,
     get_dependency_prompts,
 )
 

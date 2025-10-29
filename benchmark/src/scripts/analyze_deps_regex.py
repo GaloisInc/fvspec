@@ -20,13 +20,13 @@ Output:
 """
 
 import asyncio
-import jsonlines
 import logging
 import re
 from collections import Counter
 from pathlib import Path
 from typing import Any
 
+import jsonlines
 from pydantic import BaseModel
 
 

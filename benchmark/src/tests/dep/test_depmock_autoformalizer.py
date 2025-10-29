@@ -10,9 +10,9 @@ from generate.scaffold.depmock import (
     DependencyFatalError,
     DependencyOutcome,
     DependencyPayload,
+    DependencyRecoverableError,
     DependencyResult,
     DependencySampleSpec,
-    DependencyRecoverableError,
     run_dependency_autoformalizer,
 )
 

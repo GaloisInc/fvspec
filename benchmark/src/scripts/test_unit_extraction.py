@@ -11,14 +11,15 @@ from pathlib import Path
 from typing import Annotated
 
 import typer
-from generate.scaffold.units import extract_unit_tests
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
+
+from generate.scaffold.units import extract_unit_tests
 
 DATADIR = Path(".") / "data"
 TOTAL_PBTS = 60776  # Total lines in pbts.jsonl

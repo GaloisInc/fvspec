@@ -2,25 +2,23 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 import json
 import re
+from datetime import UTC, datetime
 from pathlib import Path
 
-from inspect_ai.solver import TaskState, solver, Solver, Generate
+from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.tools import utilio
-
 from generate.scaffold.depmock.cache import (
     CacheRecord,
+    _cache_root,
     load_cached_dependency,
     store_dependency_result,
-    _cache_root,
 )
 from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
-
+from generate.scaffold.tools import utilio
 
 _LEAN_IMPORT_PATTERN = re.compile(
     r"^\s*import\s+(Fvspec\.Deps\.[A-Za-z0-9_.]+)", re.MULTILINE

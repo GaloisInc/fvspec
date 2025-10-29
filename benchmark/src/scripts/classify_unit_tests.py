@@ -238,11 +238,11 @@ from typing import Annotated
 
 import typer
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
+    TextColumn,
 )
 from typing_extensions import Literal
 

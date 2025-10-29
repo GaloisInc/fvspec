@@ -2,26 +2,28 @@
 
 from datetime import datetime
 from pathlib import Path
+
 from inspect_ai import Task, task
 from inspect_ai.solver import (
-    generate,
-    use_tools,
-    system_message,
-    solver,
     Generate,
     Solver,
     TaskState,
+    generate,
+    solver,
+    system_message,
+    use_tools,
 )
+
+from generate.scaffold.dataset import Datapoint, mk_dataset
+from generate.scaffold.depmock.agent import create_bound_dependency_tools
+from generate.scaffold.depmock.dataset import payloads_from_datapoint
+from generate.scaffold.depmock.runner import depmock_setup
+from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import (
     lean_lsp_mcp_tools,
     write_to_disk,
 )
-from generate.scaffold.tools import utilio
-from generate.scaffold.dataset import mk_dataset, Datapoint
-from generate.templates.spec import get_variant_prompts, VariantRegistry
-from generate.scaffold.depmock.runner import depmock_setup
-from generate.scaffold.depmock.agent import create_bound_dependency_tools
-from generate.scaffold.depmock.dataset import payloads_from_datapoint
+from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 

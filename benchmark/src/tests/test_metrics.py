@@ -5,20 +5,20 @@ Python and Lean code structure without relying on LLM self-assessment.
 """
 
 import pytest
+
 from generate.scaffold.quality_assessment import (
     StructuralFaithfulness,
-    _extract_python_parameters,
-    _extract_python_types,
-    _extract_hypothesis_strategies,
-    _count_python_assertions,
-    _extract_dependency_names,
-    _extract_lean_parameters,
-    _extract_lean_types,
-    _extract_lean_bounds,
     _compute_parameter_coverage,
     _compute_type_correspondence,
+    _count_python_assertions,
+    _extract_dependency_names,
+    _extract_hypothesis_strategies,
+    _extract_lean_bounds,
+    _extract_lean_parameters,
+    _extract_lean_types,
+    _extract_python_parameters,
+    _extract_python_types,
 )
-
 
 # Python parsing tests
 

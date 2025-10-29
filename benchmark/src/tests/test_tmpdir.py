@@ -9,8 +9,8 @@ from pathlib import Path
 import pytest
 
 from generate.scaffold.tools.utilio import (
-    create_sample_workspace,
     cleanup_sample_workspace,
+    create_sample_workspace,
     sample_workspace,
 )
 

@@ -1,27 +1,28 @@
 """Dataset helpers for building inspect_ai tasks."""
 
 import json
-import jsonlines
 import random
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from generate.templates.spec import VariantRegistry, get_variant_prompts
-from generate.scaffold.units import extract_unit_tests, generate_test_suite
+import jsonlines
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
 from rich.console import Console
 from rich.progress import (
+    BarColumn,
     Progress,
     SpinnerColumn,
-    TextColumn,
-    BarColumn,
     TaskProgressColumn,
-    TimeRemainingColumn,
+    TextColumn,
     TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 from rich.prompt import Confirm
+
+from generate.scaffold.units import extract_unit_tests, generate_test_suite
+from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 # Maximum number of dependencies allowed per sample before filtering
 # Rationale: Samples with >100 dependencies are extreme outliers that:

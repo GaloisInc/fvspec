@@ -1,6 +1,7 @@
 """Pytest configuration and fixtures for the benchmark test suite."""
 
 import os
+
 import pytest
 
 

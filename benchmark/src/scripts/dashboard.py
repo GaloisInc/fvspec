@@ -6,14 +6,15 @@ For up-to-date visualizations, use the wandb web interface or inspect_ai viewer.
 """
 
 import argparse
-from bokeh.models import HoverTool
-import hvplot.pandas  # noqa: F401 - Register hvplot accessor for pandas DataFrames
 import json
 import os
-import pandas
 from pathlib import Path
-from pandas import DataFrame
+
+import hvplot.pandas  # noqa: F401 - Register hvplot accessor for pandas DataFrames
+import pandas
 import panel
+from bokeh.models import HoverTool
+from pandas import DataFrame
 
 
 def parse_arguments() -> argparse.Namespace:

@@ -11,8 +11,9 @@ from unittest.mock import patch
 
 import pytest
 from inspect_ai.model import ChatMessageAssistant
-from generate.scaffold.task import fvspec
+
 from generate.scaffold.dataset import Datapoint
+from generate.scaffold.task import fvspec
 from generate.templates.spec import get_variant_prompts
 
 
@@ -196,14 +197,14 @@ def test_smoke_tool_registration():
 
 def test_smoke_quality_assessment_from_mock_state():
     """Smoke test: Verify QA extraction doesn't crash."""
-    from generate.scaffold.quality_assessment import QualityAssessment
-    from inspect_ai.solver import TaskState
-    from inspect_ai.model import ChatMessageUser
-    from generate.scaffold.dataset import Datapoint
     from unittest.mock import Mock
 
     # Create a minimal mock TaskState
-    from inspect_ai.model import ModelName
+    from inspect_ai.model import ChatMessageUser, ModelName
+    from inspect_ai.solver import TaskState
+
+    from generate.scaffold.dataset import Datapoint
+    from generate.scaffold.quality_assessment import QualityAssessment
 
     mock_output = Mock()
     mock_output.model = "mock/model"

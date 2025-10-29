@@ -2,12 +2,12 @@
 
 from pathlib import Path
 
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,
     run_depmock_for_sample,
 )
-from generate.scaffold.dataset import Datapoint
 
 
 def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):

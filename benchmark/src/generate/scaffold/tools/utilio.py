@@ -1,8 +1,8 @@
 """Utility helpers for managing benchmark workspaces and filesystem I/O."""
 
 import atexit
-import subprocess
 import shutil
+import subprocess
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path

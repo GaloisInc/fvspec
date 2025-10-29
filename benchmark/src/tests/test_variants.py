@@ -1,10 +1,12 @@
 """Tests for variant registry and prompt templating (SSoT)."""
 
 from pathlib import Path
+
 import pytest
+
 from generate.templates.spec import (
-    VariantRegistry,
     VariantConfig,
+    VariantRegistry,
     get_variant_prompts,
 )
 
