@@ -224,7 +224,6 @@ The script is designed to be:
 
 """
 
-import ast
 import gc
 import json
 import os

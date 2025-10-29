@@ -7,7 +7,6 @@ from unittest.mock import Mock
 import pytest
 from inspect_ai.agent import AgentState
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser
-from inspect_ai._util.registry import registry_info  # type: ignore
 
 from generate.scaffold.depmock import (
     DependencyPayload,

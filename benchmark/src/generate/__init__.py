@@ -4,7 +4,6 @@ from collections import defaultdict
 import json
 from datetime import datetime
 from pathlib import Path
-import random
 
 from inspect_ai import eval, eval_set
 
@@ -781,7 +780,7 @@ def deps_cache_clear_wandb_command() -> None:
         print("Deleting artifact...")
         artifact.delete()
 
-        print(f"✓ Successfully deleted dep-cache artifact from wandb")
+        print("✓ Successfully deleted dep-cache artifact from wandb")
         print(f"  Project: {cfg.wandb.project}")
         print(f"  Entity: {cfg.wandb.entity or api.default_entity}")
         print("\nNext run will create a fresh cache artifact.")
@@ -836,7 +835,7 @@ def index_data_command(
         print(f"\n✓ ID index created at {id_index_path}")
 
         print(
-            f"\n  All future operations will automatically use these indexes for fast access."
+            "\n  All future operations will automatically use these indexes for fast access."
         )
     except Exception as e:
         print(f"Error building indexes: {e}")

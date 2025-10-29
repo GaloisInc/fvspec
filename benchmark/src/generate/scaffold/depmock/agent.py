@@ -446,7 +446,7 @@ def create_bound_dependency_tools(
                     model=str(state.model) if state.model else None,
                     run_id=str(state.sample_id),
                 )
-                record = store_dependency_result(
+                _record = store_dependency_result(
                     bound_payload,
                     result,
                     cache_root=_cache_root(),

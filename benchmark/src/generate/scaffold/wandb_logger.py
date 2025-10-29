@@ -8,7 +8,6 @@ import wandb
 from inspect_ai.solver import TaskState
 
 from generate.config import WandbConfig
-from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 
 if TYPE_CHECKING:

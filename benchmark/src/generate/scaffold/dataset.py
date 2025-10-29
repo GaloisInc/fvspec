@@ -177,7 +177,7 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
         with open(file_path, "rb") as f:
             offsets.append(0)  # First line starts at byte 0
             line_count = 0
-            last_pos = 0
+            # last_pos = 0
 
             while f.readline():
                 current_pos = f.tell()
@@ -186,7 +186,7 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
 
                 # Update progress based on bytes read
                 progress.update(task, completed=current_pos)
-                last_pos = current_pos
+                # last_pos = current_pos
 
     # Remove the final offset (it's past EOF)
     offsets = offsets[:-1]
@@ -417,11 +417,11 @@ def load_datapoints_by_id(
             )
         elif not id_index_path.exists():
             console.print(
-                f"[yellow]⚠[/yellow] No ID index found, streaming file (consider running: uv run fvspec index-data)"
+                "[yellow]⚠[/yellow] No ID index found, streaming file (consider running: uv run fvspec index-data)"
             )
         else:
             console.print(
-                f"[yellow]⚠[/yellow] No byte offset index found, streaming file (consider running: uv run fvspec index-data)"
+                "[yellow]⚠[/yellow] No byte offset index found, streaming file (consider running: uv run fvspec index-data)"
             )
 
         file_size = file_path.stat().st_size
@@ -498,7 +498,7 @@ def sample_datapoints(
     else:
         # No index found - offer to build one
         console.print(f"[yellow]⚠[/yellow] No index found for {file_path.name}")
-        console.print(f"   Building an index enables fast sampling (~1 sec vs ~10 min)")
+        console.print("   Building an index enables fast sampling (~1 sec vs ~10 min)")
 
         # Interactive prompt (defaults to Yes)
         should_build = Confirm.ask(
@@ -508,7 +508,7 @@ def sample_datapoints(
         if should_build:
             # Build the index with progress bar
             build_index(file_path, index_path)
-            console.print(f"[green]✓[/green] Index created! Using it for this run...")
+            console.print("[green]✓[/green] Index created! Using it for this run...")
             index_data = load_index(index_path)
             samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
             if len(samples) < n:

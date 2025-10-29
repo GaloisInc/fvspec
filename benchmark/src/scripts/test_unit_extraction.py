@@ -5,7 +5,7 @@ in the dataset to measure extraction success rates and identify common failure p
 """
 
 import json
-from collections import Counter, defaultdict
+from collections import Counter
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated
@@ -182,7 +182,7 @@ def main(
                 f"- **Average existing units per PBT (with units):** {avg_existing:.1f}\n"
             )
 
-        f.write(f"\n## Extraction Results\n\n")
+        f.write("\n## Extraction Results\n\n")
         f.write(f"- **Extraction attempts:** {stats['extraction_attempts']:,}\n")
         f.write(f"- **Successful extractions:** {stats['extraction_successes']:,}\n")
         f.write(f"- **Failed extractions:** {stats['extraction_failures']:,}\n")
@@ -193,7 +193,7 @@ def main(
             )
             f.write(f"- **Success rate:** {success_rate:.1f}%\n")
 
-        f.write(f"\n## Extracted Tests\n\n")
+        f.write("\n## Extracted Tests\n\n")
         f.write(f"- **Total tests extracted:** {stats['total_tests_extracted']:,}\n")
         f.write(f"- **Exact tests:** {stats['exact_tests']:,}\n")
         f.write(f"- **Float tests:** {stats['float_tests']:,}\n")
@@ -202,7 +202,7 @@ def main(
             avg_tests = stats["total_tests_extracted"] / stats["extraction_successes"]
             f.write(f"- **Average tests per success:** {avg_tests:.1f}\n")
 
-        f.write(f"\n## Tests Per PBT Distribution\n\n")
+        f.write("\n## Tests Per PBT Distribution\n\n")
         f.write("| Tests Extracted | Count | Percentage |\n")
         f.write("|----------------|-------|------------|\n")
         for num_tests in sorted(tests_per_pbt.keys()):
@@ -214,7 +214,7 @@ def main(
             )
             f.write(f"| {num_tests} | {count:,} | {pct:.1f}% |\n")
 
-        f.write(f"\n## Existing Unit Tests Distribution\n\n")
+        f.write("\n## Existing Unit Tests Distribution\n\n")
         f.write("| Unit Tests | PBT Count | Percentage |\n")
         f.write("|------------|-----------|------------|\n")
         for num_units in sorted(existing_units_per_pbt.keys()):
@@ -227,7 +227,7 @@ def main(
             f.write(f"| {num_units} | {count:,} | {pct:.1f}% |\n")
 
         if failure_reasons:
-            f.write(f"\n## Failure Reasons\n\n")
+            f.write("\n## Failure Reasons\n\n")
             f.write("| Reason | Count | Percentage |\n")
             f.write("|--------|-------|------------|\n")
             for reason, count in failure_reasons.most_common():
