@@ -13,7 +13,7 @@ description = """Formalize the `{dep_name}` Python dependency into computable Le
 
 # Trigger message sent to agent tool
 # Variables: {dep_name}
-trigger_message = """Translate the {dep_name} dependency to Lean 4. Return ONLY the Lean code wrapped in <code>...</code> tags."""
+trigger_message = """Translate the {dep_name} dependency to Lean 4. Use LSP tools to iteratively develop and validate your implementation, then provide your final Lean code wrapped in <code>...</code> tags."""
 
 # Success message returned after tool execution
 # Variables: {dep_name}, {def_list}
