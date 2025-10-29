@@ -201,19 +201,32 @@ class ASTExtractor(ast.NodeVisitor):
                     param_values = self._try_eval_node(param_values_arg)
 
                     if param_names and param_values and isinstance(param_values, list):
-                        # Normalize: ensure all values are tuples
+                        # Normalize parameter values to ensure consistent tuple format
+                        # This handles the various ways pytest.mark.parametrize can specify values:
+                        #   - Multiple params: @parametrize("a,b", [(1,2), (3,4)]) -> already tuples
+                        #   - Single param with tuple values: @parametrize("a", [(1,), (2,)]) -> already tuples  
+                        #   - Single param with list of values: @parametrize("a", [1, 2, 3]) -> need (1,), (2,), (3,)
+                        #   - Mixed formats that need consistent tuple wrapping
                         normalized_values = []
                         for val in param_values:
                             if isinstance(val, tuple):
+                                # Already a tuple - use as-is (handles multi-param cases like (1,2,3))
                                 normalized_values.append(val)
                             elif isinstance(val, list):
-                                # Single parameter case: [1, 2, 3] -> [(1,), (2,), (3,)]
+                                # List value needs different handling based on parameter count
                                 if len(param_names) == 1:
+                                    # Single parameter case: each list element becomes a single-item tuple
+                                    # Example: @parametrize("x", [1, 2, 3]) -> [(1,), (2,), (3,)]
+                                    # This ensures each test gets one parameter value, not a list
                                     normalized_values.append((val,))
                                 else:
+                                    # Multiple parameters: convert list to tuple directly
+                                    # Example: @parametrize("x,y", [[1,2], [3,4]]) -> [(1,2), (3,4)]
                                     normalized_values.append(tuple(val))
                             else:
-                                # Single value: 1 -> (1,)
+                                # Single scalar value: wrap in tuple for consistency
+                                # Example: @parametrize("x", [1, 2]) where val=1 -> (1,)
+                                # This ensures uniform tuple format regardless of input type
                                 normalized_values.append((val,))
 
                         return (param_names, normalized_values)
