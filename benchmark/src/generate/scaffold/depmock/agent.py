@@ -8,10 +8,16 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Coroutine, Generator, cast
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
+from inspect_ai.model import (
+    ChatMessageSystem,
+    ChatMessageTool,
+    ChatMessageUser,
+    get_model,
+)
 from inspect_ai.solver._task_state import sample_state
-from inspect_ai.tool import Tool, ToolError, tool
+from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
+from inspect_ai._util.registry import registry_info  # type: ignore
 
 from generate.templates.deps import get_dependency_prompts
 from generate.templates.deps.strings import get_dependency_strings
@@ -84,9 +90,6 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
         # get_model() raises ValueError when no model is configured (e.g., in unit tests).
         # In test contexts, we return the state with just the prompts added for validation.
         try:
-            from inspect_ai.model import ChatMessageTool
-            from inspect_ai.tool import ToolCallError, ToolCallView
-
             model = get_model()
 
             # Get tools from TaskState for LSP feedback (AgentState doesn't have tools)
@@ -99,8 +102,6 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
             # Build tool name lookup using inspect_ai's registry system
             # Tools have names like "generate/lean_diagnostic_messages" in the registry
-            from inspect_ai._util.registry import registry_info  # type: ignore
-
             tools_by_name = {}
             for t in tools:
                 info = registry_info(t)
