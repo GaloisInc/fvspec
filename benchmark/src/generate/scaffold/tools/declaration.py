@@ -115,6 +115,7 @@ def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Get diagnostic messages for a Lean file using per-sample workspace."""
 
     async def execute(file_path: str, view: ToolCallView) -> str:
+        # view: Required by inspect_ai but not used in this tool
         """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
 
         Args:
