@@ -47,15 +47,15 @@ Tests are classified into 8 categories based on Lean transcription difficulty:
 **Current Extraction**: ✗ Not handled (test would be skipped)
 **Lean Strategy**: Model as preconditions or split into separate tests
 
-### 5. Exception Handling (HARD)
+### 5. Exception Handling (MODERATE)
 **Description**: Tests that expect exceptions to be raised.
 **Examples**:
     - `with pytest.raises(ValueError):`
     - `pytest.raises(KeyError, lambda: dict[key])`
-**Lean Difficulty**: HARD - Need exception modeling in Lean
+**Lean Difficulty**: MODERATE - Mock exceptions as `Option` or `Result`
 **Detection**: `pytest.raises`, `try/except` blocks
 **Current Extraction**: ✗ Not handled
-**Lean Strategy**: Could mock exceptions as `Option` or `Except` types
+**Lean Strategy**: Standard FP approaches: `Option`, `Except`, or custom error types
 
 ### 6. Stateful/Multi-step (HARD)
 **Description**: Tests requiring object construction, fixtures, or multiple setup steps.
@@ -68,17 +68,17 @@ Tests are classified into 8 categories based on Lean transcription difficulty:
 **Current Extraction**: ✗ Not handled
 **Lean Strategy**: Use `Id.run do` notation, model state explicitly
 
-### 7. Library-Dependent (VERY HARD)
+### 7. Library-Dependent (MODERATE)
 **Description**: Heavy reliance on external libraries (torch, numpy, pandas, etc.).
 **Examples**:
     - `torch.tensor([[1,2], [3,4]])`
     - `np.random.randn(100)`
     - Complex type constructors
-**Lean Difficulty**: VERY HARD - Need library stubs/mocking
+**Lean Difficulty**: MODERATE - Use dependency mocking infrastructure
 **Detection**: Common library imports and function calls
 **Current Extraction**: ✗ Not handled (can't evaluate library calls)
-**Lean Strategy**: Dependency autoformalization (already in progress)
-**Note**: We have infrastructure for this, but it's still challenging
+**Lean Strategy**: Dependency autoformalization (already built)
+**Note**: We've written extensive depmocking code to handle this
 
 ### 8. Untranscribable (IMPOSSIBLE)
 **Description**: Tests with inherently imperative/effectful operations.
@@ -468,14 +468,14 @@ def classify_with_llm(test_code: str, api_key: str) -> tuple[Category, float, st
 
     prompt = f"""Classify this Python unit test into one of 8 categories based on difficulty of transcribing to Lean 4:
 
-1. Pure Functional - Direct function call with literals, single assertion, no setup
-2. Simple Parametric - pytest.mark.parametrize but otherwise pure functional
-3. Approximate Equality - Floating point comparisons with pytest.approx/np.isclose/torch.allclose
-4. Guard Conditions - Early returns or conditional logic filtering test execution
-5. Exception Handling - pytest.raises or try/except expecting exceptions
-6. Stateful/Multi-step - Requires fixtures, self parameter, or multi-step setup
-7. Library-Dependent - Heavy use of external libraries (torch, numpy, pandas)
-8. Untranscribable - Time-dependent, I/O, network calls, random numbers
+1. Pure Functional - Direct function call with literals, single assertion, no setup (TRIVIAL)
+2. Simple Parametric - pytest.mark.parametrize but otherwise pure functional (EASY)
+3. Approximate Equality - Floating point comparisons with pytest.approx/np.isclose/torch.allclose (MODERATE)
+4. Guard Conditions - Early returns or conditional logic filtering test execution (MODERATE)
+5. Exception Handling - pytest.raises or try/except expecting exceptions (MODERATE - mock as Option/Except)
+6. Stateful/Multi-step - Requires fixtures, self parameter, or multi-step setup (HARD)
+7. Library-Dependent - Heavy use of external libraries (MODERATE - we have depmocking infrastructure)
+8. Untranscribable - Time-dependent, I/O, network calls, random numbers (IMPOSSIBLE)
 
 Test code:
 ```python
