@@ -19,3 +19,8 @@ rev = "v4.25.0-rc2"
 name = "plausible"
 scope = "leanprover-community"
 rev = "v4.25.0-rc2"
+
+[[require]]
+name = "LSpec"
+scope = "argumentcomputer"
+rev = "d2bbbfa61a82ac199a5e852aa375acffd9a3b3f1"
