@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 import re
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Coroutine, Generator
+from typing import Any, Awaitable, Callable, Coroutine, Generator, cast
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
@@ -80,19 +80,62 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
         state.messages.append(ChatMessageUser(content=user_prompt))
 
-        # Call the model to generate a response if available.
+        # Run an agent loop with LSP tools to iteratively develop and validate the code.
         # get_model() raises ValueError when no model is configured (e.g., in unit tests).
         # In test contexts, we return the state with just the prompts added for validation.
         try:
+            from inspect_ai.model import ChatMessageTool
+            from inspect_ai.tool import ToolCallError, ToolCallView
+
             model = get_model()
 
             # Get tools from TaskState for LSP feedback (AgentState doesn't have tools)
             task_state = sample_state()
             tools = task_state.tools if task_state else []
 
-            response = await model.generate(state.messages, tools=tools)
-            state.messages.append(response.message)
-            state.output = response
+            # Build tool name lookup - tools are callables with __name__
+            tools_by_name = {getattr(t, "__name__", None): t for t in tools}
+            tools_by_name = {k: v for k, v in tools_by_name.items() if k is not None}
+
+            # Run an agent loop manually to allow iterative tool usage
+            # Max 5 attempts to call/respond with tools
+            max_tool_iterations = 5
+            for _ in range(max_tool_iterations):
+                response = await model.generate(state.messages, tools=tools)
+                state.messages.append(response.message)
+                state.output = response
+
+                # Check if model wants to call tools
+                if response.message.tool_calls:
+                    # Execute tool calls
+                    for tool_call in response.message.tool_calls:
+                        tool = tools_by_name.get(tool_call.function)
+                        if tool:
+                            try:
+                                # ToolCallView takes the tool_call as context
+                                view = ToolCallView(call=cast(Any, tool_call))
+                                result = await tool(tool_call.arguments, view)
+                                state.messages.append(
+                                    ChatMessageTool(
+                                        tool_call_id=tool_call.id,
+                                        function=tool_call.function,
+                                        content=str(result),
+                                    )
+                                )
+                            except Exception as e:
+                                state.messages.append(
+                                    ChatMessageTool(
+                                        tool_call_id=tool_call.id,
+                                        function=tool_call.function,
+                                        content=str(e),
+                                        error=ToolCallError(
+                                            message=str(e), type="unknown"
+                                        ),
+                                    )
+                                )
+                else:
+                    # No tool calls - agent is done
+                    break
         except ValueError:
             # No model configured - return state with prompts for inspection
             pass
