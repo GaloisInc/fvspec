@@ -138,6 +138,10 @@ class WandbLogger:
                 }
             )
 
+        # Unit test metrics
+        metrics["has_unit_tests"] = 1 if qa.has_unit_tests else 0
+        metrics["num_unit_tests"] = qa.num_unit_tests
+
         self.run.log(metrics, step=step)
 
     def log_artifact(

@@ -436,6 +436,84 @@ def write_qa_to_disk(
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
 
+def write_unit_tests_to_disk(
+    date_time: str,
+    sample_id: str,
+    state: TaskState,
+    variant: str,
+    workspace: Path | None = None,
+) -> str:
+    """Write extracted unit tests to `Tests.lean` for the sample.
+
+    Unit tests are extracted from the PBT during dataset creation and stored
+    in metadata. This function writes them to disk for evaluation purposes.
+
+    Always writes Tests.lean even if empty (lake-template expects it).
+
+    Args:
+        date_time: datetime string used in directory structure.
+        sample_id: Identifier for the current sample.
+        state: The task state containing unit tests in metadata.
+        variant: Prompt variant name.
+        workspace: Optional workspace tmpdir path for MCP tools.
+
+    Returns:
+        A message describing whether the write succeeded.
+    """
+    # Extract unit tests from metadata
+    unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+    datapoint = cast(Datapoint, state.metadata.get("datapoint"))
+
+    # Generate Tests.lean content
+    if unit_tests_lspec:
+        # We have extracted tests - prepend imports and metadata
+        func_name = ""
+        if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
+            func_name = datapoint.pbt_functions[0]
+        else:
+            func_name = datapoint.pbt_name.removeprefix("test_")
+
+        # Count exact and float tests
+        num_exact = unit_tests_lspec.count('test "')
+        num_float = unit_tests_lspec.count("-- Float tests")
+
+        tests_content = f"""import LSpec
+import Fvspec.Spec
+
+-- Unit tests extracted from property-based test
+-- Function: {func_name}
+-- Extraction method: AST analysis with pytest.mark.parametrize support
+-- Tests: {num_exact} exact, {num_float} float
+
+{unit_tests_lspec}
+"""
+    else:
+        # No tests extracted - write empty file with explanation
+        tests_content = """import LSpec
+import Fvspec.Spec
+
+-- No unit tests could be extracted from the property-based test
+-- This may be because:
+--   - The test uses only Hypothesis strategies (no concrete examples)
+--   - The test logic is too complex for static analysis
+--   - The function name could not be determined
+"""
+
+    # Write to artifacts directory (permanent storage)
+    tests_file = utilio.get_output_filepath(
+        date_time, sample_id, "Tests.lean", variant=variant
+    )
+    result = utilio.writeit(tests_file, tests_content)
+
+    # Also write to workspace if provided (for potential MCP usage)
+    if workspace:
+        workspace_tests = workspace / "Fvspec" / "Tests.lean"
+        workspace_tests.parent.mkdir(parents=True, exist_ok=True)
+        workspace_tests.write_text(tests_content)
+
+    return result
+
+
 def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
     """Convert QualityAssessment metrics to inspect_ai Score objects.
 
@@ -587,6 +665,9 @@ async def write_to_disk(state: TaskState):
             variant=variant,
             workspace=workspace,
         )
+        ret_str_tests = write_unit_tests_to_disk(
+            date_time, sample_id, state, variant=variant, workspace=workspace
+        )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, variant=variant)
 
         # Extract quality assessment and register metrics as scores
@@ -598,7 +679,9 @@ async def write_to_disk(state: TaskState):
 
         log_sample_to_wandb(state)
 
-        result = ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
+        result = (
+            ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_tests + "\n" + ret_str_qa
+        )
     else:
         result = (
             ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
