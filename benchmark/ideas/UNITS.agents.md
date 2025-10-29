@@ -896,27 +896,40 @@ The remaining 20% requires:
 
 **LSpec is the right choice:** More idiomatic than `#guard_msgs`, better error messages, proper testing framework. Combined with external validation for floats, provides comprehensive test coverage.
 
-**Next steps (MVP):**
-1. **Build AST-based static extractor** - handles 40-50% of tests without execution
-   - Python `ast` module for parsing
-   - Constant propagation and symbol table
+**Implementation status:**
+
+✅ **Completed:**
+1. **AST-based static extractor** (ast_extractor.py)
+   - Python `ast` module with constant propagation
    - Expression evaluation for concrete values
-   - Loop unrolling for simple patterns
-2. **Integrate LSpec** for exact tests (better than `#guard_msgs`)
-3. Prototype unit test extraction for 10 examples:
-   - All with AST extraction (variables, expressions, method calls)
-   - Mix of exact and float tests
-4. Build float test validator (parses Lean output, applies tolerance)
-5. Measure extraction rate across full dataset (AST only)
-6. Implement evaluation-time scoring with LSpec + external validation
-7. Integrate with `inspect_ai` scoring system
+   - Loop unrolling for simple patterns (for i in [0,1,2])
+   - Subscript operations ([1,2,3][i])
+   - pytest.mark.parametrize support (unrolls parametrized tests)
+   - Variable substitution and symbol table
+   - Handles literals, lists, tuples, strings, binary ops
+   - Float detection (automatic)
+2. **LSpec integration** (lspec_generator.py)
+   - Generates proper TestSeq structure with $ composition
+   - Separates exact tests from float tests
+   - Clean, idiomatic Lean code
+3. **Float test validator** (float_validator.py)
+   - External validation with numpy.isclose semantics
+   - Runs lean --run and parses output
+   - Tolerance checking (rtol/atol)
+4. **Comprehensive test coverage** (32 tests, 100% passing)
+   - Test suite for AST extraction (19 tests)
+   - Test suite for LSpec generation (8 tests)
+   - Integration tests (5 tests)
+
+**Next steps (integration):**
+1. Measure extraction rate across full dataset (AST only with parametrize)
+2. Implement evaluation-time scoring with LSpec + external validation
+3. Integrate with `inspect_ai` scoring system
+4. Add unit test metrics to quality_assessment.py
+5. Create Jinja2 templates for unit test sections
+6. Update task.py to use unit test extraction
 
 **Future work (post-MVP):**
-- **pytest.mark.parametrize support** - extract concrete tests from parametrized test cases
-  - Common pattern: `@pytest.mark.parametrize("x,y,expected", [(1,2,3), (5,10,15)])`
-  - Parse decorator with `ast.FunctionDef.decorator_list`
-  - Extract parameter names and value tuples, generate one test case per combination
-  - Would capture many real-world test cases that currently get missed
 - **PBT executor** - runtime execution to capture Hypothesis-generated examples
   - Would handle additional 35-45% of tests
   - Requires setting up Python execution environment
