@@ -8,7 +8,6 @@ import wandb
 from inspect_ai.solver import TaskState
 
 from generate.config import WandbConfig
-from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 
 if TYPE_CHECKING:
@@ -137,6 +136,10 @@ class WandbLogger:
                     "dependency_coverage": sf.dependency_coverage,
                 }
             )
+
+        # Unit test metrics
+        metrics["has_unit_tests"] = 1 if qa.has_unit_tests else 0
+        metrics["num_unit_tests"] = qa.num_unit_tests
 
         self.run.log(metrics, step=step)
 

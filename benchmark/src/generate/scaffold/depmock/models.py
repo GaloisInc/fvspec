@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable, Literal, cast
 
@@ -377,9 +376,10 @@ def _detect_callable_kind(
     return kind
 
 
-@dataclass(frozen=True)
-class _ReceiverUsage:
+class _ReceiverUsage(BaseModel):
     """Attributes accessed on a method receiver."""
+
+    model_config = ConfigDict(frozen=True)
 
     attributes: tuple[str, ...]
     mutates: bool
@@ -449,9 +449,10 @@ def _analyze_receiver_usage(
     return usage.attributes, usage.mutates
 
 
-@dataclass(frozen=True)
-class _CallableAnalysis:
+class _CallableAnalysis(BaseModel):
     """Internal representation of parsed callable metadata."""
+
+    model_config = ConfigDict(frozen=True)
 
     kind: CallableKind
     signature: CallableSignature
@@ -750,10 +751,11 @@ class DependencyPayload(BaseModel):
     def prompt_context(self) -> dict[str, object]:
         """Prepare a dictionary for Jinja template rendering."""
         callable_dict = self.callable.prompt_dict()
-        signature_text = callable_dict["signature"]["text"]
+        signature_dict = cast(dict[str, object], callable_dict["signature"])
+        signature_text = signature_dict["text"]
         if signature_text is None and self.python_signature:
             signature_text = self.python_signature
-        arguments = callable_dict["signature"]["arguments"]
+        arguments = signature_dict["arguments"]
         normalization_plan = self.normalization.prompt_dict()
         return {
             "dep_name": self.dep_name,

@@ -78,3 +78,15 @@ uv run fvspec compare-variants --skip-index
 - Implementation: `src/generate/scaffold/dataset.py:209-301`
 - Documentation: `README.md:22-32`
 - Commit: 432901c "Add --skip-index flag to work around IndexError bug"
+
+## optimize `.lake` copying for lake deps
+
+don't try to symlink the whole lakedir, but maybe just the `.lake/pkgs` part.
+
+## reasses difficulty levels in unit test classification script
+
+it got some of the difficulties wrong.
+
+## actually implement central fn (not just sig) at benchmark-generation-time.
+
+Optionally drop it out / replace body with sorry later. 

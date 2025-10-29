@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 from inspect_ai.dataset import MemoryDataset, Sample
+from pydantic import BaseModel, ConfigDict
 
 from generate.scaffold.dataset import Datapoint
 
@@ -41,9 +41,10 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
     return payloads
 
 
-@dataclass(frozen=True)
-class DependencySampleSpec:
+class DependencySampleSpec(BaseModel):
     """Metadata describing a dependency autoformalization task."""
+
+    model_config = ConfigDict(frozen=True)
 
     payload: DependencyPayload
     cache_key: str

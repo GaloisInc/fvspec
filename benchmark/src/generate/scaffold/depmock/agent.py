@@ -8,10 +8,16 @@ from pathlib import Path
 from typing import Any, Awaitable, Callable, Coroutine, Generator
 
 from inspect_ai.agent import Agent, AgentState, agent, as_tool
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
+from inspect_ai.model import (
+    ChatMessageSystem,
+    ChatMessageTool,
+    ChatMessageUser,
+    get_model,
+)
 from inspect_ai.solver._task_state import sample_state
-from inspect_ai.tool import Tool, ToolError, tool
+from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
+from inspect_ai._util.registry import registry_info  # type: ignore
 
 from generate.templates.deps import get_dependency_prompts
 from generate.templates.deps.strings import get_dependency_strings
@@ -80,14 +86,101 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
         state.messages.append(ChatMessageUser(content=user_prompt))
 
-        # Call the model to generate a response if available.
+        # Run an agent loop with LSP tools to iteratively develop and validate the code.
         # get_model() raises ValueError when no model is configured (e.g., in unit tests).
         # In test contexts, we return the state with just the prompts added for validation.
         try:
             model = get_model()
-            response = await model.generate(state.messages)
-            state.messages.append(response.message)
-            state.output = response
+
+            # Get tools from TaskState for LSP feedback (AgentState doesn't have tools)
+            task_state = sample_state()
+            all_tools = task_state.tools if task_state else []
+
+            # Pass all tools to model.generate - inspect_ai will handle tool naming
+            # The tools are @tool-decorated functions that inspect_ai knows how to serialize
+            tools = all_tools
+
+            # Build tool name lookup using inspect_ai's registry system
+            #
+            # ASSUMPTION: Registry names follow 'namespace/tool_name' format.
+            # Tools in inspect_ai have hierarchical names like "generate/lean_diagnostic_messages"
+            # in the registry, but the model API uses just the tool name part (e.g., "lean_diagnostic_messages").
+            # This parsing extracts the final component after the last "/" separator.
+            #
+            # If the registry format changes or tools don't follow this naming convention,
+            # this parsing logic will need to be updated accordingly.
+            tools_by_name = {}
+            for t in tools:
+                info = registry_info(t)
+                if info and info.name:
+                    # Parse tool name from registry format: "namespace/tool_name" -> "tool_name"
+                    tool_name = (
+                        info.name.split("/")[-1] if "/" in info.name else info.name
+                    )
+                    tools_by_name[tool_name] = t
+
+            # Run an agent loop manually to allow iterative tool usage
+            # Max 16 iterations to allow sufficient refinement for complex dependencies
+            max_tool_iterations = 16
+            for _ in range(max_tool_iterations):
+                response = await model.generate(state.messages, tools=tools)
+                state.messages.append(response.message)
+                state.output = response
+
+                # Check if model wants to call tools
+                if response.message.tool_calls:
+                    # Execute all tool calls and collect results
+                    # IMPORTANT: All tool results must be appended together as consecutive messages
+                    # immediately after the assistant's tool_use message
+                    tool_results = []
+                    for tool_call in response.message.tool_calls:
+                        tool = tools_by_name.get(tool_call.function)
+                        if tool:
+                            try:
+                                # ToolCallView.call expects ToolCallContent, which is in tool_call.view
+                                view = ToolCallView(call=tool_call.view)
+                                # Unpack arguments dict with view included
+                                result = await tool(
+                                    **{**tool_call.arguments, "view": view}
+                                )
+                                tool_results.append(
+                                    ChatMessageTool(
+                                        tool_call_id=tool_call.id,
+                                        function=tool_call.function,
+                                        content=str(result),
+                                    )
+                                )
+                            except Exception as e:
+                                tool_results.append(
+                                    ChatMessageTool(
+                                        tool_call_id=tool_call.id,
+                                        function=tool_call.function,
+                                        content=str(e),
+                                        error=ToolCallError(
+                                            message=str(e), type="unknown"
+                                        ),
+                                    )
+                                )
+                        else:
+                            # Tool not found - return error so API doesn't complain about missing tool_result
+                            available_tools = ", ".join(tools_by_name.keys())
+                            tool_results.append(
+                                ChatMessageTool(
+                                    tool_call_id=tool_call.id,
+                                    function=tool_call.function,
+                                    content=f"Tool '{tool_call.function}' not available. Available tools: {available_tools}",
+                                    error=ToolCallError(
+                                        message=f"Tool '{tool_call.function}' not found",
+                                        type="unknown",
+                                    ),
+                                )
+                            )
+
+                    # Append all tool results together
+                    state.messages.extend(tool_results)
+                else:
+                    # No tool calls - agent is done
+                    break
         except ValueError:
             # No model configured - return state with prompts for inspection
             pass
@@ -224,7 +317,7 @@ def create_bound_dependency_tools(
     tools: list[Tool] = []
 
     for payload in payloads:
-        tool_name = f"autoformalize_{payload.dep_name}"
+        tool_name = f"depmock_autoformalize_{payload.dep_name}"
         tool_description = strings.bound_tool.description.format(
             dep_name=payload.dep_name,
             lean_module_name=payload.lean_module_name,
@@ -234,9 +327,13 @@ def create_bound_dependency_tools(
         def make_tool_func(
             bound_payload: DependencyPayload = payload,
             bound_variant: str | None = variant,
-        ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
-            async def execute() -> str:
-                """Run autoformalizer and persist result for this dependency."""
+        ) -> Callable[[ToolCallView], Awaitable[str]]:  # type: ignore[misc]
+            async def execute(view: ToolCallView) -> str:
+                """Run autoformalizer and persist result for this dependency.
+
+                Args:
+                    view: Tool call context (provided by inspect_ai)
+                """
                 strings = get_dependency_strings()
 
                 # Get task state
@@ -349,7 +446,7 @@ def create_bound_dependency_tools(
                     model=str(state.model) if state.model else None,
                     run_id=str(state.sample_id),
                 )
-                record = store_dependency_result(
+                _record = store_dependency_result(
                     bound_payload,
                     result,
                     cache_root=_cache_root(),

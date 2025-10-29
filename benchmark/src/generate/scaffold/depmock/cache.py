@@ -5,13 +5,12 @@ from __future__ import annotations
 import hashlib
 import os
 import shutil
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
 import json
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 from generate.scaffold.depmock.models import (
     DependencyPayload,
@@ -81,9 +80,10 @@ class CacheMetadata(BaseModel):
     provenance: CacheProvenance | None = None
 
 
-@dataclass(frozen=True)
-class CacheRecord:
+class CacheRecord(BaseModel):
     """A cached dependency artifact."""
+
+    model_config = ConfigDict(frozen=True)
 
     key: str
     directory: Path

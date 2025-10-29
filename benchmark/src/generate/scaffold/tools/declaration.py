@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Callable, Awaitable, cast, Any
-from inspect_ai.tool import tool, ToolError, mcp_server_stdio, mcp_tools
+from inspect_ai.tool import tool, ToolCallView, ToolError
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import Score
 from inspect_ai.solver._task_state import sample_state
@@ -111,14 +111,16 @@ def call_lean_lsp_mcp(
 
 
 @tool  # type: ignore[arg-type]
-def lean_diagnostic_messages() -> Callable[[str], Awaitable[str]]:
+def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Get diagnostic messages for a Lean file using per-sample workspace."""
 
-    async def execute(file_path: str) -> str:
+    async def execute(file_path: str, view: ToolCallView) -> str:
+        # view: Required by inspect_ai but not used in this tool
         """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
 
         Args:
             file_path: Path to the Lean file (relative to workspace or absolute)
+            view: Tool call context (provided by inspect_ai)
 
         Returns:
             Diagnostic messages as formatted text
@@ -150,16 +152,19 @@ def lean_diagnostic_messages() -> Callable[[str], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
-def lean_goal() -> Callable[[str, int, int | None], Awaitable[str]]:
+def lean_goal() -> Callable[[str, int, int | None, ToolCallView], Awaitable[str]]:
     """Get proof goal at a specific location in a Lean file."""
 
-    async def execute(file_path: str, line: int, column: int | None = None) -> str:
+    async def execute(
+        file_path: str, line: int, column: int | None, view: ToolCallView
+    ) -> str:
         """Get the proof goal at a specific location.
 
         Args:
             file_path: Path to the Lean file
             line: Line number
             column: Optional column number
+            view: Tool call context (provided by inspect_ai)
 
         Returns:
             Goal state information
@@ -191,10 +196,14 @@ def lean_goal() -> Callable[[str, int, int | None], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
-def lean_multi_attempt() -> Callable[[str, int, list[str]], Awaitable[str]]:
+def lean_multi_attempt() -> Callable[
+    [str, int, list[str], ToolCallView], Awaitable[str]
+]:
     """Try multiple proof tactics and return goal states for each."""
 
-    async def execute(file_path: str, line: int, snippets: list[str]) -> str:
+    async def execute(
+        file_path: str, line: int, snippets: list[str], view: ToolCallView
+    ) -> str:
         """Attempt multiple Lean code snippets at a line and return diagnostics.
 
         This tool is useful to screen different proof attempts before committing
@@ -204,6 +213,7 @@ def lean_multi_attempt() -> Callable[[str, int, list[str]], Awaitable[str]]:
             file_path: Path to the Lean file
             line: Line number where to attempt the snippets
             snippets: List of Lean code snippets to try
+            view: Tool call context (provided by inspect_ai)
 
         Returns:
             Goal states and diagnostics for each snippet
@@ -233,10 +243,10 @@ def lean_multi_attempt() -> Callable[[str, int, list[str]], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
-def lean_local_search() -> Callable[[str], Awaitable[str]]:
+def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Search for Lean definitions and theorems in the local project and stdlib."""
 
-    async def execute(query: str) -> str:
+    async def execute(query: str, view: ToolCallView) -> str:
         """Search for definitions and theorems matching the query.
 
         This tool helps find existing declarations to prevent hallucinating APIs.
@@ -244,6 +254,7 @@ def lean_local_search() -> Callable[[str], Awaitable[str]]:
 
         Args:
             query: Search query (identifier or pattern)
+            view: Tool call context (provided by inspect_ai)
 
         Returns:
             Matching declarations from the local project and standard library
@@ -273,7 +284,7 @@ def lean_local_search() -> Callable[[str], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
-def write_lean_spec() -> Callable[[str], Awaitable[str]]:
+def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean code to Spec.lean in the workspace for LSP analysis.
 
     This tool allows the agent to iteratively develop Lean code by writing it
@@ -289,11 +300,12 @@ def write_lean_spec() -> Callable[[str], Awaitable[str]]:
     The final code will be extracted from <code>...</code> tags during cleanup.
     """
 
-    async def execute(code: str) -> str:
+    async def execute(code: str, view: ToolCallView) -> str:
         """Write Lean code to the workspace Spec.lean file.
 
         Args:
             code: The Lean code to write to Fvspec/Spec.lean
+            view: Tool call context (provided by inspect_ai)
 
         Returns:
             Success message with file path and size
@@ -436,6 +448,91 @@ def write_qa_to_disk(
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
 
+def write_unit_tests_to_disk(
+    date_time: str,
+    sample_id: str,
+    state: TaskState,
+    variant: str,
+    workspace: Path | None = None,
+) -> str:
+    """Write extracted unit tests to `Tests.lean` for the sample.
+
+    Unit tests are extracted from the PBT during dataset creation and stored
+    in metadata. This function writes them to disk for evaluation purposes.
+
+    Always writes Tests.lean even if empty (lake-template expects it).
+
+    Args:
+        date_time: datetime string used in directory structure.
+        sample_id: Identifier for the current sample.
+        state: The task state containing unit tests in metadata.
+        variant: Prompt variant name.
+        workspace: Optional workspace tmpdir path for MCP tools.
+
+    Returns:
+        A message describing whether the write succeeded.
+    """
+    # Extract unit tests from metadata
+    unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+    datapoint = cast(Datapoint, state.metadata.get("datapoint"))
+
+    # Generate Tests.lean content
+    # Note: Imports are provided by lake-template/Fvspec/Tests.lean
+    if unit_tests_lspec:
+        # We have extracted tests - add metadata and test code
+        func_name = ""
+        if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
+            func_name = datapoint.pbt_functions[0]
+        else:
+            func_name = datapoint.pbt_name.removeprefix("test_")
+
+        # Count exact and float tests
+        num_exact = unit_tests_lspec.count('test "')
+        num_float = unit_tests_lspec.count("-- Float tests")
+
+        tests_content = f"""-- Unit tests extracted from property-based test
+-- Function: {func_name}
+-- Extraction method: AST analysis with pytest.mark.parametrize support
+-- Tests: {num_exact} exact, {num_float} float
+
+{unit_tests_lspec}
+"""
+    else:
+        # No tests extracted - write explanation
+        tests_content = """-- No unit tests could be extracted from the property-based test
+-- This may be because:
+--   - The test uses only Hypothesis strategies (no concrete examples)
+--   - The test logic is too complex for static analysis
+--   - The function name could not be determined
+"""
+
+    # Write to artifacts directory (permanent storage)
+    # For artifacts, prepend the template imports since we're writing from scratch
+    template_imports = """import LSpec
+import Fvspec.Spec
+
+"""
+    tests_file = utilio.get_output_filepath(
+        date_time, sample_id, "Tests.lean", variant=variant
+    )
+    result = utilio.writeit(tests_file, template_imports + tests_content)
+
+    # Also write to workspace if provided (for potential MCP usage)
+    # For workspace, append to existing template file to preserve imports
+    if workspace:
+        workspace_tests = workspace / "Fvspec" / "Tests.lean"
+        if workspace_tests.exists():
+            # Append to existing template content
+            existing = workspace_tests.read_text()
+            workspace_tests.write_text(existing + "\n" + tests_content)
+        else:
+            # Template not copied yet, write with imports
+            workspace_tests.parent.mkdir(parents=True, exist_ok=True)
+            workspace_tests.write_text(template_imports + tests_content)
+
+    return result
+
+
 def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
     """Convert QualityAssessment metrics to inspect_ai Score objects.
 
@@ -525,6 +622,22 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
             explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
         )
 
+    # Unit test metrics
+    if qa.has_unit_tests:
+        scores["has_unit_tests"] = Score(
+            value=1.0,
+            explanation=f"Unit tests extracted: {qa.num_unit_tests} test(s) available for evaluation",
+        )
+        scores["num_unit_tests"] = Score(
+            value=qa.num_unit_tests,
+            explanation=f"Number of extracted unit tests: {qa.num_unit_tests}",
+        )
+    else:
+        scores["has_unit_tests"] = Score(
+            value=0.0,
+            explanation="No unit tests could be extracted from the PBT",
+        )
+
     return scores
 
 
@@ -571,6 +684,9 @@ async def write_to_disk(state: TaskState):
             variant=variant,
             workspace=workspace,
         )
+        ret_str_tests = write_unit_tests_to_disk(
+            date_time, sample_id, state, variant=variant, workspace=workspace
+        )
         ret_str_qa = write_qa_to_disk(date_time, sample_id, state, variant=variant)
 
         # Extract quality assessment and register metrics as scores
@@ -582,7 +698,9 @@ async def write_to_disk(state: TaskState):
 
         log_sample_to_wandb(state)
 
-        result = ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_qa
+        result = (
+            ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_tests + "\n" + ret_str_qa
+        )
     else:
         result = (
             ret_str_dp + "\n" + "No output generated (task may have been interrupted)"

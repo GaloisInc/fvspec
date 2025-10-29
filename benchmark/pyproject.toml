@@ -9,17 +9,16 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "codegen>=0.57.0",
     "datasets>=4.1.1",
     "hvplot>=0.12.1",
-    "inspect-ai>=0.3.140",
+    "inspect-ai>=0.3.142",
     "jinja2>=3.1.6",
     "jsonlines>=4.0.0",
     "mcp>=1.18.0",
     "pandas>=2.3.3",
     "panel>=1.8.2",
     "pydantic>=2.12.3",
-    "pydantic-ai>=1.2.1",
+    "pydantic-ai>=1.7.0",
     "python-dotenv>=1.1.1",
     "rich>=13.9.4",
     "streamlit>=1.50.0",
@@ -34,6 +33,8 @@ preview-prompts = "generate.templates:main"
 fvspec = "generate:main"
 analyze-deps-regex = "scripts.analyze_deps_regex:cli"
 analyze-deps = "scripts.analyze_deps:main"
+classify-unit-tests = "scripts.classify_unit_tests:app"
+test-unit-extraction = "scripts.test_unit_extraction:app"
 
 [project.entry-points.inspect_ai]
 benchmark = "generate._registry"
@@ -44,7 +45,7 @@ filterwarnings = [
 ]
 
 [tool.ruff.lint]
-select = ["D"]
+select = ["F", "D"]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
@@ -58,6 +59,6 @@ dev = [
     "hypothesis>=6.140.3",
     "pytest>=8.4.2",
     "pytest-mock>=3.15.1",
-    "ruff>=0.14.0",
-    "ty>=0.0.1a21",
+    "ruff>=0.14.2",
+    "ty>=0.0.1a25",
 ]

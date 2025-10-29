@@ -70,7 +70,6 @@ class VacuityMetrics:
 **Questions**:
 
 - Which tactics to test? (current idea: rfl, trivial, simp, decide)
-- How to weight them in scoring?
 - How to handle theorems with multiple sorries?
 - Timeout settings?
 

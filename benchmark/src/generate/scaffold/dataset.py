@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from generate.templates.spec import VariantRegistry, get_variant_prompts
+from generate.scaffold.units import extract_unit_tests, generate_test_suite
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
 from rich.console import Console
@@ -75,6 +76,55 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     return Prompt(pbt=dp.pbt, deps=dp.deps)
 
 
+def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
+    """Extract unit tests from a datapoint's overlapping unit tests.
+
+    Attempts to extract concrete unit tests from the actual unit test code
+    (not the PBT code) using AST analysis.
+    If successful, generates LSpec test suite code that can be used for evaluation.
+
+    Args:
+        dp: The datapoint containing the overlapping unit tests
+
+    Returns:
+        Generated LSpec code string if tests were extracted, None otherwise
+
+    Note:
+        Unit tests are for EVALUATION only - they should NOT be shown to the model.
+        They validate model implementations after spec generation.
+    """
+    # Check if we have overlapping tests with unit tests
+    if not dp.overlapping_tests:
+        return None
+
+    # Try each overlapping test group and each unit test within
+    for overlap in dp.overlapping_tests:
+        unit_tests = overlap.get("unit_tests", [])
+        shared_functions = overlap.get("shared_functions", [])
+
+        if not unit_tests or not shared_functions:
+            continue
+
+        # Try extraction on each unit test with each shared function
+        for unit_test in unit_tests:
+            unit_test_code = unit_test.get("code", "")
+            if not unit_test_code:
+                continue
+
+            for func_name in shared_functions:
+                # Extract unit tests using AST analysis
+                test_suite = extract_unit_tests(unit_test_code, func_name=func_name)
+
+                if test_suite is not None and (
+                    test_suite.exact_tests or test_suite.float_tests
+                ):
+                    # Successfully extracted tests, generate LSpec code
+                    return generate_test_suite(test_suite)
+
+    # No tests could be extracted from any unit test
+    return None
+
+
 def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
     """Render the initial user prompt from a Prompt object.
 
@@ -127,7 +177,7 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
         with open(file_path, "rb") as f:
             offsets.append(0)  # First line starts at byte 0
             line_count = 0
-            last_pos = 0
+            # last_pos = 0
 
             while f.readline():
                 current_pos = f.tell()
@@ -136,7 +186,7 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
 
                 # Update progress based on bytes read
                 progress.update(task, completed=current_pos)
-                last_pos = current_pos
+                # last_pos = current_pos
 
     # Remove the final offset (it's past EOF)
     offsets = offsets[:-1]
@@ -154,6 +204,74 @@ def build_index(file_path: Path, index_path: Path | None = None) -> Path:
         f"✓ Index complete: {len(offsets):,} lines indexed ({index_path.stat().st_size / 1024 / 1024:.2f} MB)"
     )
     return index_path
+
+
+def build_id_index(file_path: Path, id_index_path: Path | None = None) -> Path:
+    """Build an ID-to-line-number index for fast ID-based lookup.
+
+    Creates an index file that maps datapoint IDs to line numbers in the JSONL file.
+    This enables O(1) lookup by ID instead of O(n) scanning.
+
+    Args:
+        file_path: Path to the JSONL file to index
+        id_index_path: Optional custom path for ID index file (defaults to file_path + ".id_index")
+
+    Returns:
+        Path to the created ID index file
+
+    Note:
+        This is a one-time operation that takes ~10-30 minutes for the 116GB pbts.jsonl.
+        The ID index file is small (~1-2MB for 60k datapoints) and enables instant ID lookup.
+    """
+    if id_index_path is None:
+        id_index_path = Path(str(file_path) + ".id_index")
+
+    # Get file size for progress tracking
+    file_size = file_path.stat().st_size
+
+    id_to_line: dict[int, int] = {}
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task = progress.add_task(
+            f"Building ID index for {file_path.name}...", total=file_size
+        )
+
+        with open(file_path, "rb") as f:
+            line_num = 0
+            while True:
+                line = f.readline()
+                if not line:
+                    break
+
+                # Parse just the 'id' field without full Datapoint validation
+                obj = json.loads(line)
+                datapoint_id = obj.get("id")
+                if datapoint_id is not None:
+                    id_to_line[datapoint_id] = line_num
+
+                line_num += 1
+                progress.update(task, completed=f.tell())
+
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+    ) as progress:
+        task = progress.add_task(f"Writing ID index to {id_index_path.name}...")
+        with open(id_index_path, "w") as f:
+            json.dump({"id_to_line": id_to_line, "total_ids": len(id_to_line)}, f)
+        progress.update(task, completed=1, total=1)
+
+    print(
+        f"✓ ID index complete: {len(id_to_line):,} IDs indexed ({id_index_path.stat().st_size / 1024 / 1024:.2f} MB)"
+    )
+    return id_index_path
 
 
 def load_index(index_path: Path) -> dict[str, Any]:
@@ -226,6 +344,119 @@ def load_datapoints(file_path: Path) -> list[Datapoint]:
         return [Datapoint(**obj) for obj in reader]  # type: ignore[arg-type]
 
 
+def load_datapoints_by_id(
+    file_path: Path,
+    datapoint_ids: list[int],
+    skip_index: bool = False,
+) -> dict[int, Datapoint]:
+    """Load specific datapoints by their IDs efficiently using ID index when available.
+
+    Args:
+        file_path: Path to the JSONL file
+        datapoint_ids: List of datapoint IDs to load
+        skip_index: Skip using index and stream entire file instead
+
+    Returns:
+        Dictionary mapping datapoint ID to Datapoint object (only IDs that were found)
+
+    Note:
+        With ID index: O(num_ids) - direct seeks to requested lines only
+        Without ID index: O(total_lines) - streams entire file looking for IDs
+    """
+    index_path = file_path.with_suffix(file_path.suffix + ".index")
+    id_index_path = Path(str(file_path) + ".id_index")
+    console = Console()
+
+    # Convert to set for O(1) lookup
+    target_ids = set(datapoint_ids)
+    result: dict[int, Datapoint] = {}
+
+    if not skip_index and id_index_path.exists() and index_path.exists():
+        # Fast path: Use ID index for O(1) ID->line lookup, then byte offset index for seek
+        console.print(f"[green]✓[/green] Using ID index: {id_index_path.name}")
+
+        # Load both indexes
+        with open(id_index_path) as f:
+            id_index_data = json.load(f)
+        id_to_line: dict[str, int] = id_index_data["id_to_line"]
+
+        index_data = load_index(index_path)
+        offsets: list[int] = index_data["offsets"]
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ) as progress:
+            task = progress.add_task(
+                f"Loading {len(target_ids)} datapoint(s)...", total=len(target_ids)
+            )
+
+            with open(file_path, "rb") as f:
+                for idx, datapoint_id in enumerate(datapoint_ids):
+                    # JSON only allows string keys in objects, so IDs are stored as strings in the index file.
+                    # Convert int ID to str for JSON dict key lookup.
+                    line_num = id_to_line.get(str(datapoint_id))
+                    if line_num is not None and line_num < len(offsets):
+                        # Direct seek to the line
+                        f.seek(offsets[line_num])
+                        line = f.readline()
+                        obj = json.loads(line)
+                        datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+                        result[datapoint.id] = datapoint
+
+                    progress.update(task, completed=idx + 1)
+
+    else:
+        # Fallback: Stream entire file looking for IDs
+        if skip_index:
+            console.print(
+                "[yellow]⚠[/yellow] Skipping index (--skip-index), streaming file"
+            )
+        elif not id_index_path.exists():
+            console.print(
+                "[yellow]⚠[/yellow] No ID index found, streaming file (consider running: uv run fvspec index-data)"
+            )
+        else:
+            console.print(
+                "[yellow]⚠[/yellow] No byte offset index found, streaming file (consider running: uv run fvspec index-data)"
+            )
+
+        file_size = file_path.stat().st_size
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ) as progress:
+            task = progress.add_task(
+                f"Loading {len(target_ids)} datapoint(s)...", total=file_size
+            )
+
+            with open(file_path, "rb") as f:
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break
+
+                    obj = json.loads(line)
+                    datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+                    if datapoint.id in target_ids:
+                        result[datapoint.id] = datapoint
+                        # Check if we found all IDs
+                        if len(result) == len(target_ids):
+                            break
+
+                    progress.update(task, completed=f.tell())
+
+    return result
+
+
 def sample_datapoints(
     file_path: Path,
     n: int,
@@ -267,7 +498,7 @@ def sample_datapoints(
     else:
         # No index found - offer to build one
         console.print(f"[yellow]⚠[/yellow] No index found for {file_path.name}")
-        console.print(f"   Building an index enables fast sampling (~1 sec vs ~10 min)")
+        console.print("   Building an index enables fast sampling (~1 sec vs ~10 min)")
 
         # Interactive prompt (defaults to Yes)
         should_build = Confirm.ask(
@@ -277,7 +508,7 @@ def sample_datapoints(
         if should_build:
             # Build the index with progress bar
             build_index(file_path, index_path)
-            console.print(f"[green]✓[/green] Index created! Using it for this run...")
+            console.print("[green]✓[/green] Index created! Using it for this run...")
             index_data = load_index(index_path)
             samples = sample_datapoints_indexed(file_path, index_data, n, ranseed)
             if len(samples) < n:
@@ -371,8 +602,14 @@ def mk_dataset(
     registry = VariantRegistry()
     actual_variant = variant or registry.default_variant()
 
-    return MemoryDataset(
-        [
+    samples = []
+    for datapoint in sample_datapoints(
+        path, n=sample_size, ranseed=ranseed, skip_index=skip_index
+    ):
+        # Extract unit tests for evaluation (NOT shown to model)
+        unit_tests_lspec = extract_datapoint_unit_tests(datapoint)
+
+        samples.append(
             Sample(
                 input=mk_initial(
                     datapoint_to_prompt(datapoint), variant=actual_variant
@@ -381,11 +618,10 @@ def mk_dataset(
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                     "variant": actual_variant,
+                    "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(
-                path, n=sample_size, ranseed=ranseed, skip_index=skip_index
-            )
-        ]
-    )
+        )
+
+    return MemoryDataset(samples)

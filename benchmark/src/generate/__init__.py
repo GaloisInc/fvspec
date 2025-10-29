@@ -4,14 +4,17 @@ from collections import defaultdict
 import json
 from datetime import datetime
 from pathlib import Path
-import random
 
 from inspect_ai import eval, eval_set
 
 from generate.config import load_config, WandbConfig
 from generate.scaffold.task import fvspec, DATA_DIR
 from generate.scaffold.wandb_logger import init_wandb_logger
-from generate.scaffold.dataset import load_datapoints, Datapoint
+from generate.scaffold.dataset import (
+    load_datapoints_by_id,
+    sample_datapoints,
+    Datapoint,
+)
 from generate.scaffold.depmock import (
     DependencyPayload,
     DependencyBatchError,
@@ -205,7 +208,6 @@ def main_callback(
             model=cfg.agent.model,
             log_dir=str(log_dir),
             max_samples=use_parallelism,
-            max_connections=use_parallelism,
             display=use_display,
         )
     finally:
@@ -373,7 +375,6 @@ def compare_variants(
                 log_dir=str(log_dir),
                 model=cfg.agent.model,
                 max_samples=use_parallelism,
-                max_connections=use_parallelism,
                 display=use_display,
             )
         finally:
@@ -463,15 +464,10 @@ def deps_autoformalize_command(
         print(f"Dataset not found at {dataset_path}")
         return
 
-    datapoints = load_datapoints(dataset_path)
-    if not datapoints:
-        print("No datapoints available in dataset")
-        return
-
-    dp_by_id = {dp.id: dp for dp in datapoints}
-
     selected: list[Datapoint] = []
     if sample_id:
+        # Use efficient ID-based lookup instead of loading entire dataset
+        dp_by_id = load_datapoints_by_id(dataset_path, sample_id)
         for sid in sample_id:
             dp = dp_by_id.get(sid)
             if dp is None:
@@ -482,17 +478,13 @@ def deps_autoformalize_command(
             print("No valid sample ids provided; aborting.")
             return
     else:
-        size = max(0, min(sample_size, len(datapoints)))
-        if size == 0:
-            print("Sample size is zero; nothing to do.")
-            return
-        rng = random.Random(ranseed)
-        selected = rng.sample(datapoints, size)
+        # Use indexed sampling for random selection
+        selected = sample_datapoints(dataset_path, n=sample_size, ranseed=ranseed)
 
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / "runs" / f"{timestamp}__variant_{path_variant}"
+    base_dir = Path("artifacts") / "runs" / f"{timestamp}__{path_variant}"
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -788,7 +780,7 @@ def deps_cache_clear_wandb_command() -> None:
         print("Deleting artifact...")
         artifact.delete()
 
-        print(f"✓ Successfully deleted dep-cache artifact from wandb")
+        print("✓ Successfully deleted dep-cache artifact from wandb")
         print(f"  Project: {cfg.wandb.project}")
         print(f"  Entity: {cfg.wandb.entity or api.default_entity}")
         print("\nNext run will create a fresh cache artifact.")
@@ -808,23 +800,24 @@ def deps_cache_clear_wandb_command() -> None:
 def index_data_command(
     datafile: str = Option("pbts.jsonl", help="Path to JSONL file to index"),
 ) -> None:
-    """Build a byte-offset index for fast random sampling of the dataset.
+    """Build indexes for fast dataset access.
 
-    This is a one-time operation that creates an index file (datafile + ".index")
-    mapping line numbers to byte positions. The index enables O(sample_size) sampling
-    instead of O(total_lines) reservoir sampling.
+    This is a one-time operation that creates two index files:
+    1. Byte-offset index (datafile + ".index") - for random sampling
+    2. ID index (datafile + ".id_index") - for fast ID-based lookup
 
     For the 116GB pbts.jsonl file:
-    - Indexing takes: ~10-30 minutes (one-time cost)
-    - Index file size: ~1-2 MB
-    - Sampling speed: ~1 second for any sample size (vs ~10 minutes without index)
+    - Indexing takes: ~10-30 minutes per index (one-time cost)
+    - Index file sizes: ~1-2 MB each
+    - Random sampling: ~1 second (vs ~10 minutes without index)
+    - ID lookup: instant (vs scanning entire file)
 
-    The index is automatically used by all sampling operations once created.
+    Both indexes are automatically used by sampling and lookup operations once created.
 
     Args:
         datafile: JSONL file to index (default: pbts.jsonl)
     """
-    from generate.scaffold.dataset import build_index
+    from generate.scaffold.dataset import build_index, build_id_index
 
     dataset_path = (DATA_DIR / datafile).resolve()
 
@@ -833,13 +826,19 @@ def index_data_command(
         raise typer.Exit(code=1)
 
     try:
+        # Build byte-offset index for random sampling
         index_path = build_index(dataset_path)
-        print(f"\n✓ Index successfully created at {index_path}")
+        print(f"\n✓ Byte-offset index created at {index_path}")
+
+        # Build ID index for fast ID lookups
+        id_index_path = build_id_index(dataset_path)
+        print(f"\n✓ ID index created at {id_index_path}")
+
         print(
-            f"  All future sampling operations will automatically use this index for fast random access."
+            "\n  All future operations will automatically use these indexes for fast access."
         )
     except Exception as e:
-        print(f"Error building index: {e}")
+        print(f"Error building indexes: {e}")
         raise typer.Exit(code=1)
 
 
