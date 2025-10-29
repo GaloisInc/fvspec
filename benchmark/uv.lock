@@ -1057,7 +1057,7 @@ requires-dist = [
     { name = "codegen", specifier = ">=0.57.0" },
     { name = "datasets", specifier = ">=4.1.1" },
     { name = "hvplot", specifier = ">=0.12.1" },
-    { name = "inspect-ai", specifier = ">=0.3.142" },
+    { name = "inspect-ai", specifier = ">=0.3.140" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "jsonlines", specifier = ">=4.0.0" },
     { name = "mcp", specifier = ">=1.18.0" },
