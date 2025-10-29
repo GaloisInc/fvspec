@@ -91,7 +91,21 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
 
             # Get tools from TaskState for LSP feedback (AgentState doesn't have tools)
             task_state = sample_state()
-            tools = task_state.tools if task_state else []
+            all_tools = task_state.tools if task_state else []
+
+            # Filter to only LSP tools - exclude autoformalize_* tools to avoid recursion
+            # LSP tools: write_lean_spec, lean_diagnostic_messages, lean_goal,
+            #            lean_multi_attempt, lean_local_search
+            lsp_tool_names = {
+                "write_lean_spec",
+                "lean_diagnostic_messages",
+                "lean_goal",
+                "lean_multi_attempt",
+                "lean_local_search",
+            }
+            tools = [
+                t for t in all_tools if getattr(t, "__name__", None) in lsp_tool_names
+            ]
 
             # Build tool name lookup - tools are callables with __name__
             tools_by_name = {getattr(t, "__name__", None): t for t in tools}
