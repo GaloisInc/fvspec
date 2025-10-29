@@ -5,7 +5,7 @@ from generate.scaffold.units.lspec_generator import (
     generate_lean_test,
     generate_test_suite,
 )
-from generate.scaffold.units.types import TestCase, TestSuite
+from generate.scaffold.units.structures import TestCase, TestSuite
 
 
 def test_generate_lean_test_simple():

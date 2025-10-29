@@ -1,6 +1,6 @@
 """Generate LSpec test suites from extracted test cases."""
 
-from generate.scaffold.units.types import TestCase, TestSuite
+from generate.scaffold.units.structures import TestCase, TestSuite
 
 
 def generate_lean_test(test: TestCase) -> str:

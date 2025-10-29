@@ -6,7 +6,7 @@ concrete test cases through constant propagation and symbolic execution.
 
 import ast
 from typing import Any
-from generate.scaffold.units.types import TestCase
+from generate.scaffold.units.structures import TestCase
 
 
 class ASTExtractor(ast.NodeVisitor):
@@ -112,6 +112,113 @@ class ASTExtractor(ast.NodeVisitor):
         else:
             # Can't unroll, just visit normally
             self.generic_visit(node)
+
+    def visit_FunctionDef(self, node: ast.FunctionDef) -> None:
+        """Handle pytest.mark.parametrize decorators.
+
+        Handles:
+        - @pytest.mark.parametrize("x,y,expected", [(1,2,3), (5,10,15)])
+        - @pytest.mark.parametrize("input,output", [[1,2], [3,4]])
+
+        For each parameter combination, visits the function body with those
+        values in the symbol table.
+        """
+        # Check for parametrize decorators
+        parametrize_data = self._extract_parametrize(node)
+
+        if parametrize_data:
+            # Unroll parametrized tests
+            param_names, param_values = parametrize_data
+
+            # Save original symbol table
+            saved_symbols = self.symbol_table.copy()
+
+            # For each combination of parameter values
+            for value_tuple in param_values:
+                # Set parameters in symbol table
+                for param_name, param_value in zip(param_names, value_tuple):
+                    self.symbol_table[param_name] = param_value
+
+                # Visit function body
+                for stmt in node.body:
+                    self.visit(stmt)
+
+            # Restore symbol table
+            self.symbol_table = saved_symbols
+        else:
+            # No parametrize, visit normally
+            self.generic_visit(node)
+
+    def _extract_parametrize(
+        self, node: ast.FunctionDef
+    ) -> tuple[list[str], list[tuple]] | None:
+        """Extract pytest.mark.parametrize data from function decorators.
+
+        Args:
+            node: FunctionDef node to check
+
+        Returns:
+            Tuple of (parameter_names, parameter_values), or None if no parametrize
+
+        Example:
+            @pytest.mark.parametrize("x,y,expected", [(1,2,3), (5,10,15)])
+            Returns: (["x", "y", "expected"], [(1, 2, 3), (5, 10, 15)])
+        """
+        for decorator in node.decorator_list:
+            # Check for @pytest.mark.parametrize(...) or @parametrize(...)
+            if isinstance(decorator, ast.Call):
+                # Get the decorator name
+                decorator_name = None
+                if isinstance(decorator.func, ast.Attribute):
+                    # pytest.mark.parametrize
+                    if (
+                        isinstance(decorator.func.value, ast.Attribute)
+                        and isinstance(decorator.func.value.value, ast.Name)
+                        and decorator.func.value.value.id == "pytest"
+                        and decorator.func.value.attr == "mark"
+                        and decorator.func.attr == "parametrize"
+                    ):
+                        decorator_name = "parametrize"
+                elif isinstance(decorator.func, ast.Name):
+                    # @parametrize (direct import)
+                    if decorator.func.id == "parametrize":
+                        decorator_name = "parametrize"
+
+                if decorator_name == "parametrize" and len(decorator.args) >= 2:
+                    # Extract parameter names (first arg)
+                    param_names_arg = decorator.args[0]
+                    param_names = None
+                    if isinstance(param_names_arg, ast.Constant) and isinstance(
+                        param_names_arg.value, str
+                    ):
+                        # Parse "x,y,expected" -> ["x", "y", "expected"]
+                        param_names = [
+                            name.strip() for name in param_names_arg.value.split(",")
+                        ]
+
+                    # Extract parameter values (second arg)
+                    param_values_arg = decorator.args[1]
+                    param_values = self._try_eval_node(param_values_arg)
+
+                    if param_names and param_values and isinstance(param_values, list):
+                        # Normalize: ensure all values are tuples
+                        normalized_values = []
+                        for val in param_values:
+                            if isinstance(val, tuple):
+                                normalized_values.append(val)
+                            elif isinstance(val, list):
+                                # Single parameter case: [1, 2, 3] -> [(1,), (2,), (3,)]
+                                if len(param_names) == 1:
+                                    normalized_values.append((val,))
+                                else:
+                                    normalized_values.append(tuple(val))
+                            else:
+                                # Single value: 1 -> (1,)
+                                normalized_values.append((val,))
+
+                        return (param_names, normalized_values)
+
+        return None
 
     def _extract_test_from_comparison(
         self, left: ast.expr, right: ast.expr

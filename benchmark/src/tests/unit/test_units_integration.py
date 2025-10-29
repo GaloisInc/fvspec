@@ -63,3 +63,28 @@ for i in [0, 1, 2]:
     assert "factorial 0 = 1" in lean_code
     assert "factorial 1 = 1" in lean_code
     assert "factorial 2 = 2" in lean_code
+
+
+def test_end_to_end_with_parametrize():
+    """Test end-to-end with pytest.mark.parametrize."""
+    pbt_code = """
+import pytest
+
+@pytest.mark.parametrize("x,y,expected", [
+    (1, 2, 3),
+    (10, 20, 30),
+    (0, 0, 0),
+])
+def test_add(x, y, expected):
+    assert add(x, y) == expected
+"""
+
+    suite = extract_unit_tests(pbt_code, func_name="add")
+    assert suite is not None
+    assert len(suite.exact_tests) == 3
+
+    lean_code = generate_test_suite(suite)
+    assert "import LSpec" in lean_code
+    assert "add 1 2 = 3" in lean_code
+    assert "add 10 20 = 30" in lean_code
+    assert "add 0 0 = 0" in lean_code
