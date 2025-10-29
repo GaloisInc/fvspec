@@ -85,7 +85,12 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
         # In test contexts, we return the state with just the prompts added for validation.
         try:
             model = get_model()
-            response = await model.generate(state.messages)
+
+            # Get tools from TaskState for LSP feedback (AgentState doesn't have tools)
+            task_state = sample_state()
+            tools = task_state.tools if task_state else []
+
+            response = await model.generate(state.messages, tools=tools)
             state.messages.append(response.message)
             state.output = response
         except ValueError:
