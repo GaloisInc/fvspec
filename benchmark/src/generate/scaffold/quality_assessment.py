@@ -436,6 +436,14 @@ class QualityAssessment(BaseModel):
     structural_faithfulness: StructuralFaithfulness | None = Field(
         None, description="Objective structural metrics"
     )
+    # Unit test metrics
+    has_unit_tests: bool = Field(
+        False, description="Whether unit tests were extracted from PBT"
+    )
+    num_unit_tests: int = Field(0, description="Number of unit tests extracted")
+    unit_tests_available: bool = Field(
+        False, description="Whether unit tests are available for evaluation"
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -488,6 +496,15 @@ class QualityAssessment(BaseModel):
                 # If structural analysis fails, continue without it
                 pass
 
+        # Extract unit test information from metadata
+        unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+        has_unit_tests = unit_tests_lspec is not None
+        num_unit_tests = 0
+        if has_unit_tests and unit_tests_lspec:
+            # Count number of test cases in the LSpec code
+            # Each test is a line containing 'test "'
+            num_unit_tests = unit_tests_lspec.count('test "')
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.pbt_name,
@@ -510,4 +527,7 @@ class QualityAssessment(BaseModel):
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,
             structural_faithfulness=structural,
+            has_unit_tests=has_unit_tests,
+            num_unit_tests=num_unit_tests,
+            unit_tests_available=has_unit_tests,
         )

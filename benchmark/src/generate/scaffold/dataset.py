@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from generate.templates.spec import VariantRegistry, get_variant_prompts
+from generate.scaffold.units import extract_unit_tests, generate_test_suite
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
 from rich.console import Console
@@ -73,6 +74,43 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
         A Prompt containing the property-based test and dependencies
     """
     return Prompt(pbt=dp.pbt, deps=dp.deps)
+
+
+def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
+    """Extract unit tests from a datapoint's PBT code.
+
+    Attempts to extract concrete unit tests from the PBT using AST analysis.
+    If successful, generates LSpec test suite code that can be used for evaluation.
+
+    Args:
+        dp: The datapoint containing the PBT code
+
+    Returns:
+        Generated LSpec code string if tests were extracted, None otherwise
+
+    Note:
+        Unit tests are for EVALUATION only - they should NOT be shown to the model.
+        They validate model implementations after spec generation.
+    """
+    # Try to determine the function name being tested
+    # Priority: pbt_functions field, then pbt_name as fallback
+    func_name = ""
+    if dp.pbt_functions and len(dp.pbt_functions) > 0:
+        # Use first function from pbt_functions list
+        func_name = dp.pbt_functions[0]
+    else:
+        # Fall back to pbt_name (may need cleaning)
+        # Common patterns: "test_func_name" -> "func_name"
+        func_name = dp.pbt_name.removeprefix("test_")
+
+    # Extract unit tests using AST analysis
+    test_suite = extract_unit_tests(dp.pbt, func_name=func_name)
+
+    if test_suite is None:
+        return None
+
+    # Generate LSpec code from extracted tests
+    return generate_test_suite(test_suite)
 
 
 def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
@@ -371,8 +409,14 @@ def mk_dataset(
     registry = VariantRegistry()
     actual_variant = variant or registry.default_variant()
 
-    return MemoryDataset(
-        [
+    samples = []
+    for datapoint in sample_datapoints(
+        path, n=sample_size, ranseed=ranseed, skip_index=skip_index
+    ):
+        # Extract unit tests for evaluation (NOT shown to model)
+        unit_tests_lspec = extract_datapoint_unit_tests(datapoint)
+
+        samples.append(
             Sample(
                 input=mk_initial(
                     datapoint_to_prompt(datapoint), variant=actual_variant
@@ -381,11 +425,10 @@ def mk_dataset(
                     "datapoint": datapoint,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                     "variant": actual_variant,
+                    "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
                 },
                 id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
             )
-            for datapoint in sample_datapoints(
-                path, n=sample_size, ranseed=ranseed, skip_index=skip_index
-            )
-        ]
-    )
+        )
+
+    return MemoryDataset(samples)

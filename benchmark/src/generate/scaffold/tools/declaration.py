@@ -525,6 +525,22 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
             explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
         )
 
+    # Unit test metrics
+    if qa.has_unit_tests:
+        scores["has_unit_tests"] = Score(
+            value=1.0,
+            explanation=f"Unit tests extracted: {qa.num_unit_tests} test(s) available for evaluation",
+        )
+        scores["num_unit_tests"] = Score(
+            value=qa.num_unit_tests,
+            explanation=f"Number of extracted unit tests: {qa.num_unit_tests}",
+        )
+    else:
+        scores["has_unit_tests"] = Score(
+            value=0.0,
+            explanation="No unit tests could be extracted from the PBT",
+        )
+
     return scores
 
 
