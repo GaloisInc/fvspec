@@ -101,9 +101,9 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
             tools = all_tools
 
             # Build tool name lookup using inspect_ai's registry system
-            # 
+            #
             # ASSUMPTION: Registry names follow 'namespace/tool_name' format.
-            # Tools in inspect_ai have hierarchical names like "generate/lean_diagnostic_messages" 
+            # Tools in inspect_ai have hierarchical names like "generate/lean_diagnostic_messages"
             # in the registry, but the model API uses just the tool name part (e.g., "lean_diagnostic_messages").
             # This parsing extracts the final component after the last "/" separator.
             #

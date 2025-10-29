@@ -150,29 +150,29 @@ def test_tool_name_parsing_logic():
     """Test that tool name parsing correctly extracts tool names from registry format."""
     # Create mock tools with different registry name formats
     mock_tools = []
-    
+
     # Tool with namespace/tool_name format
     tool1 = Mock()
     mock_info1 = Mock()
     mock_info1.name = "generate/lean_diagnostic_messages"
-    
+
     # Tool with just tool_name format (no namespace)
     tool2 = Mock()
     mock_info2 = Mock()
     mock_info2.name = "simple_tool"
-    
+
     # Tool with multiple levels of nesting
     tool3 = Mock()
     mock_info3 = Mock()
     mock_info3.name = "generate/scaffold/complex_tool"
-    
+
     # Tool with None name (should be skipped)
     tool4 = Mock()
     mock_info4 = Mock()
     mock_info4.name = None
-    
+
     mock_tools = [tool1, tool2, tool3, tool4]
-    
+
     # Patch registry_info to return our mock info objects
     def mock_registry_info(tool):
         if tool is tool1:
@@ -185,31 +185,29 @@ def test_tool_name_parsing_logic():
             return mock_info4
         else:
             return None
-    
+
     # Test the parsing logic (extracted from the agent code)
     tools_by_name = {}
     for t in mock_tools:
         info = mock_registry_info(t)
         if info and info.name:
             # This is the exact parsing logic from the agent
-            tool_name = (
-                info.name.split("/")[-1] if "/" in info.name else info.name
-            )
+            tool_name = info.name.split("/")[-1] if "/" in info.name else info.name
             tools_by_name[tool_name] = t
-    
+
     # Verify the parsing results
     assert "lean_diagnostic_messages" in tools_by_name
     assert tools_by_name["lean_diagnostic_messages"] is tool1
-    
+
     assert "simple_tool" in tools_by_name
     assert tools_by_name["simple_tool"] is tool2
-    
+
     assert "complex_tool" in tools_by_name
     assert tools_by_name["complex_tool"] is tool3
-    
+
     # Tool with None name should not be included
     assert len(tools_by_name) == 3
-    
+
     # Verify that namespace parts are correctly stripped
     assert "generate" not in tools_by_name
     assert "scaffold" not in tools_by_name
