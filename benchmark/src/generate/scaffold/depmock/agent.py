@@ -93,23 +93,23 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
             task_state = sample_state()
             all_tools = task_state.tools if task_state else []
 
-            # Filter to only LSP tools - exclude autoformalize_* tools to avoid recursion
-            # LSP tools: write_lean_spec, lean_diagnostic_messages, lean_goal,
-            #            lean_multi_attempt, lean_local_search
-            lsp_tool_names = {
-                "write_lean_spec",
-                "lean_diagnostic_messages",
-                "lean_goal",
-                "lean_multi_attempt",
-                "lean_local_search",
-            }
-            tools = [
-                t for t in all_tools if getattr(t, "__name__", None) in lsp_tool_names
-            ]
+            # Pass all tools to model.generate - inspect_ai will handle tool naming
+            # The tools are @tool-decorated functions that inspect_ai knows how to serialize
+            tools = all_tools
 
-            # Build tool name lookup - tools are callables with __name__
-            tools_by_name = {getattr(t, "__name__", None): t for t in tools}
-            tools_by_name = {k: v for k, v in tools_by_name.items() if k is not None}
+            # Build tool name lookup using inspect_ai's registry system
+            # Tools have names like "generate/lean_diagnostic_messages" in the registry
+            from inspect_ai._util.registry import registry_info  # type: ignore
+
+            tools_by_name = {}
+            for t in tools:
+                info = registry_info(t)
+                if info and info.name:
+                    # Registry names are like "generate/tool_name", API uses just "tool_name"
+                    tool_name = (
+                        info.name.split("/")[-1] if "/" in info.name else info.name
+                    )
+                    tools_by_name[tool_name] = t
 
             # Run an agent loop manually to allow iterative tool usage
             # Max 16 iterations to allow sufficient refinement for complex dependencies
