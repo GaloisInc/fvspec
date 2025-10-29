@@ -5,3 +5,16 @@ Structure loops and mutable state with `do` notation and support them with Hoare
 Keep every definition transparent and computable; avoid axioms or opaque constants.
 Only generate dependency code—no property-based tests or downstream specifications.
 All modules belong under `namespace Fvspec.Deps` and must compile independently.
+
+## Lean LSP Tools
+
+You have access to LSP tools for interactive Lean development:
+
+- `lean_diagnostic_messages(file_path)` - Get structured diagnostics (errors, warnings, info)
+- `lean_goal(file_path, line, column?)` - View proof state at a specific location
+- `lean_multi_attempt(file_path, line, snippets)` - Try multiple tactics in parallel
+- `lean_local_search(query)` - Search for definitions/theorems in local project and stdlib
+
+**Important**: Your Lean code will be written to a temporary file in your workspace. Use the file path provided in error messages when calling LSP tools.
+
+Use these tools iteratively to refine your implementation and ensure type correctness before finalizing your response.

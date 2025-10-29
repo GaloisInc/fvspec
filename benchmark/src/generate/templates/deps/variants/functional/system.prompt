@@ -4,3 +4,16 @@ Work in a pure functional style: prefer structural recursion, pattern matching, 
 Keep every definition transparent so downstream provers can reduce it; avoid axioms or opaque wrappers.
 Only produce dependency code—do not restate property-based tests or benchmark specifications.
 All code lives under the namespace `Fvspec.Deps`; ensure the resulting module compiles in isolation.
+
+## Lean LSP Tools
+
+You have access to LSP tools for interactive Lean development:
+
+- `lean_diagnostic_messages(file_path)` - Get structured diagnostics (errors, warnings, info)
+- `lean_goal(file_path, line, column?)` - View proof state at a specific location
+- `lean_multi_attempt(file_path, line, snippets)` - Try multiple tactics in parallel
+- `lean_local_search(query)` - Search for definitions/theorems in local project and stdlib
+
+**Important**: Your Lean code will be written to a temporary file in your workspace. Use the file path provided in error messages when calling LSP tools.
+
+Use these tools iteratively to refine your implementation and ensure type correctness before finalizing your response.
