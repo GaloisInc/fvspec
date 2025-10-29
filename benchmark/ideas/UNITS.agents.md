@@ -898,36 +898,67 @@ The remaining 20% requires:
 
 **Implementation status:**
 
-✅ **Completed:**
-1. **AST-based static extractor** (ast_extractor.py)
-   - Python `ast` module with constant propagation
-   - Expression evaluation for concrete values
-   - Loop unrolling for simple patterns (for i in [0,1,2])
-   - Subscript operations ([1,2,3][i])
-   - pytest.mark.parametrize support (unrolls parametrized tests)
-   - Variable substitution and symbol table
-   - Handles literals, lists, tuples, strings, binary ops
-   - Float detection (automatic)
-2. **LSpec integration** (lspec_generator.py)
-   - Generates proper TestSeq structure with $ composition
-   - Separates exact tests from float tests
-   - Clean, idiomatic Lean code
-3. **Float test validator** (float_validator.py)
-   - External validation with numpy.isclose semantics
-   - Runs lean --run and parses output
-   - Tolerance checking (rtol/atol)
-4. **Comprehensive test coverage** (32 tests, 100% passing)
-   - Test suite for AST extraction (19 tests)
-   - Test suite for LSpec generation (8 tests)
-   - Integration tests (5 tests)
+✅ **Completed (MVP Ready):**
 
-**Next steps (integration):**
-1. Measure extraction rate across full dataset (AST only with parametrize)
-2. Implement evaluation-time scoring with LSpec + external validation
-3. Integrate with `inspect_ai` scoring system
-4. Add unit test metrics to quality_assessment.py
-5. Create Jinja2 templates for unit test sections
-6. Update task.py to use unit test extraction
+1. **Core extraction module** (`src/generate/scaffold/units/`)
+   - **ast_extractor.py**: AST-based static analysis
+     * Python `ast` module with constant propagation
+     * Expression evaluation for concrete values
+     * Loop unrolling for simple patterns (for i in [0,1,2])
+     * Subscript operations ([1,2,3][i])
+     * pytest.mark.parametrize support (unrolls parametrized tests)
+     * Variable substitution and symbol table
+     * Handles literals, lists, tuples, strings, binary ops
+     * Float detection (automatic)
+   - **lspec_generator.py**: LSpec code generation
+     * Generates proper TestSeq structure with $ composition
+     * Separates exact tests from float tests
+     * Clean, idiomatic Lean code with imports
+   - **float_validator.py**: External validation
+     * numpy.isclose semantics (rtol/atol)
+     * Runs lean --run and parses output
+     * Tolerance checking for evaluation
+   - **structures.py**: Pydantic data models (TestCase, TestSuite)
+   - **__init__.py**: Public API (extract_unit_tests, generate_test_suite)
+
+2. **Pipeline integration**
+   - **dataset.py**: Extraction during dataset creation
+     * extract_datapoint_unit_tests() determines function name and extracts tests
+     * Stored in metadata["unit_tests_lspec"] (NOT shown to model)
+     * Optional: samples without tests stay in benchmark
+   - **quality_assessment.py**: Metrics tracking
+     * has_unit_tests, num_unit_tests, unit_tests_available fields
+     * Extracted from metadata during QA computation
+   - **declaration.py**: Disk persistence and scoring
+     * write_unit_tests_to_disk() writes Tests.lean to artifacts and workspace
+     * Tests.lean always written (even if empty) per lake-template requirements
+     * Includes imports (LSpec, Fvspec.Spec) and metadata comments
+     * Scores registered for inspect_ai viewer (has_unit_tests, num_unit_tests)
+   - **wandb_logger.py**: Wandb integration
+     * Unit test metrics logged per sample
+     * Tests.lean file automatically uploaded with other artifacts
+
+3. **Test coverage** (136 total tests, 100% passing)
+   - 32 unit tests for units module (19 AST, 8 LSpec, 5 integration)
+   - All existing tests still pass
+   - No breaking changes
+
+4. **Artifacts structure**
+   ```
+   artifacts/<timestamp>__<variant>/<sample_id>__<pbt_name>/
+     ├── datapoint.json     # metadata
+     ├── Spec.lean         # model-generated spec
+     ├── Tests.lean        # extracted unit tests ✨
+     ├── Deps.lean         # dependencies (if any)
+     └── qa.json           # quality metrics
+   ```
+
+**Next steps (post-MVP):**
+1. Measure extraction rate across full dataset
+2. Implement actual LSpec test execution during evaluation
+3. Track unit test pass/fail rates as additional metrics
+4. Add pass rate to leaderboard scoring
+5. Lake CLI flag to skip unit tests during builds (optional)
 
 **Future work (post-MVP):**
 - **PBT executor** - runtime execution to capture Hypothesis-generated examples

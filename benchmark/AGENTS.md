@@ -7,10 +7,15 @@ This directory contains the fvspec benchmark generation system using the `inspec
 - **`src/generate/scaffold/`** - Core evaluation infrastructure
   - `task.py` - Defines the `fvspec` task that runs the benchmark
   - `agent.py` - Agent configuration using `inspect_ai` basic_agent with Lean MCP tools
-  - `dataset.py` - Loads and samples datapoints from JSON, creates `inspect_ai` datasets
-  - `quality_assessment.py` - Extracts metrics from TaskState (token usage, timing, faithfulness, structural metrics)
+  - `dataset.py` - Loads and samples datapoints from JSON, creates `inspect_ai` datasets, extracts unit tests
+  - `quality_assessment.py` - Extracts metrics from TaskState (token usage, timing, faithfulness, structural metrics, unit tests)
   - `tools/declaration.py` - Lean LSP tools via MCP (diagnostics, goals, multi-attempt, local search), cleanup, score registration
   - `tools/utilio.py` - Utility functions for subprocess execution and file operations
+  - `units/` - Unit test extraction and LSpec generation
+    * `ast_extractor.py` - AST-based extraction with pytest.mark.parametrize support
+    * `lspec_generator.py` - Generates LSpec test suites in Lean
+    * `float_validator.py` - External validation for float tests
+    * `structures.py` - Pydantic data models (TestCase, TestSuite)
 
 - **`src/generate/templates/`** - Jinja2 prompt templates with variant system
   - `common/` - Shared prompt fragments and default templates
@@ -82,17 +87,25 @@ uv add <package>  # Add dependency
 
 **Benchmark flow:**
 1. `mk_dataset()` samples N datapoints from JSONL (indexed if `.index` exists, else reservoir sampling)
-2. Variant's prompt templates render system and initial prompts with test and dependencies
-3. Agent uses Lean LSP MCP tools (`lean_diagnostic_messages`, `lean_goal`, `lean_multi_attempt`, `lean_local_search`) to interactively develop Lean code
-4. Model responds with Lean 4 code in `<code>...</code>` tags, including faithfulness/interest metrics
-5. Cleanup (`write_to_disk`) extracts code, runs quality assessment, registers scores, saves outputs
-6. All metrics registered as `inspect_ai` `Score` objects with explanations
+2. **Unit test extraction** (per sample during dataset creation):
+   - AST analysis extracts concrete test cases from PBT code
+   - Generates LSpec test suite (stored in metadata, NOT shown to model)
+   - Supports pytest.mark.parametrize, loop unrolling, variable substitution
+3. Variant's prompt templates render system and initial prompts with test and dependencies
+4. Agent uses Lean LSP MCP tools (`lean_diagnostic_messages`, `lean_goal`, `lean_multi_attempt`, `lean_local_search`) to interactively develop Lean code
+5. Model responds with Lean 4 code in `<code>...</code>` tags, including faithfulness/interest metrics
+6. Cleanup (`write_to_disk`) extracts code, runs quality assessment, registers scores, saves outputs:
+   - Writes `Spec.lean` (model-generated)
+   - Writes `Tests.lean` (extracted unit tests) - always written, even if empty
+   - Writes `qa.json` (quality metrics)
+7. All metrics registered as `inspect_ai` `Score` objects with explanations
 
 **Quality metrics:**
 - Performance: token usage, time, message counts
 - Code metrics: lines added, number of `sorry` placeholders, success status
 - Subjective: AI self-reported faithfulness (0-10) and interest (0-10) scores
 - Structural faithfulness: parameter coverage, type correspondence, strategy coverage, assertion coverage, dependency coverage
+- Unit tests: has_unit_tests (boolean), num_unit_tests (count), unit_tests_available (for evaluation)
 
 **MCP integration:** Uses `lean-lsp-mcp` (via `uvx`) for real-time LSP feedback. Always enabled. Tools provide:
 - `lean_diagnostic_messages`: Structured error messages with severity/positions
@@ -101,6 +114,23 @@ uv add <package>  # Add dependency
 - `lean_local_search`: Search definitions/theorems to prevent hallucinating APIs
 
 **Task registration:** Registered via `_registry.py` and `pyproject.toml` entry points for `eval_set()` retry support.
+
+**Unit test extraction:** Automated extraction of concrete test cases from Python PBTs:
+- **AST-based static analysis** extracts tests without execution
+- Supports: literals, variables, expressions, loops, pytest.mark.parametrize
+- Generates **LSpec test suites** in Lean (Tests.lean)
+- Stored in metadata (NOT shown to model) for evaluation purposes
+- Float tests use external validation with numpy.isclose semantics
+- **Artifacts structure:**
+  ```
+  artifacts/<timestamp>__<variant>/<sample_id>__<pbt_name>/
+    ├── datapoint.json     # metadata
+    ├── Spec.lean         # model-generated spec
+    ├── Tests.lean        # extracted unit tests (always written)
+    ├── Deps.lean         # dependencies (if any)
+    └── qa.json           # quality metrics
+  ```
+- See `benchmark/ideas/UNITS.agents.md` for detailed design and implementation
 
 **Prompt variants:** Two verification approaches:
 - **Functional** (`control-functional`, `terse-functional`): FVAPPS-style recursive definitions, pure functional programming
