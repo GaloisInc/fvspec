@@ -317,9 +317,13 @@ def create_bound_dependency_tools(
         def make_tool_func(
             bound_payload: DependencyPayload = payload,
             bound_variant: str | None = variant,
-        ) -> Callable[[], Awaitable[str]]:  # type: ignore[misc]
-            async def execute() -> str:
-                """Run autoformalizer and persist result for this dependency."""
+        ) -> Callable[[ToolCallView], Awaitable[str]]:  # type: ignore[misc]
+            async def execute(view: ToolCallView) -> str:
+                """Run autoformalizer and persist result for this dependency.
+
+                Args:
+                    view: Tool call context (provided by inspect_ai)
+                """
                 strings = get_dependency_strings()
 
                 # Get task state
