@@ -2,7 +2,6 @@
 
 import pytest
 from generate.scaffold.units.ast_extractor import ASTExtractor
-from generate.scaffold.units.structures import TestCase
 
 
 def test_extract_simple_literal():
