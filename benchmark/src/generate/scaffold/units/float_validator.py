@@ -150,10 +150,10 @@ class FloatTestValidator:
             }
 
         # TODO: Parse output and match with expected values from comments
-        # For now, just return the raw output
+        # For now, just return the raw output as a single "info" item
         return {
             "passed": [],
             "failed": [],
             "errors": [],
-            "raw_output": result.stdout,
+            "info": [f"Raw output: {result.stdout}"],
         }

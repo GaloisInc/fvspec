@@ -77,13 +77,14 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
 
 
 def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
-    """Extract unit tests from a datapoint's PBT code.
+    """Extract unit tests from a datapoint's overlapping unit tests.
 
-    Attempts to extract concrete unit tests from the PBT using AST analysis.
+    Attempts to extract concrete unit tests from the actual unit test code
+    (not the PBT code) using AST analysis.
     If successful, generates LSpec test suite code that can be used for evaluation.
 
     Args:
-        dp: The datapoint containing the PBT code
+        dp: The datapoint containing the overlapping unit tests
 
     Returns:
         Generated LSpec code string if tests were extracted, None otherwise
@@ -92,25 +93,36 @@ def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
         Unit tests are for EVALUATION only - they should NOT be shown to the model.
         They validate model implementations after spec generation.
     """
-    # Try to determine the function name being tested
-    # Priority: pbt_functions field, then pbt_name as fallback
-    func_name = ""
-    if dp.pbt_functions and len(dp.pbt_functions) > 0:
-        # Use first function from pbt_functions list
-        func_name = dp.pbt_functions[0]
-    else:
-        # Fall back to pbt_name (may need cleaning)
-        # Common patterns: "test_func_name" -> "func_name"
-        func_name = dp.pbt_name.removeprefix("test_")
-
-    # Extract unit tests using AST analysis
-    test_suite = extract_unit_tests(dp.pbt, func_name=func_name)
-
-    if test_suite is None:
+    # Check if we have overlapping tests with unit tests
+    if not dp.overlapping_tests:
         return None
 
-    # Generate LSpec code from extracted tests
-    return generate_test_suite(test_suite)
+    # Try each overlapping test group and each unit test within
+    for overlap in dp.overlapping_tests:
+        unit_tests = overlap.get("unit_tests", [])
+        shared_functions = overlap.get("shared_functions", [])
+
+        if not unit_tests or not shared_functions:
+            continue
+
+        # Try extraction on each unit test with each shared function
+        for unit_test in unit_tests:
+            unit_test_code = unit_test.get("code", "")
+            if not unit_test_code:
+                continue
+
+            for func_name in shared_functions:
+                # Extract unit tests using AST analysis
+                test_suite = extract_unit_tests(unit_test_code, func_name=func_name)
+
+                if test_suite is not None and (
+                    test_suite.exact_tests or test_suite.float_tests
+                ):
+                    # Successfully extracted tests, generate LSpec code
+                    return generate_test_suite(test_suite)
+
+    # No tests could be extracted from any unit test
+    return None
 
 
 def mk_initial(prompt: Prompt, variant: str | None = None) -> str:

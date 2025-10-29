@@ -751,10 +751,11 @@ class DependencyPayload(BaseModel):
     def prompt_context(self) -> dict[str, object]:
         """Prepare a dictionary for Jinja template rendering."""
         callable_dict = self.callable.prompt_dict()
-        signature_text = callable_dict["signature"]["text"]
+        signature_dict = cast(dict[str, object], callable_dict["signature"])
+        signature_text = signature_dict["text"]
         if signature_text is None and self.python_signature:
             signature_text = self.python_signature
-        arguments = callable_dict["signature"]["arguments"]
+        arguments = signature_dict["arguments"]
         normalization_plan = self.normalization.prompt_dict()
         return {
             "dep_name": self.dep_name,
