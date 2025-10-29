@@ -23,7 +23,7 @@ jobs:
               - 'leaderboard/**'
 
   benchmark-checks:
-    name: ruff, ty, and tests
+    name: BENCHMARK: ruff, ty, and tests
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.benchmark == 'true'
@@ -51,7 +51,7 @@ jobs:
         run: uv run pytest -xvs
 
   leaderboard-checks:
-    name: prettier, eslint, typecheck, and build
+    name: LEADERBOARD: prettier, eslint, typecheck, and build
     runs-on: ubuntu-latest
     needs: changes
     if: needs.changes.outputs.leaderboard == 'true'
