@@ -15,7 +15,7 @@ from inspect_ai.model import (
     get_model,
 )
 from inspect_ai.solver._task_state import sample_state
-from inspect_ai.tool import Tool, ToolCall, ToolCallError, ToolCallView, ToolError, tool
+from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
 from inspect_ai._util.registry import registry_info  # type: ignore
 
