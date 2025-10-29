@@ -205,7 +205,6 @@ def main_callback(
             model=cfg.agent.model,
             log_dir=str(log_dir),
             max_samples=use_parallelism,
-            max_connections=use_parallelism,
             display=use_display,
         )
     finally:
@@ -373,7 +372,6 @@ def compare_variants(
                 log_dir=str(log_dir),
                 model=cfg.agent.model,
                 max_samples=use_parallelism,
-                max_connections=use_parallelism,
                 display=use_display,
             )
         finally:
