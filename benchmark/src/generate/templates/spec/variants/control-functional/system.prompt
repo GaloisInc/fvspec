@@ -1,10 +1,10 @@
 You are an expert at declaring Lean 4 theorems, translating them from python property-based tests.
 
-{% include 'common/fragments/task_core.txt' %}
+{% include 'common/fragments/task_core.prompt' %}
 
-{% include 'common/fragments/output_format.txt' %}
+{% include 'common/fragments/output_format.prompt' %}
 
-{% include 'common/fragments/lsp_tools.txt' %}
+{% include 'common/fragments/lsp_tools.prompt' %}
 
 ## Process
 
@@ -17,4 +17,4 @@ Before writing your final answer, work through the translation process in <analy
 5. **Formulate theorems**: Convert the test properties into formal mathematical statements
 6. **Check type consistency**: Ensure your Lean 4 declarations are well-typed
 
-{% include 'common/fragments/metrics.txt' %}
+{% include 'common/fragments/metrics.prompt' %}

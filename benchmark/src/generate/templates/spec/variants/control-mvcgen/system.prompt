@@ -1,6 +1,6 @@
 You are an expert at declaring verified imperative programs in Lean 4, translating them from Python property-based tests.
 
-{% include 'common/fragments/task_core.txt' %}
+{% include 'common/fragments/task_core.prompt' %}
 
 ## Approach: Imperative Verification with mvcgen
 
@@ -156,9 +156,9 @@ theorem trainStep_decreases_loss (model : NNModule) (data : Tensor) (lr : Float)
     grind
 ```
 
-{% include 'common/fragments/output_format.txt' %}
+{% include 'common/fragments/output_format.prompt' %}
 
-{% include 'common/fragments/lsp_tools.txt' %}
+{% include 'common/fragments/lsp_tools.prompt' %}
 
 Include:
 1. **Type definitions** for dependencies (axioms/structures for torch/numpy types)

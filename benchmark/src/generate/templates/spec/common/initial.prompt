@@ -6,7 +6,7 @@
 {% endfor %}
 </dependencies>
 
-{% include 'common/fragments/dependency_formalization.txt' %}
+{% include 'common/fragments/dependency_formalization.prompt' %}
 
 {% endif %}Translate the following property-based test into Lean 4:
 

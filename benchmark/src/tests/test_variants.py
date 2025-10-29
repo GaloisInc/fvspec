@@ -219,9 +219,9 @@ class TestSharedFragments:
             / "fragments"
         )
 
-        assert (fragments_dir / "task_core.txt").exists()
-        assert (fragments_dir / "output_format.txt").exists()
-        assert (fragments_dir / "metrics.txt").exists()
+        assert (fragments_dir / "task_core.prompt").exists()
+        assert (fragments_dir / "output_format.prompt").exists()
+        assert (fragments_dir / "metrics.prompt").exists()
 
     def test_common_initial_prompt_exists(self):
         """Common initial prompt should exist."""
@@ -231,7 +231,7 @@ class TestSharedFragments:
         assert (common_dir / "initial.prompt").exists()
 
     def test_task_core_fragment_content(self):
-        """task_core.txt should have expected content."""
+        """task_core.prompt should have expected content."""
         fragments_dir = (
             Path(__file__).parent.parent
             / "generate"
@@ -240,14 +240,14 @@ class TestSharedFragments:
             / "common"
             / "fragments"
         )
-        content = (fragments_dir / "task_core.txt").read_text()
+        content = (fragments_dir / "task_core.prompt").read_text()
 
         assert "## Task" in content
         assert "Hypothesis" in content
         assert "sorry" in content
 
     def test_output_format_fragment_content(self):
-        """output_format.txt should specify code tag format."""
+        """output_format.prompt should specify code tag format."""
         fragments_dir = (
             Path(__file__).parent.parent
             / "generate"
@@ -256,14 +256,14 @@ class TestSharedFragments:
             / "common"
             / "fragments"
         )
-        content = (fragments_dir / "output_format.txt").read_text()
+        content = (fragments_dir / "output_format.prompt").read_text()
 
         assert "## Output Format" in content
         assert "<code>" in content
         assert "sorry" in content
 
     def test_metrics_fragment_content(self):
-        """metrics.txt should describe Faithfulness and Interest."""
+        """metrics.prompt should describe Faithfulness and Interest."""
         fragments_dir = (
             Path(__file__).parent.parent
             / "generate"
@@ -272,7 +272,7 @@ class TestSharedFragments:
             / "common"
             / "fragments"
         )
-        content = (fragments_dir / "metrics.txt").read_text()
+        content = (fragments_dir / "metrics.prompt").read_text()
 
         assert "## Metrics" in content
         assert "Faithfulness" in content
