@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 import logging
 from typing import Callable, Literal, Sequence
+
+from pydantic import BaseModel, ConfigDict, Field
 
 from generate.scaffold.depmock.dataset import (
     DependencySampleSpec,
@@ -31,18 +32,20 @@ class DependencyFatalError(DependencyInvocationError):
     """Error indicating the dependency cannot be processed in the current run."""
 
 
-@dataclass(frozen=True, slots=True)
-class DependencyExecutionRequest:
+class DependencyExecutionRequest(BaseModel):
     """Execution request for a dependency autoformalizer attempt."""
+
+    model_config = ConfigDict(frozen=True)
 
     spec: DependencySampleSpec
     attempt: int = 1
     diagnostics: str | None = None
 
 
-@dataclass(frozen=True, slots=True)
-class DependencyOutcome:
+class DependencyOutcome(BaseModel):
     """Outcome of a dependency autoformalizer attempt."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     spec: DependencySampleSpec
     status: Literal["success", "failed", "fatal", "skipped"]
@@ -57,16 +60,17 @@ class DependencyOutcome:
         return self.spec.cache_key
 
 
-@dataclass(frozen=True, slots=True)
-class DependencyRunReport:
+class DependencyRunReport(BaseModel):
     """Summary report for dependency autoformalization run."""
+
+    model_config = ConfigDict(frozen=True)
 
     started_at: datetime
     completed_at: datetime
     variant: str | None
     total: int
     outcomes: tuple[DependencyOutcome, ...]
-    metadata: dict[str, object] = field(default_factory=dict)
+    metadata: dict[str, object] = Field(default_factory=dict)
 
     @property
     def succeeded(self) -> tuple[DependencyOutcome, ...]:

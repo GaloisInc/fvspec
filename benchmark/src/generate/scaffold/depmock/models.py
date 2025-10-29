@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import ast
 import re
-from dataclasses import dataclass
 from enum import Enum
 from typing import Iterable, Literal, cast
 
@@ -377,9 +376,10 @@ def _detect_callable_kind(
     return kind
 
 
-@dataclass(frozen=True)
-class _ReceiverUsage:
+class _ReceiverUsage(BaseModel):
     """Attributes accessed on a method receiver."""
+
+    model_config = ConfigDict(frozen=True)
 
     attributes: tuple[str, ...]
     mutates: bool
@@ -449,9 +449,10 @@ def _analyze_receiver_usage(
     return usage.attributes, usage.mutates
 
 
-@dataclass(frozen=True)
-class _CallableAnalysis:
+class _CallableAnalysis(BaseModel):
     """Internal representation of parsed callable metadata."""
+
+    model_config = ConfigDict(frozen=True)
 
     kind: CallableKind
     signature: CallableSignature

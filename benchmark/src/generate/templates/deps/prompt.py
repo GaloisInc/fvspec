@@ -1,18 +1,16 @@
 """Load dependency prompt bundles for autoformalization variants."""
 
-from dataclasses import dataclass
 from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template
+from pydantic import BaseModel, ConfigDict
 
 from generate.templates.deps.registry import DependencyVariantRegistry
 
 
-@dataclass(frozen=True)
-class DependencyPromptBundle:
-    """Group of prompts used by the dependency autoformalization subagent.
+class DependencyPromptBundle(BaseModel):
+    """Group of prompts used by the dependency autoformalization subagent."""
 
-    Is not a `pydantic.BaseModel` because it contains Jinja2 `Template` objects.
-    """
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     system_prompt: str
     translate_template: Template

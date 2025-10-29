@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, cast
 
@@ -12,6 +11,7 @@ from inspect_ai.dataset import MemoryDataset, Sample
 from inspect_ai.log import EvalLog, EvalSample
 from inspect_ai.model import ChatMessageAssistant
 from inspect_ai.solver import basic_agent, system_message, use_tools
+from pydantic import BaseModel, ConfigDict
 
 from generate.scaffold.depmock.agent import autoformalize_dependency_tool
 from generate.scaffold.depmock.autoformalizer import (
@@ -32,9 +32,10 @@ def _get_supervisor_prompt() -> str:
 _CODE_BLOCK_PATTERN = re.compile(r"(?s)<code>(.*?)</code>")
 
 
-@dataclass(frozen=True)
-class DependencyAgentRun:
+class DependencyAgentRun(BaseModel):
     """Container for agent execution artifacts."""
+
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     log: EvalLog
     completion: str
