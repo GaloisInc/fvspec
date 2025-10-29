@@ -6,7 +6,7 @@ import json
 import subprocess
 from pathlib import Path
 from typing import Callable, Awaitable, cast, Any
-from inspect_ai.tool import tool, ToolCallView, ToolError, mcp_server_stdio, mcp_tools
+from inspect_ai.tool import tool, ToolCallView, ToolError
 from inspect_ai.solver import TaskState
 from inspect_ai.scorer import Score
 from inspect_ai.solver._task_state import sample_state
