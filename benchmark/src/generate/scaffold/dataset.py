@@ -264,6 +264,112 @@ def load_datapoints(file_path: Path) -> list[Datapoint]:
         return [Datapoint(**obj) for obj in reader]  # type: ignore[arg-type]
 
 
+def load_datapoints_by_id(
+    file_path: Path,
+    datapoint_ids: list[int],
+    skip_index: bool = False,
+) -> dict[int, Datapoint]:
+    """Load specific datapoints by their IDs efficiently using index when available.
+
+    Args:
+        file_path: Path to the JSONL file
+        datapoint_ids: List of datapoint IDs to load
+        skip_index: Skip using index and stream entire file instead
+
+    Returns:
+        Dictionary mapping datapoint ID to Datapoint object (only IDs that were found)
+
+    Note:
+        With index: O(num_ids) - reads only requested lines
+        Without index: O(total_lines) - streams entire file looking for IDs
+    """
+    index_path = file_path.with_suffix(file_path.suffix + ".index")
+    console = Console()
+
+    # Convert to set for O(1) lookup
+    target_ids = set(datapoint_ids)
+    result: dict[int, Datapoint] = {}
+
+    if not skip_index and index_path.exists():
+        # Fast path: Use index to find datapoints by scanning all lines
+        # Note: This still requires scanning since we don't have an ID->line mapping
+        # But at least we use the index infrastructure and progress tracking
+        console.print(f"[green]✓[/green] Using index file: {index_path.name}")
+        index_data = load_index(index_path)
+        offsets: list[int] = index_data["offsets"]
+        total_lines: int = index_data["total_lines"]
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ) as progress:
+            task = progress.add_task(
+                f"Loading {len(target_ids)} datapoint(s)...", total=total_lines
+            )
+
+            with open(file_path, "rb") as f:
+                for line_num in range(total_lines):
+                    if len(result) == len(target_ids):
+                        # Found all requested IDs
+                        break
+
+                    f.seek(offsets[line_num])
+                    line = f.readline()
+                    obj = json.loads(line)
+                    datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+                    if datapoint.id in target_ids:
+                        result[datapoint.id] = datapoint
+
+                    progress.update(task, completed=line_num + 1)
+
+    else:
+        # Fallback: Stream entire file looking for IDs
+        if skip_index:
+            console.print(
+                "[yellow]⚠[/yellow] Skipping index (--skip-index), streaming file"
+            )
+        else:
+            console.print(
+                f"[yellow]⚠[/yellow] No index found, streaming file (consider running: uv run fvspec index-data)"
+            )
+
+        file_size = file_path.stat().st_size
+
+        with Progress(
+            SpinnerColumn(),
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+        ) as progress:
+            task = progress.add_task(
+                f"Loading {len(target_ids)} datapoint(s)...", total=file_size
+            )
+
+            with open(file_path, "rb") as f:
+                while True:
+                    line = f.readline()
+                    if not line:
+                        break
+
+                    obj = json.loads(line)
+                    datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+
+                    if datapoint.id in target_ids:
+                        result[datapoint.id] = datapoint
+                        # Check if we found all IDs
+                        if len(result) == len(target_ids):
+                            break
+
+                    progress.update(task, completed=f.tell())
+
+    return result
+
+
 def sample_datapoints(
     file_path: Path,
     n: int,

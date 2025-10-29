@@ -11,7 +11,11 @@ from inspect_ai import eval, eval_set
 from generate.config import load_config, WandbConfig
 from generate.scaffold.task import fvspec, DATA_DIR
 from generate.scaffold.wandb_logger import init_wandb_logger
-from generate.scaffold.dataset import load_datapoints, Datapoint
+from generate.scaffold.dataset import (
+    load_datapoints_by_id,
+    sample_datapoints,
+    Datapoint,
+)
 from generate.scaffold.depmock import (
     DependencyPayload,
     DependencyBatchError,
@@ -461,15 +465,10 @@ def deps_autoformalize_command(
         print(f"Dataset not found at {dataset_path}")
         return
 
-    datapoints = load_datapoints(dataset_path)
-    if not datapoints:
-        print("No datapoints available in dataset")
-        return
-
-    dp_by_id = {dp.id: dp for dp in datapoints}
-
     selected: list[Datapoint] = []
     if sample_id:
+        # Use efficient ID-based lookup instead of loading entire dataset
+        dp_by_id = load_datapoints_by_id(dataset_path, sample_id)
         for sid in sample_id:
             dp = dp_by_id.get(sid)
             if dp is None:
@@ -480,12 +479,8 @@ def deps_autoformalize_command(
             print("No valid sample ids provided; aborting.")
             return
     else:
-        size = max(0, min(sample_size, len(datapoints)))
-        if size == 0:
-            print("Sample size is zero; nothing to do.")
-            return
-        rng = random.Random(ranseed)
-        selected = rng.sample(datapoints, size)
+        # Use indexed sampling for random selection
+        selected = sample_datapoints(dataset_path, n=sample_size, ranseed=ranseed)
 
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
