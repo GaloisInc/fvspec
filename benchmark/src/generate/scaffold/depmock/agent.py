@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import logging
 import re
+from collections.abc import Awaitable, Callable, Coroutine, Generator
 from pathlib import Path
-from typing import Any, Awaitable, Callable, Coroutine, Generator
+from typing import Any
 
 from inspect_ai._util.registry import registry_info  # type: ignore
 from inspect_ai.agent import Agent, AgentState, agent, as_tool

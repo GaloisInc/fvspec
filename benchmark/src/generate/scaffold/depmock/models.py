@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import ast
 import re
+from collections.abc import Iterable
 from enum import Enum
-from typing import Iterable, Literal, cast
+from typing import Literal, cast
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 

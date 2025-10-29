@@ -234,7 +234,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Literal
 
 import typer
 from rich.progress import (
@@ -244,7 +244,6 @@ from rich.progress import (
     TaskProgressColumn,
     TextColumn,
 )
-from typing_extensions import Literal
 
 DATADIR = Path(".") / "data"
 TOTAL_PBTS = 60776  # Total lines in pbts.jsonl (wc -l data/pbts.jsonl)
@@ -598,7 +597,7 @@ def stream_unit_tests(
     line_count = 0
     pbts_without_units = 0
 
-    with open(pbts_jsonl, "r") as f:
+    with open(pbts_jsonl) as f:
         for line in f:
             line_count += 1
 

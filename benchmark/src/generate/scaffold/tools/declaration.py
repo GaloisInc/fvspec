@@ -4,8 +4,9 @@ import json
 import os
 import re
 import subprocess
+from collections.abc import Awaitable, Callable
 from pathlib import Path
-from typing import Any, Awaitable, Callable, cast
+from typing import Any, cast
 
 from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState

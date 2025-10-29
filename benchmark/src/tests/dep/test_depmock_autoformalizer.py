@@ -1,6 +1,7 @@
 """Tests for dependency autoformalizer invocation layer."""
 
-from typing import Iterator, cast
+from collections.abc import Iterator
+from typing import cast
 
 import pytest
 

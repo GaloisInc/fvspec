@@ -93,7 +93,7 @@ def load_a_dataframe(directory_path: str) -> DataFrame:
     for dir in os.listdir(directory_path):
         path = Path(directory_path) / dir / "qa.json"
         if os.path.exists(path):
-            with open(path, "r") as file:
+            with open(path) as file:
                 qa_data = json.load(file)
 
                 # Backwards compatibility: handle old field names

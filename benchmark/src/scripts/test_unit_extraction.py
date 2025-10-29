@@ -75,7 +75,7 @@ def main(
             total=total_to_process,
         )
 
-        with open(pbts_jsonl, "r") as f:
+        with open(pbts_jsonl) as f:
             for line_num, line in enumerate(f, 1):
                 if num_samples and line_num > num_samples:
                     break

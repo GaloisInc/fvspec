@@ -31,7 +31,7 @@ class WandbLogger:
             config: Configuration for wandb logging
         """
         self.config = config
-        self.run: "Run | None" = None
+        self.run: Run | None = None
         self._sample_count = 0
 
     def init_run(

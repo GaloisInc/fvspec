@@ -24,9 +24,10 @@ import logging
 import random
 import sys
 from collections import Counter, defaultdict
+from collections.abc import Iterable, Iterator, Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Iterable, Iterator, Literal, Sequence
+from typing import Any, Literal
 
 import jsonlines
 import typer
@@ -142,7 +143,7 @@ class DatasetOverview(BaseModel):
 class DependencyReport(BaseModel):
     """Top-level report structure persisted to disk."""
 
-    analysis: "AnalysisConfig"
+    analysis: AnalysisConfig
     overview: DatasetOverview
     top_modules: list[ModuleUsage]
     top_symbols: list[SymbolUsage]
