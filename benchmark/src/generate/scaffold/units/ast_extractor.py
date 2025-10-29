@@ -5,6 +5,7 @@ concrete test cases through constant propagation and symbolic execution.
 """
 
 import ast
+import warnings
 from typing import Any
 from generate.scaffold.units.structures import TestCase
 
@@ -454,7 +455,10 @@ class ASTExtractor(ast.NodeVisitor):
         self.symbol_table = {}
 
         try:
-            tree = ast.parse(pbt_code)
+            # Suppress SyntaxWarning for invalid escape sequences in scraped code
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=SyntaxWarning)
+                tree = ast.parse(pbt_code)
             self.visit(tree)
         except SyntaxError:
             # Can't parse the code, return empty list
