@@ -83,6 +83,37 @@ uv run fvspec compare-variants --skip-index
 
 Optionally drop it out / replace body with sorry later.
 
-## Are we sure it's writing the final dep output at the end? it doesn't look like it in inspect logs.
+## ~~Are we sure it's writing the final dep output at the end?~~ ✅ VERIFIED
 
-Maybe double check, maybe this isn't a code change. 
+**Status**: Confirmed working correctly (Oct 29, 2025)
+
+The final `Deps.lean` **is being written**. The confusion arose because:
+
+1. **Writing happens inside tool calls**: When `depmock_autoformalize_{dep}` tools are called, they write individual modules to `deps/{module}.lean` and then call `_update_deps_lean()` which regenerates the consolidated `Deps.lean` file.
+
+2. **Not visible in inspect logs**: Inspect logs show tool calls and their return messages, but not the file I/O operations happening inside tools.
+
+3. **Code flow** (`agent.py:467-471`, `agent.py:491-538`):
+   ```python
+   # Each tool call writes individual module
+   module_file = deps_dir / f"{module_name}.lean"
+   module_file.write_text(lean_code)
+
+   # Then regenerates Deps.lean from all modules
+   deps_lean_content = _update_deps_lean(deps_dir, sample_dir)
+   ```
+
+4. **Verification**: Checked recent artifacts; `Deps.lean` files contain properly aggregated output with:
+   - Deduplicated imports at the top
+   - All module contents concatenated below
+   - Example: `artifacts/runs/2025-10-28T21-12-45__control-functional/11080_test_dict_to_one_element_collections/Deps.lean`
+
+**No code changes needed** - system is working as designed. 
+
+## parallelize depagents
+
+with trio? or with more standard concurrency. 
+
+## Write up redundancy-reduction philosophy about templates in `./benchmark/AGENTS.md`, very briefly.
+
+like a sentence. 
