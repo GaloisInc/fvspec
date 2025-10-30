@@ -928,10 +928,13 @@ def main(
         TimeElapsedColumn(),
         TimeRemainingColumn(),
     ) as progress:
-        # Two progress bars: one for PBT samples, one for unit test classifications
-        pbt_task = progress.add_task(
-            "[cyan]Reading PBT samples",
-            total=TOTAL_PBTS,
+        # Two progress bars: one for samples, one for unit test classifications
+        # For sample scanning: if we have sample_size, estimate we'll scan ~10x that many samples
+        # Otherwise, scan all samples
+        scan_estimate = (sample_size * 10) if sample_size else TOTAL_PBTS
+        sample_task = progress.add_task(
+            "[cyan]Scanning samples for tests",
+            total=scan_estimate,
         )
 
         # For test task: use 0 as initial total if no sample_size, we'll update it dynamically
@@ -940,23 +943,16 @@ def main(
             total=sample_size if sample_size else 0,
         )
 
-        # Progress callback to update PBT progress
-        def update_pbt_progress(line_count: int, pbts_no_units: int):
+        # Progress callback to update sample scanning progress
+        def update_sample_progress(line_count: int, samples_no_units: int):
             nonlocal pbts_without_units
-            pbts_without_units = pbts_no_units
-            # Update every time - PBT reading is fast, this won't slow us down
-            if sample_size:
-                progress.update(
-                    pbt_task,
-                    completed=line_count,
-                    description=f"[cyan]Scanning PBTs for tests ({pbts_no_units} skipped)",
-                )
-            else:
-                progress.update(
-                    pbt_task,
-                    completed=line_count,
-                    description=f"[cyan]Reading PBT samples ({pbts_no_units} without units)",
-                )
+            pbts_without_units = samples_no_units
+            # Update every time - sample reading is fast, this won't slow us down
+            progress.update(
+                sample_task,
+                completed=line_count,
+                description=f"[cyan]Scanning samples for tests ({samples_no_units} skipped)",
+            )
 
         # Collect all tests first, then process in batches
         all_tests = list(stream_unit_tests(
@@ -964,7 +960,7 @@ def main(
             sample_size,
             ranseed,
             verbose,
-            progress_callback=update_pbt_progress,
+            progress_callback=update_sample_progress,
         ))
 
         test_count = len(all_tests)
@@ -1075,11 +1071,12 @@ def main(
                         description=f"[green]Writing results ({llm_count} used LLM)",
                     )
 
-        # Final update to ensure both progress bars show complete state
+        # Final update to ensure sample scanning bar shows complete state
+        # Mark as complete with actual line count scanned
         progress.update(
-            pbt_task,
-            completed=TOTAL_PBTS,
-            description=f"[cyan]Reading PBT samples ({pbts_without_units} without units)",
+            sample_task,
+            completed=scan_estimate,  # Complete the bar visually
+            description=f"[cyan]Scanned samples ({pbts_without_units} skipped)",
         )
         progress.update(
             test_task,
@@ -1092,7 +1089,7 @@ def main(
     print(f"Classified {test_count} tests")
     print(f"LLM fallback used: {llm_count} times ({llm_count / test_count * 100:.1f}%)")
     print(
-        f"PBTs without unit tests: {pbts_without_units}/{TOTAL_PBTS} ({pbts_without_units / TOTAL_PBTS * 100:.1f}%)"
+        f"Samples without unit tests: {pbts_without_units} skipped"
     )
     print()
 
