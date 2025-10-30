@@ -250,6 +250,28 @@ from rich.progress import (
 DATADIR = Path(".") / "data"
 TOTAL_PBTS = 60776  # Total lines in pbts.jsonl (wc -l data/pbts.jsonl)
 
+# Classification thresholds and parameters
+DEFAULT_CONFIDENCE_THRESHOLD = 0.75  # Default for LLM fallback
+DEFAULT_TAG_THRESHOLD = 0.5  # Minimum score for multi-label tags
+DEFAULT_LLM_FALLBACK_CONFIDENCE = 0.5  # Confidence when LLM fails/can't parse
+EARLY_STOP_MULTIPLIER = 10  # Stop after N*sample_size tests scanned
+
+# Signal detection confidence weights (used in detect_signals)
+CONFIDENCE_STATEFUL_STRONG = 0.85  # Multiple statefulness signals
+CONFIDENCE_STATEFUL_MODERATE = 0.75  # Single statefulness signal
+CONFIDENCE_LIBRARY_PURE = 0.75  # Library usage but pure functional
+CONFIDENCE_CONTROL_FLOW = 0.75  # Exception handling, loops, conditions
+CONFIDENCE_NUMERIC = 0.8  # Numeric/float approximation patterns
+CONFIDENCE_PARAMETRIC_NO_DEPS = 0.85  # pytest.mark.parametrize without libraries
+CONFIDENCE_PARAMETRIC_WITH_DEPS = 0.8  # pytest.mark.parametrize with libraries
+CONFIDENCE_PURE_FUNCTIONAL = 0.8  # Simple pure functional patterns
+CONFIDENCE_PURE_FUNCTIONAL_AST = 0.75  # AST-confirmed no mutations
+CONFIDENCE_STRUCTURAL = 0.7  # isinstance/hasattr/type checks
+CONFIDENCE_MULTI_STEP = 0.7  # Multiple function calls
+CONFIDENCE_ASYNC = 0.9  # async/await/threading patterns
+CONFIDENCE_META = 0.9  # Reflection/meta programming
+CONFIDENCE_FALLBACK = 0.6  # When no signals detected
+
 
 class Category(str, Enum):
     """Test classification categories with multi-label support.
@@ -514,13 +536,19 @@ def detect_signals(test_code: str) -> list[Signal]:
     # 4.2 Concurrent/Async
     if has_async:
         signals.append(
-            Signal("async/await or threading", Category.CONCURRENT_ASYNC, 0.9)
+            Signal(
+                "async/await or threading", Category.CONCURRENT_ASYNC, CONFIDENCE_ASYNC
+            )
         )
 
     # 4.3 Meta/Reflection
     if has_meta:
         signals.append(
-            Signal("getattr/setattr/eval/reflection", Category.META_REFLECTION, 0.9)
+            Signal(
+                "getattr/setattr/eval/reflection",
+                Category.META_REFLECTION,
+                CONFIDENCE_ASYNC,
+            )
         )
 
     # 4.1 Stateful + Library-Dependent
@@ -539,7 +567,9 @@ def detect_signals(test_code: str) -> list[Signal]:
 
     # 3.1 Stateful Sequential (if not library-dependent)
     if is_stateful and not has_library:
-        confidence = 0.8 if len(stateful_reasons) >= 2 else 0.7
+        confidence = (
+            CONFIDENCE_NUMERIC if len(stateful_reasons) >= 2 else CONFIDENCE_STRUCTURAL
+        )
         reason_str = "; ".join(stateful_reasons[:2])
         signals.append(
             Signal(f"AST: {reason_str}", Category.STATEFUL_SEQUENTIAL, confidence)
@@ -554,7 +584,13 @@ def detect_signals(test_code: str) -> list[Signal]:
             patterns.append("loops")
         if has_nested_conditions:
             patterns.append("nested conditions")
-        signals.append(Signal(", ".join(patterns), Category.COMPLEX_CONTROL_FLOW, 0.75))
+        signals.append(
+            Signal(
+                ", ".join(patterns),
+                Category.COMPLEX_CONTROL_FLOW,
+                CONFIDENCE_STATEFUL_MODERATE,
+            )
+        )
 
     # 3.3 Multi-Step Integration
     if has_integration and not is_stateful:
@@ -582,13 +618,21 @@ def detect_signals(test_code: str) -> list[Signal]:
         if has_jax:
             libs.append("jax")
         signals.append(
-            Signal(f"{', '.join(libs)} (pure)", Category.LIBRARY_DEPENDENT_PURE, 0.75)
+            Signal(
+                f"{', '.join(libs)} (pure)",
+                Category.LIBRARY_DEPENDENT_PURE,
+                CONFIDENCE_STATEFUL_MODERATE,
+            )
         )
 
     # 2.2 Library-Dependent Parametric
     if has_library and has_parametrize:
         signals.append(
-            Signal("parametrize + library", Category.LIBRARY_DEPENDENT_PARAMETRIC, 0.8)
+            Signal(
+                "parametrize + library",
+                Category.LIBRARY_DEPENDENT_PARAMETRIC,
+                CONFIDENCE_NUMERIC,
+            )
         )
 
     # 2.3 Structural Validation
@@ -604,7 +648,11 @@ def detect_signals(test_code: str) -> list[Signal]:
     # 1.3 Numeric Pure Functional
     if has_numeric and not is_stateful and not has_library:
         signals.append(
-            Signal("numeric/float approx (pure)", Category.NUMERIC_PURE_FUNCTIONAL, 0.8)
+            Signal(
+                "numeric/float approx (pure)",
+                Category.NUMERIC_PURE_FUNCTIONAL,
+                CONFIDENCE_NUMERIC,
+            )
         )
 
     # 1.2 Simple Parametric (No Deps)
@@ -660,7 +708,7 @@ def detect_signals(test_code: str) -> list[Signal]:
 
 
 def classify_static(
-    test_code: str, tag_threshold: float = 0.5
+    test_code: str, tag_threshold: float = DEFAULT_TAG_THRESHOLD
 ) -> tuple[Category, float, list[Category], dict[Category, float], list[str]]:
     """Classify test using static analysis with multi-label support.
 
@@ -791,7 +839,11 @@ Example: "Category 4, Confidence 9: Uses torch.tensor but purely functional"
         )
         if not match:
             print(f"Warning: Could not parse LLM response: {text}")
-            return (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, "Could not parse response")
+            return (
+                Category.PURE_FUNCTIONAL_NO_DEPS,
+                DEFAULT_LLM_FALLBACK_CONFIDENCE,
+                "Could not parse response",
+            )
 
         category_num = int(match.group(1))
         confidence_rating = int(match.group(2))
@@ -820,7 +872,11 @@ Example: "Category 4, Confidence 9: Uses torch.tensor but purely functional"
 
     except Exception as e:
         print(f"Warning: LLM classification failed: {e}")
-        return (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, f"LLM error: {e}")
+        return (
+            Category.PURE_FUNCTIONAL_NO_DEPS,
+            DEFAULT_LLM_FALLBACK_CONFIDENCE,
+            f"LLM error: {e}",
+        )
 
 
 def classify_test_static(
@@ -864,7 +920,11 @@ async def classify_batch_with_llm(
         except Exception as e:
             if verbose:
                 print(f"Warning: LLM classification failed for test {index}: {e}")
-            results[index] = (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, f"LLM error: {e}")
+            results[index] = (
+                Category.PURE_FUNCTIONAL_NO_DEPS,
+                DEFAULT_LLM_FALLBACK_CONFIDENCE,
+                f"LLM error: {e}",
+            )
         finally:
             # Update progress
             async with count_lock:
@@ -966,7 +1026,7 @@ def stream_unit_tests(
 
     # Early stopping: collect 10x sample_size tests then stop (ensures good randomness)
     # This makes -n 10 very fast while still being random
-    early_stop_multiplier = 10
+    early_stop_multiplier = EARLY_STOP_MULTIPLIER
     early_stop_threshold = sample_size * early_stop_multiplier if sample_size else None
 
     with open(pbts_jsonl) as f:
@@ -1131,7 +1191,7 @@ def main(
     ] = False,
     confidence_threshold: Annotated[
         float, typer.Option(help="Confidence threshold for LLM fallback")
-    ] = 0.75,
+    ] = DEFAULT_CONFIDENCE_THRESHOLD,
     sample_size: Annotated[
         int | None,
         typer.Option(
