@@ -35,6 +35,7 @@ analyze-deps-regex = "scripts.analyze_deps_regex:cli"
 analyze-deps = "scripts.analyze_deps:main"
 classify-unit-tests = "scripts.classify_unit_tests:app"
 test-unit-extraction = "scripts.test_unit_extraction:app"
+data-explorer = "scripts.data_explorer:cli"
 
 [project.entry-points.inspect_ai]
 benchmark = "generate._registry"
