@@ -468,15 +468,20 @@ def detect_signals(test_code: str) -> list[Signal]:
                 )
             )
     # Check for fixture parameters (pytest specific)
-    # Distinguish from pytest.mark.parametrize by looking for fixtures
+    # Only flag as fixtures if we have BOTH parameters AND some state/complexity
+    # Don't flag simple parametrized or pure functional tests
     if re.search(r"def test_\w+\([^)]+\):", test_code):
-        # Has parameters - could be fixtures (lower confidence)
-        # Don't add if we already detected parametrize
+        # Has parameters - but is it fixtures or just parametrize?
         has_parametrize = any(s.category == Category.SIMPLE_PARAMETRIC for s in signals)
-        if not has_parametrize:
+        has_pure_functional = any(
+            s.category == Category.PURE_FUNCTIONAL for s in signals
+        )
+
+        # Only add fixture signal if we don't have clear parametrize or pure functional
+        if not has_parametrize and not has_pure_functional:
             signals.append(
                 Signal(
-                    "function parameters (fixtures?)", Category.STATEFUL_MULTISTEP, 0.5
+                    "function parameters (fixtures?)", Category.STATEFUL_MULTISTEP, 0.4
                 )
             )
 
