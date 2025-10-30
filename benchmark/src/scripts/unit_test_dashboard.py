@@ -57,6 +57,26 @@ def load_detailed_jsonl(data_dir: Path) -> list[dict] | None:
         return None
 
 
+def load_metadata(data_dir: Path) -> dict[str, str] | None:
+    """Load metadata from the markdown file."""
+    md_path = data_dir / "unit_test_classification.md"
+    if not md_path.exists():
+        return None
+    try:
+        metadata = {}
+        with open(md_path) as f:
+            for line in f:
+                if line.startswith("Generated:"):
+                    metadata["generated"] = line.split(":", 1)[1].strip()
+                elif line.startswith("Total tests analyzed:"):
+                    metadata["total_tests"] = line.split(":", 1)[1].strip()
+                elif line.startswith("Confidence threshold:"):
+                    metadata["confidence_threshold"] = line.split(":", 1)[1].strip()
+        return metadata
+    except Exception:
+        return None
+
+
 def main():
     """Main Streamlit app."""
     st.set_page_config(
@@ -98,6 +118,7 @@ def main():
     # Load data
     summary_df = load_summary_csv(data_dir)
     detailed_data = load_detailed_jsonl(data_dir)
+    metadata = load_metadata(data_dir)
 
     if summary_df is None:
         st.error("❌ No classification results found")
@@ -110,13 +131,22 @@ def main():
         """)
         return
 
+    # Display metadata if available
+    if metadata:
+        st.caption(
+            f"Generated: {metadata.get('generated', 'Unknown')} | "
+            f"Confidence threshold: {metadata.get('confidence_threshold', 'Unknown')}"
+        )
+
     # Main tabs
-    tab1, tab2, tab3, tab4 = st.tabs([
-        "📊 Overview",
-        "📈 Distribution",
-        "🔍 Test Browser",
-        "📋 Raw Data",
-    ])
+    tab1, tab2, tab3, tab4 = st.tabs(
+        [
+            "📊 Overview",
+            "📈 Distribution",
+            "🔍 Test Browser",
+            "📋 Raw Data",
+        ]
+    )
 
     with tab1:
         st.header("Classification Summary")

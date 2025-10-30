@@ -224,7 +224,7 @@ The script is designed to be:
 
 """
 
-import gc
+import ast
 import json
 import os
 import re
@@ -299,6 +299,98 @@ class Classification:
     reasoning: str | None = None
 
 
+def analyze_statefulness_ast(test_code: str) -> tuple[bool, list[str]]:
+    """Analyze test code using AST to detect true statefulness.
+
+    Returns: (is_stateful, reasons)
+
+    Stateful indicators:
+    - Assignments to non-local variables
+    - Multiple assignments (variable reassignments or object mutations)
+    - Attribute assignments (obj.attr = ...)
+    - Method calls that mutate objects (append, pop, etc.)
+    - self parameter usage
+    """
+    try:
+        tree = ast.parse(test_code)
+    except SyntaxError:
+        # Can't parse, fall back to heuristics
+        return (False, [])
+
+    reasons = []
+    has_self = False
+    assignments = []
+    mutations = []
+
+    for node in ast.walk(tree):
+        # Check for self parameter
+        if isinstance(node, ast.FunctionDef):
+            if node.args.args and node.args.args[0].arg == "self":
+                has_self = True
+                reasons.append("uses self parameter")
+
+        # Check for assignments
+        if isinstance(node, ast.Assign):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    assignments.append(target.id)
+                elif isinstance(target, ast.Attribute):
+                    # obj.attr = value (mutation)
+                    mutations.append("attribute assignment")
+                elif isinstance(target, ast.Subscript):
+                    # obj[key] = value (mutation)
+                    mutations.append("subscript assignment")
+
+        # Check for augmented assignments (+=, -=, etc.)
+        if isinstance(node, ast.AugAssign):
+            reasons.append("augmented assignment (+=, etc.)")
+
+        # Check for mutating method calls
+        if isinstance(node, ast.Call):
+            if isinstance(node.func, ast.Attribute):
+                method_name = node.func.attr
+                # Common mutating methods
+                mutating_methods = {
+                    "append",
+                    "extend",
+                    "insert",
+                    "remove",
+                    "pop",
+                    "clear",
+                    "update",
+                    "add",
+                    "discard",
+                    "sort",
+                    "reverse",
+                    "put",
+                    "set",
+                    "write",
+                    "close",
+                }
+                if method_name in mutating_methods:
+                    mutations.append(f"mutating method: {method_name}()")
+
+    # Detect multiple assignments to same variable (state changes)
+    from collections import Counter
+
+    assignment_counts = Counter(assignments)
+    reassignments = [var for var, count in assignment_counts.items() if count > 1]
+
+    if has_self:
+        return (True, reasons)
+
+    if reassignments:
+        reasons.append(f"variable reassignments: {', '.join(reassignments[:3])}")
+
+    if mutations:
+        reasons.extend(mutations[:3])  # Limit to first 3
+
+    # Consider it stateful if there are multiple indicators
+    is_stateful = len(reasons) >= 2 or (len(assignments) > 3 and len(reasons) > 0)
+
+    return (is_stateful, reasons)
+
+
 def detect_signals(test_code: str) -> list[Signal]:
     """Detect classification signals in test code using regex and AST.
 
@@ -351,26 +443,27 @@ def detect_signals(test_code: str) -> list[Signal]:
             Signal("conditional early return", Category.GUARD_CONDITIONS, 0.9)
         )
 
-    # Category 6: Stateful/Multi-step
-    # Check for self parameter (fixture-based tests)
-    if re.search(r"def \w+\(self", test_code):
-        signals.append(Signal("self parameter", Category.STATEFUL_MULTISTEP, 0.9))
-    # Check for fixture parameters
+    # Category 6: Stateful/Multi-step (use AST analysis)
+    is_stateful, stateful_reasons = analyze_statefulness_ast(test_code)
+    if is_stateful and stateful_reasons:
+        # High confidence if we have concrete AST evidence
+        confidence = 0.8 if len(stateful_reasons) >= 2 else 0.7
+        reason_str = "; ".join(stateful_reasons[:2])  # First 2 reasons
+        signals.append(
+            Signal(f"AST: {reason_str}", Category.STATEFUL_MULTISTEP, confidence)
+        )
+    # Check for fixture parameters (pytest specific)
+    # Distinguish from pytest.mark.parametrize by looking for fixtures
     if re.search(r"def test_\w+\([^)]+\):", test_code):
-        # Has parameters (might be fixtures)
-        signals.append(
-            Signal("function parameters (fixtures?)", Category.STATEFUL_MULTISTEP, 0.6)
-        )
-    # Multiple statements (heuristic: more than 3 lines with code)
-    code_lines = [
-        line
-        for line in test_code.split("\n")
-        if line.strip() and not line.strip().startswith("#")
-    ]
-    if len(code_lines) > 5:
-        signals.append(
-            Signal("multi-statement setup", Category.STATEFUL_MULTISTEP, 0.5)
-        )
+        # Has parameters - could be fixtures (lower confidence)
+        # Don't add if we already detected parametrize
+        has_parametrize = any(s.category == Category.SIMPLE_PARAMETRIC for s in signals)
+        if not has_parametrize:
+            signals.append(
+                Signal(
+                    "function parameters (fixtures?)", Category.STATEFUL_MULTISTEP, 0.5
+                )
+            )
 
     # Category 7: Library-Dependent
     library_patterns = [
@@ -452,7 +545,9 @@ def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
     return (top_category, confidence, signal_descriptions)
 
 
-async def classify_with_llm_async(test_code: str, api_key: str) -> tuple[Category, float, str]:
+async def classify_with_llm_async(
+    test_code: str, api_key: str
+) -> tuple[Category, float, str]:
     """Classify test using Claude Haiku (async version).
 
     Returns: (category, confidence, reasoning)
@@ -569,7 +664,9 @@ async def classify_batch_with_llm(
         """Classify a single test and store result."""
         nonlocal completed_count
         try:
-            category, confidence, reasoning = await classify_with_llm_async(test_code, api_key)
+            category, confidence, reasoning = await classify_with_llm_async(
+                test_code, api_key
+            )
             results[index] = (category, confidence, reasoning)
         except Exception as e:
             if verbose:
@@ -682,7 +779,9 @@ def stream_unit_tests(
             # Early stopping for sampling: stop after collecting enough tests
             if early_stop_threshold and test_count >= early_stop_threshold:
                 if verbose:
-                    print(f"Early stopping: collected {test_count} tests (target: {sample_size})")
+                    print(
+                        f"Early stopping: collected {test_count} tests (target: {sample_size})"
+                    )
                 break
 
             # Parse JSON line
@@ -728,7 +827,10 @@ def stream_unit_tests(
                             test_count += 1
 
                             # Check early stop threshold within inner loop too
-                            if early_stop_threshold and test_count >= early_stop_threshold:
+                            if (
+                                early_stop_threshold
+                                and test_count >= early_stop_threshold
+                            ):
                                 break
                         else:
                             # No sampling, yield immediately
@@ -736,7 +838,11 @@ def stream_unit_tests(
                             yield test_data
 
                 # Break out of overlap loop if we hit early stop
-                if sample_size and early_stop_threshold and test_count >= early_stop_threshold:
+                if (
+                    sample_size
+                    and early_stop_threshold
+                    and test_count >= early_stop_threshold
+                ):
                     break
 
             if not has_units:
@@ -764,6 +870,7 @@ def generate_summary_outputs(
     category_confidences: dict[Category, list[float]],
     category_llm_usage: Counter[Category],
     total: int,
+    confidence_threshold: float,
     output_dir: Path,
     verbose: bool,
 ) -> None:
@@ -775,7 +882,8 @@ def generate_summary_outputs(
     with open(md_path, "w") as f:
         f.write("# Unit Test Classification Results\n\n")
         f.write(f"Generated: {datetime.now().isoformat()}\n")
-        f.write(f"Total tests analyzed: {total}\n\n")
+        f.write(f"Total tests analyzed: {total}\n")
+        f.write(f"Confidence threshold: {confidence_threshold}\n\n")
 
         f.write("| Category | Count | Percentage | Avg Confidence | LLM Usage |\n")
         f.write("|----------|-------|------------|----------------|----------|\n")
@@ -826,7 +934,7 @@ def main(
     ] = False,
     confidence_threshold: Annotated[
         float, typer.Option(help="Confidence threshold for LLM fallback")
-    ] = 0.7,
+    ] = 0.75,
     sample_size: Annotated[
         int | None,
         typer.Option(
@@ -871,11 +979,9 @@ def main(
             Path.cwd().parent / ".env",  # Parent of current
         ]
 
-        env_loaded = False
         for env_path in possible_env_paths:
             if env_path.exists():
                 load_dotenv(env_path)
-                env_loaded = True
                 if verbose:
                     print(f"Loaded .env from {env_path}")
                 break
@@ -885,10 +991,10 @@ def main(
             print(
                 "Warning: ANTHROPIC_API_KEY not set. LLM fallback will not work for low-confidence cases."
             )
-            print(f"  Searched for .env in: {', '.join(str(p) for p in possible_env_paths)}")
             print(
-                "  Tip: Create a .env file with ANTHROPIC_API_KEY=your_key"
+                f"  Searched for .env in: {', '.join(str(p) for p in possible_env_paths)}"
             )
+            print("  Tip: Create a .env file with ANTHROPIC_API_KEY=your_key")
             print()
 
     # Stream unit tests from pbts.jsonl
@@ -918,7 +1024,6 @@ def main(
 
     # Setup progress bar with rich
     pbts_without_units = 0
-    last_test_update = 0
 
     with Progress(
         SpinnerColumn(),
@@ -955,13 +1060,15 @@ def main(
             )
 
         # Collect all tests first, then process in batches
-        all_tests = list(stream_unit_tests(
-            pbts_jsonl,
-            sample_size,
-            ranseed,
-            verbose,
-            progress_callback=update_sample_progress,
-        ))
+        all_tests = list(
+            stream_unit_tests(
+                pbts_jsonl,
+                sample_size,
+                ranseed,
+                verbose,
+                progress_callback=update_sample_progress,
+            )
+        )
 
         test_count = len(all_tests)
 
@@ -976,7 +1083,9 @@ def main(
         static_results = []
         for i, (pbt_id, test_name, test_code) in enumerate(all_tests):
             category, confidence, signals = classify_static(test_code)
-            static_results.append((pbt_id, test_name, test_code, category, confidence, signals))
+            static_results.append(
+                (pbt_id, test_name, test_code, category, confidence, signals)
+            )
 
             # Update progress every 10 tests
             if (i + 1) % 10 == 0 or (i + 1) == test_count:
@@ -989,7 +1098,14 @@ def main(
         # Phase 2: Identify tests that need LLM (low confidence)
         needs_llm = []
         needs_llm_indices = []
-        for i, (pbt_id, test_name, test_code, category, confidence, signals) in enumerate(static_results):
+        for i, (
+            pbt_id,
+            test_name,
+            test_code,
+            category,
+            confidence,
+            signals,
+        ) in enumerate(static_results):
             if not no_llm and confidence < confidence_threshold and api_key:
                 needs_llm.append((pbt_id, test_name, test_code))
                 needs_llm_indices.append(i)
@@ -1014,7 +1130,9 @@ def main(
                 )
 
             if verbose:
-                print(f"\nProcessing {len(needs_llm)} tests with LLM (parallelism={parallelism})...")
+                print(
+                    f"\nProcessing {len(needs_llm)} tests with LLM (parallelism={parallelism})..."
+                )
 
             llm_results = trio.run(
                 classify_batch_with_llm,
@@ -1031,7 +1149,14 @@ def main(
         # Phase 4: Merge results and write output
         with open(jsonl_path, "w") as jsonl_file:
             llm_idx = 0
-            for i, (pbt_id, test_name, test_code, category, confidence, signals) in enumerate(static_results):
+            for i, (
+                pbt_id,
+                test_name,
+                test_code,
+                category,
+                confidence,
+                signals,
+            ) in enumerate(static_results):
                 method: Literal["static", "llm"] = "static"
                 reasoning = None
 
@@ -1088,9 +1213,7 @@ def main(
     print()
     print(f"Classified {test_count} tests")
     print(f"LLM fallback used: {llm_count} times ({llm_count / test_count * 100:.1f}%)")
-    print(
-        f"Samples without unit tests: {pbts_without_units} skipped"
-    )
+    print(f"Samples without unit tests: {pbts_without_units} skipped")
     print()
 
     # Generate summary outputs (markdown and CSV) from aggregated stats
@@ -1100,6 +1223,7 @@ def main(
         category_confidences,
         category_llm_usage,
         test_count,
+        confidence_threshold,
         output_dir,
         verbose,
     )
