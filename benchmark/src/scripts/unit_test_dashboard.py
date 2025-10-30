@@ -243,9 +243,9 @@ def main():
         col1, col2, col3 = st.columns(3)
 
         with col1:
-            categories = sorted(set(t["category_name"] for t in detailed_data))
+            categories = sorted(set(t["primary_category_name"] for t in detailed_data))
             selected_category = st.selectbox(
-                "Filter by category:",
+                "Filter by primary category:",
                 ["All"] + categories,
                 key="category_filter",
             )
@@ -264,10 +264,12 @@ def main():
         # Apply filters
         filtered = detailed_data
         if selected_category != "All":
-            filtered = [t for t in filtered if t["category_name"] == selected_category]
+            filtered = [
+                t for t in filtered if t["primary_category_name"] == selected_category
+            ]
         if selected_method != "All":
             filtered = [t for t in filtered if t["method"] == selected_method]
-        filtered = [t for t in filtered if t["confidence"] >= min_confidence]
+        filtered = [t for t in filtered if t["primary_confidence"] >= min_confidence]
 
         st.markdown(f"**Filtered tests:** {len(filtered)}")
 
@@ -289,19 +291,35 @@ def main():
             page_tests = filtered[start_idx:end_idx]
 
             for i, test in enumerate(page_tests, start=start_idx + 1):
+                # Build title with primary category and tags
+                title_parts = [test["primary_category_name"].split(".")[0]]
+                if test.get("tags"):
+                    title_parts.append(f"+ {len(test['tags'])} tags")
+                title_suffix = " | ".join(title_parts)
+
                 with st.expander(
                     f"Test {i}: {test['test_name']} "
-                    f"[{test['category_name'].split('.')[0]}] "
-                    f"({test['confidence']:.2f} confidence, {test['method']})"
+                    f"[{title_suffix}] "
+                    f"({test['primary_confidence']:.2f} confidence, {test['method']})"
                 ):
                     col1, col2 = st.columns([1, 3])
 
                     with col1:
                         st.markdown("**Metadata:**")
                         st.markdown(f"- **Sample ID:** {test['pbt_id']}")
-                        st.markdown(f"- **Category:** {test['category_name']}")
+                        st.markdown(
+                            f"- **Primary Category:** {test['primary_category_name']}"
+                        )
                         st.markdown(f"- **Method:** {test['method']}")
-                        st.markdown(f"- **Confidence:** {test['confidence']:.2f}")
+                        st.markdown(
+                            f"- **Confidence:** {test['primary_confidence']:.2f}"
+                        )
+
+                        # Show tags if present
+                        if test.get("tags"):
+                            st.markdown("**Tags:**")
+                            for tag_name in test.get("tag_names", []):
+                                st.markdown(f"- {tag_name}")
 
                         if test.get("signals"):
                             st.markdown("**Signals:**")

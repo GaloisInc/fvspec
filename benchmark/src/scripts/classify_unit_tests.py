@@ -7,90 +7,80 @@ classification for low-confidence cases.
 
 ## Classification Categories
 
-Tests are classified into 8 categories based on Lean transcription difficulty:
+Tests are classified into 12 categories organized into 4 tiers based on Lean transcription difficulty.
+This is a multi-label classification system: tests have a primary category (highest difficulty tier)
+and optional secondary tags representing orthogonal concerns.
 
-### 1. Pure Functional (EASIEST)
-**Description**: Direct function calls with literal arguments and a single assertion.
-**Examples**:
-    - `assert double([1, 2]) == [2, 4]`
-    - `assert add(1, 2) == 3`
-**Lean Difficulty**: TRIVIAL - Can be directly translated to LSpec tests
-**Detection**: Single assert with function call, no setup, no fixtures, all literal args
-**Current Extraction**: ✓ Fully supported by AST extractor
+### Tier 1: Simple (Easiest to Transcribe)
 
-### 2. Simple Parametric (EASY)
-**Description**: Multiple test cases via pytest.mark.parametrize, but otherwise pure.
-**Examples**:
-    - `@pytest.mark.parametrize("x,y", [(1,2), (3,4)])`
-**Lean Difficulty**: EASY - Just generates multiple test cases
-**Detection**: Has `@pytest.mark.parametrize` decorator + Pure Functional body
-**Current Extraction**: ✓ Fully supported by AST extractor
+**1.1 Pure Functional (No Deps)** - Direct function calls with literal arguments, no libraries
+- Example: `assert double([1, 2]) == [2, 4]`
+- Lean Difficulty: TRIVIAL
+- Detection: Single assert, no mutations, no library imports
 
-### 3. Approximate Equality (MODERATE)
-**Description**: Floating-point comparisons with tolerance checking.
-**Examples**:
-    - `assert result == pytest.approx(3.14, abs=0.01)`
-    - `assert np.isclose(a, b)`
-    - `assert torch.allclose(x, y, atol=1e-6)`
-**Lean Difficulty**: MODERATE - Need epsilon-based predicates in Lean
-**Detection**: Uses `pytest.approx()`, `np.isclose()`, `torch.allclose()`, etc.
-**Current Extraction**: ✓ Partially supported (marks as float test)
-**Lean Strategy**: Use external validation with numpy.isclose semantics
+**1.2 Simple Parametric (No Deps)** - pytest.mark.parametrize but no libraries
+- Example: `@pytest.mark.parametrize("x,y", [(1,2), (3,4)])`
+- Lean Difficulty: EASY
+- Detection: Has parametrize decorator but no library dependencies
 
-### 4. Guard Conditions (MODERATE)
-**Description**: Early returns or conditional logic that filters test execution.
-**Examples**:
-    - `if x < 0: return` before assertion
-    - Boundary checks that skip invalid inputs
-**Lean Difficulty**: MODERATE - Need preconditions or filtered test cases
-**Detection**: `return` statements before assertions, early exits
-**Current Extraction**: ✗ Not handled (test would be skipped)
-**Lean Strategy**: Model as preconditions or split into separate tests
+**1.3 Numeric Pure Functional** - Float comparisons with tolerance but pure functional
+- Example: `assert result == pytest.approx(3.14, abs=0.01)`
+- Lean Difficulty: EASY
+- Detection: pytest.approx, np.isclose, torch.allclose but no state/libraries
 
-### 5. Exception Handling (MODERATE)
-**Description**: Tests that expect exceptions to be raised.
-**Examples**:
-    - `with pytest.raises(ValueError):`
-    - `pytest.raises(KeyError, lambda: dict[key])`
-**Lean Difficulty**: MODERATE - Mock exceptions as `Option` or `Result`
-**Detection**: `pytest.raises`, `try/except` blocks
-**Current Extraction**: ✗ Not handled
-**Lean Strategy**: Standard FP approaches: `Option`, `Except`, or custom error types
+### Tier 2: Moderate (Needs Lean Expertise)
 
-### 6. Stateful/Multi-step (HARD)
-**Description**: Tests requiring object construction, fixtures, or multiple setup steps.
-**Examples**:
-    - Tests with `self.etcd.put()` then `self.etcd.get()`
-    - Multiple variable assignments before assertion
-    - Fixture parameters like `def test_foo(etcd):`
-**Lean Difficulty**: HARD - Need state modeling, monadic style
-**Detection**: `self` parameter, fixture params, multi-statement setup
-**Current Extraction**: ✗ Not handled
-**Lean Strategy**: Use `Id.run do` notation, model state explicitly
+**2.1 Library-Dependent Pure** - Uses torch/numpy/pandas but purely functional
+- Example: `assert torch.tensor([1, 2]).sum() == 3`
+- Lean Difficulty: MODERATE
+- Detection: Library imports but no mutations
+- Strategy: Use dependency autoformalization infrastructure
 
-### 7. Library-Dependent (MODERATE)
-**Description**: Heavy reliance on external libraries (torch, numpy, pandas, etc.).
-**Examples**:
-    - `torch.tensor([[1,2], [3,4]])`
-    - `np.random.randn(100)`
-    - Complex type constructors
-**Lean Difficulty**: MODERATE - Use dependency mocking infrastructure
-**Detection**: Common library imports and function calls
-**Current Extraction**: ✗ Not handled (can't evaluate library calls)
-**Lean Strategy**: Dependency autoformalization (already built)
-**Note**: We've written extensive depmocking code to handle this
+**2.2 Library-Dependent Parametric** - Parametrize + libraries
+- Example: Parametrized test with numpy arrays
+- Lean Difficulty: MODERATE
+- Detection: Both parametrize and library imports
 
-### 8. Untranscribable (IMPOSSIBLE)
-**Description**: Tests with inherently imperative/effectful operations.
-**Examples**:
-    - `time.sleep(1)` - temporal behavior
-    - `open('file.txt')` - file I/O
-    - `requests.get(url)` - network calls
-    - `random.randint()` - non-deterministic
-**Lean Difficulty**: IMPOSSIBLE - Cannot be modeled in pure Lean
-**Detection**: Time, I/O, network, random number generation
-**Current Extraction**: ✗ Not handled (not extractable)
-**Lean Strategy**: Do not attempt - these tests should be excluded
+**2.3 Structural Validation** - isinstance/hasattr/type checks
+- Example: `assert isinstance(result, dict)`
+- Lean Difficulty: MODERATE
+- Detection: Type checking functions
+
+### Tier 3: Complex (Significant Transcription Effort)
+
+**3.1 Stateful Sequential** - Multiple assignments, mutations, but no libraries
+- Example: `x = []; x.append(1); assert len(x) == 1`
+- Lean Difficulty: HARD
+- Detection: AST analysis finds mutations, reassignments
+- Strategy: Use Id.run do notation, model state explicitly
+
+**3.2 Complex Control Flow** - Loops + conditions, exception handling
+- Example: `with pytest.raises(ValueError):`
+- Lean Difficulty: HARD
+- Detection: Loops, nested conditions, try/except blocks
+- Strategy: Mock exceptions as Option/Except types
+
+**3.3 Multi-Step Integration** - Multiple function calls, setup/teardown
+- Example: Tests with fixture setup and multiple operations
+- Lean Difficulty: HARD
+- Detection: Multiple function calls, pytest fixtures
+
+### Tier 4: Very Hard (May Need Axioms/Sorry)
+
+**4.1 Stateful + Library-Dependent** - Mutations + torch/numpy/etc
+- Example: `tensor.zero_(); assert tensor.sum() == 0`
+- Lean Difficulty: VERY HARD
+- Detection: Both library imports and mutations
+
+**4.2 Concurrent/Async** - async/await, threading, multiprocessing
+- Example: `async def test_foo(): await bar()`
+- Lean Difficulty: VERY HARD
+- Detection: async/await keywords, threading imports
+
+**4.3 Meta/Reflection** - getattr/setattr/eval/__dict__ manipulation
+- Example: `setattr(obj, 'field', value)`
+- Lean Difficulty: VERY HARD
+- Detection: Reflection APIs
 
 ## Classification Method
 
@@ -126,10 +116,10 @@ The script generates three output files:
 
 ### 1. `unit_test_classification.md` (Markdown Table)
 Human-readable table with columns:
-- **Category**: Classification category (1-8)
-- **Count**: Number of tests in this category
+- **Category**: Classification category (1.1-4.3, 12 total)
+- **Count**: Number of tests with this as primary category
 - **Percentage**: % of total tests
-- **Confidence**: avg/min/max confidence scores
+- **Confidence**: Average confidence for primary classification
 - **LLM Usage**: How many used LLM fallback
 
 ### 2. `unit_test_classification.csv` (Spreadsheet Import)
@@ -139,9 +129,12 @@ Same data as markdown table, CSV format for Excel/Sheets
 JSONL file with one test per line, including:
 - `pbt_id`: Sample ID
 - `test_code`: Full test source code
-- `category`: Assigned category (1-8)
-- `category_name`: Human-readable name
-- `confidence`: Confidence score (0.0-1.0)
+- `primary_category`: Primary assigned category (enum value)
+- `primary_category_name`: Human-readable name (e.g., "1.1 Pure Functional (No Deps)")
+- `primary_confidence`: Confidence score for primary (0.0-1.0)
+- `tags`: List of secondary categories (enum values)
+- `tag_names`: Human-readable names for tags
+- `tag_confidences`: Dict mapping tag names to confidence scores
 - `method`: "static" or "llm"
 - `signals`: List of detected patterns
 - `reasoning`: LLM reasoning (if used)
@@ -150,9 +143,16 @@ JSONL file with one test per line, including:
 
 ### Category Distribution
 The distribution tells you:
-- **High % in categories 1-2**: Good! Many tests are already extractable
-- **High % in category 8**: Problematic - many tests can't be transcribed
-- **High % in categories 6-7**: Challenging - need advanced Lean modeling
+- **High % in Tier 1 (1.1-1.3)**: Good! Many tests are simple and directly transcribable
+- **High % in Tier 2 (2.1-2.3)**: Moderate - need library mocking but feasible
+- **High % in Tier 3 (3.1-3.3)**: Challenging - need advanced Lean modeling
+- **High % in Tier 4 (4.1-4.3)**: Very hard - may need axioms or manual intervention
+
+### Multi-Label Tags
+Tests can have multiple tags indicating orthogonal concerns:
+- A test might be "3.1 Stateful Sequential" (primary) + "2.3 Structural Validation" (tag)
+- Tags help identify tests that cross multiple difficulty dimensions
+- Use tags to filter for specific patterns (e.g., all tests with structural validation)
 
 ### Confidence Scores
 - **High avg confidence**: Static heuristics work well
@@ -161,10 +161,10 @@ The distribution tells you:
 
 ### Prioritization Strategy
 Based on results, prioritize:
-1. **Quick wins**: Focus on categories 1-3 (already extractable or easy)
-2. **Investment**: Categories 4-5 (moderate difficulty, high ROI)
-3. **Advanced**: Categories 6-7 (hard but possible with current infrastructure)
-4. **Exclude**: Category 8 (impossible, filter these out)
+1. **Quick wins**: Focus on Tier 1 (1.1-1.3) - simple and directly transcribable
+2. **Investment**: Tier 2 (2.1-2.3) - moderate difficulty, high ROI with depmocking
+3. **Advanced**: Tier 3 (3.1-3.3) - hard but possible with state modeling
+4. **Research**: Tier 4 (4.1-4.3) - very hard, may need axioms or advanced techniques
 
 ### Validation
 To validate classification accuracy:
@@ -252,27 +252,62 @@ TOTAL_PBTS = 60776  # Total lines in pbts.jsonl (wc -l data/pbts.jsonl)
 
 
 class Category(str, Enum):
-    """Test classification categories."""
+    """Test classification categories with multi-label support.
 
-    PURE_FUNCTIONAL = "pure_functional"
-    SIMPLE_PARAMETRIC = "simple_parametric"
-    APPROXIMATE_EQUALITY = "approximate_equality"
-    GUARD_CONDITIONS = "guard_conditions"
-    EXCEPTION_HANDLING = "exception_handling"
-    STATEFUL_MULTISTEP = "stateful_multistep"
-    LIBRARY_DEPENDENT = "library_dependent"
-    UNTRANSCRIBABLE = "untranscribable"
+    Categories are organized into tiers by transcription difficulty.
+    Tests can have multiple categories (primary + tags).
+    """
+
+    # Tier 1: Simple (easiest to transcribe)
+    PURE_FUNCTIONAL_NO_DEPS = "pure_functional_no_deps"
+    SIMPLE_PARAMETRIC_NO_DEPS = "simple_parametric_no_deps"
+    NUMERIC_PURE_FUNCTIONAL = "numeric_pure_functional"
+
+    # Tier 2: Moderate (needs some Lean expertise)
+    LIBRARY_DEPENDENT_PURE = "library_dependent_pure"
+    LIBRARY_DEPENDENT_PARAMETRIC = "library_dependent_parametric"
+    STRUCTURAL_VALIDATION = "structural_validation"
+
+    # Tier 3: Complex (significant transcription effort)
+    STATEFUL_SEQUENTIAL = "stateful_sequential"
+    COMPLEX_CONTROL_FLOW = "complex_control_flow"
+    MULTI_STEP_INTEGRATION = "multi_step_integration"
+
+    # Tier 4: Very Hard (may need axioms/sorry)
+    STATEFUL_LIBRARY_DEPENDENT = "stateful_library_dependent"
+    CONCURRENT_ASYNC = "concurrent_async"
+    META_REFLECTION = "meta_reflection"
+
+
+CATEGORY_TIERS = {
+    Category.PURE_FUNCTIONAL_NO_DEPS: 1,
+    Category.SIMPLE_PARAMETRIC_NO_DEPS: 1,
+    Category.NUMERIC_PURE_FUNCTIONAL: 1,
+    Category.LIBRARY_DEPENDENT_PURE: 2,
+    Category.LIBRARY_DEPENDENT_PARAMETRIC: 2,
+    Category.STRUCTURAL_VALIDATION: 2,
+    Category.STATEFUL_SEQUENTIAL: 3,
+    Category.COMPLEX_CONTROL_FLOW: 3,
+    Category.MULTI_STEP_INTEGRATION: 3,
+    Category.STATEFUL_LIBRARY_DEPENDENT: 4,
+    Category.CONCURRENT_ASYNC: 4,
+    Category.META_REFLECTION: 4,
+}
 
 
 CATEGORY_NAMES = {
-    Category.PURE_FUNCTIONAL: "1. Pure Functional",
-    Category.SIMPLE_PARAMETRIC: "2. Simple Parametric",
-    Category.APPROXIMATE_EQUALITY: "3. Approximate Equality",
-    Category.GUARD_CONDITIONS: "4. Guard Conditions",
-    Category.EXCEPTION_HANDLING: "5. Exception Handling",
-    Category.STATEFUL_MULTISTEP: "6. Stateful/Multi-step",
-    Category.LIBRARY_DEPENDENT: "7. Library-Dependent",
-    Category.UNTRANSCRIBABLE: "8. Untranscribable",
+    Category.PURE_FUNCTIONAL_NO_DEPS: "1.1 Pure Functional (No Deps)",
+    Category.SIMPLE_PARAMETRIC_NO_DEPS: "1.2 Simple Parametric (No Deps)",
+    Category.NUMERIC_PURE_FUNCTIONAL: "1.3 Numeric Pure Functional",
+    Category.LIBRARY_DEPENDENT_PURE: "2.1 Library-Dependent Pure",
+    Category.LIBRARY_DEPENDENT_PARAMETRIC: "2.2 Library-Dependent Parametric",
+    Category.STRUCTURAL_VALIDATION: "2.3 Structural Validation",
+    Category.STATEFUL_SEQUENTIAL: "3.1 Stateful Sequential",
+    Category.COMPLEX_CONTROL_FLOW: "3.2 Complex Control Flow",
+    Category.MULTI_STEP_INTEGRATION: "3.3 Multi-Step Integration",
+    Category.STATEFUL_LIBRARY_DEPENDENT: "4.1 Stateful + Library-Dependent",
+    Category.CONCURRENT_ASYNC: "4.2 Concurrent/Async",
+    Category.META_REFLECTION: "4.3 Meta/Reflection",
 }
 
 
@@ -287,13 +322,19 @@ class Signal:
 
 @dataclass
 class Classification:
-    """Classification result for a single test."""
+    """Classification result for a single test with multi-label support.
+
+    Primary category represents the main transcription difficulty.
+    Tags represent additional orthogonal concerns.
+    """
 
     pbt_id: str
     test_name: str
     test_code: str
-    category: Category
-    confidence: float
+    primary_category: Category
+    primary_confidence: float
+    tags: list[Category]  # Additional categories above tag_threshold
+    tag_confidences: dict[Category, float]  # Confidence for each tag
     method: Literal["static", "llm"]
     signals: list[str]
     reasoning: str | None = None
@@ -392,154 +433,253 @@ def analyze_statefulness_ast(test_code: str) -> tuple[bool, list[str]]:
 
 
 def detect_signals(test_code: str) -> list[Signal]:
-    """Detect classification signals in test code using regex and AST.
+    """Detect classification signals in test code for 12 categories.
 
     Returns list of signals with category and weight.
+    Multiple signals can fire - supports multi-label classification.
     """
     signals = []
 
-    # Category 8: Untranscribable (check first - these are exclusionary)
-    if re.search(r"\btime\.sleep\(", test_code):
-        signals.append(Signal("time.sleep()", Category.UNTRANSCRIBABLE, 1.0))
-    if re.search(r"\bdatetime\.now\(", test_code):
-        signals.append(Signal("datetime.now()", Category.UNTRANSCRIBABLE, 1.0))
-    if re.search(r"\bopen\(", test_code):
-        signals.append(Signal("open() file I/O", Category.UNTRANSCRIBABLE, 1.0))
-    if re.search(r"\brandom\.", test_code) or re.search(r"np\.random\.", test_code):
-        signals.append(
-            Signal("random number generation", Category.UNTRANSCRIBABLE, 1.0)
-        )
-    if re.search(r"\brequests\.(get|post|put)", test_code):
-        signals.append(Signal("network calls", Category.UNTRANSCRIBABLE, 1.0))
+    # First, detect key characteristics
+    has_torch = bool(re.search(r"\btorch\.", test_code))
+    has_numpy = bool(re.search(r"\bnp\.", test_code))
+    has_pandas = bool(re.search(r"\bpd\.", test_code))
+    has_tf = bool(re.search(r"\btf\.", test_code))
+    has_jax = bool(re.search(r"\bjnp\.", test_code))
+    has_library = has_torch or has_numpy or has_pandas or has_tf or has_jax
 
-    # Category 5: Exception Handling
-    if re.search(r"pytest\.raises\(", test_code):
-        signals.append(Signal("pytest.raises()", Category.EXCEPTION_HANDLING, 1.0))
-    if re.search(r"with pytest\.raises\(", test_code):
-        signals.append(Signal("with pytest.raises()", Category.EXCEPTION_HANDLING, 1.0))
-    if re.search(r"\btry:", test_code) and re.search(r"\bexcept\b", test_code):
-        signals.append(Signal("try/except block", Category.EXCEPTION_HANDLING, 0.8))
+    # Detect numeric/floating point operations
+    has_numeric = bool(
+        re.search(r"pytest\.approx\(", test_code)
+        or re.search(r"np\.isclose\(", test_code)
+        or re.search(r"torch\.allclose\(", test_code)
+        or re.search(r"\.isclose\(", test_code)
+        or re.search(r"\batol\s*=", test_code)
+        or re.search(r"\brtol\s*=", test_code)
+    )
 
-    # Category 3: Approximate Equality
-    if re.search(r"pytest\.approx\(", test_code):
-        signals.append(Signal("pytest.approx()", Category.APPROXIMATE_EQUALITY, 1.0))
-    if re.search(r"np\.isclose\(", test_code):
-        signals.append(Signal("np.isclose()", Category.APPROXIMATE_EQUALITY, 1.0))
-    if re.search(r"torch\.allclose\(", test_code):
-        signals.append(Signal("torch.allclose()", Category.APPROXIMATE_EQUALITY, 1.0))
-    if re.search(r"\.isclose\(", test_code):
-        signals.append(Signal(".isclose()", Category.APPROXIMATE_EQUALITY, 0.7))
-    if re.search(r"\batol\s*=", test_code) or re.search(r"\brtol\s*=", test_code):
-        signals.append(
-            Signal("tolerance parameters", Category.APPROXIMATE_EQUALITY, 0.6)
-        )
+    # Detect parametrize decorator
+    has_parametrize = bool(re.search(r"@pytest\.mark\.parametrize", test_code))
 
-    # Category 4: Guard Conditions
-    # Look for early returns
-    if re.search(r"^\s+return\s*$", test_code, re.MULTILINE):
-        signals.append(Signal("early return", Category.GUARD_CONDITIONS, 0.8))
-    if re.search(r"if .+:\s+return", test_code):
-        signals.append(
-            Signal("conditional early return", Category.GUARD_CONDITIONS, 0.9)
-        )
+    # Detect structural validation patterns
+    has_structural = bool(
+        re.search(r"\bisinstance\(", test_code)
+        or re.search(r"\bhasattr\(", test_code)
+        or re.search(r"\btype\(", test_code)
+        or re.search(r"assert.*\blen\(", test_code)
+    )
 
-    # Category 6: Stateful/Multi-step (use AST analysis)
+    # Detect control flow complexity
+    has_loops = bool(
+        re.search(r"\bfor\b", test_code) or re.search(r"\bwhile\b", test_code)
+    )
+    has_nested_conditions = len(re.findall(r"\bif\b", test_code)) >= 2
+    has_exception_handling = bool(
+        re.search(r"pytest\.raises\(", test_code)
+        or re.search(r"with pytest\.raises\(", test_code)
+        or (re.search(r"\btry:", test_code) and re.search(r"\bexcept\b", test_code))
+    )
+
+    # Detect concurrency/async
+    has_async = bool(
+        re.search(r"\basync\s+def\b", test_code)
+        or re.search(r"\bawait\b", test_code)
+        or re.search(r"\bthreading\.", test_code)
+        or re.search(r"\bmultiprocessing\.", test_code)
+    )
+
+    # Detect meta/reflection
+    has_meta = bool(
+        re.search(r"\bgetattr\(", test_code)
+        or re.search(r"\bsetattr\(", test_code)
+        or re.search(r"\beval\(", test_code)
+        or re.search(r"\b__dict__\b", test_code)
+        or re.search(r"\b__class__\b", test_code)
+    )
+
+    # Detect multiple function calls / integration style
+    function_calls = len(re.findall(r"\b\w+\([^)]*\)", test_code))
+    has_setup_teardown = bool(
+        re.search(r"\bsetup\(", test_code)
+        or re.search(r"\bteardown\(", test_code)
+        or re.search(r"@pytest\.fixture", test_code)
+    )
+    has_integration = function_calls >= 3 or has_setup_teardown
+
+    # AST-based statefulness analysis
     is_stateful, stateful_reasons = analyze_statefulness_ast(test_code)
-    if is_stateful and stateful_reasons:
-        # High confidence if we have concrete AST evidence
+
+    # --- Tier 4: Very Hard ---
+
+    # 4.2 Concurrent/Async
+    if has_async:
+        signals.append(
+            Signal("async/await or threading", Category.CONCURRENT_ASYNC, 0.9)
+        )
+
+    # 4.3 Meta/Reflection
+    if has_meta:
+        signals.append(
+            Signal("getattr/setattr/eval/reflection", Category.META_REFLECTION, 0.9)
+        )
+
+    # 4.1 Stateful + Library-Dependent
+    if is_stateful and has_library:
+        confidence = 0.85 if len(stateful_reasons) >= 2 else 0.75
+        reason_str = "; ".join(stateful_reasons[:2])
+        signals.append(
+            Signal(
+                f"stateful + library: {reason_str}",
+                Category.STATEFUL_LIBRARY_DEPENDENT,
+                confidence,
+            )
+        )
+
+    # --- Tier 3: Complex ---
+
+    # 3.1 Stateful Sequential (if not library-dependent)
+    if is_stateful and not has_library:
         confidence = 0.8 if len(stateful_reasons) >= 2 else 0.7
-        reason_str = "; ".join(stateful_reasons[:2])  # First 2 reasons
+        reason_str = "; ".join(stateful_reasons[:2])
         signals.append(
-            Signal(f"AST: {reason_str}", Category.STATEFUL_MULTISTEP, confidence)
+            Signal(f"AST: {reason_str}", Category.STATEFUL_SEQUENTIAL, confidence)
         )
-    elif stateful_reasons is not None:
-        # AST analysis succeeded but found no statefulness
-        # This is positive evidence for pure functional!
-        # But only if we haven't detected other strong categories yet
-        other_categories = [
-            s
-            for s in signals
-            if s.category not in [Category.PURE_FUNCTIONAL, Category.SIMPLE_PARAMETRIC]
-        ]
-        if not other_categories:
+
+    # 3.2 Complex Control Flow
+    if has_exception_handling or (has_loops and has_nested_conditions):
+        patterns = []
+        if has_exception_handling:
+            patterns.append("exception handling")
+        if has_loops:
+            patterns.append("loops")
+        if has_nested_conditions:
+            patterns.append("nested conditions")
+        signals.append(Signal(", ".join(patterns), Category.COMPLEX_CONTROL_FLOW, 0.75))
+
+    # 3.3 Multi-Step Integration
+    if has_integration and not is_stateful:
+        signals.append(
+            Signal(
+                f"{function_calls} function calls / setup-teardown",
+                Category.MULTI_STEP_INTEGRATION,
+                0.7,
+            )
+        )
+
+    # --- Tier 2: Moderate ---
+
+    # 2.1 Library-Dependent Pure (library but NOT stateful)
+    if has_library and not is_stateful and not has_parametrize:
+        libs = []
+        if has_torch:
+            libs.append("torch")
+        if has_numpy:
+            libs.append("numpy")
+        if has_pandas:
+            libs.append("pandas")
+        if has_tf:
+            libs.append("tensorflow")
+        if has_jax:
+            libs.append("jax")
+        signals.append(
+            Signal(f"{', '.join(libs)} (pure)", Category.LIBRARY_DEPENDENT_PURE, 0.75)
+        )
+
+    # 2.2 Library-Dependent Parametric
+    if has_library and has_parametrize:
+        signals.append(
+            Signal("parametrize + library", Category.LIBRARY_DEPENDENT_PARAMETRIC, 0.8)
+        )
+
+    # 2.3 Structural Validation
+    if has_structural:
+        signals.append(
+            Signal(
+                "isinstance/hasattr/type checks", Category.STRUCTURAL_VALIDATION, 0.7
+            )
+        )
+
+    # --- Tier 1: Simple ---
+
+    # 1.3 Numeric Pure Functional
+    if has_numeric and not is_stateful and not has_library:
+        signals.append(
+            Signal("numeric/float approx (pure)", Category.NUMERIC_PURE_FUNCTIONAL, 0.8)
+        )
+
+    # 1.2 Simple Parametric (No Deps)
+    if has_parametrize and not has_library:
+        signals.append(
+            Signal(
+                "pytest.mark.parametrize (no deps)",
+                Category.SIMPLE_PARAMETRIC_NO_DEPS,
+                0.85,
+            )
+        )
+
+    # 1.1 Pure Functional (No Deps)
+    # Positive evidence: AST found no mutations
+    if (
+        not is_stateful
+        and not has_library
+        and not has_parametrize
+        and not has_structural
+        and not has_loops
+        and not has_exception_handling
+    ):
+        # Check for simple assertion patterns
+        if re.search(r"assert \w+\(.+\)\s*==", test_code):
             signals.append(
                 Signal(
-                    "AST: no state mutations detected", Category.PURE_FUNCTIONAL, 0.7
+                    "single assert with function call",
+                    Category.PURE_FUNCTIONAL_NO_DEPS,
+                    0.8,
                 )
             )
-    # Check for fixture parameters (pytest specific)
-    # Only flag as fixtures if we have BOTH parameters AND some state/complexity
-    # Don't flag simple parametrized or pure functional tests
-    if re.search(r"def test_\w+\([^)]+\):", test_code):
-        # Has parameters - but is it fixtures or just parametrize?
-        has_parametrize = any(s.category == Category.SIMPLE_PARAMETRIC for s in signals)
-        has_pure_functional = any(
-            s.category == Category.PURE_FUNCTIONAL for s in signals
-        )
-
-        # Only add fixture signal if we don't have clear parametrize or pure functional
-        if not has_parametrize and not has_pure_functional:
+        elif stateful_reasons is not None:
+            # AST confirmed no statefulness
             signals.append(
                 Signal(
-                    "function parameters (fixtures?)", Category.STATEFUL_MULTISTEP, 0.4
+                    "AST: no mutations, no deps",
+                    Category.PURE_FUNCTIONAL_NO_DEPS,
+                    0.75,
                 )
             )
 
-    # Category 7: Library-Dependent
-    library_patterns = [
-        (r"torch\.", "torch"),
-        (r"np\.", "numpy"),
-        (r"pd\.", "pandas"),
-        (r"tf\.", "tensorflow"),
-        (r"jnp\.", "jax"),
-    ]
-    for pattern, lib_name in library_patterns:
-        if re.search(pattern, test_code):
-            signals.append(
-                Signal(f"{lib_name} library call", Category.LIBRARY_DEPENDENT, 0.7)
+    # Fallback: if no signals detected, likely simple pure functional
+    if not signals:
+        signals.append(
+            Signal(
+                "no complex patterns detected",
+                Category.PURE_FUNCTIONAL_NO_DEPS,
+                0.6,
             )
-
-    # Category 2: Simple Parametric
-    if re.search(r"@pytest\.mark\.parametrize", test_code):
-        signals.append(
-            Signal("pytest.mark.parametrize", Category.SIMPLE_PARAMETRIC, 0.8)
-        )
-
-    # Category 1: Pure Functional
-    # Look for simple patterns that indicate pure functional tests
-    if re.search(r"assert \w+\(.+\)\s*==", test_code):
-        # Single assert with function call - good indicator
-        signals.append(
-            Signal("single assert with function call", Category.PURE_FUNCTIONAL, 0.75)
-        )
-    # Look for simple comparison assertions
-    if re.search(r"assert .+ == .+", test_code) and len(signals) == 0:
-        signals.append(
-            Signal("simple equality assertion", Category.PURE_FUNCTIONAL, 0.65)
         )
 
     return signals
 
 
-def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
-    """Classify test using static analysis.
+def classify_static(
+    test_code: str, tag_threshold: float = 0.5
+) -> tuple[Category, float, list[Category], dict[Category, float], list[str]]:
+    """Classify test using static analysis with multi-label support.
 
-    Returns: (category, confidence, list of signal descriptions)
+    Returns: (primary_category, primary_confidence, tags, tag_confidences, signal_descriptions)
+
+    Args:
+        test_code: The test code to classify
+        tag_threshold: Minimum score for a category to be included as a tag (default 0.5)
     """
     signals = detect_signals(test_code)
 
     if not signals:
-        # No signals detected - likely simple test, default to pure functional
-        # Use moderate confidence since lack of signals often means simple/pure code
-        return (Category.PURE_FUNCTIONAL, 0.65, ["no complex patterns detected"])
-
-    # Untranscribable is exclusionary - if detected with high weight, that's it
-    untranscribable = [s for s in signals if s.category == Category.UNTRANSCRIBABLE]
-    if untranscribable and max(s.weight for s in untranscribable) >= 0.9:
+        # Shouldn't happen - detect_signals has fallback
         return (
-            Category.UNTRANSCRIBABLE,
-            max(s.weight for s in untranscribable),
-            [s.pattern for s in untranscribable],
+            Category.PURE_FUNCTIONAL_NO_DEPS,
+            0.6,
+            [],
+            {},
+            ["no complex patterns detected"],
         )
 
     # Count votes per category, weighted
@@ -547,31 +687,40 @@ def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
     for signal in signals:
         category_scores[signal.category] += signal.weight
 
-    # Get top category
+    # Get top category as primary
     top_category = max(category_scores.items(), key=lambda x: x[1])[0]
     top_score = category_scores[top_category]
 
-    # Calculate confidence based on:
-    # 1. Strength of top category
-    # 2. Lack of conflicting signals
+    # Primary confidence = normalized score of top category
     total_score = sum(category_scores.values())
-    confidence = top_score / total_score if total_score > 0 else 0.0
+    primary_confidence = top_score / total_score if total_score > 0 else 0.0
 
-    # Boost confidence if we have clear, strong signal(s) for a single category
-    num_categories = len(category_scores)
-    if num_categories == 1 and top_score >= 0.7:
-        # Single category with strong signal - boost confidence
-        confidence = min(confidence * 1.1, 0.95)
+    # Boost confidence if single category with strong signal
+    if len(category_scores) == 1 and top_score >= 0.7:
+        primary_confidence = min(primary_confidence * 1.1, 0.95)
 
-    # If parametrize is detected but other signals too, might be parametric + something
-    # Adjust confidence down if multiple strong conflicting signals
-    num_strong_signals = sum(1 for s in signals if s.weight >= 0.8)
-    if num_strong_signals > 1 and num_categories > 1:
-        confidence *= 0.85
+    # Get tags: other categories above tag_threshold
+    tags = []
+    tag_confidences = {}
+    for category, score in category_scores.items():
+        if category != top_category and score >= tag_threshold:
+            tags.append(category)
+            # Normalize tag confidence relative to total
+            tag_confidences[category] = score / total_score if total_score > 0 else 0.0
 
+    # Sort tags by confidence (descending)
+    tags.sort(key=lambda c: tag_confidences[c], reverse=True)
+
+    # Collect signal descriptions for primary category
     signal_descriptions = [s.pattern for s in signals if s.category == top_category]
 
-    return (top_category, confidence, signal_descriptions)
+    return (
+        top_category,
+        primary_confidence,
+        tags,
+        tag_confidences,
+        signal_descriptions,
+    )
 
 
 async def classify_with_llm_async(
@@ -591,16 +740,27 @@ async def classify_with_llm_async(
 
     client = anthropic.AsyncAnthropic(api_key=api_key)
 
-    prompt = f"""Classify this Python unit test into one of 8 categories based on difficulty of transcribing to Lean 4:
+    prompt = f"""Classify this Python unit test into one of 12 categories based on difficulty of transcribing to Lean 4:
 
-1. Pure Functional - Direct function call with literals, single assertion, no setup (TRIVIAL)
-2. Simple Parametric - pytest.mark.parametrize but otherwise pure functional (EASY)
-3. Approximate Equality - Floating point comparisons with pytest.approx/np.isclose/torch.allclose (MODERATE)
-4. Guard Conditions - Early returns or conditional logic filtering test execution (MODERATE)
-5. Exception Handling - pytest.raises or try/except expecting exceptions (MODERATE - mock as Option/Except)
-6. Stateful/Multi-step - Requires fixtures, self parameter, or multi-step setup (HARD)
-7. Library-Dependent - Heavy use of external libraries (MODERATE - we have depmocking infrastructure)
-8. Untranscribable - Time-dependent, I/O, network calls, random numbers (IMPOSSIBLE)
+**Tier 1: Simple (easiest)**
+1. Pure Functional (No Deps) - Direct function call with literals, no libraries
+2. Simple Parametric (No Deps) - pytest.mark.parametrize but no libraries
+3. Numeric Pure Functional - Float comparisons (pytest.approx) but no state/libraries
+
+**Tier 2: Moderate (needs Lean expertise)**
+4. Library-Dependent Pure - Uses torch/numpy/pandas but purely functional
+5. Library-Dependent Parametric - Parametrize + libraries
+6. Structural Validation - isinstance/hasattr/type checks
+
+**Tier 3: Complex (significant effort)**
+7. Stateful Sequential - Multiple assignments, mutations, but no libraries
+8. Complex Control Flow - Loops + conditions, exception handling
+9. Multi-Step Integration - Multiple function calls, setup/teardown
+
+**Tier 4: Very Hard (may need axioms)**
+10. Stateful + Library-Dependent - Mutations + torch/numpy/etc
+11. Concurrent/Async - async/await, threading, multiprocessing
+12. Meta/Reflection - getattr/setattr/eval/__dict__ manipulation
 
 Test code:
 ```python
@@ -608,12 +768,12 @@ Test code:
 ```
 
 Respond with:
-1. The category number (1-8)
+1. The category number (1-12)
 2. A confidence rating from 1-10 (how sure you are)
 3. A brief reason (one sentence)
 
 Format: "Category X, Confidence Y: <reason>"
-Example: "Category 3, Confidence 9: Uses pytest.approx for floating point comparison"
+Example: "Category 4, Confidence 9: Uses torch.tensor but purely functional"
 """
 
     try:
@@ -631,7 +791,7 @@ Example: "Category 3, Confidence 9: Uses pytest.approx for floating point compar
         )
         if not match:
             print(f"Warning: Could not parse LLM response: {text}")
-            return (Category.PURE_FUNCTIONAL, 0.5, "Could not parse response")
+            return (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, "Could not parse response")
 
         category_num = int(match.group(1))
         confidence_rating = int(match.group(2))
@@ -641,32 +801,36 @@ Example: "Category 3, Confidence 9: Uses pytest.approx for floating point compar
         confidence = confidence_rating / 10.0
 
         category_map = {
-            1: Category.PURE_FUNCTIONAL,
-            2: Category.SIMPLE_PARAMETRIC,
-            3: Category.APPROXIMATE_EQUALITY,
-            4: Category.GUARD_CONDITIONS,
-            5: Category.EXCEPTION_HANDLING,
-            6: Category.STATEFUL_MULTISTEP,
-            7: Category.LIBRARY_DEPENDENT,
-            8: Category.UNTRANSCRIBABLE,
+            1: Category.PURE_FUNCTIONAL_NO_DEPS,
+            2: Category.SIMPLE_PARAMETRIC_NO_DEPS,
+            3: Category.NUMERIC_PURE_FUNCTIONAL,
+            4: Category.LIBRARY_DEPENDENT_PURE,
+            5: Category.LIBRARY_DEPENDENT_PARAMETRIC,
+            6: Category.STRUCTURAL_VALIDATION,
+            7: Category.STATEFUL_SEQUENTIAL,
+            8: Category.COMPLEX_CONTROL_FLOW,
+            9: Category.MULTI_STEP_INTEGRATION,
+            10: Category.STATEFUL_LIBRARY_DEPENDENT,
+            11: Category.CONCURRENT_ASYNC,
+            12: Category.META_REFLECTION,
         }
 
-        category = category_map.get(category_num, Category.PURE_FUNCTIONAL)
+        category = category_map.get(category_num, Category.PURE_FUNCTIONAL_NO_DEPS)
         return (category, confidence, reasoning)
 
     except Exception as e:
         print(f"Warning: LLM classification failed: {e}")
-        return (Category.PURE_FUNCTIONAL, 0.5, f"LLM error: {e}")
+        return (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, f"LLM error: {e}")
 
 
 def classify_test_static(
     pbt_id: str,
     test_name: str,
     test_code: str,
-) -> tuple[Category, float, list[str]]:
+) -> tuple[Category, float, list[Category], dict[Category, float], list[str]]:
     """Classify a single test with static analysis only.
 
-    Returns: (category, confidence, signals)
+    Returns: (primary_category, primary_confidence, tags, tag_confidences, signals)
     """
     return classify_static(test_code)
 
@@ -700,7 +864,7 @@ async def classify_batch_with_llm(
         except Exception as e:
             if verbose:
                 print(f"Warning: LLM classification failed for test {index}: {e}")
-            results[index] = (Category.PURE_FUNCTIONAL, 0.5, f"LLM error: {e}")
+            results[index] = (Category.PURE_FUNCTIONAL_NO_DEPS, 0.5, f"LLM error: {e}")
         finally:
             # Update progress
             async with count_lock:
@@ -736,17 +900,19 @@ def classify_test(
     Note: This is kept for compatibility but won't be used in the batched flow.
     """
     # Try static analysis first
-    category, confidence, signals = classify_static(test_code)
+    primary_category, primary_confidence, tags, tag_confidences, signal_descriptions = (
+        classify_static(test_code)
+    )
 
     method: Literal["static", "llm"] = "static"
     reasoning = None
 
     # Fallback to LLM if confidence is low
-    if use_llm and confidence < confidence_threshold:
+    if use_llm and primary_confidence < confidence_threshold:
         if not api_key:
             if verbose:
                 print(
-                    f"Warning: Low confidence ({confidence:.2f}) for {test_name} "
+                    f"Warning: Low confidence ({primary_confidence:.2f}) for {test_name} "
                     "but no API key available for LLM fallback"
                 )
 
@@ -754,10 +920,12 @@ def classify_test(
         pbt_id=pbt_id,
         test_name=test_name,
         test_code=test_code,
-        category=category,
-        confidence=confidence,
+        primary_category=primary_category,
+        primary_confidence=primary_confidence,
+        tags=tags,
+        tag_confidences=tag_confidences,
         method=method,
-        signals=signals,
+        signals=signal_descriptions,
         reasoning=reasoning,
     )
 
@@ -1111,9 +1279,24 @@ def main(
 
         static_results = []
         for i, (pbt_id, test_name, test_code) in enumerate(all_tests):
-            category, confidence, signals = classify_static(test_code)
+            (
+                primary_category,
+                primary_confidence,
+                tags,
+                tag_confidences,
+                signal_descriptions,
+            ) = classify_static(test_code)
             static_results.append(
-                (pbt_id, test_name, test_code, category, confidence, signals)
+                (
+                    pbt_id,
+                    test_name,
+                    test_code,
+                    primary_category,
+                    primary_confidence,
+                    tags,
+                    tag_confidences,
+                    signal_descriptions,
+                )
             )
 
             # Update progress every 10 tests
@@ -1131,11 +1314,13 @@ def main(
             pbt_id,
             test_name,
             test_code,
-            category,
-            confidence,
-            signals,
+            primary_category,
+            primary_confidence,
+            tags,
+            tag_confidences,
+            signal_descriptions,
         ) in enumerate(static_results):
-            if not no_llm and confidence < confidence_threshold and api_key:
+            if not no_llm and primary_confidence < confidence_threshold and api_key:
                 needs_llm.append((pbt_id, test_name, test_code))
                 needs_llm_indices.append(i)
 
@@ -1182,16 +1367,24 @@ def main(
                 pbt_id,
                 test_name,
                 test_code,
-                category,
-                confidence,
-                signals,
+                primary_category,
+                primary_confidence,
+                tags,
+                tag_confidences,
+                signal_descriptions,
             ) in enumerate(static_results):
                 method: Literal["static", "llm"] = "static"
                 reasoning = None
 
                 # Check if this test used LLM
                 if i in needs_llm_indices:
-                    category, confidence, reasoning = llm_results[llm_idx]
+                    # LLM only returns primary category (no multi-label support yet)
+                    primary_category, primary_confidence, reasoning = llm_results[
+                        llm_idx
+                    ]
+                    # Clear tags when using LLM (LLM doesn't support multi-label yet)
+                    tags = []
+                    tag_confidences = {}
                     method = "llm"
                     llm_count += 1
                     llm_idx += 1
@@ -1200,21 +1393,27 @@ def main(
                 record = {
                     "pbt_id": pbt_id,
                     "test_name": test_name,
-                    "category": category,
-                    "category_name": CATEGORY_NAMES[category],
-                    "confidence": confidence,
+                    "primary_category": primary_category,
+                    "primary_category_name": CATEGORY_NAMES[primary_category],
+                    "primary_confidence": primary_confidence,
+                    "tags": tags,
+                    "tag_names": [CATEGORY_NAMES[tag] for tag in tags],
+                    "tag_confidences": {
+                        CATEGORY_NAMES[cat]: conf
+                        for cat, conf in tag_confidences.items()
+                    },
                     "method": method,
-                    "signals": signals,
+                    "signals": signal_descriptions,
                     "reasoning": reasoning,
                     "test_code": test_code,
                 }
                 jsonl_file.write(json.dumps(record) + "\n")
 
-                # Update stats
-                category_counts[category] += 1
-                category_confidences[category].append(confidence)
+                # Update stats for primary category
+                category_counts[primary_category] += 1
+                category_confidences[primary_category].append(primary_confidence)
                 if method == "llm":
-                    category_llm_usage[category] += 1
+                    category_llm_usage[primary_category] += 1
 
                 # Update progress bar
                 if (i + 1) % 10 == 0 or (i + 1) == test_count:
