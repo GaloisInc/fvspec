@@ -175,9 +175,8 @@ def identify_central_function(datapoint: Datapoint) -> str | None:
             if func_name in builtins:
                 continue
             if "." in func_name:
-                prefix = func_name.split(".")[0]
-                if prefix in ("data", "result", "value", "obj", "self", "cls"):
-                    continue
+                # Skip all functions with module paths in second pass
+                continue
 
             # This might be the function under test
             return func_name
