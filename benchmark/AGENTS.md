@@ -14,7 +14,7 @@ This directory contains the fvspec benchmark generation system using the `inspec
 - **`src/generate/templates/`** - Jinja2 prompt templates
   - `spec/` - Spec generation prompts (functional, mvcgen, terse variants)
   - `deps/` - Dependency translation prompts
-  - Shared fragments in `*/common/fragments/`
+  - Shared fragments in `*/common/fragments/` (single source of truth for repeated guidance; use `{% include %}` to reduce redundancy)
 
 - **`data/pbts.jsonl`** - Python property-based tests (~116GB)
   - **CRITICAL**: Never load into memory; uses streaming/reservoir sampling

@@ -113,7 +113,3 @@ The final `Deps.lean` **is being written**. The confusion arose because:
 ## parallelize depagents
 
 with trio? or with more standard concurrency. 
-
-## Write up redundancy-reduction philosophy about templates in `./benchmark/AGENTS.md`, very briefly.
-
-like a sentence. 
