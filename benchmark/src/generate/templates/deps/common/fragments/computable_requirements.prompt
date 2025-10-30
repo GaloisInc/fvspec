@@ -1,0 +1,1 @@
+Keep every definition transparent and computable so downstream provers can reduce it; avoid axioms or opaque wrappers.

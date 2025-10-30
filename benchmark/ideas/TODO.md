@@ -81,35 +81,8 @@ uv run fvspec compare-variants --skip-index
 
 ## actually implement central fn (not just sig) at benchmark-generation-time.
 
-Optionally drop it out / replace body with sorry later. 
+Optionally drop it out / replace body with sorry later.
 
-## Template Improvements (Optional, Medium Priority)
+## Are we sure it's writing the final dep output at the end? it doesn't look like it in inspect logs.
 
-From template redundancy analysis (see TEMPLATE_REDUNDANCY_ANALYSIS.md):
-
-### 1. Create `deps/common/fragments/computable_requirements.prompt`
-**Priority**: Medium
-**Savings**: ~10+ lines across all deps files
-**Description**: Consolidate the "transparency/avoid axioms" guidance that appears with variations across all deps templates.
-
-Current instances:
-- deps/functional/system.prompt: "Keep every definition transparent so downstream provers can reduce it; avoid axioms or opaque wrappers."
-- deps/mvcgen/system.prompt: "Keep every definition transparent and computable; avoid axioms or opaque constants."
-- Similar themes in translate templates
-
-**Benefit**: Single source of truth for computability requirements
-
-### 2. Align output format wording in initial prompts
-**Priority**: Medium
-**Savings**: Consistency improvement
-**Description**: Minor wording variations exist in output format instructions across templates:
-- spec/common/fragments/output_format.prompt: "Always respond with Lean 4 code in code tags"
-- spec/common/initial.prompt: "Provide code in tags"
-
-**Benefit**: Consistent messaging to models across all prompts
-
-### 3. Consolidate metrics in custom variants (OPTIONAL - NOT CRITICAL)
-**Priority**: Low
-**Description**: control-mvcgen and terse-functional have custom metrics sections that could theoretically use the shared fragment, but their variations may be intentional for different variant styles.
-
-**Recommendation**: Leave as-is unless unification becomes necessary. 
+Maybe double check, maybe this isn't a code change. 
