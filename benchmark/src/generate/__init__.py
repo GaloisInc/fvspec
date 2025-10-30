@@ -56,10 +56,14 @@ def main_callback(
     ),
     variant: str = Option(
         None,
+        "-v",
+        "--variant",
         help="Prompt variant name from registry.toml (e.g., 'control-functional', 'terse-functional'). If not specified, uses default from registry or config.toml.",
     ),
     sample_size: int = Option(
         None,
+        "-n",
+        "--sample-size",
         help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
     ),
     ranseed: int = Option(
@@ -75,6 +79,8 @@ def main_callback(
     ),
     parallelism: int = Option(
         None,
+        "-p",
+        "--parallelism",
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
     wandb_disable: bool = Option(
@@ -230,11 +236,14 @@ def compare_variants(
     ),
     variant: list[str] = Option(
         None,
+        "-v",
         "--variant",
         help="Variant names to compare (can be specified multiple times). If not specified, uses all control and treatment variants.",
     ),
     sample_size: int = Option(
         None,
+        "-n",
+        "--sample-size",
         help="Number of samples to draw from dataset. If not specified, uses value from config.toml (default: 100).",
     ),
     ranseed: int = Option(
@@ -243,6 +252,8 @@ def compare_variants(
     ),
     parallelism: int = Option(
         None,
+        "-p",
+        "--parallelism",
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
     display: str = Option(
