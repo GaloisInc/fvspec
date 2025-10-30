@@ -90,3 +90,5 @@ Optionally drop it out / replace body with sorry later.
 ## double check that lean deps are getting appended to the main spec-agent prompt. 
 
 I think this is not happening. Its reverting to symbolic interfaces, which is pretty terrible. 
+
+*implemented in a commit on this branch, but not necessarily tested*. 

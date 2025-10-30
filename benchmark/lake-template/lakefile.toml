@@ -6,7 +6,7 @@ defaultTargets = ["Fvspec"]
 name = "Fvspec"
 
 [[require]]
-name = "mathlib"
+name = "batteries"
 scope = "leanprover-community"
 rev = "v4.25.0-rc2"
 
