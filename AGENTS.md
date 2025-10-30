@@ -38,7 +38,7 @@ fvspec is a benchmark suite for evaluating AI models on formal verification task
 
 ## Development Environment
 
-Requires `uv`, `elan`, `lefthook`, maybe more (like `ripgrep` is a dep of an mcp tool we might be involving?)
+Requires `uv`, `elan`, `lefthook`, `pnpm`, maybe more (like `ripgrep` is a dep of an mcp tool we might be involving?)
 
 ## Quick Start
 

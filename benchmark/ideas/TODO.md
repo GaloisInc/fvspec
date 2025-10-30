@@ -83,6 +83,8 @@ uv run fvspec compare-variants --skip-index
 
 don't try to symlink the whole lakedir, but maybe just the `.lake/pkgs` part.
 
+*implemented by way of subbing out mathlib for batteries, but will delete this later* when we have more of an idea of how effective it was. 
+
 ## actually implement central fn (not just sig) at benchmark-generation-time.
 
 Optionally drop it out / replace body with sorry later. 
