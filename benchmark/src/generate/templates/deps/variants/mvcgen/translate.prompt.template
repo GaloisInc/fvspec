@@ -53,7 +53,7 @@ Guidelines:
 1. Ensure the resulting definitions reside in the module `{{ lean_module_qualified }}` (file stem `{{ lean_file_stem }}.lean`). **Do NOT include a `namespace` block in this module; the aggregation logic will wrap all dependencies in a single namespace block in the aggregated `Deps.lean` file. Write all definitions as if they are already inside the correct namespace.**
 2. Model imperative structure with `do` notation, mutable references, or arrays as needed. When loops or mutation occur, accompany them with mvcgen-style Hoare triples (`⦃ P ⦄ program ⦃ Q ⦄`) and call `vcg`/`simp` to discharge verification conditions.
 3. Provide an executable demonstration (e.g. `#eval`, `#reduce`, or an explicit theorem) showing the helper reduces to the expected behaviour on a representative input.
-4. {% include 'common/fragments/computable_requirements.prompt' %} Use `sorry` only when absolutely required and annotate each with a `-- TODO:` comment describing the missing step.
+4. {% include 'common/fragments/computable_requirements.prompt' %} **Do NOT use `sorry`**; dependencies must be fully implemented.
 5. Focus solely on the dependency implementation and its minimal verification. Do **not** emit property-based tests or unrelated benchmark code.
 
 {% include 'common/fragments/output_format.prompt' %}
