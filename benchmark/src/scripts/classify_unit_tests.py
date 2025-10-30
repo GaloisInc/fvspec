@@ -546,7 +546,7 @@ def detect_signals(test_code: str) -> list[Signal]:
             Signal(
                 "getattr/setattr/eval/reflection",
                 Category.META_REFLECTION,
-                CONFIDENCE_ASYNC,
+                CONFIDENCE_META,
             )
         )
 
