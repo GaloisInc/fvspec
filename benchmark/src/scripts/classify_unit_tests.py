@@ -934,7 +934,7 @@ def main(
     ] = False,
     confidence_threshold: Annotated[
         float, typer.Option(help="Confidence threshold for LLM fallback")
-    ] = 0.75,
+    ] = 0.7,
     sample_size: Annotated[
         int | None,
         typer.Option(
