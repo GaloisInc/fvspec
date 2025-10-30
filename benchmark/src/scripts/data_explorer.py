@@ -210,7 +210,7 @@ def main():
             value=0,
             key="search_id_input",
         )
-        if st.button("Load by ID", use_container_width=True):
+        if st.button("Load by ID", width="stretch"):
             sample = load_sample_by_id(data_path, search_id)
             if sample:
                 st.session_state.current_sample = sample
@@ -236,7 +236,7 @@ def main():
                 min_deps = None
                 max_deps = None
 
-        if st.button("🎲 Load Random Sample", type="primary", use_container_width=True):
+        if st.button("🎲 Load Random Sample", type="primary", width="stretch"):
             st.session_state.seed = random.randint(0, 1_000_000)
             sample = load_random_sample(
                 data_path, st.session_state.seed, min_deps, max_deps
@@ -258,7 +258,7 @@ def main():
                 format_func=lambda x: f"ID: {x}",
                 key="history_selector",
             )
-            if st.button("Load from History", use_container_width=True):
+            if st.button("Load from History", width="stretch"):
                 sample = load_sample_by_id(data_path, selected_history)
                 if sample:
                     st.session_state.current_sample = sample
@@ -280,14 +280,14 @@ def main():
             )
             col1, col2 = st.columns(2)
             with col1:
-                if st.button("Load", use_container_width=True):
+                if st.button("Load", width="stretch"):
                     sample = load_sample_by_id(data_path, selected_bookmark)
                     if sample:
                         st.session_state.current_sample = sample
                         add_to_history(sample.id)
                         st.rerun()
             with col2:
-                if st.button("Remove", use_container_width=True):
+                if st.button("Remove", width="stretch"):
                     remove_bookmark(selected_bookmark)
                     st.rerun()
         else:
@@ -298,7 +298,7 @@ def main():
         # Stats (#3)
         st.subheader("📊 Dataset Stats")
         stats_sample_size = 1000
-        if st.button("Calculate Stats", use_container_width=True):
+        if st.button("Calculate Stats", width="stretch"):
             with st.spinner(f"Sampling {stats_sample_size} datapoints..."):
                 st.session_state.stats = calculate_stats(data_path, stats_sample_size)
             st.rerun()
@@ -371,20 +371,20 @@ def main():
     st.markdown("---")
     col1, col2, col3, col4 = st.columns(4)
     with col1:
-        if st.button("📋 Copy Sample ID", use_container_width=True):
+        if st.button("📋 Copy Sample ID", width="stretch"):
             st.code(str(sample.id), language=None)
             st.toast("Sample ID displayed above!")
     with col2:
-        if st.button("📋 Copy PBT Code", use_container_width=True):
+        if st.button("📋 Copy PBT Code", width="stretch"):
             st.code(sample.pbt, language="python")
             st.toast("PBT code displayed below!")
     with col3:
-        if st.button("📋 Copy All Deps", use_container_width=True):
+        if st.button("📋 Copy All Deps", width="stretch"):
             all_deps = "\n\n# " + "=" * 50 + "\n\n".join(sample.deps)
             st.code(all_deps, language="python")
             st.toast("All dependencies displayed below!")
     with col4:
-        if st.button("📋 Export JSON", use_container_width=True):
+        if st.button("📋 Export JSON", width="stretch"):
             json_str = json.dumps(sample.model_dump(), indent=2)
             st.download_button(
                 label="⬇️ Download JSON",

@@ -77,7 +77,7 @@ def main():
 
         st.divider()
 
-        if st.button("🔄 Refresh Data", use_container_width=True):
+        if st.button("🔄 Refresh Data", width="stretch"):
             st.rerun()
 
         st.divider()
@@ -160,7 +160,7 @@ def main():
 
         st.dataframe(
             display_df,
-            use_container_width=True,
+            width="stretch",
             hide_index=True,
             column_config={
                 "Category": st.column_config.TextColumn("Category", width="large"),
@@ -292,7 +292,7 @@ def main():
         st.header("Raw Data")
 
         st.subheader("Summary CSV")
-        st.dataframe(summary_df, use_container_width=True)
+        st.dataframe(summary_df, width="stretch")
 
         if st.button("📋 Copy CSV Path"):
             st.code(str(data_dir / "unit_test_classification.csv"), language=None)
