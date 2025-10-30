@@ -211,22 +211,19 @@ def main():
         with col1:
             st.subheader("Tests by Category")
             chart_df = summary_df[summary_df["Count"] > 0].copy()
-            chart_df["Category_Short"] = chart_df["Category"].str.split(".").str[0]
-            st.bar_chart(chart_df.set_index("Category_Short")["Count"])
+            st.bar_chart(chart_df.set_index("Category")["Count"])
 
         with col2:
             st.subheader("LLM Usage by Category")
             chart_df = summary_df[summary_df["Count"] > 0].copy()
-            chart_df["Category_Short"] = chart_df["Category"].str.split(".").str[0]
-            st.bar_chart(chart_df.set_index("Category_Short")["LLMUsagePercent"])
+            st.bar_chart(chart_df.set_index("Category")["LLMUsagePercent"])
 
         st.divider()
 
         # Confidence distribution
         st.subheader("Confidence Distribution by Category")
         conf_df = summary_df[summary_df["Count"] > 0].copy()
-        conf_df["Category_Short"] = conf_df["Category"].str.split(".").str[0]
-        st.bar_chart(conf_df.set_index("Category_Short")["AvgConfidence"])
+        st.bar_chart(conf_df.set_index("Category")["AvgConfidence"])
 
     with tab3:
         st.header("Test Browser")
