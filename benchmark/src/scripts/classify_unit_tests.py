@@ -452,6 +452,21 @@ def detect_signals(test_code: str) -> list[Signal]:
         signals.append(
             Signal(f"AST: {reason_str}", Category.STATEFUL_MULTISTEP, confidence)
         )
+    elif stateful_reasons is not None:
+        # AST analysis succeeded but found no statefulness
+        # This is positive evidence for pure functional!
+        # But only if we haven't detected other strong categories yet
+        other_categories = [
+            s
+            for s in signals
+            if s.category not in [Category.PURE_FUNCTIONAL, Category.SIMPLE_PARAMETRIC]
+        ]
+        if not other_categories:
+            signals.append(
+                Signal(
+                    "AST: no state mutations detected", Category.PURE_FUNCTIONAL, 0.7
+                )
+            )
     # Check for fixture parameters (pytest specific)
     # Distinguish from pytest.mark.parametrize by looking for fixtures
     if re.search(r"def test_\w+\([^)]+\):", test_code):
@@ -485,16 +500,18 @@ def detect_signals(test_code: str) -> list[Signal]:
             Signal("pytest.mark.parametrize", Category.SIMPLE_PARAMETRIC, 0.8)
         )
 
-    # Category 1: Pure Functional (by absence of other signals)
-    # This is a weak signal - only use if nothing else detected
-    if len(signals) == 0:
-        # Check for single assert with function call
-        if re.search(r"assert \w+\(.+\)\s*==", test_code):
-            signals.append(
-                Signal(
-                    "single assert with function call", Category.PURE_FUNCTIONAL, 0.6
-                )
-            )
+    # Category 1: Pure Functional
+    # Look for simple patterns that indicate pure functional tests
+    if re.search(r"assert \w+\(.+\)\s*==", test_code):
+        # Single assert with function call - good indicator
+        signals.append(
+            Signal("single assert with function call", Category.PURE_FUNCTIONAL, 0.75)
+        )
+    # Look for simple comparison assertions
+    if re.search(r"assert .+ == .+", test_code) and len(signals) == 0:
+        signals.append(
+            Signal("simple equality assertion", Category.PURE_FUNCTIONAL, 0.65)
+        )
 
     return signals
 
@@ -507,8 +524,9 @@ def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
     signals = detect_signals(test_code)
 
     if not signals:
-        # No signals detected - ambiguous
-        return (Category.PURE_FUNCTIONAL, 0.3, ["no clear patterns detected"])
+        # No signals detected - likely simple test, default to pure functional
+        # Use moderate confidence since lack of signals often means simple/pure code
+        return (Category.PURE_FUNCTIONAL, 0.65, ["no complex patterns detected"])
 
     # Untranscribable is exclusionary - if detected with high weight, that's it
     untranscribable = [s for s in signals if s.category == Category.UNTRANSCRIBABLE]
@@ -534,11 +552,17 @@ def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
     total_score = sum(category_scores.values())
     confidence = top_score / total_score if total_score > 0 else 0.0
 
+    # Boost confidence if we have clear, strong signal(s) for a single category
+    num_categories = len(category_scores)
+    if num_categories == 1 and top_score >= 0.7:
+        # Single category with strong signal - boost confidence
+        confidence = min(confidence * 1.1, 0.95)
+
     # If parametrize is detected but other signals too, might be parametric + something
-    # Adjust confidence down if multiple strong signals
+    # Adjust confidence down if multiple strong conflicting signals
     num_strong_signals = sum(1 for s in signals if s.weight >= 0.8)
-    if num_strong_signals > 1:
-        confidence *= 0.8
+    if num_strong_signals > 1 and num_categories > 1:
+        confidence *= 0.85
 
     signal_descriptions = [s.pattern for s in signals if s.category == top_category]
 
