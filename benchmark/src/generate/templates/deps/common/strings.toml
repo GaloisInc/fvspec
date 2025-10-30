@@ -16,8 +16,14 @@ description = """Formalize the `{dep_name}` Python dependency into computable Le
 trigger_message = """Translate the {dep_name} dependency to Lean 4. Use LSP tools to iteratively develop and validate your implementation, then provide your final Lean code wrapped in <code>...</code> tags."""
 
 # Success message returned after tool execution
-# Variables: {dep_name}, {def_list}
-success_message = """Successfully formalized {dep_name} as {def_list}. Use `import Fvspec.Deps` to access it."""
+# Variables: {dep_name}, {def_list}, {deps_lean_content}
+success_message = """Successfully formalized {dep_name} as {def_list}. The consolidated Deps.lean now contains:
+
+<deps_lean>
+{deps_lean_content}
+</deps_lean>
+
+Use `import Fvspec.Deps` to access all formalized dependencies."""
 
 [errors]
 # Error when code block extraction fails

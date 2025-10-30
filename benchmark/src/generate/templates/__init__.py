@@ -77,22 +77,43 @@ def preview_prompts(
     actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
 
     the_jsonl = DATA_DIR / data
+    index_file = DATA_DIR / f"{data}.index"
 
-    # Use reservoir sampling to randomly select samples
+    # Use indexed sampling if available (fast), otherwise reservoir sampling (slow)
     rng = random.Random(actual_ranseed)
-    reservoir: list[dict] = []
 
-    with jsonlines.open(the_jsonl) as reader:
-        for idx, obj in enumerate(reader):
-            if idx < actual_sample_size:
-                reservoir.append(obj)
-            else:
-                # Reservoir sampling: randomly replace elements
-                j = rng.randint(0, idx)
-                if j < actual_sample_size:
-                    reservoir[j] = obj
+    if index_file.exists():
+        # Fast path: indexed sampling
+        import json
 
-    data_content = reservoir
+        with open(index_file) as f:
+            index_data = json.load(f)
+            offsets = index_data["offsets"]
+
+        total_lines = len(offsets)
+        selected_indices = rng.sample(
+            range(total_lines), min(actual_sample_size, total_lines)
+        )
+
+        data_content = []
+        with open(the_jsonl, "rb") as f:
+            for idx in sorted(selected_indices):
+                f.seek(offsets[idx])
+                line = f.readline().decode("utf-8")
+                data_content.append(json.loads(line))
+    else:
+        # Slow path: reservoir sampling (reads entire file)
+        reservoir: list[dict] = []
+        with jsonlines.open(the_jsonl) as reader:
+            for idx, obj in enumerate(reader):
+                if idx < actual_sample_size:
+                    reservoir.append(obj)
+                else:
+                    # Reservoir sampling: randomly replace elements
+                    j = rng.randint(0, idx)
+                    if j < actual_sample_size:
+                        reservoir[j] = obj
+        data_content = reservoir
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.depmock.models import (

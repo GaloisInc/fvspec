@@ -1,0 +1,6 @@
+## Output Format
+When you have finalized your implementation, respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example format: <code>def helper : Nat := 42</code>
+
+Use LSP tools to iteratively check and refine your code before providing the final `<code>...</code>` response.

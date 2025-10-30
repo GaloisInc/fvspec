@@ -468,11 +468,14 @@ def create_bound_dependency_tools(
                     module_file.write_text(lean_code)
 
                     # Update Deps.lean (regenerate from all modules in deps/)
-                    _update_deps_lean(deps_dir, sample_dir)
+                    deps_lean_content = _update_deps_lean(deps_dir, sample_dir)
+                else:
+                    deps_lean_content = ""
 
                 return strings.bound_tool.success_message.format(
                     dep_name=bound_payload.dep_name,
                     def_list=def_list,
+                    deps_lean_content=deps_lean_content,
                 )
 
             return execute
@@ -485,12 +488,15 @@ def create_bound_dependency_tools(
     return tools
 
 
-def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
+def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> str:
     """Regenerate Deps.lean from all module files in deps/ directory.
 
     Args:
         deps_dir: Directory containing individual .lean module files
         sample_dir: Sample output directory where Deps.lean should be written
+
+    Returns:
+        The content of the generated Deps.lean file
     """
     strings = get_dependency_strings()
     modules: list[str] = []
@@ -529,3 +535,4 @@ def _update_deps_lean(deps_dir: Path, sample_dir: Path) -> None:
 
     deps_lean_file = sample_dir / "Deps.lean"
     deps_lean_file.write_text(lean_text)
+    return lean_text

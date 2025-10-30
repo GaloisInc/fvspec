@@ -1,0 +1,7 @@
+Guidelines:
+1. Ensure the resulting definitions reside in the module `{{ lean_module_qualified }}` (file stem `{{ lean_file_stem }}.lean`). **Do NOT include a `namespace` block in this module; the aggregation logic will wrap all dependencies in a single namespace block in the aggregated `Deps.lean` file. Write all definitions as if they are already inside the correct namespace.**
+2. Use only Batteries for data structures (e.g., `import Batteries.Data.HashMap`); Mathlib is not available.
+3. Produce transparent, pure definitions that compute—prefer recursion, pattern matching, and Batteries helpers over axioms or opaque stubs.
+4. Include at least one small evaluation (`#eval`, `#reduce`, or a decidable lemma) that demonstrates the Lean code reduces to the expected result.
+5. **Do NOT use `sorry`**; dependencies must be fully implemented and computable. If a complete implementation is impossible, use a simplified approximation that preserves the essential behavior.
+6. Generate only the dependency implementation and any minimal support it requires. Do **not** emit property-based tests, benchmark specs, or unrelated scaffolding.

@@ -1,2 +1,4 @@
 ## Output Format
-Always respond with Lean 4 code in code tags: <code>theorem x : 1 = 1 := sorry</code>
+When you have finalized your implementation, respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example: <code>theorem x : 1 = 1 := sorry</code>
