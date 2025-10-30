@@ -434,7 +434,6 @@ def analyze_statefulness_ast(test_code: str) -> tuple[bool, list[str]]:
                     mutations.append(f"mutating method: {method_name}()")
 
     # Detect multiple assignments to same variable (state changes)
-    from collections import Counter
 
     assignment_counts = Counter(assignments)
     reassignments = [var for var, count in assignment_counts.items() if count > 1]
