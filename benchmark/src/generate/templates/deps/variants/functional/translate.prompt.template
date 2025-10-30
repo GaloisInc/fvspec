@@ -1,4 +1,20 @@
-You are given metadata describing a Python helper that property-based tests depend on.
+{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
+Provide a Lean 4 implementation by inferring its behavior from the test context below.
+
+**Function to implement**: `{{ dep_name }}`
+
+**Test context** (infer behavior from this):
+```python
+{{ python_source }}
+```
+
+**Your task**:
+1. Analyze how `{{ dep_name }}` is used in the test
+2. Infer its signature and behavior from the test assertions
+3. Implement it in Lean 4 (for stdlib functions, use appropriate Lean libraries or provide implementation)
+4. Ensure your implementation matches the test's expectations
+
+{% else %}You are given metadata describing a Python helper that property-based tests depend on.
 Translate it into Lean 4 while preserving the observable behaviour.
 
 Dependency metadata:
@@ -38,6 +54,7 @@ Python source:
 ```python
 {{ python_source }}
 ```
+{% endif %}
 
 Normalization plan:
 {% if normalization_strategy == "as_is" %}
