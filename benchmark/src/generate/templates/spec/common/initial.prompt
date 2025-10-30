@@ -8,11 +8,17 @@
 
 {% include 'common/fragments/dependency_formalization.prompt' %}
 
-{% endif %}Translate the following property-based test into Lean 4:
+{% endif %}Translate the following property-based test into Lean 4{% if central_fn %}, implementing the `{{ central_fn }}` function{% endif %}:
 
 <theorem>
 {{ pbt }}
 </theorem>
+{% if central_fn %}
+
+**Central function to implement**: `{{ central_fn }}`
+
+Provide a complete, working implementation of `{{ central_fn }}` along with the theorem statement (the theorem proof can use `sorry`).
+{% endif %}
 {% if deps|length > 0 %}
 
 After dependencies are formalized, use `import Fvspec.Deps` to access them in your specification.

@@ -1,5 +1,11 @@
 ## Task
-Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function signatures. You're declaring theorems and signatures with `sorry` placeholders - full implementations are not needed for the main test subject.
+Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function implementations.
+
+**Implementation Requirements:**
+{% if central_fn %}- **Central function** (`{{ central_fn }}`): Provide a FULL implementation (not `sorry`)
+{% else %}- **Central function**: Provide a full implementation of the main function being tested (not `sorry`)
+{% endif %}- **Theorem**: Declare with `sorry` placeholder (proof not required)
+- Use `def` (not `axiom`) to maintain computability
 
 {% if deps|length > 0 %}
 {% include 'common/fragments/dependency_formalization.prompt' %}

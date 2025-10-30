@@ -77,6 +77,118 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     return Prompt(pbt=dp.pbt, deps=dp.deps)
 
 
+def identify_central_function(datapoint: Datapoint) -> str | None:
+    """Identify the central function being tested.
+
+    Uses heuristics to find the main function under test:
+    1. Prefer functions with module paths (e.g., hashutil.hex_to_b64_id)
+    2. Filter out stdlib modules and builtins
+    3. Fall back to deriving from test name (remove 'test_' prefix)
+
+    Args:
+        datapoint: The datapoint containing test metadata
+
+    Returns:
+        Function name if identified, None otherwise
+    """
+    if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
+        # Filter out common stdlib modules that are likely not the function under test
+        stdlib_prefixes = (
+            "hypothesis.",
+            "pytest.",
+            "st.",
+            "strategies.",
+            "base64.",
+            "hashlib.",
+            "json.",
+            "os.",
+            "sys.",
+            "re.",
+            "math.",
+            "random.",
+            "collections.",
+            "itertools.",
+            "functools.",
+        )
+
+        # Common builtin functions/methods that shouldn't be the function under test
+        builtins = {
+            "encode",
+            "decode",
+            "read",
+            "write",
+            "append",
+            "extend",
+            "hex",
+            "hexdigest",
+            "digest",
+            "update",
+            "open",
+            "close",
+            "strip",
+            "split",
+            "join",
+            "format",
+            "replace",
+            "sort",
+            "sorted",
+            "len",
+            "str",
+            "int",
+            "float",
+            "bool",
+            "list",
+            "dict",
+            "set",
+            "tuple",
+        }
+
+        dep_names_set = set(datapoint.dep_names or [])
+
+        # First pass: look for functions with custom module paths (e.g., hashutil.something)
+        for func_name in datapoint.pbt_functions:
+            # Skip if it's a stdlib function
+            if any(func_name.startswith(prefix) for prefix in stdlib_prefixes):
+                continue
+            # Skip if it's already in dependencies
+            if func_name in dep_names_set:
+                continue
+            # Skip if it's a builtin
+            if func_name in builtins:
+                continue
+
+            # Check if it has a module path
+            if "." in func_name:
+                prefix = func_name.split(".")[0]
+                # Skip common variable names
+                if prefix in ("data", "result", "value", "obj", "self", "cls"):
+                    continue
+                # This looks like a custom module function - likely the function under test
+                return func_name
+
+        # Second pass: accept functions without module paths (but still filter builtins)
+        for func_name in datapoint.pbt_functions:
+            if any(func_name.startswith(prefix) for prefix in stdlib_prefixes):
+                continue
+            if func_name in dep_names_set:
+                continue
+            if func_name in builtins:
+                continue
+            if "." in func_name:
+                prefix = func_name.split(".")[0]
+                if prefix in ("data", "result", "value", "obj", "self", "cls"):
+                    continue
+
+            # This might be the function under test
+            return func_name
+
+    # Fallback: derive from test name
+    if datapoint.pbt_name.startswith("test_"):
+        return datapoint.pbt_name.removeprefix("test_")
+
+    return None
+
+
 def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
     """Extract unit tests from a datapoint's overlapping unit tests.
 
@@ -126,18 +238,27 @@ def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
     return None
 
 
-def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
+def mk_initial_prompt(
+    prompt: Prompt, datapoint: Datapoint | None = None, variant: str | None = None
+) -> str:
     """Render the initial user prompt from a Prompt object.
 
     Args:
         prompt: The prompt containing test and dependencies
+        datapoint: Optional datapoint to extract central function name from
         variant: Variant name to use for template (uses registry default if None)
 
     Returns:
         Rendered initial prompt string
     """
     _, initial_template = get_variant_prompts(variant)
-    return initial_template.render(pbt=prompt.pbt, deps=prompt.deps)
+
+    # Extract central function name if datapoint provided
+    central_fn = identify_central_function(datapoint) if datapoint else None
+
+    return initial_template.render(
+        pbt=prompt.pbt, deps=prompt.deps, central_fn=central_fn
+    )
 
 
 def build_index(file_path: Path, index_path: Path | None = None) -> Path:
@@ -612,8 +733,10 @@ def mk_dataset(
 
         samples.append(
             Sample(
-                input=mk_initial(
-                    datapoint_to_prompt(datapoint), variant=actual_variant
+                input=mk_initial_prompt(
+                    datapoint_to_prompt(datapoint),
+                    datapoint=datapoint,
+                    variant=actual_variant,
                 ),
                 metadata={
                     "datapoint": datapoint,

@@ -8,7 +8,7 @@ import ast
 import warnings
 from typing import Any
 
-from generate.scaffold.units.structures import TestCase
+from generate.scaffold.units.models import TestCase
 
 
 class ASTExtractor(ast.NodeVisitor):

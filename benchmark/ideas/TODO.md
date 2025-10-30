@@ -81,4 +81,8 @@ uv run fvspec compare-variants --skip-index
 
 ## actually implement central fn (not just sig) at benchmark-generation-time.
 
-Optionally drop it out / replace body with sorry later.
+We also want to autoformalize the central fn being tested. To MVP this, just prompt the language model to give the implementation in the same loop/prompt that it gives the signature for it and the theorem. We are still `sorry`ing out the theorem! 
+
+## Problem: full source of function not in training data! 
+
+is it one of the `deps`? 
