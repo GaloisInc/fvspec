@@ -683,7 +683,7 @@ def detect_signals(test_code: str) -> list[Signal]:
                     0.8,
                 )
             )
-        elif stateful_reasons is not None:
+        elif len(stateful_reasons) == 0:
             # AST confirmed no statefulness
             signals.append(
                 Signal(
