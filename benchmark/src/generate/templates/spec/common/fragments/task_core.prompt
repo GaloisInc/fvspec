@@ -2,5 +2,5 @@
 Translate Python property-based tests (written with Hypothesis) into Lean 4 theorem statements and function signatures. You're declaring theorems and signatures with `sorry` placeholders - full implementations are not needed for the main test subject.
 
 {% if deps|length > 0 %}
-{% include 'common/fragments/dependency_formalization.txt' %}
+{% include 'common/fragments/dependency_formalization.prompt' %}
 {% endif %}

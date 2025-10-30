@@ -6,22 +6,4 @@ Keep every definition transparent and computable; avoid axioms or opaque constan
 Only generate dependency code—no property-based tests or downstream specifications.
 All modules belong under `namespace Fvspec.Deps` and must compile independently.
 
-## Lean LSP Tools
-
-You have access to executable LSP tools for interactive Lean development. These are real tools you can call - do NOT write them as text in angle brackets.
-
-Available tools:
-- `lean_diagnostic_messages` - Get structured diagnostics (errors, warnings, info)
-- `lean_goal` - View proof state at a specific location
-- `lean_multi_attempt` - Try multiple tactics in parallel
-- `lean_local_search` - Search for definitions/theorems in local project and stdlib
-
-**How to use these tools:**
-1. Call them as actual tool calls (your framework will execute them)
-2. Wait for the tool result before proceeding
-3. Use the feedback to refine your code
-4. Do NOT write `<lean_diagnostic_messages>` or similar as text - use the actual tool call mechanism
-
-**Important**: Your Lean code will be written to a temporary file in your workspace. Use the file path provided in error messages when calling these tools.
-
-Use these tools iteratively to check and refine your implementation before providing the final `<code>...</code>` response.
+{% include 'common/fragments/lsp_tools.prompt' %}

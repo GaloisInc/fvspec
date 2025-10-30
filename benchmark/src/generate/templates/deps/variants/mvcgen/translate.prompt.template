@@ -56,9 +56,4 @@ Guidelines:
 4. Keep definitions transparent; avoid axioms or opaque constants. Use `sorry` only when absolutely required and annotate each with a `-- TODO:` comment describing the missing step.
 5. Focus solely on the dependency implementation and its minimal verification. Do **not** emit property-based tests or unrelated benchmark code.
 
-## Output Format
-When you have finalized your implementation, respond with Lean 4 code wrapped in `<code>...</code>` tags.
-
-Example format: <code>def helper : Nat := 42</code>
-
-Use LSP tools to iteratively check and refine your code before providing the final `<code>...</code>` response.
+{% include 'common/fragments/output_format.prompt' %}
