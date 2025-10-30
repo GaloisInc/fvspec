@@ -3,5 +3,5 @@ Guidelines:
 2. Use only Batteries for data structures (e.g., `import Batteries.Data.HashMap`); Mathlib is not available.
 3. Produce transparent, pure definitions that compute—prefer recursion, pattern matching, and Batteries helpers over axioms or opaque stubs.
 4. Include at least one small evaluation (`#eval`, `#reduce`, or a decidable lemma) that demonstrates the Lean code reduces to the expected result.
-5. Minimise `sorry`; when unavoidable, leave a `-- TODO:` comment that explains the missing reasoning.
+5. **Do NOT use `sorry`**; dependencies must be fully implemented and computable. If a complete implementation is impossible, use a simplified approximation that preserves the essential behavior.
 6. Generate only the dependency implementation and any minimal support it requires. Do **not** emit property-based tests, benchmark specs, or unrelated scaffolding.
