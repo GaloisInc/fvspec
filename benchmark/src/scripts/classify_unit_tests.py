@@ -552,17 +552,22 @@ async def classify_batch_with_llm(
     api_key: str,
     parallelism: int,
     verbose: bool,
+    progress_callback=None,
 ) -> list[tuple[Category, float, str]]:
     """Classify a batch of tests with LLM in parallel using trio.
 
     Returns: List of (category, confidence, reasoning) tuples, same order as input
+    progress_callback: Optional callback(completed_count) called after each classification
     """
     import trio
 
     results = [None] * len(tests)
+    completed_count = 0
+    count_lock = trio.Lock()
 
     async def classify_one(index: int, test_code: str):
         """Classify a single test and store result."""
+        nonlocal completed_count
         try:
             category, confidence, reasoning = await classify_with_llm_async(test_code, api_key)
             results[index] = (category, confidence, reasoning)
@@ -570,6 +575,12 @@ async def classify_batch_with_llm(
             if verbose:
                 print(f"Warning: LLM classification failed for test {index}: {e}")
             results[index] = (Category.PURE_FUNCTIONAL, 0.5, f"LLM error: {e}")
+        finally:
+            # Update progress
+            async with count_lock:
+                completed_count += 1
+                if progress_callback:
+                    progress_callback(completed_count)
 
     # Use trio's semaphore to limit parallelism
     semaphore = trio.Semaphore(parallelism)
@@ -959,10 +970,25 @@ def main(
         test_count = len(all_tests)
 
         # Phase 1: Static classification for all tests
+        progress.update(
+            test_task,
+            completed=0,
+            total=test_count,
+            description=f"[green]Static analysis (0/{test_count})",
+        )
+
         static_results = []
-        for pbt_id, test_name, test_code in all_tests:
+        for i, (pbt_id, test_name, test_code) in enumerate(all_tests):
             category, confidence, signals = classify_static(test_code)
             static_results.append((pbt_id, test_name, test_code, category, confidence, signals))
+
+            # Update progress every 10 tests
+            if (i + 1) % 10 == 0 or (i + 1) == test_count:
+                progress.update(
+                    test_task,
+                    completed=i + 1,
+                    description=f"[green]Static analysis ({i + 1}/{test_count})",
+                )
 
         # Phase 2: Identify tests that need LLM (low confidence)
         needs_llm = []
@@ -976,9 +1002,35 @@ def main(
         llm_results = []
         if needs_llm:
             import trio
+
+            # Add an LLM progress task
+            llm_task = progress.add_task(
+                "[yellow]LLM classifications",
+                total=len(needs_llm),
+            )
+
+            def update_llm_progress(completed: int):
+                """Update progress bar from trio callback."""
+                progress.update(
+                    llm_task,
+                    completed=completed,
+                    description=f"[yellow]LLM classifications ({completed}/{len(needs_llm)})",
+                )
+
             if verbose:
                 print(f"\nProcessing {len(needs_llm)} tests with LLM (parallelism={parallelism})...")
-            llm_results = trio.run(classify_batch_with_llm, needs_llm, api_key, parallelism, verbose)
+
+            llm_results = trio.run(
+                classify_batch_with_llm,
+                needs_llm,
+                api_key,
+                parallelism,
+                verbose,
+                update_llm_progress,
+            )
+
+            # Remove the LLM task when done
+            progress.remove_task(llm_task)
 
         # Phase 4: Merge results and write output
         with open(jsonl_path, "w") as jsonl_file:
