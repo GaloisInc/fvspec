@@ -243,6 +243,8 @@ from rich.progress import (
     SpinnerColumn,
     TaskProgressColumn,
     TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
 )
 
 DATADIR = Path(".") / "data"
@@ -450,8 +452,8 @@ def classify_static(test_code: str) -> tuple[Category, float, list[str]]:
     return (top_category, confidence, signal_descriptions)
 
 
-def classify_with_llm(test_code: str, api_key: str) -> tuple[Category, float, str]:
-    """Classify test using Claude Haiku.
+async def classify_with_llm_async(test_code: str, api_key: str) -> tuple[Category, float, str]:
+    """Classify test using Claude Haiku (async version).
 
     Returns: (category, confidence, reasoning)
     """
@@ -463,7 +465,7 @@ def classify_with_llm(test_code: str, api_key: str) -> tuple[Category, float, st
         )
         sys.exit(1)
 
-    client = anthropic.Anthropic(api_key=api_key)
+    client = anthropic.AsyncAnthropic(api_key=api_key)
 
     prompt = f"""Classify this Python unit test into one of 8 categories based on difficulty of transcribing to Lean 4:
 
@@ -491,7 +493,7 @@ Example: "Category 3, Confidence 9: Uses pytest.approx for floating point compar
 """
 
     try:
-        response = client.messages.create(
+        response = await client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=200,
             messages=[{"role": "user", "content": prompt}],
@@ -533,6 +535,56 @@ Example: "Category 3, Confidence 9: Uses pytest.approx for floating point compar
         return (Category.PURE_FUNCTIONAL, 0.5, f"LLM error: {e}")
 
 
+def classify_test_static(
+    pbt_id: str,
+    test_name: str,
+    test_code: str,
+) -> tuple[Category, float, list[str]]:
+    """Classify a single test with static analysis only.
+
+    Returns: (category, confidence, signals)
+    """
+    return classify_static(test_code)
+
+
+async def classify_batch_with_llm(
+    tests: list[tuple[str, str, str]],  # [(pbt_id, test_name, test_code), ...]
+    api_key: str,
+    parallelism: int,
+    verbose: bool,
+) -> list[tuple[Category, float, str]]:
+    """Classify a batch of tests with LLM in parallel using trio.
+
+    Returns: List of (category, confidence, reasoning) tuples, same order as input
+    """
+    import trio
+
+    results = [None] * len(tests)
+
+    async def classify_one(index: int, test_code: str):
+        """Classify a single test and store result."""
+        try:
+            category, confidence, reasoning = await classify_with_llm_async(test_code, api_key)
+            results[index] = (category, confidence, reasoning)
+        except Exception as e:
+            if verbose:
+                print(f"Warning: LLM classification failed for test {index}: {e}")
+            results[index] = (Category.PURE_FUNCTIONAL, 0.5, f"LLM error: {e}")
+
+    # Use trio's semaphore to limit parallelism
+    semaphore = trio.Semaphore(parallelism)
+
+    async def limited_classify(index: int, test_code: str):
+        async with semaphore:
+            await classify_one(index, test_code)
+
+    async with trio.open_nursery() as nursery:
+        for i, (_, _, test_code) in enumerate(tests):
+            nursery.start_soon(limited_classify, i, test_code)
+
+    return results  # type: ignore
+
+
 def classify_test(
     pbt_id: str,
     test_name: str,
@@ -542,7 +594,10 @@ def classify_test(
     api_key: str | None,
     verbose: bool,
 ) -> Classification:
-    """Classify a single test with automatic LLM fallback."""
+    """Classify a single test with automatic LLM fallback (synchronous version).
+
+    Note: This is kept for compatibility but won't be used in the batched flow.
+    """
     # Try static analysis first
     category, confidence, signals = classify_static(test_code)
 
@@ -557,16 +612,6 @@ def classify_test(
                     f"Warning: Low confidence ({confidence:.2f}) for {test_name} "
                     "but no API key available for LLM fallback"
                 )
-        else:
-            if verbose:
-                print(
-                    f"Low confidence ({confidence:.2f}) for {test_name}, using LLM..."
-                )
-            category, llm_confidence, reasoning = classify_with_llm(test_code, api_key)
-            method = "llm"
-            confidence = (
-                llm_confidence  # Use Haiku's confidence (normalized to 0.0-1.0)
-            )
 
     return Classification(
         pbt_id=pbt_id,
@@ -581,11 +626,22 @@ def classify_test(
 
 
 def stream_unit_tests(
-    pbts_jsonl: Path, sample_size: int | None, verbose: bool, progress_callback=None
+    pbts_jsonl: Path,
+    sample_size: int | None,
+    ranseed: int,
+    verbose: bool,
+    progress_callback=None,
 ):
-    """Stream unit tests from pbts.jsonl line by line.
+    """Stream unit tests from pbts.jsonl line by line with optional random sampling.
 
     Yields: (pbt_id, test_name, test_code, has_units) tuples
+
+    If sample_size is specified, uses early-stopping reservoir sampling to collect exactly
+    sample_size tests (or fewer if not enough exist) without scanning the entire file.
+    Otherwise, yields all tests found.
+
+    Early stopping: Stops scanning after finding 10x the requested sample size to ensure
+    good randomness while keeping performance fast for small samples.
 
     This avoids loading the entire 116GB file into memory.
     progress_callback: Optional function to call with (line_count, pbts_without_units) for progress updates
@@ -593,13 +649,30 @@ def stream_unit_tests(
     if not pbts_jsonl.exists():
         raise FileNotFoundError(f"{pbts_jsonl} not found")
 
+    import random
+
+    rng = random.Random(ranseed)
+
+    # Reservoir for sampling
+    reservoir: list[tuple[str, str, str]] = []
     test_count = 0
     line_count = 0
     pbts_without_units = 0
 
+    # Early stopping: collect 10x sample_size tests then stop (ensures good randomness)
+    # This makes -n 10 very fast while still being random
+    early_stop_multiplier = 10
+    early_stop_threshold = sample_size * early_stop_multiplier if sample_size else None
+
     with open(pbts_jsonl) as f:
         for line in f:
             line_count += 1
+
+            # Early stopping for sampling: stop after collecting enough tests
+            if early_stop_threshold and test_count >= early_stop_threshold:
+                if verbose:
+                    print(f"Early stopping: collected {test_count} tests (target: {sample_size})")
+                break
 
             # Parse JSON line
             try:
@@ -630,14 +703,30 @@ def stream_unit_tests(
                 for unit_test in overlap["unit_tests"]:
                     if "code" in unit_test and "test_name" in unit_test:
                         has_units = True
-                        test_count += 1
-                        yield (pbt_id, unit_test["test_name"], unit_test["code"])
+                        test_data = (pbt_id, unit_test["test_name"], unit_test["code"])
 
-                        # Stop if we've reached sample size
-                        if sample_size and test_count >= sample_size:
-                            if verbose:
-                                print(f"Reached sample size limit of {sample_size}")
-                            return
+                        if sample_size:
+                            # Reservoir sampling
+                            if test_count < sample_size:
+                                reservoir.append(test_data)
+                            else:
+                                # Randomly replace elements with decreasing probability
+                                j = rng.randint(0, test_count)
+                                if j < sample_size:
+                                    reservoir[j] = test_data
+                            test_count += 1
+
+                            # Check early stop threshold within inner loop too
+                            if early_stop_threshold and test_count >= early_stop_threshold:
+                                break
+                        else:
+                            # No sampling, yield immediately
+                            test_count += 1
+                            yield test_data
+
+                # Break out of overlap loop if we hit early stop
+                if sample_size and early_stop_threshold and test_count >= early_stop_threshold:
+                    break
 
             if not has_units:
                 pbts_without_units += 1
@@ -646,10 +735,16 @@ def stream_unit_tests(
             if progress_callback:
                 progress_callback(line_count, pbts_without_units)
 
+    # If we were sampling, shuffle and yield the reservoir
+    if sample_size:
+        rng.shuffle(reservoir)
+        for test_data in reservoir:
+            yield test_data
+
     if verbose:
-        print(
-            f"Finished processing {line_count} lines, yielded {test_count} tests total"
-        )
+        print(f"Finished processing {line_count} lines, found {test_count} tests total")
+        if sample_size:
+            print(f"Sampled {len(reservoir)} tests (requested: {sample_size})")
         print(f"PBTs without unit tests: {pbts_without_units}")
 
 
@@ -722,8 +817,19 @@ def main(
         float, typer.Option(help="Confidence threshold for LLM fallback")
     ] = 0.8,
     sample_size: Annotated[
-        int | None, typer.Option(help="Sample N tests for testing (default: all tests)")
+        int | None,
+        typer.Option(
+            "-n",
+            "--sample-size",
+            help="Sample N tests for testing (default: all tests)",
+        ),
     ] = None,
+    ranseed: Annotated[
+        int, typer.Option(help="Random seed for sampling (default: 0)")
+    ] = 0,
+    parallelism: Annotated[
+        int, typer.Option(help="Number of parallel LLM calls (default: 10)")
+    ] = 10,
     verbose: Annotated[bool, typer.Option(help="Enable verbose logging")] = False,
     output_dir: Annotated[Path, typer.Option(help="Output directory")] = Path(".")
     / "data",
@@ -733,27 +839,44 @@ def main(
     print("=" * 60)
     print(f"Confidence threshold: {confidence_threshold}")
     print(f"LLM fallback: {'disabled' if no_llm else 'enabled'}")
+    if not no_llm:
+        print(f"LLM parallelism: {parallelism}")
     if sample_size:
         print(f"Sample size: {sample_size} tests")
+        print(f"Random seed: {ranseed}")
     print()
 
     # Get API key if LLM is enabled
     api_key = None
     if not no_llm:
-        # Try to load from .env in parent directory (project root)
+        # Try to load from .env in monorepo root (two levels up from benchmark/data/)
         from dotenv import load_dotenv
 
-        env_path = Path("..") / ".env"
-        if env_path.exists():
-            load_dotenv(env_path)
+        # Try multiple possible locations
+        possible_env_paths = [
+            Path("..") / ".env",  # From benchmark/
+            Path("../..") / ".env",  # From benchmark/src/
+            Path.cwd() / ".env",  # Current directory
+            Path.cwd().parent / ".env",  # Parent of current
+        ]
+
+        env_loaded = False
+        for env_path in possible_env_paths:
+            if env_path.exists():
+                load_dotenv(env_path)
+                env_loaded = True
+                if verbose:
+                    print(f"Loaded .env from {env_path}")
+                break
 
         api_key = os.environ.get("ANTHROPIC_API_KEY")
         if not api_key:
             print(
                 "Warning: ANTHROPIC_API_KEY not set. LLM fallback will not work for low-confidence cases."
             )
+            print(f"  Searched for .env in: {', '.join(str(p) for p in possible_env_paths)}")
             print(
-                "  Tip: Create a .env file in the project root with ANTHROPIC_API_KEY=your_key"
+                "  Tip: Create a .env file with ANTHROPIC_API_KEY=your_key"
             )
             print()
 
@@ -791,6 +914,8 @@ def main(
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
     ) as progress:
         # Two progress bars: one for PBT samples, one for unit test classifications
         pbt_task = progress.add_task(
@@ -809,72 +934,94 @@ def main(
             nonlocal pbts_without_units
             pbts_without_units = pbts_no_units
             # Update every time - PBT reading is fast, this won't slow us down
-            progress.update(
-                pbt_task,
-                completed=line_count,
-                description=f"[cyan]Reading PBT samples ({pbts_no_units} without units)",
-            )
-
-        with open(jsonl_path, "w") as jsonl_file:
-            for pbt_id, test_name, test_code in stream_unit_tests(
-                pbts_jsonl, sample_size, verbose, progress_callback=update_pbt_progress
-            ):
-                test_count += 1
-
-                clf = classify_test(
-                    pbt_id=pbt_id,
-                    test_name=test_name,
-                    test_code=test_code,
-                    confidence_threshold=confidence_threshold,
-                    use_llm=not no_llm,
-                    api_key=api_key,
-                    verbose=verbose,
+            if sample_size:
+                progress.update(
+                    pbt_task,
+                    completed=line_count,
+                    description=f"[cyan]Scanning PBTs for tests ({pbts_no_units} skipped)",
+                )
+            else:
+                progress.update(
+                    pbt_task,
+                    completed=line_count,
+                    description=f"[cyan]Reading PBT samples ({pbts_no_units} without units)",
                 )
 
-                # Write to JSONL immediately (streaming output)
+        # Collect all tests first, then process in batches
+        all_tests = list(stream_unit_tests(
+            pbts_jsonl,
+            sample_size,
+            ranseed,
+            verbose,
+            progress_callback=update_pbt_progress,
+        ))
+
+        test_count = len(all_tests)
+
+        # Phase 1: Static classification for all tests
+        static_results = []
+        for pbt_id, test_name, test_code in all_tests:
+            category, confidence, signals = classify_static(test_code)
+            static_results.append((pbt_id, test_name, test_code, category, confidence, signals))
+
+        # Phase 2: Identify tests that need LLM (low confidence)
+        needs_llm = []
+        needs_llm_indices = []
+        for i, (pbt_id, test_name, test_code, category, confidence, signals) in enumerate(static_results):
+            if not no_llm and confidence < confidence_threshold and api_key:
+                needs_llm.append((pbt_id, test_name, test_code))
+                needs_llm_indices.append(i)
+
+        # Phase 3: Batch process LLM classifications in parallel
+        llm_results = []
+        if needs_llm:
+            import trio
+            if verbose:
+                print(f"\nProcessing {len(needs_llm)} tests with LLM (parallelism={parallelism})...")
+            llm_results = trio.run(classify_batch_with_llm, needs_llm, api_key, parallelism, verbose)
+
+        # Phase 4: Merge results and write output
+        with open(jsonl_path, "w") as jsonl_file:
+            llm_idx = 0
+            for i, (pbt_id, test_name, test_code, category, confidence, signals) in enumerate(static_results):
+                method: Literal["static", "llm"] = "static"
+                reasoning = None
+
+                # Check if this test used LLM
+                if i in needs_llm_indices:
+                    category, confidence, reasoning = llm_results[llm_idx]
+                    method = "llm"
+                    llm_count += 1
+                    llm_idx += 1
+
+                # Write to JSONL
                 record = {
-                    "pbt_id": clf.pbt_id,
-                    "test_name": clf.test_name,
-                    "category": clf.category,
-                    "category_name": CATEGORY_NAMES[clf.category],
-                    "confidence": clf.confidence,
-                    "method": clf.method,
-                    "signals": clf.signals,
-                    "reasoning": clf.reasoning,
-                    "test_code": clf.test_code,
+                    "pbt_id": pbt_id,
+                    "test_name": test_name,
+                    "category": category,
+                    "category_name": CATEGORY_NAMES[category],
+                    "confidence": confidence,
+                    "method": method,
+                    "signals": signals,
+                    "reasoning": reasoning,
+                    "test_code": test_code,
                 }
                 jsonl_file.write(json.dumps(record) + "\n")
 
-                # Update stats (only store aggregates, not full objects)
-                category_counts[clf.category] += 1
-                category_confidences[clf.category].append(clf.confidence)
-                if clf.method == "llm":
-                    category_llm_usage[clf.category] += 1
-                    llm_count += 1
+                # Update stats
+                category_counts[category] += 1
+                category_confidences[category].append(confidence)
+                if method == "llm":
+                    category_llm_usage[category] += 1
 
-                # Update test progress bar (batch updates every 10 tests for performance)
-                if test_count - last_test_update >= 10 or (
-                    sample_size and test_count >= sample_size
-                ):
-                    # If no sample_size, grow the total as we discover more tests
-                    if not sample_size:
-                        progress.update(
-                            test_task,
-                            completed=test_count,
-                            total=test_count,
-                            description=f"[green]Classifying unit tests ({test_count} total, {llm_count} LLM)",
-                        )
-                    else:
-                        progress.update(
-                            test_task,
-                            completed=test_count,
-                            description=f"[green]Classifying unit tests ({llm_count} LLM)",
-                        )
-                    last_test_update = test_count
-
-                # Explicit garbage collection every 1000 tests
-                if test_count % 1000 == 0:
-                    gc.collect()
+                # Update progress bar
+                if (i + 1) % 10 == 0 or (i + 1) == test_count:
+                    progress.update(
+                        test_task,
+                        completed=i + 1,
+                        total=test_count,
+                        description=f"[green]Writing results ({llm_count} used LLM)",
+                    )
 
         # Final update to ensure both progress bars show complete state
         progress.update(
