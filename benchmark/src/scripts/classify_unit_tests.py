@@ -227,6 +227,7 @@ The script is designed to be:
 import ast
 import json
 import os
+import random
 import re
 import sys
 from collections import Counter, defaultdict
@@ -1012,8 +1013,6 @@ def stream_unit_tests(
     """
     if not pbts_jsonl.exists():
         raise FileNotFoundError(f"{pbts_jsonl} not found")
-
-    import random
 
     rng = random.Random(ranseed)
 
