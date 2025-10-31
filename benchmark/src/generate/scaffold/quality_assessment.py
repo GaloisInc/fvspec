@@ -7,7 +7,7 @@ from typing import cast
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 
 
 class StructuralFaithfulness(BaseModel):
@@ -452,7 +452,7 @@ class QualityAssessment(BaseModel):
         datapoint = cast(Datapoint, state.metadata.get("datapoint"))
         date_time = cast(str, state.metadata.get("date_time"))
         variant = cast(str, state.metadata.get("variant"))
-        lines_pbt = datapoint.pbt.count("\n")
+        lines_pbt = datapoint.code.count("\n")
 
         # Extract code metrics
         pattern = r"(?s)<code>(.*?)</code>"
@@ -489,8 +489,8 @@ class QualityAssessment(BaseModel):
         if success and code_snippet:
             try:
                 structural = StructuralFaithfulness.from_codes(
-                    python_pbt=datapoint.pbt,
-                    python_deps=datapoint.deps,
+                    python_pbt=datapoint.code,
+                    python_deps=datapoint.get_deps(),
                     lean_code=code_snippet,
                 )
             except Exception:
@@ -508,7 +508,7 @@ class QualityAssessment(BaseModel):
 
         return cls(
             sample_id=datapoint.id,
-            sample_name=datapoint.pbt_name,
+            sample_name=datapoint.name,
             datetime=date_time,
             variant=variant,
             model=state.output.model,
@@ -523,7 +523,7 @@ class QualityAssessment(BaseModel):
             success=success,
             num_sorries=num_sorries,
             lines_code=lines_code,
-            num_deps=len(datapoint.deps) if datapoint.deps else 0,
+            num_deps=len(datapoint.get_deps()),
             percent_lines_added=percent_lines_added,
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,

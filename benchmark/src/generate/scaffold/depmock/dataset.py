@@ -9,7 +9,7 @@ from pathlib import Path
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel, ConfigDict
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.cache import compute_cache_key, load_cached_dependency
 from generate.scaffold.depmock.models import DependencyPayload
 
@@ -20,6 +20,7 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
     Creates payloads for:
     1. All explicit dependencies in datapoint.deps (with source code)
     2. All functions in datapoint.pbt_functions (to be inferred from test)
+       Note: DB model doesn't have pbt_functions, so this is empty for now
 
     Args:
         datapoint: The datapoint containing test and dependency information
@@ -27,16 +28,13 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
     Returns:
         List of dependency payloads
     """
-    deps = datapoint.deps or []
+    deps = datapoint.get_deps()
+    dep_names = datapoint.get_dep_names()
     payloads: list[DependencyPayload] = []
 
     # Add explicit dependencies first (these have source code)
     for idx, source in enumerate(deps):
-        dep_name = (
-            datapoint.dep_names[idx]
-            if idx < len(datapoint.dep_names)
-            else f"dependency_{idx + 1}"
-        )
+        dep_name = dep_names[idx] if idx < len(dep_names) else f"dependency_{idx + 1}"
         payloads.append(
             DependencyPayload(
                 dep_name=dep_name,
@@ -51,22 +49,23 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
         )
 
     # Add all functions from pbt_functions (no source code - infer from test)
-    pbt_functions = datapoint.pbt_functions or []
+    # Note: DB model doesn't currently have this field, defaults to empty
+    pbt_functions = getattr(datapoint, "pbt_functions", []) or []
     for func_name in pbt_functions:
         # Skip if already in explicit dependencies
-        if func_name in (datapoint.dep_names or []):
+        if func_name in dep_names:
             continue
 
         # Create payload with test as context (model will infer implementation)
         payloads.append(
             DependencyPayload(
                 dep_name=func_name,
-                python_source=datapoint.pbt,  # Pass test as context
+                python_source=datapoint.code,  # Pass test as context
                 python_signature=None,
                 python_docstring=None,
                 source_hash=None,
                 tags=("pbt_function",),
-                usage_example=datapoint.pbt,
+                usage_example=datapoint.code,
                 lean_module=None,
             )
         )
@@ -128,7 +127,7 @@ def scan_dependencies(
 
     for datapoint in datapoints:
         payloads = payloads_from_datapoint(datapoint)
-        sample_id = f"{datapoint.id:05d}_{datapoint.pbt_name}"
+        sample_id = f"{datapoint.id:05d}_{datapoint.name}"
 
         for index, payload in enumerate(payloads):
             cache_key = compute_cache_key(payload)
@@ -145,7 +144,7 @@ def scan_dependencies(
                     cache_key=cache_key,
                     datapoint_id=datapoint.id,
                     datapoint_repo_id=datapoint.repo_id,
-                    datapoint_name=datapoint.pbt_name,
+                    datapoint_name=datapoint.name,
                     dependency_index=index,
                     sample_id=sample_id,
                     cached=cached,

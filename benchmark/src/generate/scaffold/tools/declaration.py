@@ -13,7 +13,7 @@ from inspect_ai.solver import TaskState
 from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import ToolCallView, ToolError, tool
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
 
@@ -484,10 +484,11 @@ def write_unit_tests_to_disk(
     if unit_tests_lspec:
         # We have extracted tests - add metadata and test code
         func_name = ""
-        if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
-            func_name = datapoint.pbt_functions[0]
+        pbt_functions = getattr(datapoint, "pbt_functions", [])
+        if pbt_functions and len(pbt_functions) > 0:
+            func_name = pbt_functions[0]
         else:
-            func_name = datapoint.pbt_name.removeprefix("test_")
+            func_name = datapoint.name.removeprefix("test_")
 
         # Count exact and float tests
         num_exact = unit_tests_lspec.count('test "')

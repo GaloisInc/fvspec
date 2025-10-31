@@ -14,8 +14,7 @@ from inspect_ai.solver import (
     use_tools,
 )
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
-from generate.scaffold.dataset import mk_dataset
+from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.depmock.agent import create_bound_dependency_tools
 from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.runner import depmock_setup
@@ -112,7 +111,6 @@ def fvspec(
     variant: str | None = None,
     sample_size: int = 100,
     ranseed: int | None = 0,
-    skip_index: bool = False,
     timestamp: datetime | None = None,
 ) -> Task:
     """A task generating the fvspec generate.
@@ -122,7 +120,7 @@ def fvspec(
         variant: Prompt variant name from registry.toml. If None, uses registry default.
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
-        skip_index: Skip using index file and use reservoir sampling
+
         timestamp: Pre-created timestamp to use (defaults to now if None)
     """
     now = timestamp or datetime.now()
@@ -143,7 +141,6 @@ def fvspec(
         variant=variant,
         sample_size=sample_size,
         ranseed=ranseed,
-        skip_index=skip_index,
     )
 
     # Tools are registered dynamically in setup based on each sample's dependencies

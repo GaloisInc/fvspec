@@ -9,7 +9,7 @@ from pathlib import Path
 
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.cache import (
     CacheRecord,
     _cache_root,
@@ -257,7 +257,7 @@ def run_depmock_for_sample(
 ) -> dict[str, object]:
     """Run depmock processing for a single datapoint outside the task loop."""
     payloads = payloads_from_datapoint(datapoint)
-    sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.pbt_name}"
+    sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.name}"
     sample_output_dir = utilio.get_sample_output_dir(
         date_time, sample_id_str, path_variant or variant or "default"
     )

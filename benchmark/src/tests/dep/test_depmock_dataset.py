@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.dataset import (
     build_dependency_dataset,
     payloads_from_datapoint,
@@ -17,16 +17,20 @@ from generate.scaffold.depmock.models import DependencyPayload
 @pytest.fixture
 def datapoint() -> Datapoint:
     """Provide a representative datapoint with two helper dependencies."""
+    import json
+
     return Datapoint(
         id=1,
         repo_id=111,
-        pbt_name="spec",
-        pbt="def test(): pass",
-        dep_names=["helpers.trim", "helpers.bump"],
-        deps=[
-            "def trim(value: str) -> str:\n    return value.strip()",
-            "def bump(x: int) -> int:\n    return x + 1",
-        ],
+        name="spec",
+        code="def test(): pass",
+        dep_names=json.dumps(["helpers.trim", "helpers.bump"]),
+        deps=json.dumps(
+            [
+                "def trim(value: str) -> str:\n    return value.strip()",
+                "def bump(x: int) -> int:\n    return x + 1",
+            ]
+        ),
         source="repo/spec.py",
         summary=None,
         hash="hash1",

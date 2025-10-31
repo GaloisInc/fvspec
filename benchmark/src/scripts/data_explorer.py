@@ -12,30 +12,33 @@ from pathlib import Path
 
 import streamlit as st
 
-from generate.scaffold.dataset import (
-    JSONLDatapoint as Datapoint,
+from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.queries import (
+    count_total_datapoints,
 )
-from generate.scaffold.dataset import (
-    load_datapoints_by_id,
-    load_index,
-    sample_datapoints_indexed,
+from generate.scaffold.dataset.queries import (
+    load_datapoints_by_id as _db_load_by_id,
+)
+from generate.scaffold.dataset.queries import (
+    sample_datapoints as _db_sample,
 )
 
 
 def get_data_path() -> Path:
-    """Get the path to the pbts.jsonl file."""
+    """Get the path to the pbts_full.db database file."""
     # Try to find the data file relative to the project root
     possible_paths = [
-        Path(__file__).parent.parent.parent.parent / "data" / "pbts.jsonl",
-        Path.cwd() / "benchmark" / "data" / "pbts.jsonl",
-        Path.cwd() / "data" / "pbts.jsonl",
+        Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db",
+        Path.cwd() / "benchmark" / "data" / "pbts_full.db",
+        Path.cwd() / "data" / "pbts_full.db",
     ]
     for path in possible_paths:
         if path.exists():
             return path
 
     # If not found, return default path with helpful error
-    return Path(__file__).parent.parent.parent.parent / "data" / "pbts.jsonl"
+    return Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db"
 
 
 def load_random_sample(
@@ -45,32 +48,23 @@ def load_random_sample(
     max_deps: int | None = None,
 ) -> Datapoint | None:
     """Load a single random sample from the dataset with optional filtering."""
-    index_path = data_path.with_suffix(data_path.suffix + ".index")
-
     if not data_path.exists():
         st.error(f"Data file not found: {data_path}")
-        st.info("Expected location: benchmark/data/pbts.jsonl")
-        return None
-
-    if not index_path.exists():
-        st.error(f"Index file not found: {index_path}")
-        st.info("Run: uv run fvspec index-data")
+        st.info("Expected location: benchmark/data/pbts_full.db")
         return None
 
     try:
-        index_data = load_index(index_path)
-
         # Try to find a sample matching the filter (up to 50 attempts)
         max_attempts = 50
         for _ in range(max_attempts):
-            samples = sample_datapoints_indexed(
-                data_path, index_data, n=1, ranseed=seed
-            )
+            with get_session(data_path) as session:
+                samples = _db_sample(session, n=1, ranseed=seed)
+
             if not samples:
                 return None
 
             sample = samples[0]
-            num_deps = len(sample.deps)
+            num_deps = len(sample.get_deps())
 
             # Check if it matches the filter
             if min_deps is not None and num_deps < min_deps:
@@ -94,7 +88,8 @@ def load_random_sample(
 def load_sample_by_id(data_path: Path, sample_id: int) -> Datapoint | None:
     """Load a specific sample by ID."""
     try:
-        result = load_datapoints_by_id(data_path, [sample_id], skip_index=False)
+        with get_session(data_path) as session:
+            result = _db_load_by_id(session, [sample_id])
         return result.get(sample_id)
     except Exception as e:
         st.error(f"Error loading sample {sample_id}: {e}")
@@ -105,26 +100,20 @@ def calculate_stats(
     data_path: Path, sample_size: int = 1000
 ) -> dict[str, float] | None:
     """Calculate dataset statistics (cached in session state)."""
-    index_path = data_path.with_suffix(data_path.suffix + ".index")
-
-    if not data_path.exists() or not index_path.exists():
+    if not data_path.exists():
         return None
 
     try:
         # Sample random points to estimate statistics
-        index_data = load_index(index_path)
-        samples = sample_datapoints_indexed(
-            data_path,
-            index_data,
-            n=sample_size,
-            ranseed=42,  # Fixed seed for consistency
-        )
+        with get_session(data_path) as session:
+            total_count = count_total_datapoints(session)
+            samples = _db_sample(session, n=sample_size, ranseed=42)
 
         if not samples:
             return None
 
-        dep_counts = [len(s.deps) for s in samples]
-        pbt_lengths = [len(s.pbt) for s in samples]
+        dep_counts = [len(s.get_deps()) for s in samples]
+        pbt_lengths = [len(s.code) for s in samples]
 
         return {
             "avg_deps": sum(dep_counts) / len(dep_counts),
@@ -132,7 +121,7 @@ def calculate_stats(
             "max_deps": max(dep_counts),
             "min_deps": min(dep_counts),
             "avg_pbt_chars": sum(pbt_lengths) / len(pbt_lengths),
-            "total_lines": index_data["total_lines"],
+            "total_lines": total_count,
             "sample_size": sample_size,
         }
     except Exception as e:
@@ -342,8 +331,7 @@ def main():
         - **Bookmarks**: Save interesting samples for later
 
         **Requirements:**
-        - Dataset file: `benchmark/data/pbts.jsonl`
-        - Index files: `pbts.jsonl.index` and `pbts.jsonl.id_index` (run `uv run fvspec index-data`)
+        - Dataset file: `benchmark/data/pbts_full.db`
         """)
         return
 
@@ -354,9 +342,9 @@ def main():
     with col2:
         st.metric("Repo ID", sample.repo_id)
     with col3:
-        st.metric("# Dependencies", len(sample.deps))
+        st.metric("# Dependencies", len(sample.get_deps()))
     with col4:
-        st.metric("# Dep Names", len(sample.dep_names))
+        st.metric("# Dep Names", len(sample.get_dep_names()))
     with col5:
         # Bookmark button
         is_bookmarked = sample.id in load_bookmarks()
@@ -378,11 +366,11 @@ def main():
             st.toast("Sample ID displayed above!")
     with col2:
         if st.button("📋 Copy PBT Code", width="stretch"):
-            st.code(sample.pbt, language="python")
+            st.code(sample.code, language="python")
             st.toast("PBT code displayed below!")
     with col3:
         if st.button("📋 Copy All Deps", width="stretch"):
-            all_deps = "\n\n# " + "=" * 50 + "\n\n".join(sample.deps)
+            all_deps = "\n\n# " + "=" * 50 + "\n\n".join(sample.get_deps())
             st.code(all_deps, language="python")
             st.toast("All dependencies displayed below!")
     with col4:
@@ -403,34 +391,31 @@ def main():
     )
 
     with tab1:
-        st.subheader(f"Property-Based Test: {sample.pbt_name}")
-        st.code(sample.pbt, language="python", line_numbers=True)
+        st.subheader(f"Property-Based Test: {sample.name}")
+        st.code(sample.code, language="python", line_numbers=True)
 
-        if sample.pbt_summary:
-            with st.expander("📋 PBT Summary"):
-                st.markdown(sample.pbt_summary)
-
-        if sample.pbt_functions:
-            with st.expander("🔧 PBT Functions"):
-                for func in sample.pbt_functions:
-                    st.code(func, language=None)
+        # Show source file location if available
+        if sample.source_file:
+            st.caption(
+                f"Source: {sample.source_file} (lines {sample.start_line}-{sample.end_line})"
+            )
 
     with tab2:
         st.subheader("Dependencies")
 
-        if not sample.deps:
+        deps = sample.get_deps()
+        if not deps:
             st.info("No dependencies for this sample")
         else:
             # Dependency selector dropdown
-            if sample.dep_names and len(sample.dep_names) == len(sample.deps):
+            dep_names = sample.get_dep_names()
+            if dep_names and len(dep_names) == len(deps):
                 dep_options = {
-                    f"{i + 1}. {name}": (i, name)
-                    for i, name in enumerate(sample.dep_names)
+                    f"{i + 1}. {name}": (i, name) for i, name in enumerate(dep_names)
                 }
             else:
                 dep_options = {
-                    f"Dependency {i + 1}": (i, f"dep_{i + 1}")
-                    for i in range(len(sample.deps))
+                    f"Dependency {i + 1}": (i, f"dep_{i + 1}") for i in range(len(deps))
                 }
 
             selected = st.selectbox(
@@ -441,11 +426,11 @@ def main():
 
             if selected:
                 idx, name = dep_options[selected]
-                st.code(sample.deps[idx], language="python", line_numbers=True)
+                st.code(deps[idx], language="python", line_numbers=True)
 
                 # Show stats for this dependency
-                dep_lines = sample.deps[idx].count("\n") + 1
-                dep_chars = len(sample.deps[idx])
+                dep_lines = deps[idx].count("\n") + 1
+                dep_chars = len(deps[idx])
                 col1, col2 = st.columns(2)
                 with col1:
                     st.metric("Lines", dep_lines)
@@ -454,14 +439,10 @@ def main():
 
     with tab3:
         st.subheader("Source Code")
-        st.code(sample.source, language="python", line_numbers=True)
-
-        if sample.repo_name or sample.repo_url:
-            st.divider()
-            if sample.repo_name:
-                st.markdown(f"**Repository:** `{sample.repo_name}`")
-            if sample.repo_url:
-                st.markdown(f"**URL:** {sample.repo_url}")
+        if sample.source:
+            st.code(sample.source, language="python", line_numbers=True)
+        else:
+            st.info("Source code not available in database")
 
     with tab4:
         st.subheader("Sample Metadata")
@@ -469,8 +450,9 @@ def main():
         # Basic info
         col1, col2 = st.columns(2)
         with col1:
-            st.markdown("**Hash:**")
-            st.code(sample.hash, language=None)
+            if sample.hash:
+                st.markdown("**Hash:**")
+                st.code(sample.hash, language=None)
 
             if sample.mode:
                 st.markdown(f"**Mode:** {sample.mode}")
@@ -482,38 +464,14 @@ def main():
                 st.markdown(f"**Summary Confidence:** {sample.summaryconfidence}")
 
         with col2:
-            if sample.analysis_timestamp:
-                st.markdown(f"**Analysis Timestamp:** {sample.analysis_timestamp}")
-
-            if sample.has_overlap_data is not None:
-                st.markdown(f"**Has Overlap Data:** {sample.has_overlap_data}")
+            if sample.original_id is not None:
+                st.markdown(f"**Original ID:** {sample.original_id}")
 
         # Summary
         if sample.summary:
             st.divider()
             st.markdown("**Summary:**")
             st.info(sample.summary)
-
-        # Overlapping tests
-        if sample.overlapping_tests:
-            st.divider()
-            st.markdown("**Overlapping Tests:**")
-
-            for i, overlap in enumerate(sample.overlapping_tests):
-                with st.expander(f"Overlap Group {i + 1}"):
-                    if "shared_functions" in overlap:
-                        st.markdown("**Shared Functions:**")
-                        for func in overlap["shared_functions"]:
-                            st.code(func, language=None)
-
-                    if "unit_tests" in overlap:
-                        st.markdown(
-                            f"**Unit Tests:** {len(overlap['unit_tests'])} found"
-                        )
-                        for j, unit_test in enumerate(overlap["unit_tests"]):
-                            if isinstance(unit_test, dict) and "code" in unit_test:
-                                with st.expander(f"Unit Test {j + 1}"):
-                                    st.code(unit_test["code"], language="python")
 
         # Raw JSON view
         with st.expander("🔍 Raw JSON"):

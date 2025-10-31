@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,
@@ -26,10 +26,10 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
     datapoint = Datapoint(
         id=1,
         repo_id=1,
-        pbt_name="test",
-        pbt="def test(): pass",
-        dep_names=["helper"],
-        deps=["def helper():\n    return 1"],
+        name="test",
+        code="def test(): pass",
+        dep_names='["helper"]',
+        deps='["def helper():\\n    return 1"]',
         source="/tmp/test.py",
         summary="",
         hash="hash123",
