@@ -485,7 +485,7 @@ def write_unit_tests_to_disk(
         # We have extracted tests - add metadata and test code
         func_name = ""
         pbt_functions = getattr(datapoint, "pbt_functions", [])
-        if pbt_functions and len(pbt_functions) > 0:
+        if pbt_functions:
             func_name = pbt_functions[0]
         else:
             func_name = datapoint.name.removeprefix("test_")
