@@ -328,7 +328,9 @@ def _db_sample(
 
     # If we have fewer matches than requested, return all
     if len(matching_ids) <= sample_size:
-        full_statement = select(DBDatapoint).where(DBDatapoint.id.in_(matching_ids))
+        full_statement = select(DBDatapoint).where(
+            DBDatapoint.id.in_(matching_ids)  # type: ignore[attr-defined]
+        )
         return list(session.exec(full_statement))
 
     # Phase 2: Random sample from IDs
@@ -336,7 +338,9 @@ def _db_sample(
     sampled_ids = rng.sample(matching_ids, sample_size)
 
     # Phase 3: Fetch only the sampled rows
-    fetch_statement = select(DBDatapoint).where(DBDatapoint.id.in_(sampled_ids))
+    fetch_statement = select(DBDatapoint).where(
+        DBDatapoint.id.in_(sampled_ids)  # type: ignore[attr-defined]
+    )
     return list(session.exec(fetch_statement))
 
 
