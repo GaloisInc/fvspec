@@ -304,7 +304,12 @@ class CodeAnalyzer(ast.NodeVisitor):
 def _db_sample(
     session: Any, sample_size: int, seed: int, max_deps: int = 100
 ) -> list[DBDatapoint]:
-    """Reservoir sample from the database with dependency filtering.
+    """Memory-efficient random sample from database with dependency filtering.
+
+    Uses a two-phase approach to avoid loading all rows into memory:
+    1. Query all matching IDs (lightweight, just integers)
+    2. Randomly sample from those IDs
+    3. Fetch only the sampled rows
 
     Args:
         session: SQLModel database session
@@ -315,23 +320,24 @@ def _db_sample(
     Returns:
         List of sampled DBDatapoint objects
     """
-    # First, get all valid datapoints (filtered by dep count)
-    statement = select(DBDatapoint).where(
+    # Phase 1: Get all matching IDs (memory-efficient, just integers)
+    id_statement = select(DBDatapoint.id).where(
         func.json_array_length(DBDatapoint.deps) <= max_deps
     )
-    results = session.exec(statement)
-
-    # Reservoir sample in Python for reproducibility
+    matching_ids = list(session.exec(id_statement))
+    
+    # If we have fewer matches than requested, return all
+    if len(matching_ids) <= sample_size:
+        full_statement = select(DBDatapoint).where(DBDatapoint.id.in_(matching_ids))
+        return list(session.exec(full_statement))
+    
+    # Phase 2: Random sample from IDs
     rng = random.Random(seed)
-    sample: list[DBDatapoint] = []
-    for idx, obj in enumerate(results):
-        if idx < sample_size:
-            sample.append(obj)
-        else:
-            j = rng.randint(0, idx)
-            if j < sample_size:
-                sample[j] = obj
-    return sample
+    sampled_ids = rng.sample(matching_ids, sample_size)
+    
+    # Phase 3: Fetch only the sampled rows
+    fetch_statement = select(DBDatapoint).where(DBDatapoint.id.in_(sampled_ids))
+    return list(session.exec(fetch_statement))
 
 
 def _db_stream_all(session: Any, max_deps: int = 100) -> Iterator[DBDatapoint]:
