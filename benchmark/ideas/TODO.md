@@ -101,6 +101,7 @@ is it one of the `deps`?
 
 This is that is better at containing source code for each relevant function.
 ### must:
-- [ ] tell it to kill legacy jsonl / not bother, we're just gonna turbo deprecate that right away 
-- [ ] pass through `src/scripts/` to update all interactions with dataset across all files (except maybe the deprecated `panel` one)
-- [ ] e2e test with inspect-ai main loop
+- [x] tell it to kill legacy jsonl / not bother, we're just gonna turbo deprecate that right away 
+- [x] pass through `src/scripts/` to update all interactions with dataset across all files (except maybe the deprecated `panel` one)
+- [x] e2e test with inspect-ai main loop
+- [ ] update AGENTS.md, README.md, other documentation pass.

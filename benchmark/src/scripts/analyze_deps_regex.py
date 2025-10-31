@@ -1,9 +1,9 @@
 """Analyze import dependencies in scraped property-based test data.
 
 This script processes the scraped Hypothesis property-based tests from
-pbts.jsonl and extracts all Python import statements from both the
-test code (pbt) and its dependencies (deps). It then generates a CSV report
-counting how many datapoints use each import, sorted by frequency.
+the pbts_full.db SQLite database and extracts all Python import statements
+from both the test code (code) and its dependencies (deps). It then generates
+a CSV report counting how many datapoints use each import, sorted by frequency.
 
 The output (import_counts.csv) helps understand:
 - Which libraries/modules are most commonly used in the scraped tests
@@ -24,84 +24,73 @@ import logging
 import re
 from collections import Counter
 from pathlib import Path
-from typing import Any
 
-import jsonlines
-from pydantic import BaseModel
+from sqlmodel import select
 
-
-class Datapoint(BaseModel):
-    """Extended datapoint model for analyze_deps script.
-
-    Includes additional fields beyond the core Datapoint model:
-    - mode: Processing mode used during scraping
-    - summaryversion: Version of the summarization algorithm
-    - summaryconfidence: Confidence score for the summary
-    """
-
-    id: int
-    repo_id: int
-    pbt_name: str
-    pbt: str
-    dep_names: list[str]
-    deps: list[str]
-    source: str
-    summary: str | None
-    hash: str
-    summary_vector: str | None
-    mode: str | None = None
-    summaryversion: int | None = None
-    summaryconfidence: int | None = None
-    has_overlap_data: bool | None = None
-    repo_name: str | None = None
-    repo_url: str | None = None
-    analysis_timestamp: str | None = None
-    pbt_summary: str | None = None
-    pbt_functions: list[str] | None = None
-    overlapping_tests: list[dict[str, Any]] | None = None
-
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.models import Datapoint
 
 BASE_DIR = Path(__file__).resolve().parents[2]
 
 
 async def main() -> None:
-    """Parse the scraped dataset and write a CSV of import frequencies.
+    """Parse the scraped dataset from database and write a CSV of import frequencies.
 
-    Uses streaming to avoid loading the entire 116GB pbts.jsonl file into memory.
+    Uses database queries with batching to efficiently process datapoints
+    without loading everything into memory at once.
     """
     logging.basicConfig(level=logging.INFO)
 
-    # Stream the file and count imports without loading everything into memory
+    # Database path
+    db_path = BASE_DIR / "data" / "pbts_full.db"
+    if not db_path.exists():
+        raise FileNotFoundError(
+            f"Database not found at {db_path}. "
+            "Ensure pbts_full.db is in the benchmark/data directory."
+        )
+
+    # Count imports using database queries
     import_counter: Counter[str] = Counter()
 
-    with jsonlines.open(BASE_DIR / "data" / "pbts.jsonl") as reader:
-        for idx, obj in enumerate(reader):
+    with get_session(db_path) as session:
+        # Query all datapoints
+        statement = select(Datapoint)
+        results = session.exec(statement)
+
+        for idx, datapoint in enumerate(results):
             try:
-                datapoint = Datapoint(**obj)  # type: ignore[arg-type]
+                import_strs: list[str] = []
+
+                # Process the PBT code (stored in 'code' field)
+                import_strs += process(datapoint.code)
+
+                # Process dependencies (stored as JSON string)
+                deps_list = datapoint.get_deps()
+                for dep in deps_list:
+                    import_strs += process(dep)
+
+                # Remove duplicates within this datapoint
+                import_strs = list(set(import_strs))
+
+                # Update counter with unique imports from this datapoint
+                import_counter.update(import_strs)
+
+                if (idx + 1) % 10000 == 0:
+                    logging.info(f"Processed {idx + 1} datapoints...")
+
             except Exception as e:
-                logging.warning(f"Failed to parse datapoint at index {idx}: {e}")
+                logging.warning(f"Failed to process datapoint {datapoint.id}: {e}")
                 continue
-
-            import_strs: list[str] = []
-            import_strs += process(datapoint.pbt)
-            for dep in datapoint.deps:
-                import_strs += process(dep)
-            import_strs = list(set(import_strs))  # remove duplicates within datapoint
-
-            # Update counter with unique imports from this datapoint
-            import_counter.update(import_strs)
-
-            if (idx + 1) % 10000 == 0:
-                logging.info(f"Processed {idx + 1} datapoints...")
 
     # Output results
     import_list = sorted(import_counter.items(), key=lambda x: x[1])
-    with open(BASE_DIR / "data" / "import_counts.csv", "w") as file:
+    output_path = BASE_DIR / "data" / "import_counts.csv"
+    with open(output_path, "w") as file:
         file.write("import,number of datapoints using the import\n")
         for imp, n in import_list:
             file.write(imp + ", " + str(n) + "\n")
 
-    logging.info(f"Wrote import counts to {BASE_DIR / 'data' / 'import_counts.csv'}")
+    logging.info(f"Wrote import counts to {output_path}")
 
 
 FROM_IMPORT_RE = (
