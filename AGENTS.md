@@ -52,7 +52,7 @@ See subdirectory `AGENTS.md` files for detailed documentation:
 **Python:**
 - `from datetime import datetime` (not `import datetime`)
 - Absolute imports preferred
-- Pydantic for all data models
+- Pydantic for all data models (SQLModel for database ORM)
 
 **Lean:**
 - Use `def` with `sorry` over `axiom` (maintains computability)
