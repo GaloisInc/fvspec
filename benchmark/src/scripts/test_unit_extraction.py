@@ -27,7 +27,6 @@ from generate.scaffold.dataset.queries import (
 from generate.scaffold.units import extract_unit_tests
 
 DATADIR = Path(".") / "data"
-TOTAL_PBTS = 54345  # Total datapoints in pbts_full.db
 
 app = typer.Typer()
 
