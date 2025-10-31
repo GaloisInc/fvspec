@@ -64,7 +64,8 @@ def load_random_sample(
                 return None
 
             sample = samples[0]
-            num_deps = len(sample.get_deps())
+            deps = sample.get_deps()
+            num_deps = len(deps)
 
             # Check if it matches the filter
             if min_deps is not None and num_deps < min_deps:
