@@ -1,11 +1,13 @@
 """Database connection management for pbts_full.db."""
 
+import threading
 from pathlib import Path
 
 from sqlmodel import Session, create_engine
 
 # Global engine instance (lazy initialized)
 _engine = None
+_engine_lock = threading.Lock()
 
 
 def get_engine(db_path: Path | str):
@@ -19,8 +21,11 @@ def get_engine(db_path: Path | str):
     """
     global _engine
     if _engine is None:
-        db_path = Path(db_path)
-        _engine = create_engine(f"sqlite:///{db_path}")
+        with _engine_lock:
+            # Double-check pattern: verify _engine is still None after acquiring lock
+            if _engine is None:
+                db_path = Path(db_path)
+                _engine = create_engine(f"sqlite:///{db_path}")
     return _engine
 
 
