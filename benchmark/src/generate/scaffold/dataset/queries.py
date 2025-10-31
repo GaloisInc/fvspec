@@ -33,14 +33,15 @@ def sample_datapoints(
     Args:
         session: SQLModel database session
         n: Number of samples to draw
-        ranseed: Random seed for reproducibility (Note: SQLite RANDOM() doesn't support seeding directly)
+        ranseed: (Ignored; reserved for future use.) Random seed for reproducibility. Has no effect currently.
 
     Returns:
         List of randomly sampled Datapoint objects (may be fewer than n if many samples filtered)
 
     Note:
-        SQLite's RANDOM() function doesn't support seeding. For deterministic sampling,
-        consider implementing custom seeded random selection in Python after fetching.
+        The `ranseed` parameter is currently ignored. SQLite's RANDOM() function does not support seeding,
+        so sampling is not reproducible. For deterministic sampling, consider implementing custom seeded
+        random selection in Python after fetching.
     """
     # Use json_array_length to filter by dependency count
     # SQLite stores JSON as TEXT, so we parse with json_array_length()
