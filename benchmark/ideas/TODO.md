@@ -96,12 +96,3 @@ is it one of the `deps`?
 ## fix unit test extraction
 
 ## append unit tests when you run plausible.
-
-## new dataset, which happens to be sqlite
-
-This is that is better at containing source code for each relevant function.
-### must:
-- [x] tell it to kill legacy jsonl / not bother, we're just gonna turbo deprecate that right away 
-- [x] pass through `src/scripts/` to update all interactions with dataset across all files (except maybe the deprecated `panel` one)
-- [x] e2e test with inspect-ai main loop
-- [ ] update AGENTS.md, README.md, other documentation pass.
