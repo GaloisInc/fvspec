@@ -11,7 +11,9 @@ from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
 from generate.scaffold.dataset import (
-    Datapoint,
+    JSONLDatapoint as Datapoint,
+)
+from generate.scaffold.dataset import (
     load_datapoints_by_id,
     sample_datapoints,
 )

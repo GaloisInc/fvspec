@@ -13,7 +13,9 @@ from pathlib import Path
 import streamlit as st
 
 from generate.scaffold.dataset import (
-    Datapoint,
+    JSONLDatapoint as Datapoint,
+)
+from generate.scaffold.dataset import (
     load_datapoints_by_id,
     load_index,
     sample_datapoints_indexed,

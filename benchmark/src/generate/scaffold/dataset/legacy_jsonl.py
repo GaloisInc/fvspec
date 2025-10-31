@@ -1,13 +1,17 @@
-"""Dataset helpers for building inspect_ai tasks."""
+"""Legacy JSONL-based dataset interface (backward compatibility).
+
+This module contains the original JSONL file reading logic with byte-offset indexing.
+For new code, prefer the DB-based interface in the main dataset module.
+
+All code in this file is preserved from the original dataset.py for backward compatibility.
+"""
 
 import json
 import random
-from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 import jsonlines
-from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel
 from rich.console import Console
 from rich.progress import (
@@ -21,20 +25,12 @@ from rich.progress import (
 )
 from rich.prompt import Confirm
 
-from generate.scaffold.units import extract_unit_tests, generate_test_suite
-from generate.templates.spec import VariantRegistry, get_variant_prompts
-
 # Maximum number of dependencies allowed per sample before filtering
-# Rationale: Samples with >100 dependencies are extreme outliers that:
-# 1. Generate excessively large prompts (degraded model performance)
-# 2. Take disproportionately long to autoformalize (hurt parallelism)
-# 3. Are often synthetic/generated code rather than real-world tests
-# 4. Exceed practical limits for meaningful specification generation
 MAX_DEPENDENCIES = 100
 
 
 class Datapoint(BaseModel, frozen=True):
-    """A scraped property-based test datapoint with metadata."""
+    """A scraped property-based test datapoint with metadata (JSONL format)."""
 
     id: int
     repo_id: int
@@ -56,88 +52,6 @@ class Datapoint(BaseModel, frozen=True):
     pbt_summary: str | None = None
     pbt_functions: list[str] | None = None
     overlapping_tests: list[dict[str, Any]] | None = None
-
-
-class Prompt(BaseModel, frozen=True):
-    """A simplified prompt containing the property-based test and its dependencies."""
-
-    pbt: str
-    deps: list[str]
-
-
-def datapoint_to_prompt(dp: Datapoint) -> Prompt:
-    """Convert a datapoint to a prompt by extracting test and dependencies.
-
-    Args:
-        dp: The datapoint to convert
-
-    Returns:
-        A Prompt containing the property-based test and dependencies
-    """
-    return Prompt(pbt=dp.pbt, deps=dp.deps)
-
-
-def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
-    """Extract unit tests from a datapoint's overlapping unit tests.
-
-    Attempts to extract concrete unit tests from the actual unit test code
-    (not the PBT code) using AST analysis.
-    If successful, generates LSpec test suite code that can be used for evaluation.
-
-    Args:
-        dp: The datapoint containing the overlapping unit tests
-
-    Returns:
-        Generated LSpec code string if tests were extracted, None otherwise
-
-    Note:
-        Unit tests are for EVALUATION only - they should NOT be shown to the model.
-        They validate model implementations after spec generation.
-    """
-    # Check if we have overlapping tests with unit tests
-    if not dp.overlapping_tests:
-        return None
-
-    # Try each overlapping test group and each unit test within
-    for overlap in dp.overlapping_tests:
-        unit_tests = overlap.get("unit_tests", [])
-        shared_functions = overlap.get("shared_functions", [])
-
-        if not unit_tests or not shared_functions:
-            continue
-
-        # Try extraction on each unit test with each shared function
-        for unit_test in unit_tests:
-            unit_test_code = unit_test.get("code", "")
-            if not unit_test_code:
-                continue
-
-            for func_name in shared_functions:
-                # Extract unit tests using AST analysis
-                test_suite = extract_unit_tests(unit_test_code, func_name=func_name)
-
-                if test_suite is not None and (
-                    test_suite.exact_tests or test_suite.float_tests
-                ):
-                    # Successfully extracted tests, generate LSpec code
-                    return generate_test_suite(test_suite)
-
-    # No tests could be extracted from any unit test
-    return None
-
-
-def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
-    """Render the initial user prompt from a Prompt object.
-
-    Args:
-        prompt: The prompt containing test and dependencies
-        variant: Variant name to use for template (uses registry default if None)
-
-    Returns:
-        Rendered initial prompt string
-    """
-    _, initial_template = get_variant_prompts(variant)
-    return initial_template.render(pbt=prompt.pbt, deps=prompt.deps)
 
 
 def build_index(file_path: Path, index_path: Path | None = None) -> Path:
@@ -576,53 +490,3 @@ def sample_datapoints(
         )
 
     return reservoir
-
-
-def mk_dataset(
-    path: Path,
-    date_time: datetime,
-    variant: str | None = None,
-    sample_size: int = 100,
-    ranseed: int | None = 0,
-    skip_index: bool = False,
-) -> MemoryDataset:
-    """Create an inspect_ai dataset from scraped datapoints.
-
-    Args:
-        path: Path to the JSONL file containing scraped datapoints
-        date_time: Timestamp for organizing output artifacts
-        variant: Prompt variant name. If None, uses registry default.
-        sample_size: Number of datapoints to sample from the dataset
-        ranseed: Random seed used for sampling datapoints
-        skip_index: Skip using index file and use reservoir sampling
-
-    Returns:
-        MemoryDataset with randomly sampled datapoints
-    """
-    # Get the actual variant name (resolve default if needed)
-    registry = VariantRegistry()
-    actual_variant = variant or registry.default_variant()
-
-    samples = []
-    for datapoint in sample_datapoints(
-        path, n=sample_size, ranseed=ranseed, skip_index=skip_index
-    ):
-        # Extract unit tests for evaluation (NOT shown to model)
-        unit_tests_lspec = extract_datapoint_unit_tests(datapoint)
-
-        samples.append(
-            Sample(
-                input=mk_initial_prompt(
-                    datapoint_to_prompt(datapoint), variant=actual_variant
-                ),
-                metadata={
-                    "datapoint": datapoint,
-                    "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
-                    "variant": actual_variant,
-                    "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
-                },
-                id=f"{datapoint.id:05d}_{datapoint.pbt_name}",
-            )
-        )
-
-    return MemoryDataset(samples)

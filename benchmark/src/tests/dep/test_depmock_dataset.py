@@ -5,7 +5,7 @@ from typing import Any, cast
 
 import pytest
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.depmock.dataset import (
     build_dependency_dataset,
     payloads_from_datapoint,

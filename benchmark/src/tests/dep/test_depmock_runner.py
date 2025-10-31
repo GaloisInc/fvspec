@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.depmock.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,

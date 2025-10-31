@@ -7,7 +7,7 @@ from typing import cast
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 
 
 class StructuralFaithfulness(BaseModel):

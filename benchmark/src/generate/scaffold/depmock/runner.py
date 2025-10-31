@@ -9,7 +9,7 @@ from pathlib import Path
 
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.depmock.cache import (
     CacheRecord,
     _cache_root,

@@ -12,7 +12,7 @@ from unittest.mock import patch
 import pytest
 from inspect_ai.model import ChatMessageAssistant
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.task import fvspec
 from generate.templates.spec import get_variant_prompts
 
@@ -203,7 +203,7 @@ def test_smoke_quality_assessment_from_mock_state():
     from inspect_ai.model import ChatMessageUser, ModelName
     from inspect_ai.solver import TaskState
 
-    from generate.scaffold.dataset import Datapoint
+    from generate.scaffold.dataset import JSONLDatapoint as Datapoint
     from generate.scaffold.quality_assessment import QualityAssessment
 
     mock_output = Mock()

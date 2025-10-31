@@ -9,7 +9,7 @@ from pathlib import Path
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel, ConfigDict
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.depmock.cache import compute_cache_key, load_cached_dependency
 from generate.scaffold.depmock.models import DependencyPayload
 

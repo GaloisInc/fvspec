@@ -14,7 +14,8 @@ from inspect_ai.solver import (
     use_tools,
 )
 
-from generate.scaffold.dataset import Datapoint, mk_dataset
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
+from generate.scaffold.dataset import mk_dataset
 from generate.scaffold.depmock.agent import create_bound_dependency_tools
 from generate.scaffold.depmock.dataset import payloads_from_datapoint
 from generate.scaffold.depmock.runner import depmock_setup

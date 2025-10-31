@@ -13,7 +13,7 @@ from inspect_ai.solver import TaskState
 from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import ToolCallView, ToolError, tool
 
-from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset import JSONLDatapoint as Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
 
