@@ -18,8 +18,10 @@ The benchmark uses a **SQLite database** (`pbts_full.db`) with SQLModel ORM for 
 - ✅ Unit test overlaps stored in normalized tables
 
 **Database Schema**:
-- `datapoints` - PBTs with metadata (id, repo_id, name, code, deps, etc.)
-- `overlapping_unit_tests` - PBT-to-unit-test associations
+- `unit_tests` - Unit tests with metadata (id, repo_id, name, code, etc.)
+- `pbt_functions` - Property-based tests (PBTs) with metadata (id, repo_id, name, code, deps, etc.)
+- `unit_test_functions` - Associations between PBTs and unit tests (many-to-many relationship)
+- `functions` - Functions under test (id, name, etc.)
 - JSON fields (`deps`, `dep_names`) stored as TEXT, parsed via `.get_deps()` / `.get_dep_names()`
 
 ## Generating the benchmark synthetic signatures
