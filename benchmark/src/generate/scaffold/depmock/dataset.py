@@ -50,7 +50,7 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
 
     # Add all functions from pbt_functions (no source code - infer from test)
     # Note: DB model doesn't currently have this field, defaults to empty
-    pbt_functions = getattr(datapoint, "pbt_functions", []) or []
+    pbt_functions = []
     for func_name in pbt_functions:
         # Skip if already in explicit dependencies
         if func_name in dep_names:
