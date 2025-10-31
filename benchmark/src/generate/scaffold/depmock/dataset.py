@@ -15,10 +15,22 @@ from generate.scaffold.depmock.models import DependencyPayload
 
 
 def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
-    """Convert a dataset datapoint into dependency payloads."""
+    """Convert a dataset datapoint into dependency payloads.
+
+    Creates payloads for:
+    1. All explicit dependencies in datapoint.deps (with source code)
+    2. All functions in datapoint.pbt_functions (to be inferred from test)
+
+    Args:
+        datapoint: The datapoint containing test and dependency information
+
+    Returns:
+        List of dependency payloads
+    """
     deps = datapoint.deps or []
     payloads: list[DependencyPayload] = []
 
+    # Add explicit dependencies first (these have source code)
     for idx, source in enumerate(deps):
         dep_name = (
             datapoint.dep_names[idx]
@@ -32,11 +44,33 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
                 python_signature=None,
                 python_docstring=None,
                 source_hash=None,
-                tags=tuple(),
+                tags=("explicit_dependency",),
                 usage_example=None,
                 lean_module=None,
             )
         )
+
+    # Add all functions from pbt_functions (no source code - infer from test)
+    pbt_functions = datapoint.pbt_functions or []
+    for func_name in pbt_functions:
+        # Skip if already in explicit dependencies
+        if func_name in (datapoint.dep_names or []):
+            continue
+
+        # Create payload with test as context (model will infer implementation)
+        payloads.append(
+            DependencyPayload(
+                dep_name=func_name,
+                python_source=datapoint.pbt,  # Pass test as context
+                python_signature=None,
+                python_docstring=None,
+                source_hash=None,
+                tags=("pbt_function",),
+                usage_example=datapoint.pbt,
+                lean_module=None,
+            )
+        )
+
     return payloads
 
 

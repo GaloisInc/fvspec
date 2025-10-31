@@ -1,4 +1,21 @@
-You are given metadata for a stateful Python helper. Translate it into Lean 4 code that uses mvcgen-style reasoning to keep the computation executable and verifiable.
+{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
+Provide a Lean 4 implementation (using mvcgen/imperative style) by inferring its behavior from the test context below.
+
+**Function to implement**: `{{ dep_name }}`
+
+**Test context** (infer behavior from this):
+```python
+{{ python_source }}
+```
+
+**Your task**:
+1. Analyze how `{{ dep_name }}` is used in the test
+2. Infer its signature and behavior from the test assertions
+3. Implement it in Lean 4 using mvcgen-style (`do` notation, Hoare triples if needed)
+4. For stdlib functions, use appropriate Lean libraries or provide implementation
+5. Ensure your implementation matches the test's expectations
+
+{% else %}You are given metadata for a stateful Python helper. Translate it into Lean 4 code that uses mvcgen-style reasoning to keep the computation executable and verifiable.
 
 Dependency metadata:
 - Qualified Python name: {{ dep_name }}
@@ -37,6 +54,7 @@ Python source:
 ```python
 {{ python_source }}
 ```
+{% endif %}
 
 Normalization plan:
 {% if normalization_strategy == "as_is" %}

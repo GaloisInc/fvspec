@@ -126,7 +126,7 @@ def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
     return None
 
 
-def mk_initial(prompt: Prompt, variant: str | None = None) -> str:
+def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
     """Render the initial user prompt from a Prompt object.
 
     Args:
@@ -612,7 +612,7 @@ def mk_dataset(
 
         samples.append(
             Sample(
-                input=mk_initial(
+                input=mk_initial_prompt(
                     datapoint_to_prompt(datapoint), variant=actual_variant
                 ),
                 metadata={

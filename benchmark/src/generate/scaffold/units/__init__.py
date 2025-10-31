@@ -25,7 +25,7 @@ Example:
 from generate.scaffold.units.ast_extractor import ASTExtractor
 from generate.scaffold.units.float_validator import FloatTestValidator
 from generate.scaffold.units.lspec_generator import generate_test_suite
-from generate.scaffold.units.structures import TestCase, TestSuite
+from generate.scaffold.units.models import TestCase, TestSuite
 
 
 def extract_unit_tests(pbt_code: str, func_name: str) -> TestSuite | None:
