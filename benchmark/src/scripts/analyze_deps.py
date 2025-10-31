@@ -325,16 +325,16 @@ def _db_sample(
         func.json_array_length(DBDatapoint.deps) <= max_deps
     )
     matching_ids = list(session.exec(id_statement))
-    
+
     # If we have fewer matches than requested, return all
     if len(matching_ids) <= sample_size:
         full_statement = select(DBDatapoint).where(DBDatapoint.id.in_(matching_ids))
         return list(session.exec(full_statement))
-    
+
     # Phase 2: Random sample from IDs
     rng = random.Random(seed)
     sampled_ids = rng.sample(matching_ids, sample_size)
-    
+
     # Phase 3: Fetch only the sampled rows
     fetch_statement = select(DBDatapoint).where(DBDatapoint.id.in_(sampled_ids))
     return list(session.exec(fetch_statement))
