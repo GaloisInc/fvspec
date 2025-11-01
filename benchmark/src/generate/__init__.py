@@ -10,11 +10,7 @@ from inspect_ai import eval, eval_set
 from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
-from generate.scaffold.dataset import (
-    Datapoint,
-    load_datapoints_by_id,
-    sample_datapoints,
-)
+from generate.scaffold.dataset import Datapoint
 from generate.scaffold.depmock import (
     DependencyBatchError,
     DependencyExecutionRequest,
@@ -50,10 +46,7 @@ app.add_typer(deps_app, name="deps")
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
-    skip_index: bool = Option(
-        False, help="Skip using index file and use slower reservoir sampling"
-    ),
+    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
     variant: str = Option(
         None,
         "-v",
@@ -208,7 +201,6 @@ def main_callback(
                 variant=use_variant,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
-                skip_index=skip_index,
                 timestamp=now,
             ),
             model=cfg.agent.model,
@@ -230,10 +222,7 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
-    skip_index: bool = Option(
-        False, help="Skip using index file and use slower reservoir sampling"
-    ),
+    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
     variant: list[str] = Option(
         None,
         "-v",
@@ -373,7 +362,6 @@ def compare_variants(
                 variant=v,
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
-                skip_index=skip_index,
                 timestamp=now,
             )
             for v in variants_to_compare
@@ -409,7 +397,7 @@ def compare_variants(
 
 @deps_app.command(name="autoformalize")
 def deps_autoformalize_command(
-    datafile: str = Option("pbts.jsonl", help="Path to test data JSONL file"),
+    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
     sample_id: list[int] = Option(
         None,
         "--sample-id",
@@ -458,7 +446,7 @@ def deps_autoformalize_command(
     """Autoformalize dependencies for selected datapoints without running the full generate.
 
     Args:
-        datafile: Path to the JSONL file containing test data.
+        datafile: Path to the pbts_full.db database file.
         sample_id: Specific datapoint id(s) to autoformalize.
         sample_size: Number of datapoints to sample if --sample-id not provided.
         ranseed: Random seed for sampling.
@@ -476,21 +464,32 @@ def deps_autoformalize_command(
         return
 
     selected: list[Datapoint] = []
-    if sample_id:
-        # Use efficient ID-based lookup instead of loading entire dataset
-        dp_by_id = load_datapoints_by_id(dataset_path, sample_id)
-        for sid in sample_id:
-            dp = dp_by_id.get(sid)
-            if dp is None:
-                print(f"Warning: sample id {sid} not found in dataset")
-            else:
-                selected.append(dp)
-        if not selected:
-            print("No valid sample ids provided; aborting.")
-            return
-    else:
-        # Use indexed sampling for random selection
-        selected = sample_datapoints(dataset_path, n=sample_size, ranseed=ranseed)
+
+    # Import DB query functions
+    from generate.scaffold.dataset.connection import get_session
+    from generate.scaffold.dataset.queries import (
+        load_datapoints_by_id as _db_load_by_id,
+    )
+    from generate.scaffold.dataset.queries import (
+        sample_datapoints as _db_sample,
+    )
+
+    with get_session(dataset_path) as session:
+        if sample_id:
+            # Use efficient ID-based lookup instead of loading entire dataset
+            dp_by_id = _db_load_by_id(session, sample_id)
+            for sid in sample_id:
+                dp = dp_by_id.get(sid)
+                if dp is None:
+                    print(f"Warning: sample id {sid} not found in dataset")
+                else:
+                    selected.append(dp)
+            if not selected:
+                print("No valid sample ids provided; aborting.")
+                return
+        else:
+            # Use DB sampling for random selection
+            selected = _db_sample(session, n=sample_size, ranseed=ranseed)
 
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
@@ -807,50 +806,7 @@ def deps_cache_clear_wandb_command() -> None:
         raise typer.Exit(code=1)
 
 
-@app.command(name="index-data")
-def index_data_command(
-    datafile: str = Option("pbts.jsonl", help="Path to JSONL file to index"),
-) -> None:
-    """Build indexes for fast dataset access.
-
-    This is a one-time operation that creates two index files:
-    1. Byte-offset index (datafile + ".index") - for random sampling
-    2. ID index (datafile + ".id_index") - for fast ID-based lookup
-
-    For the 116GB pbts.jsonl file:
-    - Indexing takes: ~10-30 minutes per index (one-time cost)
-    - Index file sizes: ~1-2 MB each
-    - Random sampling: ~1 second (vs ~10 minutes without index)
-    - ID lookup: instant (vs scanning entire file)
-
-    Both indexes are automatically used by sampling and lookup operations once created.
-
-    Args:
-        datafile: JSONL file to index (default: pbts.jsonl)
-    """
-    from generate.scaffold.dataset import build_id_index, build_index
-
-    dataset_path = (DATA_DIR / datafile).resolve()
-
-    if not dataset_path.exists():
-        print(f"Error: Dataset not found at {dataset_path}")
-        raise typer.Exit(code=1)
-
-    try:
-        # Build byte-offset index for random sampling
-        index_path = build_index(dataset_path)
-        print(f"\n✓ Byte-offset index created at {index_path}")
-
-        # Build ID index for fast ID lookups
-        id_index_path = build_id_index(dataset_path)
-        print(f"\n✓ ID index created at {id_index_path}")
-
-        print(
-            "\n  All future operations will automatically use these indexes for fast access."
-        )
-    except Exception as e:
-        print(f"Error building indexes: {e}")
-        raise typer.Exit(code=1)
+# Note: index-data command removed - no longer needed with SQLite database
 
 
 def main() -> None:

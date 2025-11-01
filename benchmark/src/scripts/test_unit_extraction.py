@@ -4,7 +4,6 @@ This script runs the AST-based unit test extractor on all unit tests
 in the dataset to measure extraction success rates and identify common failure patterns.
 """
 
-import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -19,10 +18,15 @@ from rich.progress import (
     TextColumn,
 )
 
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.queries import (
+    count_total_datapoints,
+    get_overlapping_unit_tests,
+    sample_datapoints,
+)
 from generate.scaffold.units import extract_unit_tests
 
 DATADIR = Path(".") / "data"
-TOTAL_PBTS = 60776  # Total lines in pbts.jsonl
 
 app = typer.Typer()
 
@@ -38,9 +42,9 @@ def main(
     print("=" * 60)
     print()
 
-    pbts_jsonl = DATADIR / "pbts.jsonl"
-    if not pbts_jsonl.exists():
-        print(f"Error: {pbts_jsonl} not found")
+    pbts_db = DATADIR / "pbts_full.db"
+    if not pbts_db.exists():
+        print(f"Error: {pbts_db} not found")
         return
 
     # Track statistics
@@ -62,7 +66,14 @@ def main(
     existing_units_per_pbt: Counter[int] = Counter()
     failure_reasons: Counter[str] = Counter()
 
-    total_to_process = num_samples if num_samples else TOTAL_PBTS
+    # Get total count or use the provided sample size
+    with get_session(pbts_db) as session:
+        total_in_db = count_total_datapoints(session)
+
+    total_to_process = num_samples if num_samples else total_in_db
+    print(f"Total datapoints in database: {total_in_db:,}")
+    print(f"Processing: {total_to_process:,} samples")
+    print()
 
     with Progress(
         SpinnerColumn(),
@@ -75,79 +86,76 @@ def main(
             total=total_to_process,
         )
 
-        with open(pbts_jsonl) as f:
-            for line_num, line in enumerate(f, 1):
-                if num_samples and line_num > num_samples:
-                    break
+        # Load samples from database
+        with get_session(pbts_db) as session:
+            if num_samples:
+                # Sample a specific number of datapoints
+                datapoints = sample_datapoints(session, n=num_samples, ranseed=0)
+            else:
+                # Load all datapoints (not recommended for large datasets)
+                datapoints = sample_datapoints(session, n=total_in_db, ranseed=0)
 
-                stats["total_pbts"] += 1
+        for idx, datapoint in enumerate(datapoints, 1):
+            stats["total_pbts"] += 1
 
-                # Update progress every 100 lines
-                if line_num % 100 == 0:
-                    progress.update(
-                        task,
-                        completed=line_num,
-                        description=f"[cyan]Processing PBT samples (successes: {stats['extraction_successes']})",
-                    )
+            # Update progress every 100 samples
+            if idx % 100 == 0:
+                progress.update(
+                    task,
+                    completed=idx,
+                    description=f"[cyan]Processing PBT samples (successes: {stats['extraction_successes']})",
+                )
 
-                # Parse JSON
-                try:
-                    data = json.loads(line)
-                except json.JSONDecodeError:
-                    continue
+            # Get overlapping unit tests from database
+            with get_session(pbts_db) as session:
+                overlapping_tests = get_overlapping_unit_tests(session, datapoint.id)
 
-                # Count existing unit tests and try extraction on each
-                overlapping_tests = data.get("overlapping_tests", [])
-                if overlapping_tests:
-                    num_existing_units = 0
-                    for overlap in overlapping_tests:
-                        unit_tests = overlap.get("unit_tests", [])
-                        shared_functions = overlap.get("shared_functions", [])
-                        num_existing_units += len(unit_tests)
+            if overlapping_tests:
+                num_existing_units = 0
+                for overlap in overlapping_tests:
+                    unit_tests = overlap.get("unit_tests", [])
+                    shared_functions = overlap.get("shared_functions", [])
+                    num_existing_units += len(unit_tests)
 
-                        # Try extraction on each unit test
-                        for unit_test in unit_tests:
-                            unit_test_code = unit_test.get("code", "")
-                            if not unit_test_code:
-                                continue
+                    # Try extraction on each unit test
+                    for unit_test in unit_tests:
+                        unit_test_code = unit_test.get("code", "")
+                        if not unit_test_code:
+                            continue
 
-                            # Try each shared function
-                            for func_name in shared_functions:
-                                stats["extraction_attempts"] += 1
+                        # Try each shared function
+                        for func_name in shared_functions:
+                            stats["extraction_attempts"] += 1
 
-                                try:
-                                    test_suite = extract_unit_tests(
-                                        unit_test_code, func_name=func_name
+                            try:
+                                test_suite = extract_unit_tests(
+                                    unit_test_code, func_name=func_name
+                                )
+
+                                if test_suite and (
+                                    test_suite.exact_tests or test_suite.float_tests
+                                ):
+                                    stats["extraction_successes"] += 1
+                                    num_tests = len(test_suite.exact_tests) + len(
+                                        test_suite.float_tests
                                     )
-
-                                    if test_suite and (
-                                        test_suite.exact_tests or test_suite.float_tests
-                                    ):
-                                        stats["extraction_successes"] += 1
-                                        num_tests = len(test_suite.exact_tests) + len(
-                                            test_suite.float_tests
-                                        )
-                                        stats["total_tests_extracted"] += num_tests
-                                        stats["exact_tests"] += len(
-                                            test_suite.exact_tests
-                                        )
-                                        stats["float_tests"] += len(
-                                            test_suite.float_tests
-                                        )
-                                        tests_per_pbt[num_tests] += 1
-                                    else:
-                                        stats["extraction_failures"] += 1
-                                        failure_reasons["no_tests_found"] += 1
-
-                                except Exception as e:
+                                    stats["total_tests_extracted"] += num_tests
+                                    stats["exact_tests"] += len(test_suite.exact_tests)
+                                    stats["float_tests"] += len(test_suite.float_tests)
+                                    tests_per_pbt[num_tests] += 1
+                                else:
                                     stats["extraction_failures"] += 1
-                                    error_type = type(e).__name__
-                                    failure_reasons[error_type] += 1
+                                    failure_reasons["no_tests_found"] += 1
 
-                    if num_existing_units > 0:
-                        stats["pbts_with_existing_units"] += 1
-                        stats["total_existing_unit_tests"] += num_existing_units
-                        existing_units_per_pbt[num_existing_units] += 1
+                            except Exception as e:
+                                stats["extraction_failures"] += 1
+                                error_type = type(e).__name__
+                                failure_reasons[error_type] += 1
+
+                if num_existing_units > 0:
+                    stats["pbts_with_existing_units"] += 1
+                    stats["total_existing_unit_tests"] += num_existing_units
+                    existing_units_per_pbt[num_existing_units] += 1
 
         # Final progress update
         progress.update(
@@ -241,9 +249,12 @@ def main(
 
     print(f"Report written to: {report_path}")
     print()
-    print(
-        f"Success rate: {stats['extraction_successes'] / stats['extraction_attempts'] * 100:.1f}%"
-    )
+    if stats["extraction_attempts"] > 0:
+        print(
+            f"Success rate: {stats['extraction_successes'] / stats['extraction_attempts'] * 100:.1f}%"
+        )
+    else:
+        print("Success rate: N/A (no extraction attempts)")
     print(f"Total tests extracted: {stats['total_tests_extracted']:,}")
 
 

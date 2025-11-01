@@ -1,35 +1,28 @@
 # Benchmark
 
-**You need `pbts.jsonl` from MaxVH and put it in `./benchmark/data/`**
+**You need `pbts_full.db` from MaxVH and put it in `./benchmark/data/`**
 
-⚠️ **IMPORTANT**: `pbts.jsonl` is ~116GB! All scripts use streaming or reservoir sampling to avoid loading the entire file into memory.
+## Database Overview
 
-## Performance: Indexing for Fast Sampling
+The benchmark uses a **SQLite database** (`pbts_full.db`) with SQLModel ORM for type-safe, efficient access to property-based tests.
 
-For development work with small sample sizes, you'll want to create an index file:
+**Statistics**:
+- 54,345 property-based tests (PBTs)
+- 6,343,790 unit tests
+- 448,160 PBT-function associations
 
-```bash
-# One-time setup (~10-30 minutes)
-uv run fvspec index-data
-```
+**Key Features**:
+- ✅ Fast SQL queries with filtering (no indexing needed)
+- ✅ Type-safe access via SQLModel ORM
+- ✅ Efficient sampling with dependency filtering
+- ✅ Unit test overlaps stored in normalized tables
 
-This creates `pbts.jsonl.index` (~1-2MB) that enables:
-- ✅ **With index**: Sample 10 items in ~1 second
-- ❌ **Without index**: Sample 10 items in ~10 minutes (streams entire 116GB file)
-
-The index is automatically detected and used by all sampling operations.
-
-### Troubleshooting: IndexError Workaround
-
-If you encounter an `IndexError` in `inspect_ai/_util/json.py` during evaluation, this is a known issue with certain samples triggering an inspect_ai bug. The indexed sampling and reservoir sampling produce different sample orders, so you can work around this by using the `--skip-index` flag:
-
-```bash
-# Use reservoir sampling instead of indexed sampling
-uv run fvspec --skip-index
-uv run fvspec compare-variants --skip-index
-```
-
-This will use slower reservoir sampling (streams the entire file) but produces a different sample order that may avoid the problematic sample. Note: This takes ~10 minutes for small sample sizes instead of ~1 second.
+**Database Schema**:
+- `unit_tests` - Unit tests with metadata (id, repo_id, name, code, etc.)
+- `pbt_functions` - Property-based tests (PBTs) with metadata (id, repo_id, name, code, deps, etc.)
+- `unit_test_functions` - Associations between PBTs and unit tests (many-to-many relationship)
+- `functions` - Functions under test (id, name, etc.)
+- JSON fields (`deps`, `dep_names`) stored as TEXT, parsed via `.get_deps()` / `.get_dep_names()`
 
 ## Generating the benchmark synthetic signatures
 
@@ -116,16 +109,16 @@ The inspect viewer provides:
 
 ### Dashboard (Legacy)
 
-Alternative panel-based dashboard:
+Alternative panel-based dashboard (unmaintained):
 
 ```bash
-uv run panel serve src/scripts/dashboard.py
+uv run panel serve src/scripts/panel.py
 ```
 
 With custom arguments:
 
 ```bash
-uv run panel serve src/scripts/dashboard.py --args -d "artifacts/2025-10-01T13-26-28" -x "interest" -y "faithfulness"
+uv run panel serve src/scripts/panel.py --args -d "artifacts/2025-10-01T13-26-28" -x "interest" -y "faithfulness"
 ```
 
 ## Prompt Variants
@@ -368,18 +361,34 @@ uv run pytest
 Preview prompt templates:
 
 ```bash
-# Preview prompts (randomly samples from dataset using reservoir sampling)
-uv run preview-prompts <data_file.json> --prompt-type spec
-uv run preview-prompts <data_file.json> --prompt-type deps
+# Preview prompts (samples from database)
+uv run preview-prompts data/pbts_full.db --prompt-type spec
+uv run preview-prompts data/pbts_full.db --prompt-type deps
 
 # Control sample size and random seed (defaults from config.toml: sample_size=100, ranseed=0)
-uv run preview-prompts <data_file.json> --sample-size 10 --ranseed 42
+uv run preview-prompts data/pbts_full.db --sample-size 10 --ranseed 42
 ```
 
 Analyze dependencies in scraped tests:
 
 ```bash
-uv run analyze-deps
+# Full analysis with sampling
+uv run analyze-deps --sample-size 1000 --seed 42
+
+# Stream all datapoints (no sampling)
+uv run analyze-deps --no-sample
+
+# Use specific database path
+uv run analyze-deps --dataset-path data/pbts_full.db
+```
+
+Interactive data exploration:
+
+```bash
+# Launch Streamlit data explorer
+uv run data-explorer
+
+# Features: search by ID, random sampling, filters, bookmarks, history
 ```
 
 ## Verification Styles

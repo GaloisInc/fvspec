@@ -484,10 +484,11 @@ def write_unit_tests_to_disk(
     if unit_tests_lspec:
         # We have extracted tests - add metadata and test code
         func_name = ""
-        if datapoint.pbt_functions and len(datapoint.pbt_functions) > 0:
-            func_name = datapoint.pbt_functions[0]
+        pbt_functions = getattr(datapoint, "pbt_functions", [])
+        if pbt_functions:
+            func_name = pbt_functions[0]
         else:
-            func_name = datapoint.pbt_name.removeprefix("test_")
+            func_name = datapoint.name.removeprefix("test_")
 
         # Count exact and float tests
         num_exact = unit_tests_lspec.count('test "')

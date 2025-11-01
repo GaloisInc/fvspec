@@ -29,13 +29,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Literal
 
-import jsonlines
 import typer
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart
 from pydantic_ai.models import RequestUsage
 from pydantic_ai.models.function import FunctionModel
+from sqlmodel import func, select
+
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.models import Datapoint as DBDatapoint
 
 # --------------------------------------------------------------------------- #
 # Path constants
@@ -45,7 +48,7 @@ from pydantic_ai.models.function import FunctionModel
 SCRIPT_PATH = Path(__file__).resolve()
 BENCHMARK_DIR = SCRIPT_PATH.parents[2]
 DATA_DIR = BENCHMARK_DIR / "data"
-DEFAULT_DATASET_PATH = DATA_DIR / "pbts.jsonl"
+DEFAULT_DATASET_PATH = DATA_DIR / "pbts_full.db"
 DEFAULT_OUTPUT_DIR = DATA_DIR
 
 # --------------------------------------------------------------------------- #
@@ -54,28 +57,20 @@ DEFAULT_OUTPUT_DIR = DATA_DIR
 
 
 class Datapoint(BaseModel):
-    """Dataset record describing a property-based test and its dependencies."""
+    """Dataset record describing a property-based test and its dependencies.
+
+    Simplified model matching the DB schema - only includes fields used by this script.
+    """
 
     id: int
     repo_id: int
-    pbt_name: str
-    pbt: str
-    dep_names: list[str]
-    deps: list[str]
-    source: str
-    summary: str | None
-    hash: str
-    summary_vector: str | None
-    mode: str | None = None
-    summaryversion: int | None = None
-    summaryconfidence: int | None = None
-    has_overlap_data: bool | None = None
-    repo_name: str | None = None
-    repo_url: str | None = None
-    analysis_timestamp: str | None = None
-    pbt_summary: str | None = None
-    pbt_functions: list[str] | None = None
-    overlapping_tests: list[dict[str, Any]] | None = None
+    name: str  # DB field (was pbt_name in JSONL)
+    code: str  # DB field (was pbt in JSONL)
+    dep_names: list[str]  # Parsed from JSON string in DB
+    deps: list[str]  # Parsed from JSON string in DB
+    source: str | None = None
+    summary: str | None = None
+    hash: str | None = None
 
 
 class CallExample(BaseModel):
@@ -306,26 +301,64 @@ class CodeAnalyzer(ast.NodeVisitor):
 # --------------------------------------------------------------------------- #
 
 
-def stream_jsonl(path: Path) -> Iterator[dict]:
-    """Stream JSONL file line by line to avoid loading the entire dataset into RAM."""
-    with jsonlines.open(path) as reader:
-        yield from reader
+def _db_sample(
+    session: Any, sample_size: int, seed: int, max_deps: int = 100
+) -> list[DBDatapoint]:
+    """Memory-efficient random sample from database with dependency filtering.
 
+    Uses a two-phase approach to avoid loading all rows into memory:
+    1. Query all matching IDs (lightweight, just integers)
+    2. Randomly sample from those IDs
+    3. Fetch only the sampled rows
 
-def reservoir_sample_jsonl(
-    iterator: Iterator[dict], sample_size: int, seed: int
-) -> list[dict]:
-    """Reservoir sample a fixed number of objects from an iterator."""
+    Args:
+        session: SQLModel database session
+        sample_size: Number of samples to draw
+        seed: Random seed for reproducibility
+        max_deps: Maximum number of dependencies allowed per sample
+
+    Returns:
+        List of sampled DBDatapoint objects
+    """
+    # Phase 1: Get all matching IDs (memory-efficient, just integers)
+    id_statement = select(DBDatapoint.id).where(
+        func.json_array_length(DBDatapoint.deps) <= max_deps
+    )
+    matching_ids = list(session.exec(id_statement))
+
+    # If we have fewer matches than requested, return all
+    if len(matching_ids) <= sample_size:
+        full_statement = select(DBDatapoint).where(
+            DBDatapoint.id.in_(matching_ids)  # type: ignore[attr-defined]
+        )
+        return list(session.exec(full_statement))
+
+    # Phase 2: Random sample from IDs
     rng = random.Random(seed)
-    sample: list[dict] = []
-    for idx, obj in enumerate(iterator):
-        if idx < sample_size:
-            sample.append(obj)
-        else:
-            j = rng.randint(0, idx)
-            if j < sample_size:
-                sample[j] = obj
-    return sample
+    sampled_ids = rng.sample(matching_ids, sample_size)
+
+    # Phase 3: Fetch only the sampled rows
+    fetch_statement = select(DBDatapoint).where(
+        DBDatapoint.id.in_(sampled_ids)  # type: ignore[attr-defined]
+    )
+    return list(session.exec(fetch_statement))
+
+
+def _db_stream_all(session: Any, max_deps: int = 100) -> Iterator[DBDatapoint]:
+    """Stream all datapoints from the database with dependency filtering.
+
+    Args:
+        session: SQLModel database session
+        max_deps: Maximum number of dependencies allowed per sample
+
+    Yields:
+        DBDatapoint objects one at a time
+    """
+    statement = select(DBDatapoint).where(
+        func.json_array_length(DBDatapoint.deps) <= max_deps
+    )
+    results = session.exec(statement)
+    yield from results
 
 
 # --------------------------------------------------------------------------- #
@@ -368,12 +401,12 @@ class DependencyAggregator:
             self.dep_name_counter.update(datapoint.dep_names)
             self.dep_total_entries += len(datapoint.dep_names)
 
-        pbt_result = self._analyze_snippet(datapoint, datapoint.pbt, "pbt")
+        pbt_result = self._analyze_snippet(datapoint, datapoint.code, "pbt")
         if pbt_result:
             self.python_datapoints += 1
         else:
             self._note_non_python(
-                datapoint.id, datapoint.source, datapoint.pbt, "pbt failed to parse"
+                datapoint.id, datapoint.source, datapoint.code, "pbt failed to parse"
             )
 
         for dep_text in datapoint.deps:
@@ -435,13 +468,13 @@ class DependencyAggregator:
                 module_root=root,
                 symbol=record.symbol,
                 code_line=record.code_line,
-                source=datapoint.source,
+                source=datapoint.source or "unknown",
                 snippet_kind=snippet_kind,
             )
             self.module_examples[root].append(example)
 
     def _note_non_python(
-        self, datapoint_id: int, source: str, raw_text: str, reason: str
+        self, datapoint_id: int, source: str | None, raw_text: str, reason: str
     ) -> None:
         if datapoint_id in self.non_python_samples:
             return
@@ -451,7 +484,7 @@ class DependencyAggregator:
             preview = preview[:157] + "..."
         self.non_python_samples[datapoint_id] = NonPythonSample(
             datapoint_id=datapoint_id,
-            source=source,
+            source=source or "unknown",
             glimpse=preview,
             reason=reason,
         )
@@ -764,19 +797,45 @@ def configure_logging(verbose: bool) -> None:
 def iter_datapoints(
     dataset_path: Path, sample_size: int | None, seed: int
 ) -> Iterator[Datapoint]:
-    """Yield datapoints from ``dataset_path``, optionally sampling deterministically."""
-    source_iter: Iterable[dict]
-    if sample_size is None:
-        source_iter = stream_jsonl(dataset_path)
-    else:
-        source_iter = reservoir_sample_jsonl(
-            stream_jsonl(dataset_path), sample_size, seed
-        )
-    for obj in source_iter:
-        try:
-            yield Datapoint(**obj)  # type: ignore[arg-type]
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to load datapoint: %s", exc)
+    """Yield datapoints from ``dataset_path``, optionally sampling deterministically.
+
+    Args:
+        dataset_path: Path to the SQLite database file
+        sample_size: Optional number of samples to draw (None = all datapoints)
+        seed: Random seed for reproducible sampling
+
+    Yields:
+        Datapoint objects (local Pydantic model, not SQLModel)
+    """
+    with get_session(dataset_path) as session:
+        # Get DB records
+        db_records: Iterable[DBDatapoint]
+        if sample_size is None:
+            db_records = _db_stream_all(session)
+        else:
+            db_records = _db_sample(session, sample_size, seed)
+
+        # Convert DB records to local Datapoint model
+        for db_record in db_records:
+            try:
+                # Parse JSON fields to lists
+                dep_names = db_record.get_dep_names()
+                deps = db_record.get_deps()
+
+                # Create local Datapoint model
+                yield Datapoint(
+                    id=db_record.id,
+                    repo_id=db_record.repo_id,
+                    name=db_record.name,
+                    code=db_record.code,
+                    dep_names=dep_names,
+                    deps=deps,
+                    source=db_record.source,
+                    summary=db_record.summary,
+                    hash=db_record.hash,
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("Failed to load datapoint: %s", exc)
 
 
 def analyze_dataset(
@@ -817,7 +876,7 @@ def cli(
     dataset: Path = typer.Option(
         DEFAULT_DATASET_PATH,
         "--dataset",
-        help="Path to pbts.jsonl",
+        help="Path to pbts_full.db SQLite database",
     ),
     output_dir: Path = typer.Option(
         DEFAULT_OUTPUT_DIR,

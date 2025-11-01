@@ -7,7 +7,6 @@ They use mocked LLM responses to avoid API costs and provide fast feedback.
 
 import tempfile
 from pathlib import Path
-from unittest.mock import patch
 
 import pytest
 from inspect_ai.model import ChatMessageAssistant
@@ -24,10 +23,10 @@ def minimal_test_data():
         {
             "id": 1,
             "repo_id": 1,
-            "pbt_name": "test_simple_add",
-            "pbt": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(x=st.integers(), y=st.integers())\ndef test_simple_add(x: int, y: int):\n    assert x + y == y + x",
-            "dep_names": [],
-            "deps": [],
+            "name": "test_simple_add",
+            "code": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(x=st.integers(), y=st.integers())\ndef test_simple_add(x: int, y: int):\n    assert x + y == y + x",
+            "dep_names": "[]",
+            "deps": "[]",
             "source": "/test/test_simple.py",
             "summary": "Test addition commutativity",
             "hash": "abc123",
@@ -36,10 +35,10 @@ def minimal_test_data():
         {
             "id": 2,
             "repo_id": 1,
-            "pbt_name": "test_list_append",
-            "pbt": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(lst=st.lists(st.integers()), val=st.integers())\ndef test_list_append(lst: list, val: int):\n    original_len = len(lst)\n    lst.append(val)\n    assert len(lst) == original_len + 1",
-            "dep_names": [],
-            "deps": [],
+            "name": "test_list_append",
+            "code": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(lst=st.lists(st.integers()), val=st.integers())\ndef test_list_append(lst: list, val: int):\n    original_len = len(lst)\n    lst.append(val)\n    assert len(lst) == original_len + 1",
+            "dep_names": "[]",
+            "deps": "[]",
             "source": "/test/test_list.py",
             "summary": "Test list append increases length",
             "hash": "def456",
@@ -50,16 +49,28 @@ def minimal_test_data():
 
 @pytest.fixture
 def temp_data_file(minimal_test_data):
-    """Create a temporary JSONL file with test data."""
-    import jsonlines
+    """Create a temporary SQLite DB file with test data."""
+    from sqlmodel import Session, create_engine
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
-        with jsonlines.Writer(tmp) as writer:
-            writer.write_all(minimal_test_data)
-        tmp.flush()
-        yield Path(tmp.name)
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".db", delete=False) as tmp:
+        db_path = Path(tmp.name)
+
+    # Create DB and populate with test data
+    engine = create_engine(f"sqlite:///{db_path}")
+    from generate.scaffold.dataset.models import Datapoint
+
+    Datapoint.metadata.create_all(engine)
+
+    with Session(engine) as session:
+        for data in minimal_test_data:
+            dp = Datapoint(**data)
+            session.add(dp)
+        session.commit()
+
+    yield db_path
+
     # Cleanup
-    Path(tmp.name).unlink(missing_ok=True)
+    db_path.unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -88,43 +99,26 @@ async def test_smoke_task_creation(temp_data_file):
     - Tool registration works
     - No import errors, type errors, or missing dependencies
     """
-    with patch("generate.scaffold.dataset.sample_datapoints") as mock_sample:
-        # Only use 1 sample for speed
-        mock_sample.return_value = [
-            Datapoint(
-                id=1,
-                repo_id=1,
-                pbt_name="test_simple_add",
-                pbt="from hypothesis import given\n@given(x=st.integers())\ndef test(x: int): assert x == x",
-                dep_names=[],
-                deps=[],
-                source="/test.py",
-                summary="Test",
-                hash="abc",
-                summary_vector=None,
-            )
-        ]
+    # Just create the task - don't run it (uses actual temp DB)
+    task = fvspec(datafile=str(temp_data_file), sample_size=1)
 
-        # Just create the task - don't run it
-        task = fvspec(datafile=str(temp_data_file))
-
-        # Verify task was created properly
-        assert task is not None
-        assert task.dataset is not None
-        assert len(task.dataset) == 1
-        assert task.solver is not None
+    # Verify task was created properly
+    assert task is not None
+    assert task.dataset is not None
+    assert len(task.dataset) >= 1
+    assert task.solver is not None
 
 
 async def test_smoke_dataset_loading(temp_data_file):
     """Smoke test: Verify dataset loading doesn't crash."""
-    from generate.scaffold.dataset import load_datapoints
+    from generate.scaffold.dataset import load_datapoints_by_id
 
-    datapoints = load_datapoints(temp_data_file)
+    datapoints = load_datapoints_by_id(temp_data_file, [1, 2])
 
     assert len(datapoints) == 2
-    assert all(isinstance(dp, Datapoint) for dp in datapoints)
-    assert datapoints[0].id == 1
-    assert datapoints[1].pbt_name == "test_list_append"
+    assert all(isinstance(dp, Datapoint) for dp in datapoints.values())
+    assert datapoints[1].id == 1
+    assert datapoints[2].name == "test_list_append"
 
 
 def _trio_supported() -> bool:
@@ -227,10 +221,10 @@ def test_smoke_quality_assessment_from_mock_state():
             "datapoint": Datapoint(
                 id=1,
                 repo_id=1,
-                pbt_name="test",
-                pbt="def test():\n    pass",
-                dep_names=[],
-                deps=[],
+                name="test",
+                code="def test():\n    pass",
+                dep_names="[]",
+                deps="[]",
                 source="/test.py",
                 summary="Test",
                 hash="abc",

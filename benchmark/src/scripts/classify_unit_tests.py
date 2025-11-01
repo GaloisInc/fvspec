@@ -211,7 +211,7 @@ uv run classify-unit-tests --verbose
 
 - `anthropic` package for LLM fallback
 - `ANTHROPIC_API_KEY` environment variable (for LLM mode)
-- Access to `benchmark/data/pbt_units/*.json` files
+- Access to `benchmark/data/pbts_full.db` SQLite database
 
 ## Implementation Notes
 
@@ -247,9 +247,17 @@ from rich.progress import (
     TimeElapsedColumn,
     TimeRemainingColumn,
 )
+from sqlmodel import select
+
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.models import Datapoint
+from generate.scaffold.dataset.queries import (
+    count_total_datapoints,
+    get_overlapping_unit_tests,
+)
 
 DATADIR = Path(".") / "data"
-TOTAL_PBTS = 60776  # Total lines in pbts.jsonl (wc -l data/pbts.jsonl)
+# TOTAL_PBTS is now dynamically fetched from the database
 
 # Classification thresholds and parameters
 DEFAULT_CONFIDENCE_THRESHOLD = 0.75  # Default for LLM fallback
@@ -991,35 +999,35 @@ def classify_test(
 
 
 def stream_unit_tests(
-    pbts_jsonl: Path,
+    db_path: Path,
     sample_size: int | None,
     ranseed: int,
     verbose: bool,
     progress_callback=None,
 ):
-    """Stream unit tests from pbts.jsonl line by line with optional random sampling.
+    """Stream unit tests from pbts_full.db with optional random sampling.
 
-    Yields: (pbt_id, test_name, test_code, has_units) tuples
+    Yields: (pbt_id, test_name, test_code) tuples
 
     If sample_size is specified, uses early-stopping reservoir sampling to collect exactly
-    sample_size tests (or fewer if not enough exist) without scanning the entire file.
+    sample_size tests (or fewer if not enough exist) without scanning the entire database.
     Otherwise, yields all tests found.
 
     Early stopping: Stops scanning after finding 10x the requested sample size to ensure
     good randomness while keeping performance fast for small samples.
 
-    This avoids loading the entire 116GB file into memory.
-    progress_callback: Optional function to call with (line_count, pbts_without_units) for progress updates
+    This avoids loading all data into memory.
+    progress_callback: Optional function to call with (pbt_count, pbts_without_units) for progress updates
     """
-    if not pbts_jsonl.exists():
-        raise FileNotFoundError(f"{pbts_jsonl} not found")
+    if not db_path.exists():
+        raise FileNotFoundError(f"{db_path} not found")
 
     rng = random.Random(ranseed)
 
     # Reservoir for sampling
     reservoir: list[tuple[str, str, str]] = []
     test_count = 0
-    line_count = 0
+    pbt_count = 0
     pbts_without_units = 0
 
     # Early stopping: collect 10x sample_size tests then stop (ensures good randomness)
@@ -1027,9 +1035,13 @@ def stream_unit_tests(
     early_stop_multiplier = EARLY_STOP_MULTIPLIER
     early_stop_threshold = sample_size * early_stop_multiplier if sample_size else None
 
-    with open(pbts_jsonl) as f:
-        for line in f:
-            line_count += 1
+    with get_session(db_path) as session:
+        # Stream datapoints from database
+        statement = select(Datapoint)
+        results = session.exec(statement)
+
+        for datapoint in results:
+            pbt_count += 1
 
             # Early stopping for sampling: stop after collecting enough tests
             if early_stop_threshold and test_count >= early_stop_threshold:
@@ -1039,36 +1051,26 @@ def stream_unit_tests(
                     )
                 break
 
-            # Parse JSON line
-            try:
-                data = json.loads(line)
-            except json.JSONDecodeError as e:
-                if verbose:
-                    print(f"Warning: Could not parse line {line_count}: {e}")
-                continue
+            # Get overlapping unit tests for this PBT
+            overlapping_tests = get_overlapping_unit_tests(session, datapoint.id)
 
-            # Check if this PBT has unit tests
-            has_overlapping_tests = (
-                "overlapping_tests" in data and data["overlapping_tests"]
-            )
-
-            if not has_overlapping_tests:
+            if not overlapping_tests:
                 pbts_without_units += 1
                 if progress_callback:
-                    progress_callback(line_count, pbts_without_units)
+                    progress_callback(pbt_count, pbts_without_units)
                 continue
 
-            pbt_id = str(data.get("id", "unknown"))
+            pbt_id = str(datapoint.id)
             has_units = False
 
-            for overlap in data["overlapping_tests"]:
+            for overlap in overlapping_tests:
                 if "unit_tests" not in overlap:
                     continue
 
                 for unit_test in overlap["unit_tests"]:
-                    if "code" in unit_test and "test_name" in unit_test:
+                    if "code" in unit_test and "name" in unit_test:
                         has_units = True
-                        test_data = (pbt_id, unit_test["test_name"], unit_test["code"])
+                        test_data = (pbt_id, unit_test["name"], unit_test["code"])
 
                         if sample_size:
                             # Reservoir sampling
@@ -1103,9 +1105,9 @@ def stream_unit_tests(
             if not has_units:
                 pbts_without_units += 1
 
-            # Update progress for this PBT line
+            # Update progress for this PBT
             if progress_callback:
-                progress_callback(line_count, pbts_without_units)
+                progress_callback(pbt_count, pbts_without_units)
 
     # If we were sampling, shuffle and yield the reservoir
     if sample_size:
@@ -1114,7 +1116,7 @@ def stream_unit_tests(
             yield test_data
 
     if verbose:
-        print(f"Finished processing {line_count} lines, found {test_count} tests total")
+        print(f"Finished processing {pbt_count} PBTs, found {test_count} tests total")
         if sample_size:
             print(f"Sampled {len(reservoir)} tests (requested: {sample_size})")
         print(f"PBTs without unit tests: {pbts_without_units}")
@@ -1252,13 +1254,18 @@ def main(
             print("  Tip: Create a .env file with ANTHROPIC_API_KEY=your_key")
             print()
 
-    # Stream unit tests from pbts.jsonl
-    pbts_jsonl = DATADIR / "pbts.jsonl"
-    if not pbts_jsonl.exists():
-        print(f"Error: {pbts_jsonl} not found")
+    # Get database path and total count
+    pbts_db = DATADIR / "pbts_full.db"
+    if not pbts_db.exists():
+        print(f"Error: {pbts_db} not found")
         raise typer.Exit(1)
 
-    print(f"Streaming unit tests from {pbts_jsonl}...")
+    # Get total count of datapoints from DB
+    with get_session(pbts_db) as session:
+        total_pbts = count_total_datapoints(session)
+
+    print(f"Streaming unit tests from {pbts_db}...")
+    print(f"Total PBTs in database: {total_pbts}")
     if sample_size:
         print(f"Will stop after {sample_size} tests")
     print()
@@ -1291,7 +1298,7 @@ def main(
         # Two progress bars: one for samples, one for unit test classifications
         # For sample scanning: if we have sample_size, estimate we'll scan ~10x that many samples
         # Otherwise, scan all samples
-        scan_estimate = (sample_size * 10) if sample_size else TOTAL_PBTS
+        scan_estimate = (sample_size * 10) if sample_size else total_pbts
         sample_task = progress.add_task(
             "[cyan]Scanning samples for tests",
             total=scan_estimate,
@@ -1304,20 +1311,20 @@ def main(
         )
 
         # Progress callback to update sample scanning progress
-        def update_sample_progress(line_count: int, samples_no_units: int):
+        def update_sample_progress(pbt_count: int, pbts_no_units: int):
             nonlocal pbts_without_units
-            pbts_without_units = samples_no_units
-            # Update every time - sample reading is fast, this won't slow us down
+            pbts_without_units = pbts_no_units
+            # Update every time - database reading is fast, this won't slow us down
             progress.update(
                 sample_task,
-                completed=line_count,
-                description=f"[cyan]Scanning samples for tests ({samples_no_units} skipped)",
+                completed=pbt_count,
+                description=f"[cyan]Scanning PBTs for tests ({pbts_no_units} skipped)",
             )
 
         # Collect all tests first, then process in batches
         all_tests = list(
             stream_unit_tests(
-                pbts_jsonl,
+                pbts_db,
                 sample_size,
                 ranseed,
                 verbose,
@@ -1483,11 +1490,11 @@ def main(
                     )
 
         # Final update to ensure sample scanning bar shows complete state
-        # Mark as complete with actual line count scanned
+        # Mark as complete with actual PBT count scanned
         progress.update(
             sample_task,
             completed=scan_estimate,  # Complete the bar visually
-            description=f"[cyan]Scanned samples ({pbts_without_units} skipped)",
+            description=f"[cyan]Scanned PBTs ({pbts_without_units} skipped)",
         )
         progress.update(
             test_task,
