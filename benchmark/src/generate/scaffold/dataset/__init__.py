@@ -35,7 +35,7 @@ from generate.scaffold.dataset.queries import (
 )
 
 # Shared structures
-from generate.scaffold.structures import Prompt
+from generate.templates.models import Prompt
 from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 __all__ = [
