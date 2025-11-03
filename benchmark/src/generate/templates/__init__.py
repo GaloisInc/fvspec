@@ -11,6 +11,7 @@ from generate.templates.deps import (
     DependencyVariantRegistry,
     get_dependency_prompts,
 )
+from generate.templates.models import Prompt
 from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 __all__ = [
@@ -18,6 +19,7 @@ __all__ = [
     "VariantRegistry",
     "get_dependency_prompts",
     "DependencyVariantRegistry",
+    "Prompt",
 ]
 
 DATA_DIR = Path(__file__).resolve().parents[3] / "data"
