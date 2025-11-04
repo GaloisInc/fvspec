@@ -33,6 +33,11 @@ from generate.scaffold.formalize_impl.dataset import (
     payloads_from_datapoint,
     scan_dependencies,
 )
+from generate.scaffold.formalize_impl.function_agent import (
+    FunctionImplPayload,
+    FunctionImplResult,
+    function_impl_agent,
+)
 from generate.scaffold.formalize_impl.models import (
     ArgumentRole,
     ArgumentSpec,
@@ -55,6 +60,9 @@ from generate.scaffold.formalize_impl.runner import (
 __all__ = [
     "DependencyPayload",
     "DependencyResult",
+    "FunctionImplPayload",
+    "FunctionImplResult",
+    "function_impl_agent",
     "ArgumentRole",
     "ArgumentSpec",
     "CallableSignature",

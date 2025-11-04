@@ -3,6 +3,7 @@
 from generate.templates.impl.prompt import (
     DependencyPromptBundle,
     get_dependency_prompts,
+    get_impl_function_prompts,
 )
 from generate.templates.impl.registry import (
     DependencyVariantConfig,
@@ -18,6 +19,7 @@ from generate.templates.impl.strings import (
 
 __all__ = [
     "get_dependency_prompts",
+    "get_impl_function_prompts",
     "DependencyPromptBundle",
     "DependencyVariantRegistry",
     "DependencyVariantConfig",
