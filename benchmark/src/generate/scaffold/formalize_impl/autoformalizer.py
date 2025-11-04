@@ -9,11 +9,11 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from generate.scaffold.depmock.dataset import (
+from generate.scaffold.formalize_impl.dataset import (
     DependencySampleSpec,
     build_dependency_dataset,
 )
-from generate.scaffold.depmock.models import DependencyResult
+from generate.scaffold.formalize_impl.models import DependencyResult
 
 
 class DependencyInvocationError(RuntimeError):

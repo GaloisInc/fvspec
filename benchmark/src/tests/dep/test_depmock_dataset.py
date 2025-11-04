@@ -6,12 +6,12 @@ from typing import Any, cast
 import pytest
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.depmock.dataset import (
+from generate.scaffold.formalize_impl.dataset import (
     build_dependency_dataset,
     payloads_from_datapoint,
     scan_dependencies,
 )
-from generate.scaffold.depmock.models import DependencyPayload
+from generate.scaffold.formalize_impl.models import DependencyPayload
 
 
 @pytest.fixture

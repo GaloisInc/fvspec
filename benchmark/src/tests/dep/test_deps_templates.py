@@ -1,7 +1,7 @@
 """Tests for dependency autoformalization prompt variants."""
 
-from generate.scaffold.depmock import DependencyPayload
-from generate.templates.deps import (
+from generate.scaffold.formalize_impl import DependencyPayload
+from generate.templates.impl import (
     DependencyPromptBundle,
     DependencyVariantRegistry,
     get_dependency_prompts,

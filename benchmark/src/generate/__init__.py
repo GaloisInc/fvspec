@@ -11,7 +11,7 @@ from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.depmock import (
+from generate.scaffold.formalize_impl import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyPayload,
@@ -26,8 +26,8 @@ from generate.scaffold.depmock import (
     run_dependency_autoformalizer,
     scan_dependencies,
 )
-from generate.scaffold.depmock.cache import CacheProvenance, read_manifest
-from generate.scaffold.depmock.runner import (
+from generate.scaffold.formalize_impl.cache import CacheProvenance, read_manifest
+from generate.scaffold.formalize_impl.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]
@@ -804,9 +804,6 @@ def deps_cache_clear_wandb_command() -> None:
     except Exception as e:
         print(f"Error deleting artifact: {e}")
         raise typer.Exit(code=1)
-
-
-# Note: index-data command removed - no longer needed with SQLite database
 
 
 def main() -> None:

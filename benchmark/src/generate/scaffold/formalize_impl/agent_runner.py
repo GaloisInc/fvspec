@@ -14,15 +14,15 @@ from inspect_ai.model import ChatMessageAssistant
 from inspect_ai.solver import basic_agent, system_message, use_tools
 from pydantic import BaseModel, ConfigDict
 
-from generate.scaffold.depmock.agent import autoformalize_dependency_tool
-from generate.scaffold.depmock.autoformalizer import (
+from generate.scaffold.formalize_impl.agent import autoformalize_dependency_tool
+from generate.scaffold.formalize_impl.autoformalizer import (
     DependencyExecutionRequest,
     DependencyFatalError,
     DependencyRecoverableError,
 )
-from generate.scaffold.depmock.models import DependencyResult
+from generate.scaffold.formalize_impl.models import DependencyResult
 from generate.scaffold.tools.declaration import lean_diagnostic_messages
-from generate.templates.deps.strings import get_dependency_strings
+from generate.templates.impl.strings import get_dependency_strings
 
 
 def _get_supervisor_prompt() -> str:

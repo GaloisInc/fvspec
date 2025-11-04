@@ -7,7 +7,7 @@ import jsonlines
 from typer import Option, Typer
 
 from generate.config import load_config
-from generate.templates.deps import (
+from generate.templates.impl import (
     DependencyVariantRegistry,
     get_dependency_prompts,
 )
@@ -118,7 +118,7 @@ def preview_prompts(
         data_content = reservoir
 
     if prompt_type.lower() == "deps":
-        from generate.scaffold.depmock.models import (
+        from generate.scaffold.formalize_impl.models import (
             DependencyPayload,
         )  # local import to avoid circular dependency
 

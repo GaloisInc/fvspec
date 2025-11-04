@@ -1,17 +1,17 @@
-"""Tests for depmock setup orchestration."""
+"""Tests for formalize_impl setup orchestration."""
 
 from pathlib import Path
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.depmock.runner import (
+from generate.scaffold.formalize_impl.runner import (
     aggregate_dependency_modules,
     order_dependency_modules,
-    run_depmock_for_sample,
+    run_formalize_impl_for_sample,
 )
 
 
-def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
-    """Verify depmock scaffolding writes stubs and manifest entries."""
+def test_formalize_impl_setup_generates_stub(monkeypatch, tmp_path: Path):
+    """Verify formalize_impl scaffolding writes stubs and manifest entries."""
     monkeypatch.setenv("DEPMOCK_CACHE_ROOT", str(tmp_path / "cache"))
 
     def fake_sample_dir(_dt: str, sample_id: str, _variant: str) -> Path:
@@ -36,7 +36,7 @@ def test_depmock_setup_generates_stub(monkeypatch, tmp_path: Path):
         summary_vector=None,
     )
 
-    meta = run_depmock_for_sample(
+    meta = run_formalize_impl_for_sample(
         datapoint,
         date_time="2025-01-01T00-00-00",
         variant="control-functional",

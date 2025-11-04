@@ -1,12 +1,12 @@
 """Dependency autoformalization toolkit."""
 
-from generate.scaffold.depmock.agent import (
+from generate.scaffold.formalize_impl.agent import (
     autoformalize_dependency_tool,
     create_bound_dependency_tools,
     dependency_autoformalizer,
 )
-from generate.scaffold.depmock.agent_runner import run_dependency_agent
-from generate.scaffold.depmock.autoformalizer import (
+from generate.scaffold.formalize_impl.agent_runner import run_dependency_agent
+from generate.scaffold.formalize_impl.autoformalizer import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyFatalError,
@@ -16,7 +16,7 @@ from generate.scaffold.depmock.autoformalizer import (
     DependencyRunReport,
     run_dependency_autoformalizer,
 )
-from generate.scaffold.depmock.cache import (
+from generate.scaffold.formalize_impl.cache import (
     CacheRecord,
     clear_cache,
     compute_cache_key,
@@ -27,13 +27,13 @@ from generate.scaffold.depmock.cache import (
     store_dependency_result,
     write_dependency_artifact,
 )
-from generate.scaffold.depmock.dataset import (
+from generate.scaffold.formalize_impl.dataset import (
     DependencySampleSpec,
     build_dependency_dataset,
     payloads_from_datapoint,
     scan_dependencies,
 )
-from generate.scaffold.depmock.models import (
+from generate.scaffold.formalize_impl.models import (
     ArgumentRole,
     ArgumentSpec,
     CallableKind,
@@ -45,11 +45,11 @@ from generate.scaffold.depmock.models import (
     NormalizationPlan,
     NormalizationStrategy,
 )
-from generate.scaffold.depmock.runner import (
+from generate.scaffold.formalize_impl.runner import (
     aggregate_dependency_modules,
-    depmock_setup,
+    formalize_impl_setup,
     order_dependency_modules,
-    run_depmock_for_sample,
+    run_formalize_impl_for_sample,
 )
 
 __all__ = [
@@ -88,8 +88,8 @@ __all__ = [
     "DependencyRunReport",
     "DependencyBatchError",
     "run_dependency_autoformalizer",
-    "depmock_setup",
-    "run_depmock_for_sample",
+    "formalize_impl_setup",
+    "run_formalize_impl_for_sample",
     "aggregate_dependency_modules",
     "order_dependency_modules",
 ]

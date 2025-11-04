@@ -10,14 +10,14 @@ from pathlib import Path
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.depmock.cache import (
+from generate.scaffold.formalize_impl.cache import (
     CacheRecord,
     _cache_root,
     load_cached_dependency,
     store_dependency_result,
 )
-from generate.scaffold.depmock.dataset import payloads_from_datapoint
-from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
+from generate.scaffold.formalize_impl.dataset import payloads_from_datapoint
+from generate.scaffold.formalize_impl.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
 
 _LEAN_IMPORT_PATTERN = re.compile(
@@ -192,7 +192,7 @@ def _process_payloads(
 
 
 @solver
-def depmock_setup() -> Solver:
+def formalize_impl_setup() -> Solver:
     """Prepare dependency directories and metadata within the inspect_ai task loop.
 
     This solver no longer creates stub implementations. Instead, it:
@@ -211,7 +211,7 @@ def depmock_setup() -> Solver:
 
         payloads = payloads_from_datapoint(datapoint)
         if not payloads:
-            state.metadata["depmock"] = {"manifest": [], "lean_text": ""}
+            state.metadata["formalize_impl"] = {"manifest": [], "lean_text": ""}
             return state
 
         date_time = state.metadata.get("date_time")
@@ -234,7 +234,7 @@ def depmock_setup() -> Solver:
         )
 
         # Store metadata for later use
-        state.metadata["depmock"] = {
+        state.metadata["formalize_impl"] = {
             "manifest": [],
             "lean_text": "",
             "deps_dir": str(deps_dir),
@@ -247,7 +247,7 @@ def depmock_setup() -> Solver:
     return run
 
 
-def run_depmock_for_sample(
+def run_formalize_impl_for_sample(
     datapoint: Datapoint,
     *,
     date_time: str,

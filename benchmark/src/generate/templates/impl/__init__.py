@@ -1,14 +1,14 @@
 """Prompts for the dependency autoformalization subagent."""
 
-from generate.templates.deps.prompt import (
+from generate.templates.impl.prompt import (
     DependencyPromptBundle,
     get_dependency_prompts,
 )
-from generate.templates.deps.registry import (
+from generate.templates.impl.registry import (
     DependencyVariantConfig,
     DependencyVariantRegistry,
 )
-from generate.templates.deps.strings import (
+from generate.templates.impl.strings import (
     BoundToolStrings,
     DependencyStrings,
     DepsLeanStrings,

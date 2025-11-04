@@ -5,7 +5,7 @@ from pathlib import Path
 from jinja2 import Environment, FileSystemLoader, Template
 from pydantic import BaseModel, ConfigDict
 
-from generate.templates.deps.registry import DependencyVariantRegistry
+from generate.templates.impl.registry import DependencyVariantRegistry
 
 
 class DependencyPromptBundle(BaseModel):

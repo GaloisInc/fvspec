@@ -5,7 +5,7 @@ from typing import cast
 
 import pytest
 
-from generate.scaffold.depmock import (
+from generate.scaffold.formalize_impl import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyFatalError,

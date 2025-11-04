@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from generate.scaffold.depmock import (
+from generate.scaffold.formalize_impl import (
     DependencyPayload,
     DependencyResult,
     load_cached_dependency,
@@ -13,7 +13,11 @@ from generate.scaffold.depmock import (
     store_dependency_result,
     write_dependency_artifact,
 )
-from generate.scaffold.depmock.cache import CacheProvenance, CacheRecord, read_manifest
+from generate.scaffold.formalize_impl.cache import (
+    CacheProvenance,
+    CacheRecord,
+    read_manifest,
+)
 
 
 @pytest.fixture

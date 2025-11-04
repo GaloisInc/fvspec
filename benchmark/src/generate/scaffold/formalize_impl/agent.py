@@ -20,11 +20,14 @@ from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
 
-from generate.scaffold.depmock.cache import CacheProvenance, store_dependency_result
-from generate.scaffold.depmock.models import DependencyPayload, DependencyResult
+from generate.scaffold.formalize_impl.cache import (
+    CacheProvenance,
+    store_dependency_result,
+)
+from generate.scaffold.formalize_impl.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
-from generate.templates.deps import get_dependency_prompts
-from generate.templates.deps.strings import get_dependency_strings
+from generate.templates.impl import get_dependency_prompts
+from generate.templates.impl.strings import get_dependency_strings
 
 # Module-level logger to avoid multiple instantiations
 logger = logging.getLogger(__name__)
@@ -72,9 +75,11 @@ class _DependencyAutoformalizerAgent(Awaitable[AgentState], Agent):
         _ensure_system_message(state, prompts.system_prompt)
 
         # Persist context for downstream tooling/debugging
-        store().set("depmock_payload", payload_obj.model_dump())
-        store().set("depmock_variant", variant)
-        store().set("depmock_normalization", payload_obj.normalization.model_dump())
+        store().set("formalize_impl_payload", payload_obj.model_dump())
+        store().set("formalize_impl_variant", variant)
+        store().set(
+            "formalize_impl_normalization", payload_obj.normalization.model_dump()
+        )
 
         if diagnostics:
             user_prompt = prompts.refine_template.render(
@@ -318,7 +323,7 @@ def create_bound_dependency_tools(
     tools: list[Tool] = []
 
     for payload in payloads:
-        tool_name = f"depmock_autoformalize_{payload.dep_name}"
+        tool_name = f"formalize_impl_autoformalize_{payload.dep_name}"
         tool_description = strings.bound_tool.description.format(
             dep_name=payload.dep_name,
             lean_module_name=payload.lean_module_name,
@@ -441,7 +446,7 @@ def create_bound_dependency_tools(
                 )
 
                 # Persist to cache
-                from generate.scaffold.depmock.cache import _cache_root
+                from generate.scaffold.formalize_impl.cache import _cache_root
 
                 provenance = CacheProvenance(
                     model=str(state.model) if state.model else None,
