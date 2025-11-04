@@ -111,26 +111,35 @@ Two-agent architecture: **Implementation Agent** (formalize function + deps) →
 - Dependency tools generate Impl.lean (dependency implementations)
 - System is functional and ready for benchmarking
 
-**Future Work (Phase 5 - Two-Agent Architecture):**
-If needed, could refactor to full two-agent approach:
-1. Impl agent: Generate ALL implementations (function under test + dependencies)
-2. Spec agent: Generate ONLY theorem statements (import impl signatures)
-3. Requires significant refactoring of task.py orchestration
-4. Would provide cleaner separation of concerns
-5. Not required for current benchmark functionality
-
 ---
 
-## ⏳ Phase 5: Validation & Optimization (PENDING)
+## ⏳ Phase 5: Two-Agent Architecture (IN PROGRESS)
 
-**Goal**: Validate system works, optimize based on metrics.
+**Goal**: Refactor to full two-agent approach with clean separation.
 
-**High-level tasks**:
-1. Run full benchmark (50+ samples)
-2. Analyze results (discovery rate, success rates, failure modes)
-3. Optimize prompts based on analysis
-4. A/B test vs baseline
-5. Update documentation
+**Architecture:**
+1. **Impl Agent**: Generate ALL implementations (function under test + dependencies)
+   - Takes PBT code + function discovery info
+   - Outputs complete, computable Lean implementations (ZERO sorry)
+   - Writes to Impl.lean with full implementations
+
+2. **Spec Agent**: Generate ONLY theorem statements (import impl signatures)
+   - Takes PBT code + impl signatures from Impl.lean
+   - Outputs theorem statements that reference impl functions
+   - Uses sorry for proof obligations (stating, not proving)
+   - Writes to Spec.lean with `import Fvspec.Impl`
+
+**Implementation Steps:**
+1. ✅ Impl agent foundation exists (formalize_impl with function discovery)
+2. ✅ Spec agent foundation exists (formalize_spec with signature handling)
+3. ⏳ Orchestrate in task.py:
+   - Run impl agent first → validate zero sorry → extract signatures
+   - Run spec agent second with signatures → validate compiles + has sorry
+4. ⏳ Update templates:
+   - Impl templates: Focus on implementation only (no theorems)
+   - Spec templates: Focus on theorem statements only (import Impl)
+5. ⏳ Update quality_assessment to track both agents separately
+6. ⏳ Test end-to-end with sample datapoints
 
 ---
 
@@ -160,10 +169,12 @@ If needed, could refactor to full two-agent approach:
 - [x] System ready for benchmarking
 
 ### Phase 5 ⏳
-- [ ] Structural faithfulness improvement vs baseline
-- [ ] Implementation correctness validated
-- [ ] Spec captures PBT invariants
-- [ ] Pipeline latency acceptable
+- [ ] Impl agent generates zero-sorry implementations
+- [ ] Spec agent generates theorem statements with sorry
+- [ ] Signatures extracted and passed between agents
+- [ ] task.py orchestrates both agents sequentially
+- [ ] quality_assessment tracks both agents separately
+- [ ] End-to-end test with sample datapoints passes
 
 ---
 
