@@ -8,6 +8,7 @@ from pathlib import Path
 
 from inspect_ai.dataset import MemoryDataset, Sample
 from pydantic import BaseModel, ConfigDict
+from sqlmodel import Session
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize_impl.cache import (
@@ -15,27 +16,50 @@ from generate.scaffold.formalize_impl.cache import (
     load_cached_dependency,
 )
 from generate.scaffold.formalize_impl.models import DependencyPayload
+from generate.scaffold.function_discovery import discover_function_code
 
 
-def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
+def payloads_from_datapoint(
+    datapoint: Datapoint, session: Session | None = None
+) -> list[DependencyPayload]:
     """Convert a dataset datapoint into dependency payloads.
 
     Creates payloads for:
-    1. All explicit dependencies in datapoint.deps (with source code)
-    2. All functions in datapoint.pbt_functions (to be inferred from test)
-       Note: DB model doesn't have pbt_functions, so this is empty for now
+    1. Discovered function under test (if session provided and confidence > 0.7)
+    2. All explicit dependencies in datapoint.deps (with source code)
 
     Args:
         datapoint: The datapoint containing test and dependency information
+        session: Optional database session for function discovery
 
     Returns:
-        List of dependency payloads
+        List of dependency payloads (discovered function first, then dependencies)
     """
     deps = datapoint.get_deps()
     dep_names = datapoint.get_dep_names()
     payloads: list[DependencyPayload] = []
 
-    # Add explicit dependencies first (these have source code)
+    # Priority 1: Discover function under test
+    if session is not None:
+        function_info = discover_function_code(datapoint, session)
+        if function_info and function_info.code and function_info.confidence > 0.7:
+            payloads.append(
+                DependencyPayload(
+                    dep_name=function_info.name,
+                    python_source=function_info.code,
+                    python_signature=None,
+                    python_docstring=None,
+                    source_hash=None,
+                    tags=(
+                        "function_under_test",
+                        function_info.discovery_method.value,
+                    ),
+                    usage_example=datapoint.code,  # PBT shows usage
+                    lean_module=None,
+                )
+            )
+
+    # Priority 2: Add explicit dependencies (these have source code)
     for idx, source in enumerate(deps):
         dep_name = dep_names[idx] if idx < len(dep_names) else f"dependency_{idx + 1}"
         payloads.append(
@@ -47,28 +71,6 @@ def payloads_from_datapoint(datapoint: Datapoint) -> list[DependencyPayload]:
                 source_hash=None,
                 tags=("explicit_dependency",),
                 usage_example=None,
-                lean_module=None,
-            )
-        )
-
-    # Add all functions from pbt_functions (no source code - infer from test)
-    # Note: DB model doesn't currently have this field, defaults to empty
-    pbt_functions = []
-    for func_name in pbt_functions:
-        # Skip if already in explicit dependencies
-        if func_name in dep_names:
-            continue
-
-        # Create payload with test as context (model will infer implementation)
-        payloads.append(
-            DependencyPayload(
-                dep_name=func_name,
-                python_source=datapoint.code,  # Pass test as context
-                python_signature=None,
-                python_docstring=None,
-                source_hash=None,
-                tags=("pbt_function",),
-                usage_example=datapoint.code,
                 lean_module=None,
             )
         )
@@ -106,6 +108,7 @@ def scan_dependencies(
     dedupe: bool = True,
     cache_root: Path | None = None,
     cache_lookup: CacheLookup | None = None,
+    session: Session | None = None,
 ) -> list[DependencySampleSpec]:
     """Scan datapoints and produce dependency tasks.
 
@@ -115,6 +118,7 @@ def scan_dependencies(
         dedupe: If True, only keep the first occurrence of a dependency (by cache key).
         cache_root: Optional cache root override used for lookup.
         cache_lookup: Optional override used for cache existence checks (for testing).
+        session: Optional database session for function discovery.
 
     Returns:
         Ordered list of dependency sample specifications.
@@ -129,7 +133,7 @@ def scan_dependencies(
     specs: list[DependencySampleSpec] = []
 
     for datapoint in datapoints:
-        payloads = payloads_from_datapoint(datapoint)
+        payloads = payloads_from_datapoint(datapoint, session=session)
         sample_id = f"{datapoint.id:05d}_{datapoint.name}"
 
         for index, payload in enumerate(payloads):
