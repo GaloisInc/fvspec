@@ -133,11 +133,11 @@ Two-agent architecture: **Implementation Agent** (formalize function + deps) →
 - [x] Templates created for function_under_test
 - [x] All tests pass
 
-### Phase 3 ⏳
-- [ ] Spec agent generates valid Lean (compiles)
-- [ ] 95%+ specs have theorem statements
-- [ ] Specs reference impl signatures correctly
-- [ ] Specs use sorry for proof obligations
+### Phase 3 ✅
+- [x] Spec agent generates valid Lean (compiles)
+- [x] 95%+ specs have theorem statements
+- [x] Specs reference impl signatures correctly
+- [x] Specs use sorry for proof obligations
 
 ### Phase 4 ⏳
 - [ ] Impl agent: 100% zero sorry (fully computable)
@@ -180,5 +180,7 @@ uv run inspect view --log-dir artifacts
 - 348852c1: Phase 1 rename complete
 - cbe60a54: Phase 2 partial (dataset integration)
 - 6a3d01ce: Phase 2 complete (function discovery integration)
+- 8a1f0677: Phase 3 partial (models + validator)
+- 64144a4f: Phase 3 complete (agent + runner + tests)
 
-**Ready to continue**: Phase 3 (Spec Agent)
+**Ready to continue**: Phase 4 (Orchestration)

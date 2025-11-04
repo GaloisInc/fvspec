@@ -46,7 +46,7 @@ from generate.scaffold.formalize_impl.models import (
     NormalizationStrategy,
 )
 from generate.scaffold.formalize_impl.runner import (
-    aggregate_dependency_modules,
+    aggregate_impl_modules,
     formalize_impl_setup,
     order_dependency_modules,
     run_formalize_impl_for_sample,
@@ -90,6 +90,6 @@ __all__ = [
     "run_dependency_autoformalizer",
     "formalize_impl_setup",
     "run_formalize_impl_for_sample",
-    "aggregate_dependency_modules",
+    "aggregate_impl_modules",
     "order_dependency_modules",
 ]

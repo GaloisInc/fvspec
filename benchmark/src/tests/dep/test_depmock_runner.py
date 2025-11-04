@@ -4,7 +4,7 @@ from pathlib import Path
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize_impl.runner import (
-    aggregate_dependency_modules,
+    aggregate_impl_modules,
     order_dependency_modules,
     run_formalize_impl_for_sample,
 )
@@ -47,38 +47,38 @@ def test_formalize_impl_setup_generates_stub(monkeypatch, tmp_path: Path):
     assert meta["manifest"], "expected manifest entries"
     lean_text = meta.get("lean_text")
     assert isinstance(lean_text, str)
-    assert "namespace Fvspec.Deps" in lean_text
+    assert "namespace Fvspec.Impl" in lean_text
     assert "helper" in lean_text
     payloads = meta.get("payloads")
     assert isinstance(payloads, list)
     assert payloads
     assert payloads[0]["dep_name"] == "helper"
 
-    # Check that consolidated Deps.lean was written to sample output directory
+    # Check that consolidated Impl.lean was written to sample output directory
     sample_dir = tmp_path / "artifacts" / "00001_test"
-    deps_lean_file = sample_dir / "Deps.lean"
-    assert deps_lean_file.exists()
-    deps_content = deps_lean_file.read_text()
-    assert "namespace Fvspec.Deps" in deps_content
-    assert "helper" in deps_content.lower()
+    impl_lean_file = sample_dir / "Impl.lean"
+    assert impl_lean_file.exists()
+    impl_content = impl_lean_file.read_text()
+    assert "namespace Fvspec.Impl" in impl_content
+    assert "helper" in impl_content.lower()
 
-    # Check that manifest was written to sample output directory (not in deps/ subdirectory)
-    manifest_path = sample_dir / "deps_manifest.jsonl"
+    # Check that manifest was written to sample output directory (not in impl/ subdirectory)
+    manifest_path = sample_dir / "impl_manifest.jsonl"
     assert manifest_path.exists()
 
-    # Verify no deps/ subdirectory was created
-    deps_dir = sample_dir / "deps"
-    assert not deps_dir.exists()
+    # Verify no impl/ subdirectory was created
+    impl_dir = sample_dir / "impl"
+    assert not impl_dir.exists()
 
 
 def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
     """Ordered modules should reflect dependencies discovered in Lean imports."""
-    deps_dir = tmp_path / "deps"
-    deps_dir.mkdir(parents=True)
+    impl_dir = tmp_path / "impl"
+    impl_dir.mkdir(parents=True)
 
-    (deps_dir / "First.lean").write_text("def firstValue : Nat := 1\n")
-    (deps_dir / "Second.lean").write_text(
-        "import Fvspec.Deps.First\n\ndef secondValue : Nat := firstValue + 1\n"
+    (impl_dir / "First.lean").write_text("def firstValue : Nat := 1\n")
+    (impl_dir / "Second.lean").write_text(
+        "import Fvspec.Impl.First\n\ndef secondValue : Nat := firstValue + 1\n"
     )
 
     manifest = [
@@ -86,7 +86,7 @@ def test_order_modules_respects_import_dependencies(tmp_path: Path) -> None:
         {"module": "First"},
     ]
 
-    aggregated = aggregate_dependency_modules(deps_dir, manifest)
+    aggregated = aggregate_impl_modules(impl_dir, manifest)
     ordered = order_dependency_modules(aggregated)
 
     assert [entry["module"] for entry in ordered] == ["First", "Second"]

@@ -28,7 +28,7 @@ from generate.scaffold.formalize_impl import (
 )
 from generate.scaffold.formalize_impl.cache import CacheProvenance, read_manifest
 from generate.scaffold.formalize_impl.runner import (
-    aggregate_dependency_modules,
+    aggregate_impl_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]
 from generate.scaffold.task import DATA_DIR, fvspec
@@ -656,16 +656,16 @@ def deps_autoformalize_command(
         if not deps_dir.exists():
             continue
         manifest = read_manifest(deps_dir)
-        aggregated = aggregate_dependency_modules(deps_dir, manifest)
+        aggregated = aggregate_impl_modules(deps_dir, manifest)
         ordered = order_dependency_modules(aggregated)
         body = "\n\n".join(item["code"] for item in ordered if item["code"])
         lean_text = (
-            f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n" if body else ""
+            f"namespace Fvspec.Impl\n\n{body}\n\nend Fvspec.Impl\n" if body else ""
         )
-        (deps_dir / "Deps.lean").write_text(lean_text)
+        (deps_dir / "Impl.lean").write_text(lean_text)
         if validate and lean_text.strip():
             stdout, stderr, exitcode = utilio.run_cmd(
-                ["lean", str(deps_dir / "Deps.lean")], cwd=deps_dir
+                ["lean", str(deps_dir / "Impl.lean")], cwd=deps_dir
             )
             validation_results[sample_id] = {
                 "exitcode": exitcode,

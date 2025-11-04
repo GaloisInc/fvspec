@@ -21,7 +21,7 @@ from generate.scaffold.formalize_impl.models import DependencyPayload, Dependenc
 from generate.scaffold.tools import utilio
 
 _LEAN_IMPORT_PATTERN = re.compile(
-    r"^\s*import\s+(Fvspec\.Deps\.[A-Za-z0-9_.]+)", re.MULTILINE
+    r"^\s*import\s+(Fvspec\.Impl\.[A-Za-z0-9_.]+)", re.MULTILINE
 )
 
 
@@ -31,8 +31,8 @@ def _extract_module_dependencies(
     """Extract dependency modules appearing in Lean import statements."""
     dependencies: set[str] = set()
     for match in _LEAN_IMPORT_PATTERN.findall(code):
-        if match.startswith("Fvspec.Deps."):
-            candidate = match.removeprefix("Fvspec.Deps.")
+        if match.startswith("Fvspec.Impl."):
+            candidate = match.removeprefix("Fvspec.Impl.")
         else:
             continue
         # When the candidate contains namespace separators, take the final segment
@@ -102,16 +102,16 @@ def _stub_result(payload: DependencyPayload, variant: str | None) -> DependencyR
     )
 
 
-def aggregate_dependency_modules(
-    deps_dir: Path, manifest: list[dict[str, object]]
+def aggregate_impl_modules(
+    impl_dir: Path, manifest: list[dict[str, object]]
 ) -> list[dict[str, str]]:
-    """Load Lean module sources listed in the manifest from the deps directory."""
+    """Load Lean module sources listed in the manifest from the impl directory."""
     aggregated: list[dict[str, str]] = []
     for entry in manifest:
         module = entry.get("module")
         if not isinstance(module, str):
             continue
-        lean_path = deps_dir / f"{module}.lean"
+        lean_path = impl_dir / f"{module}.lean"
         if lean_path.exists():
             aggregated.append(
                 {
@@ -166,16 +166,16 @@ def _process_payloads(
     ordered_modules = order_dependency_modules(aggregated)
     body = "\n\n".join(item["code"] for item in ordered_modules if item["code"])
     if body:
-        lean_text = f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n"
+        lean_text = f"namespace Fvspec.Impl\n\n{body}\n\nend Fvspec.Impl\n"
     else:
         lean_text = ""
 
-    # Write consolidated Deps.lean to sample output directory
-    deps_lean_file = sample_output_dir / "Deps.lean"
-    deps_lean_file.write_text(lean_text if lean_text else "-- No dependencies\n")
+    # Write consolidated Impl.lean to sample output directory
+    impl_lean_file = sample_output_dir / "Impl.lean"
+    impl_lean_file.write_text(lean_text if lean_text else "-- No implementations\n")
 
-    # Write manifest to sample output directory (not in deps/ subdirectory)
-    manifest_file = sample_output_dir / "deps_manifest.jsonl"
+    # Write manifest to sample output directory (not in impl/ subdirectory)
+    manifest_file = sample_output_dir / "impl_manifest.jsonl"
     with manifest_file.open("w", encoding="utf-8") as f:
         for entry in manifest:
             f.write(json.dumps(entry) + "\n")
@@ -184,7 +184,7 @@ def _process_payloads(
         "manifest": manifest,
         "aggregated": ordered_modules,
         "lean_text": lean_text,
-        "deps_lean_file": str(deps_lean_file),
+        "impl_lean_file": str(impl_lean_file),
         "manifest_file": str(manifest_file),
         "variant": variant,
         "payloads": payload_dumps,
@@ -193,12 +193,12 @@ def _process_payloads(
 
 @solver
 def formalize_impl_setup() -> Solver:
-    """Prepare dependency directories and metadata within the inspect_ai task loop.
+    """Prepare implementation directories and metadata within the inspect_ai task loop.
 
     This solver no longer creates stub implementations. Instead, it:
-    1. Creates the deps/ directory structure
-    2. Initializes an empty Deps.lean
-    3. Stores dependency metadata for tools to use later
+    1. Creates the impl/ directory structure
+    2. Initializes an empty Impl.lean
+    3. Stores implementation metadata for tools to use later
 
     The actual dependency formalization happens when the agent calls the
     per-dependency tools registered by register_dependency_tools().
@@ -223,21 +223,21 @@ def formalize_impl_setup() -> Solver:
             date_time, str(state.sample_id), variant or "default"
         )
 
-        # Create deps/ directory
-        deps_dir = sample_output_dir / "deps"
-        deps_dir.mkdir(parents=True, exist_ok=True)
+        # Create impl/ directory
+        impl_dir = sample_output_dir / "impl"
+        impl_dir.mkdir(parents=True, exist_ok=True)
 
-        # Initialize empty Deps.lean (will be populated as tools are called)
-        deps_lean_file = sample_output_dir / "Deps.lean"
-        deps_lean_file.write_text(
-            "-- Dependencies will be added here as they are formalized\n"
+        # Initialize empty Impl.lean (will be populated as tools are called)
+        impl_lean_file = sample_output_dir / "Impl.lean"
+        impl_lean_file.write_text(
+            "-- Implementations will be added here as they are formalized\n"
         )
 
         # Store metadata for later use
         state.metadata["formalize_impl"] = {
             "manifest": [],
             "lean_text": "",
-            "deps_dir": str(deps_dir),
+            "impl_dir": str(impl_dir),
             "variant": variant,
             "payload_count": len(payloads),
         }
@@ -255,7 +255,7 @@ def run_formalize_impl_for_sample(
     sample_id: str | None = None,
     path_variant: str | None = None,
 ) -> dict[str, object]:
-    """Run depmock processing for a single datapoint outside the task loop."""
+    """Run impl processing for a single datapoint outside the task loop."""
     payloads = payloads_from_datapoint(datapoint)
     sample_id_str = sample_id or f"{datapoint.id:05d}_{datapoint.name}"
     sample_output_dir = utilio.get_sample_output_dir(
@@ -267,7 +267,7 @@ def run_formalize_impl_for_sample(
             "manifest": [],
             "aggregated": [],
             "lean_text": "",
-            "deps_dir": str(sample_output_dir / "deps"),
+            "impl_dir": str(sample_output_dir / "impl"),
             "variant": variant,
         }
 
