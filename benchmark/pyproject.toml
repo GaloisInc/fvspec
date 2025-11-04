@@ -39,9 +39,6 @@ test-unit-extraction = "scripts.test_unit_extraction:app"
 data-explorer = "scripts.data_explorer:cli"
 unit-test-dashboard = "scripts.unit_test_dashboard:cli"
 
-[project.entry-points.inspect_ai]
-benchmark = "generate._registry"
-
 [tool.pytest.ini_options]
 filterwarnings = [
     "ignore::pydantic.warnings.UnsupportedFieldAttributeWarning",  # source unconfirmed, possibly introduced by wandb dependency
