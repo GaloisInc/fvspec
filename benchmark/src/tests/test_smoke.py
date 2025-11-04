@@ -12,7 +12,7 @@ import pytest
 from inspect_ai.model import ChatMessageAssistant
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.task import fvspec
+from generate.scaffold.orchestration import fvspec
 from generate.templates.spec import get_variant_prompts
 
 

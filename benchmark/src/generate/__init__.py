@@ -31,7 +31,7 @@ from generate.scaffold.formalize.impl.runner import (
     aggregate_impl_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]
-from generate.scaffold.task import DATA_DIR, fvspec
+from generate.scaffold.orchestration import DATA_DIR, fvspec
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.templates.spec import VariantRegistry
