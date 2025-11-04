@@ -190,6 +190,7 @@ Two-agent architecture: **Implementation Agent** (formalize function + deps) →
 - [x] Spec agent generates theorem statements with sorry
 - [x] Signatures extracted and passed between agents
 - [x] two_agent_solver orchestrates both agents sequentially
+- [x] Template system fully updated (Deps → Impl throughout)
 - [ ] quality_assessment tracks both agents separately (optional)
 - [ ] End-to-end test with sample datapoints (ready for user testing)
 
@@ -228,6 +229,7 @@ uv run inspect view --log-dir artifacts
 - be7827c3: Phase 5 WIP (orchestration stub)
 - 81964067: Phase 5 spec agent with LSP loop
 - 55d1b729: Phase 5 function impl agent
-- 25cb9471: Phase 5 complete (two-agent wiring)
+- 25cb9471: Phase 5 two-agent wiring
+- 158235da: Phase 5 complete (template cleanup)
 
 **Status**: Ready for user testing and PR merge!
