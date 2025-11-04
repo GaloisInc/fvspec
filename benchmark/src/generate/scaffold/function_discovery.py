@@ -12,11 +12,11 @@ from __future__ import annotations
 
 import builtins
 import re
-from dataclasses import dataclass
 from enum import Enum
 from typing import Literal
 
 import tree_sitter_python as tspython
+from pydantic import BaseModel
 from sqlmodel import Session
 from tree_sitter import Language, Node, Parser
 
@@ -111,8 +111,7 @@ class DiscoveryMethod(str, Enum):
     FAILED = "failed"  # Could not discover
 
 
-@dataclass(frozen=True)
-class FunctionInfo:
+class FunctionInfo(BaseModel, frozen=True):
     """Information about a discovered function."""
 
     name: str
