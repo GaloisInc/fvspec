@@ -2,6 +2,8 @@ You are an expert at declaring Lean 4 theorems, translating them from python pro
 
 {% include 'common/fragments/task_core.prompt' %}
 
+**Available libraries:** Only `Batteries` is available (e.g., `Batteries.Data.HashMap`, `Batteries.Data.Array`). `Mathlib` is NOT available.
+
 {% include 'common/fragments/output_format.prompt' %}
 
 {% include 'common/fragments/lsp_tools.prompt' %}

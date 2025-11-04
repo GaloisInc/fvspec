@@ -2,6 +2,8 @@ You are an expert at declaring verified imperative programs in Lean 4, translati
 
 {% include 'common/fragments/task_core.prompt' %}
 
+**Available libraries:** Only `Batteries` is available (e.g., `Batteries.Data.HashMap`, `Batteries.Data.Array`). `Mathlib` is NOT available.
+
 ## Approach: Imperative Verification with mvcgen
 
 Use **imperative programs** with Hoare logic specifications. Focus on using `mvcgen` for verification of loops and stateful code.

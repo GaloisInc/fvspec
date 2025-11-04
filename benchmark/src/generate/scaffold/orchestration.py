@@ -76,7 +76,7 @@ def pass_session_to_state(db_path: Path) -> Solver:
 
 
 @solver
-def two_agent_orchestration(variant: str | None = None) -> Solver:
+def orchestrate_subagents(variant: str | None = None) -> Solver:
     """Orchestrate impl agent then spec agent sequentially.
 
     Flow:
@@ -118,13 +118,19 @@ def two_agent_orchestration(variant: str | None = None) -> Solver:
                 function_code = result.code
 
         # Phase 1: Generate implementation for function under test
+        # Map spec variant to impl variant style (control-functional → functional)
+        spec_variant_name = variant or "control-functional"
+        spec_registry = VariantRegistry()
+        spec_variant = spec_registry.get_variant(spec_variant_name)
+        impl_variant = spec_variant.style  # Extract style: functional or mvcgen
+
         impl_payload = FunctionImplPayload(
             pbt_code=datapoint.code,
             pbt_name=datapoint.name,
             function_name=function_name,
             function_code=function_code,
             dependencies={},  # Dependencies handled separately if needed
-            variant=variant or "control-functional",
+            variant=impl_variant,
         )
 
         impl_result = await function_impl_agent(impl_payload, workspace)
@@ -152,7 +158,7 @@ def two_agent_orchestration(variant: str | None = None) -> Solver:
             pbt_name=datapoint.name,
             function_name=function_name,
             impl_signatures=impl_signatures,
-            variant=variant or "control-functional",
+            variant=spec_variant_name,
         )
 
         spec_result = await spec_generation_agent(spec_payload, workspace)
@@ -214,7 +220,7 @@ def fvspec(
             pass_session_to_state(db_path),
         ],
         solver=[
-            two_agent_orchestration(variant=resolved_variant),
+            orchestrate_subagents(variant=resolved_variant),
         ],
         cleanup=write_to_disk,
     )

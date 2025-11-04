@@ -11,7 +11,7 @@
 {% endif %}Translate the following property-based test into Lean 4:
 
 <theorem>
-{{ pbt }}
+{{ pbt_code }}
 </theorem>
 {% if deps|length > 0 %}
 

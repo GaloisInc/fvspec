@@ -114,7 +114,7 @@ class TestSharedTemplates:
 
         # Should contain the common template's characteristic text
         assert "The following Python dependencies" in config.initial_template
-        assert "{{ pbt }}" in config.initial_template
+        assert "{{ pbt_code }}" in config.initial_template
 
     def test_multiple_variants_share_same_initial(self):
         """Multiple variants should get identical common initial prompt."""
@@ -174,7 +174,9 @@ class TestSharedTemplates:
         _, init = get_variant_prompts("control-functional")
 
         # Should be able to render with variables
-        rendered = init.render(pbt="def test(): pass", deps=["def helper(): return 42"])
+        rendered = init.render(
+            pbt_code="def test(): pass", deps=["def helper(): return 42"]
+        )
 
         assert "def test(): pass" in rendered
         assert "def helper(): return 42" in rendered
