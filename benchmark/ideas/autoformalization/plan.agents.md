@@ -59,18 +59,94 @@ Two-agent architecture: **Implementation Agent** (formalize function + deps) →
 
 ---
 
-## ⏳ Phase 3: Spec Agent (PENDING)
+## ⏳ Phase 3: Spec Agent (NEXT UP)
 
 **Goal**: Create separate agent for spec generation from PBT.
 
-**High-level tasks**:
-1. Create `formalize_spec/` directory with agent, models, validator, runner
-2. Implement spec validation (compiles + has statements, sorry is GOOD)
-3. Create spec templates (system, generate, refine for all variants)
-4. Spec agent uses impl signatures to generate theorem statements with sorry
-5. Testing and integration
-
 **Key difference from impl agent**: Sorry is EXPECTED and GOOD for specs!
+
+### Implementation Steps
+
+#### Step 1: Create Directory Structure & Models (~100 LOC)
+**Files**: `src/generate/scaffold/formalize_spec/{__init__.py,models.py}`
+
+Models needed:
+- `SpecPayload`: Input (pbt_code, pbt_name, impl_signatures, function_name, variant)
+- `SpecResult`: Output (success, lean_code, compiles, has_sorry, has_statements, attempts, tool_calls)
+- `SpecValidation`: Validation result (compiles, has_statements, has_sorry, valid, errors)
+
+**Test**: Create `tests/test_spec_models.py` with serialization tests.
+
+#### Step 2: Implement Validator (~150 LOC)
+**File**: `src/generate/scaffold/formalize_spec/validator.py`
+
+Key functions:
+- `validate_spec_output(lean_code, diagnostics) -> SpecValidation`: Check compiles + has statements (sorry is GOOD)
+- `extract_signatures(impl_lean) -> dict[str, str]`: Parse function signatures from Impl.lean for spec agent to use
+
+**Test**: Unit tests for validation logic and signature extraction.
+
+#### Step 3: Create Spec Templates (~400 LOC total)
+**New directory structure**:
+```
+src/generate/templates/spec/
+├── __init__.py
+├── registry.py           # Template loader
+└── variants/
+    ├── functional/
+    │   ├── system.prompt
+    │   ├── generate.prompt.template
+    │   └── refine.prompt.template
+    └── mvcgen/
+        ├── system.prompt
+        ├── generate.prompt.template
+        └── refine.prompt.template
+```
+
+**Key template content**:
+- System: "You generate Lean theorem STATEMENTS with sorry proofs"
+- Generate: Include PBT, impl signatures, task to write theorems
+- Refine: Error feedback with LSP tool guidance
+
+**Test**: Template rendering tests.
+
+#### Step 4: Implement Spec Agent (~300 LOC)
+**File**: `src/generate/scaffold/formalize_spec/agent.py`
+
+Agent loop:
+1. Load templates (system, generate, refine)
+2. Initial generation with PBT + impl signatures
+3. LSP tool loop (max 16 iterations):
+   - Execute tool calls (lean_diagnostic_messages, lean_goal, etc.)
+   - Extract code blocks
+   - Validate (compiles + has statements)
+   - If valid: SUCCESS (sorry is expected!)
+   - If errors: Refine with diagnostics
+4. Return result with metrics
+
+**Similar to**: `formalize_impl/agent.py` but validates differently (sorry is good!)
+
+**Test**: Integration test with mock LSP tools.
+
+#### Step 5: Implement Runner (~100 LOC)
+**File**: `src/generate/scaffold/formalize_spec/runner.py`
+
+Orchestration:
+- `run_spec_agent(datapoint, impl_signatures, variant, workspace) -> SpecResult`
+- Create SpecPayload from datapoint
+- Call spec_generation_agent
+- Log results
+- Return SpecResult
+
+**Test**: Mock agent execution.
+
+#### Step 6: Integration Testing & Commit
+- Create `tests/test_spec_integration.py`
+- Test full spec agent flow with real templates
+- Verify sorry is present and that's OK
+- Commit with message documenting spec agent implementation
+
+**Files changed**: 8-10 new files, ~1050 LOC total
 
 ---
 
