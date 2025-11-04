@@ -22,15 +22,15 @@ class TestSpecAgentIntegration:
             pbt_name="test_inc",
             impl_signatures={"inc": "def inc (x : Nat) : Nat"},
             function_name="inc",
-            variant="functional",
+            variant="control-functional",
         )
 
         result = await spec_generation_agent(payload, tmp_path)
 
-        # Should return stub result indicating not implemented
+        # Should return result indicating no model configured (test context)
         assert not result.success
         assert result.error is not None
-        assert "not fully implemented" in result.error.lower()
+        assert "no model configured" in result.error.lower()
 
     @pytest.mark.anyio
     async def test_run_spec_agent_with_datapoint(self, tmp_path):
@@ -50,7 +50,7 @@ class TestSpecAgentIntegration:
         result = await run_spec_agent(
             datapoint=datapoint,
             impl_signatures=impl_signatures,
-            variant="functional",
+            variant="control-functional",
             workspace=tmp_path,
         )
 
