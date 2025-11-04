@@ -1,310 +1,133 @@
-# Phase 3: Smart Runtime Function Discovery with tree-sitter
+# Phase 3: Smart Function Discovery - Integration Plan
 
-**Status**: ✅ Implementation Complete (integration pending)
-**Goal**: Achieve 90%+ function code coverage using runtime tree-sitter parsing
-**Approach**: No database changes needed - be smarter at runtime!
-**Result**: 92% coverage achieved on 50-sample validation
+**Status**: ✅ Core Complete (92% coverage) → ⏳ Integration Pending
+**Branch**: `q/analyze-deps-2` | **PR**: #61
+**Implementation**: Commits 2a663ce8, 40beb832, b7447a2d
 
-## Core Insight
+## What's Built
 
-Instead of changing the external `pbts_full.db` database, use **tree-sitter at runtime** to intelligently parse Python code and extract what we need. tree-sitter is already a dependency!
+**Module**: `src/generate/scaffold/function_discovery.py` (520 lines)
+- `discover_function_code(pbt, session)` - Main discovery with 4-strategy cascade
+- Tree-sitter parsing: test classes, function calls, stdlib filtering
+- Scope-aware database lookups: `lookup_function_exact()`, `lookup_function_fuzzy()`
+- **Result**: 92% coverage (72% call analysis, 16% associated functions, 4% name matching)
 
-## Architecture
+**Models**: `FunctionInfo(name, code, type, confidence, discovery_method, dependencies)`
 
-### 1. New Module: `src/generate/scaffold/function_discovery.py` ✅
+**Testing**: 18 pytest tests, all passing (CI-compatible)
 
-**Implementation Status:** Complete (commit 2a663ce8)
+**Dashboard**: Function Analysis tab in data explorer (commit b7447a2d)
 
-Use tree-sitter to parse and extract:
+## Key Learnings
 
-**From PBT code:** ✅
-- Test class structure (what class is being tested?)
-- Method calls in the test (what's actually being invoked?)
-- Filter test infrastructure (assertions, Hypothesis, mocks)
+1. **Call analysis dominates** - 72% vs predicted 25% (most successful strategy)
+2. **Source field unusable** - Contains file paths, not code (discovered during implementation)
+3. **Test classes rare** - Only 4% vs predicted 30% (most tests aren't class-based)
+4. **Associated functions valuable** - 16% from pbt_functions table
 
-**From source field:** ⚠️ NOT IMPLEMENTED
-- Source field contains file paths, not actual code (discovered during implementation)
-- Cannot parse source field as originally planned
-- Workaround: Use database lookup with scope awareness
+## Next Steps: Integration (Phase 2)
 
-**From Functions table (as fallback):** ✅
-- Exact/fuzzy matching with confidence scoring
-- Scope-aware matching (prioritize same repo_id)
+### 1. Integrate with Depmock Runner ⏳ HIGH PRIORITY
 
-### 2. Strategy Cascade ✅
+**File**: `src/generate/scaffold/depmock/runner.py`
 
-**Implementation Status:** Complete with 4 strategies
-
+**Changes needed**:
 ```python
-def discover_function_code(pbt: Datapoint, session: Session) -> FunctionInfo | None:
-    # Strategy 1: Parse test class inheritance (confidence: 0.8, coverage: 4%)
-    if test_class := parse_test_class(pbt.code):
-        if target_class := infer_target_from_test_class(test_class):
-            return lookup_function_exact(session, target_class, pbt.repo_id)
+# In prepare_deps_context() or similar:
+from generate.scaffold.function_discovery import discover_function_code
 
-    # Strategy 2: Parse test method calls (confidence: 0.7-0.75, coverage: 72%)
-    if calls := extract_test_calls(pbt.code):
-        if main_call := identify_primary_call(calls):
-            if not is_stdlib(main_call):
-                simple_name = main_call.split(".")[-1]
-                return lookup_function_exact(session, simple_name, pbt.repo_id)
-
-    # Strategy 3: Use test name (confidence: 0.5-0.6, coverage: 4%)
-    if match := re.match(r"test_(\w+)", pbt.name):
-        func_name = match.group(1)
-        return lookup_function_exact(session, func_name, pbt.repo_id) \
-            or lookup_function_fuzzy(session, func_name, pbt.repo_id)
-
-    # Strategy 4: Associated functions (confidence: 0.4, coverage: 16%)
-    if associated := get_associated_function_names(session, pbt.id):
-        for func_name in associated[:3]:
-            if func := lookup_function_exact(session, func_name, pbt.repo_id):
-                return func
-
-    return None  # Failed to discover (8% of samples)
+function_info = discover_function_code(pbt, session)
+if function_info and function_info.code:
+    # Include function code in prompt context
+    # Track discovery_method and confidence in metrics
 ```
 
-**Actual Results on 50-sample validation:**
-- Call analysis: 72% (primary strategy)
-- Associated functions: 16% (from pbt_functions table)
-- Name matching: 4%
-- Test class: ~0% (most tests aren't class-based)
-- Failed: 8%
+**Benefits**:
+- Provide actual function-under-test code to model (not just PBT)
+- Fix confusion between "function under test" vs "dependency" (issue #59)
+- Higher quality specifications with concrete implementation reference
 
-### 3. Tree-sitter Parsing Examples ✅
+### 2. Update Prompts ⏳
 
-**Implemented utilities:**
-- `parse_python(code: str) -> Node | None` - Parse Python code to AST
-- `get_node_text(node: Node, code: bytes) -> str` - Extract text from node
-- `find_nodes_by_type(root: Node, node_type: str) -> list[Node]` - Find all matching nodes
+**Files**: `src/generate/templates/deps/*.jinja2`
 
-**Parse test class to find target:** ✅
-```python
-# Implemented: parse_test_class(pbt_code: str) -> tuple[str, str | None] | None
-# Parse: class TestMyClass(unittest.TestCase)
-# Extract: ("TestMyClass", "unittest.TestCase")
-# Then: infer_target_from_test_class() → "MyClass"
+**Add section**:
+```jinja2
+{% if function_code %}
+## Function Under Test
+
+Confidence: {{ discovery_confidence }}
+Method: {{ discovery_method }}
+
+```lean
+-- Implementation discovered from test analysis
+{{ function_code }}
+```
+{% endif %}
 ```
 
-**Parse method calls in test:** ✅
+### 3. Track Metrics ⏳
+
+**File**: `src/generate/scaffold/quality_assessment.py`
+
+**Add to metrics**:
 ```python
-# Implemented: extract_test_calls(pbt_code: str) -> list[tuple[str, str]]
-# Parse: self.klass(key)
-# Extract: ("self.klass", "method")
-
-# Parse: hashutil.md5_file_b64('a.bin')
-# Extract: ("hashutil.md5_file_b64", "method")
-
-# Then: identify_primary_call() filters test infrastructure and returns most common
-```
-
-**Parse source field:** ❌ NOT IMPLEMENTED
-```python
-# DISCOVERY: source field is just a file path, not code content
-# Cannot parse as originally planned
-```
-
-### 4. Fix Existing Bugs ✅
-
-**Stdlib filtering:** ✅ FIXED
-```python
-# Implemented in function_discovery.py
-STDLIB_MODULES = {
-    'base64', 'hashlib', 'os', 'sys', 'json', 'pickle', 'datetime', 're',
-    'collections', 'pytest', 'hypothesis', 'numpy', 'pandas', 'torch',
-    'tensorflow', 'scipy', 'sklearn', 'requests', ...  # 60+ modules
+{
+    "function_discovered": bool,
+    "discovery_method": str,  # DiscoveryMethod enum value
+    "discovery_confidence": float,
+    "function_lines": int | None,
 }
-
-BUILTINS = set(dir(builtins))  # Fixed: was using dir(__builtins__)
-
-def is_stdlib(func_name: str) -> bool:
-    simple_name = func_name.split(".")[-1]
-    if simple_name in BUILTINS:
-        return True
-    module = func_name.split(".")[0]
-    return module in STDLIB_MODULES
 ```
 
-**Bug Fixed:** `open()` now correctly detected as builtin (was using `dir(__builtins__)` which fails when `__builtins__` is a module instead of dict)
+**Analysis questions**:
+- Does higher confidence correlate with better spec quality?
+- Does including function code improve structural faithfulness?
+- Which discovery method produces best results?
 
-**Scope-aware matching:** ✅ IMPLEMENTED
+### 4. Dependency Analysis (Future) 🔮
+
+**New function**:
 ```python
-# Implemented in queries.py: lookup_function_exact()
-# When looking for 'open':
-# 1. First try: Same-repo function (repo_id match)
-# 2. Fallback: Any repo (if no same-repo match)
-# 3. Filter: is_stdlib() prevents builtin 'open' from being considered
-```
-
-### 5. Enhanced Dependencies Analysis ⏳
-
-**Status:** Planned but NOT YET IMPLEMENTED
-
-**Would analyze function-under-test's dependencies (not PBT's):**
-```python
-def get_true_dependencies(function_code: str, repo_id: int) -> list[str]:
+def get_true_dependencies(function_code: str, repo_id: int, session: Session) -> list[str]:
     """
-    Parse function_code with tree-sitter
-    Extract all function calls
-    Filter out stdlib
-    Return custom functions that need mocking
+    Parse discovered function's dependencies using tree-sitter.
+    Filter stdlib, return only custom functions needing mocking.
     """
 ```
 
-**Current workaround:** FunctionInfo includes empty `dependencies: []` field for future use
+**Integration**:
+- Parse function_code AST for function calls
+- Filter out stdlib (reuse `is_stdlib()`)
+- Lookup each dependency in Functions table
+- Replace/augment current `deps` field with actual dependencies
 
-### 6. Integration Points ⏳
+## Implementation Order
 
-**Status:** NOT YET IMPLEMENTED - Next phase
+1. **Start simple** - Just add function code to prompt context (no metrics)
+2. **Validate impact** - Run 10-20 samples, manually review specs
+3. **Add metrics** - Track discovery_method, confidence, impact on quality
+4. **Iterate** - Use metrics to refine strategy weights, confidence thresholds
+5. **Dependency analysis** - Only after validating function code helps
 
-**Update depmock runner:** TODO
-- Use `function_discovery.discover_function_code()`
-- Get true dependencies from discovered function
-- Fall back to current approach if discovery fails
+## Success Criteria (Phase 2)
 
-**Update prompts:** TODO
-- When function code found: include it in prompt
-- When not found: use PBT-based inference (current)
-- Always indicate confidence level
+- [ ] Depmock runner uses `discover_function_code()`
+- [ ] Prompts include discovered function when confidence >0.7
+- [ ] Metrics tracked in artifacts/qa.json
+- [ ] A/B test: with vs without function code (same samples)
+- [ ] Structural faithfulness improvement measured
 
-**Track metrics:** TODO
-- `function_discovered: bool`
-- `discovery_method: DiscoveryMethod` enum
-- `discovery_confidence: float`
+## Files Modified (Future Work)
 
-### 7. Testing Strategy
+```
+src/generate/scaffold/depmock/runner.py      # Use discovery
+src/generate/templates/deps/*.jinja2         # Add function section
+src/generate/scaffold/quality_assessment.py  # Track metrics
+```
 
-**Phase 1: Validate on gold standard** ✅ DONE
-- Tested on 50 random samples
-- Measured coverage by strategy
-- 92% overall coverage achieved
+## References
 
-**Phase 2: Dashboard integration** ✅ DONE
-- Added "Function Analysis" tab to data_explorer (commit b7447a2d)
-- Shows AST-based function call analysis
-- Displays heuristic scoring for main function identification
-- Compares database metadata vs actual code usage
-
-**Phase 3: Gradual rollout** ⏳ PENDING
-- Start with high-confidence discoveries (>0.8)
-- Expand to medium confidence (>0.5)
-- Monitor quality metrics
-
-**Testing Infrastructure:** ✅ COMPLETE
-- 18 pytest tests in `test_function_discovery.py`
-- All tests passing, CI-compatible (no database required)
-- Test coverage: parsing, inference, stdlib detection, call identification
-
-## Coverage Results
-
-**Before:** 12% (Functions table exact match only)
-**After:** 92% (50-sample validation)
-**Achievement:** ✅ Exceeded 90% target
-
-**Breakdown by strategy (actual results):**
-- **+72%**: Call analysis in test body (primary strategy)
-- **+16%**: Associated functions from pbt_functions table
-- **+4%**: Name matching (exact/fuzzy)
-- **+0%**: Test class inheritance (most tests aren't class-based)
-- **-8%**: Failed to discover
-
-**Key learnings:**
-- Source field parsing NOT viable (contains file paths, not code)
-- Call analysis is the workhorse (72% coverage with high confidence)
-- Test class strategy underperformed expectations (4% vs predicted 30%)
-- Associated functions table more useful than anticipated (16%)
-
-## Implementation Steps - ACTUAL TIMELINE
-
-### Completed ✅
-
-1. **Add tree-sitter parsing utilities** ✅ DONE (commit 2a663ce8)
-   - Parse test classes, extract inheritance
-   - Parse function calls, classify types
-   - ~~Parse source field~~ (discovered: not viable)
-
-2. **Implement discovery cascade** ✅ DONE (commit 2a663ce8)
-   - Test class → target class mapping
-   - Call analysis → primary function
-   - Name matching with confidence
-   - Added: Associated functions fallback
-
-3. **Fix existing bugs** ✅ DONE (commit 2a663ce8)
-   - Stdlib filtering (fixed `open()` builtin detection)
-   - Scope-aware function lookup (prioritize same repo_id)
-   - Name collision resolution
-
-4. **Testing & validation** ✅ DONE
-   - 18 pytest tests (commit 2a663ce8)
-   - 50-sample validation (92% coverage)
-   - Dashboard integration (commit b7447a2d)
-
-5. **Code compliance fix** ✅ DONE (commit 40beb832)
-   - Changed dataclass to Pydantic BaseModel
-   - Now complies with benchmark/CLAUDE.md style guide
-
-### Pending ⏳
-
-6. **Integrate with depmock** TODO
-   - Update runner to use `discover_function_code()`
-   - Update prompts with discovered code
-   - Add confidence tracking metrics
-   - Track discovery_method in artifacts
-
-7. **Dependency analysis** TODO
-   - Implement `get_true_dependencies()` using tree-sitter
-   - Parse discovered function code for its dependencies
-   - Filter deps field using actual function dependencies
-
-## Why This Works
-
-- ✅ No database changes needed
-- ✅ tree-sitter already a dependency
-- ✅ Runtime solution (flexible, iterative)
-- ✅ Handles classes, methods, functions
-- ✅ Can improve incrementally
-- ✅ Fixes existing bugs simultaneously
-
-## Success Criteria
-
-### Phase 1: Core Implementation ✅ COMPLETE
-
-- [x] Parse 95%+ of PBT code without errors (tree-sitter handles all Python)
-- [x] Discover function code for 90%+ of samples (achieved 92%)
-- [x] Fix all name collision bugs (stdlib filtering, scope-aware matching)
-- [x] Dashboard shows discovery results (Function Analysis tab)
-- [x] Comprehensive test suite (18 tests, all passing)
-- [x] Code style compliance (Pydantic BaseModel)
-
-### Phase 2: Integration ⏳ PENDING
-
-- [ ] Precision >90% on gold standard (need manual annotation)
-- [ ] Depmock uses discovered function code
-- [ ] Prompts include discovered function with confidence level
-- [ ] Metrics tracking (discovery_method, confidence)
-- [ ] Depmock filters deps using actual function dependencies
-
-## Related Documents & Artifacts
-
-- `dependency_analysis.md` - Original problem analysis (issue #59)
-- Git commit history:
-  - `b7447a2d` - Function interdependency analysis dashboard
-  - `d3230226` - Type check fix for data-explorer
-  - `2a663ce8` - Main implementation: smart function discovery with tree-sitter
-  - `40beb832` - Code compliance fix: Pydantic BaseModel
+- Issue #59: Understand function under test vs dependency
+- `dependency_analysis.md`: Original problem analysis
 - PR #61: https://github.com/GaloisInc/fvspec/pull/61
-- Branch: `q/analyze-deps-2`
-
-## Implementation Files
-
-**Core functionality:**
-- `src/generate/scaffold/function_discovery.py` - Main discovery logic (520 lines)
-- `src/generate/scaffold/dataset/queries.py` - Database query utilities
-- `src/tests/test_function_discovery.py` - Test suite (18 tests)
-
-**Dashboard:**
-- `src/generate/scaffold/dataset/dashboard.py` - Interactive data explorer with Function Analysis tab
-
-**Data models:**
-- `FunctionInfo` - Pydantic model with name, code, type, confidence, discovery_method, dependencies
-- `DiscoveryMethod` - Enum: TEST_CLASS, CALL_ANALYSIS, NAME_MATCH, FUNCTIONS_TABLE, FAILED
