@@ -5,15 +5,16 @@ This directory contains the fvspec benchmark generation system using the `inspec
 ## Key Components
 
 - **`src/generate/scaffold/`** - Core evaluation infrastructure
-  - `task.py` - Benchmark task definition
-  - `dataset.py` - Sample loading, unit test extraction
+  - `orchestration.py` - Two-agent orchestration (impl → spec)
+  - `dataset/` - Sample loading, unit test extraction, function discovery
+  - `formalize/impl/` - Implementation agent (function + dependencies)
+  - `formalize/spec/` - Specification agent (theorem statements)
   - `quality_assessment.py` - Metrics extraction (tokens, timing, faithfulness, structural metrics)
   - `tools/declaration.py` - Lean LSP tools via MCP, cleanup, score registration
-  - `depmock/` - Dependency autoformalization system
 
 - **`src/generate/templates/`** - Jinja2 prompt templates
   - `spec/` - Spec generation prompts (functional, mvcgen, terse variants)
-  - `deps/` - Dependency translation prompts
+  - `impl/` - Implementation translation prompts
   - Shared fragments in `*/common/fragments/` (single source of truth for repeated guidance; use `{% include %}` to reduce redundancy)
 
 - **`data/pbts_full.db`** - Python property-based tests (SQLite database)
@@ -43,7 +44,7 @@ uv run ruff format && uv run ruff check && uv run pytest
 
 ## Architecture
 
-**Flow:**
+**Two-Agent Flow:**
 1. Sample N datapoints from SQLite database (SQL queries with filtering)
 2. **Unit test extraction** (per sample during dataset creation):
    - AST-based static analysis extracts concrete test cases from PBT code
@@ -51,17 +52,18 @@ uv run ruff format && uv run ruff check && uv run pytest
    - Generates LSpec test suites in Lean (Tests.lean)
    - Stored in metadata (NOT shown to model) for evaluation purposes
    - Float tests use external validation with numpy.isclose semantics
-3. Render prompts with test + dependencies
-4. Agent uses Lean LSP tools (`lean_diagnostic_messages`, `lean_goal`, `lean_multi_attempt`, `lean_local_search`)
-5. Model returns Lean code in `<code>...</code>` tags with faithfulness/interest scores
-6. Extract code, run quality assessment, save artifacts
+3. **Function discovery**: Tree-sitter based lookup (92% coverage)
+4. **Implementation Agent**: Generate function implementation → Impl.lean (zero sorry)
+5. **Signature extraction**: Parse type signatures from Impl.lean
+6. **Specification Agent**: Generate theorem statements → Spec.lean (with sorry)
+7. Extract code, run quality assessment, save artifacts
 
 **Artifacts structure:**
 ```
 artifacts/<timestamp>__<variant>/<sample_id>__<pbt_name>/
-  ├── Spec.lean         # model-generated
+  ├── Spec.lean         # theorem statements (with sorry)
+  ├── Impl.lean         # function implementations (zero sorry)
   ├── Tests.lean        # extracted unit tests
-  ├── Deps.lean         # dependencies (if any)
   └── qa.json           # quality metrics
 ```
 
