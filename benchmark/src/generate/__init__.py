@@ -61,6 +61,8 @@ def main_callback(
     ),
     ranseed: int = Option(
         None,
+        "-s",
+        "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
     list_variants: bool = Option(
@@ -237,6 +239,8 @@ def compare_variants(
     ),
     ranseed: int = Option(
         None,
+        "-s",
+        "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
     parallelism: int = Option(
