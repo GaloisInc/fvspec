@@ -10,14 +10,14 @@ from pathlib import Path
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_impl.cache import (
+from generate.scaffold.formalize.impl.cache import (
     CacheRecord,
     _cache_root,
     load_cached_dependency,
     store_dependency_result,
 )
-from generate.scaffold.formalize_impl.dataset import payloads_from_datapoint
-from generate.scaffold.formalize_impl.models import DependencyPayload, DependencyResult
+from generate.scaffold.formalize.impl.dataset import payloads_from_datapoint
+from generate.scaffold.formalize.impl.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
 
 _LEAN_IMPORT_PATTERN = re.compile(

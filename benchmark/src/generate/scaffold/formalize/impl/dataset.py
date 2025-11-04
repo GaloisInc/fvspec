@@ -11,12 +11,12 @@ from pydantic import BaseModel, ConfigDict
 from sqlmodel import Session
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_impl.cache import (
+from generate.scaffold.dataset.function_discovery import discover_function_code
+from generate.scaffold.formalize.impl.cache import (
     compute_cache_key,
     load_cached_dependency,
 )
-from generate.scaffold.formalize_impl.models import DependencyPayload
-from generate.scaffold.function_discovery import discover_function_code
+from generate.scaffold.formalize.impl.models import DependencyPayload
 
 
 def payloads_from_datapoint(

@@ -23,6 +23,10 @@ from rich.console import Console
 
 # DB models and functions
 from generate.scaffold.dataset.connection import get_engine, get_session
+from generate.scaffold.dataset.function_discovery import (
+    FunctionInfo,
+    lookup_function_exact,
+)
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.dataset.queries import (
     get_overlapping_unit_tests,
@@ -47,6 +51,9 @@ __all__ = [
     "get_session",
     "get_engine",
     "get_overlapping_unit_tests",
+    # Function discovery
+    "lookup_function_exact",
+    "FunctionInfo",
     # Shared utilities
     "datapoint_to_prompt",
     "extract_datapoint_unit_tests",

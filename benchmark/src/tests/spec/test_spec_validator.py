@@ -1,6 +1,6 @@
 """Tests for spec validation utilities."""
 
-from generate.scaffold.formalize_spec.validator import (
+from generate.scaffold.formalize.spec.validator import (
     extract_signatures,
     validate_spec_output,
 )

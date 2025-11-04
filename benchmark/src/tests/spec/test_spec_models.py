@@ -3,7 +3,7 @@
 import pytest
 from pydantic import ValidationError
 
-from generate.scaffold.formalize_spec.models import (
+from generate.scaffold.formalize.spec.models import (
     SpecPayload,
     SpecResult,
     SpecValidation,

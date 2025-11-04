@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from generate.scaffold.formalize_impl import (
+from generate.scaffold.formalize.impl import (
     DependencyPayload,
     DependencyResult,
     load_cached_dependency,
@@ -13,7 +13,7 @@ from generate.scaffold.formalize_impl import (
     store_dependency_result,
     write_dependency_artifact,
 )
-from generate.scaffold.formalize_impl.cache import (
+from generate.scaffold.formalize.impl.cache import (
     CacheProvenance,
     CacheRecord,
     read_manifest,

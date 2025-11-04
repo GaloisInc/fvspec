@@ -3,7 +3,7 @@
 from pathlib import Path
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_impl.runner import (
+from generate.scaffold.formalize.impl.runner import (
     aggregate_impl_modules,
     order_dependency_modules,
     run_formalize_impl_for_sample,

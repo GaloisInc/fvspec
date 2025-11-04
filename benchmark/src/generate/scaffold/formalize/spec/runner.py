@@ -6,8 +6,8 @@ import logging
 from pathlib import Path
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_spec.agent import spec_generation_agent
-from generate.scaffold.formalize_spec.models import SpecPayload, SpecResult
+from generate.scaffold.formalize.spec.agent import spec_generation_agent
+from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
 
 logger = logging.getLogger(__name__)
 

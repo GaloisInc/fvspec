@@ -20,11 +20,11 @@ from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
 
-from generate.scaffold.formalize_impl.cache import (
+from generate.scaffold.formalize.impl.cache import (
     CacheProvenance,
     store_dependency_result,
 )
-from generate.scaffold.formalize_impl.models import DependencyPayload, DependencyResult
+from generate.scaffold.formalize.impl.models import DependencyPayload, DependencyResult
 from generate.scaffold.tools import utilio
 from generate.templates.impl import get_dependency_prompts
 from generate.templates.impl.strings import get_dependency_strings
@@ -456,7 +456,7 @@ def create_bound_dependency_tools(
                 )
 
                 # Persist to cache
-                from generate.scaffold.formalize_impl.cache import _cache_root
+                from generate.scaffold.formalize.impl.cache import _cache_root
 
                 provenance = CacheProvenance(
                     model=str(state.model) if state.model else None,

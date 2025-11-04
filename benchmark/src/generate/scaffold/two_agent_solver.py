@@ -10,16 +10,16 @@ from inspect_ai.solver import (
 )
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_impl import (
+from generate.scaffold.dataset.function_discovery import lookup_function_exact
+from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
     function_impl_agent,
 )
-from generate.scaffold.formalize_spec import (
+from generate.scaffold.formalize.spec import (
     SpecPayload,
     spec_generation_agent,
 )
-from generate.scaffold.formalize_spec.validator import extract_signatures
-from generate.scaffold.function_discovery import lookup_function_exact
+from generate.scaffold.formalize.spec.validator import extract_signatures
 
 
 @solver  # type: ignore[misc]

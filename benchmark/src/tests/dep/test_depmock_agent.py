@@ -9,7 +9,7 @@ import pytest
 from inspect_ai.agent import AgentState
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser
 
-from generate.scaffold.formalize_impl import (
+from generate.scaffold.formalize.impl import (
     DependencyPayload,
     autoformalize_dependency_tool,
     dependency_autoformalizer,

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import re
 
-from generate.scaffold.formalize_spec.models import SpecValidation
+from generate.scaffold.formalize.spec.models import SpecValidation
 
 
 def validate_spec_output(lean_code: str, diagnostics: str) -> SpecValidation:

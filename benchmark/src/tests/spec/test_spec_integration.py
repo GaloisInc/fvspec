@@ -3,7 +3,7 @@
 import pytest
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_spec import (
+from generate.scaffold.formalize.spec import (
     SpecPayload,
     extract_signatures,
     run_spec_agent,

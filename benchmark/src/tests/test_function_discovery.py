@@ -4,7 +4,7 @@ These tests cover tree-sitter parsing, stdlib detection, and other
 database-independent functionality.
 """
 
-from generate.scaffold.function_discovery import (
+from generate.scaffold.dataset.function_discovery import (
     extract_test_calls,
     identify_primary_call,
     infer_target_from_test_class,

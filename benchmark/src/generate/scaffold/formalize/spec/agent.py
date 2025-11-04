@@ -19,8 +19,8 @@ from inspect_ai.model import (
 )
 from inspect_ai.tool import ToolCallError, ToolCallView
 
-from generate.scaffold.formalize_spec.models import SpecPayload, SpecResult
-from generate.scaffold.formalize_spec.validator import validate_spec_output
+from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
+from generate.scaffold.formalize.spec.validator import validate_spec_output
 from generate.templates.spec import get_variant_prompts
 
 logger = logging.getLogger(__name__)

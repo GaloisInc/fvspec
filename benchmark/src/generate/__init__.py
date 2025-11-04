@@ -11,7 +11,7 @@ from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.formalize_impl import (
+from generate.scaffold.formalize.impl import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyPayload,
@@ -26,8 +26,8 @@ from generate.scaffold.formalize_impl import (
     run_dependency_autoformalizer,
     scan_dependencies,
 )
-from generate.scaffold.formalize_impl.cache import CacheProvenance, read_manifest
-from generate.scaffold.formalize_impl.runner import (
+from generate.scaffold.formalize.impl.cache import CacheProvenance, read_manifest
+from generate.scaffold.formalize.impl.runner import (
     aggregate_impl_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]

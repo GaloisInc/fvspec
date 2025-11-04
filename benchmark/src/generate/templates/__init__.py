@@ -118,7 +118,7 @@ def preview_prompts(
         data_content = reservoir
 
     if prompt_type.lower() == "deps":
-        from generate.scaffold.formalize_impl.models import (
+        from generate.scaffold.formalize.impl.models import (
             DependencyPayload,
         )  # local import to avoid circular dependency
 

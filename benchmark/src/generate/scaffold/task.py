@@ -16,9 +16,9 @@ from inspect_ai.solver import (
 
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
-from generate.scaffold.formalize_impl.agent import create_bound_dependency_tools
-from generate.scaffold.formalize_impl.dataset import payloads_from_datapoint
-from generate.scaffold.formalize_impl.runner import formalize_impl_setup
+from generate.scaffold.formalize.impl.agent import create_bound_dependency_tools
+from generate.scaffold.formalize.impl.dataset import payloads_from_datapoint
+from generate.scaffold.formalize.impl.runner import formalize_impl_setup
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import (
     lean_lsp_mcp_tools,

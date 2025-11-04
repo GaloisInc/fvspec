@@ -1,12 +1,12 @@
 """Dependency autoformalization toolkit."""
 
-from generate.scaffold.formalize_impl.agent import (
+from generate.scaffold.formalize.impl.agent import (
     autoformalize_dependency_tool,
     create_bound_dependency_tools,
     dependency_autoformalizer,
 )
-from generate.scaffold.formalize_impl.agent_runner import run_dependency_agent
-from generate.scaffold.formalize_impl.autoformalizer import (
+from generate.scaffold.formalize.impl.agent_runner import run_dependency_agent
+from generate.scaffold.formalize.impl.autoformalizer import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyFatalError,
@@ -16,7 +16,7 @@ from generate.scaffold.formalize_impl.autoformalizer import (
     DependencyRunReport,
     run_dependency_autoformalizer,
 )
-from generate.scaffold.formalize_impl.cache import (
+from generate.scaffold.formalize.impl.cache import (
     CacheRecord,
     clear_cache,
     compute_cache_key,
@@ -27,18 +27,18 @@ from generate.scaffold.formalize_impl.cache import (
     store_dependency_result,
     write_dependency_artifact,
 )
-from generate.scaffold.formalize_impl.dataset import (
+from generate.scaffold.formalize.impl.dataset import (
     DependencySampleSpec,
     build_dependency_dataset,
     payloads_from_datapoint,
     scan_dependencies,
 )
-from generate.scaffold.formalize_impl.function_agent import (
+from generate.scaffold.formalize.impl.function_agent import (
     FunctionImplPayload,
     FunctionImplResult,
     function_impl_agent,
 )
-from generate.scaffold.formalize_impl.models import (
+from generate.scaffold.formalize.impl.models import (
     ArgumentRole,
     ArgumentSpec,
     CallableKind,
@@ -50,7 +50,7 @@ from generate.scaffold.formalize_impl.models import (
     NormalizationPlan,
     NormalizationStrategy,
 )
-from generate.scaffold.formalize_impl.runner import (
+from generate.scaffold.formalize.impl.runner import (
     aggregate_impl_modules,
     formalize_impl_setup,
     order_dependency_modules,
