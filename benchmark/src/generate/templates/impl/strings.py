@@ -25,7 +25,7 @@ class ErrorStrings(BaseModel, frozen=True):
 
 
 class DepsLeanStrings(BaseModel, frozen=True):
-    """Strings for Deps.lean file generation."""
+    """Strings for Impl.lean file generation."""
 
     empty: str
 
@@ -45,7 +45,7 @@ _strings_cache: DependencyStrings | None = None
 
 
 def get_dependency_strings() -> DependencyStrings:
-    """Load dependency autoformalization strings from templates/deps/common/strings.toml."""
+    """Load dependency autoformalization strings from templates/impl/common/strings.toml."""
     global _strings_cache
     if _strings_cache is not None:
         return _strings_cache
@@ -74,7 +74,7 @@ def get_dependency_strings() -> DependencyStrings:
             no_task_state=data["errors"]["no_task_state"],
         ),
         deps_lean=DepsLeanStrings(
-            empty=data["deps_lean"]["empty"],
+            empty=data["impl_lean"]["empty"],
         ),
     )
 
