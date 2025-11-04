@@ -671,9 +671,11 @@ def main():
         # Detailed scoring
         with st.expander("📊 Detailed Scoring"):
             all_scores = identification.get("all_scores", {})
-            if all_scores:
+            if all_scores and isinstance(all_scores, dict):
                 for func, data in sorted(
-                    all_scores.items(), key=lambda x: x[1]["score"], reverse=True
+                    all_scores.items(),
+                    key=lambda x: x[1]["score"],
+                    reverse=True,  # type: ignore[union-attr]
                 ):
                     score = data["score"]
                     reasons = data["reasons"]
