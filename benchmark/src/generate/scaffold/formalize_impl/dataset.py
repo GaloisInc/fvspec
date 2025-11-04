@@ -55,6 +55,8 @@ def payloads_from_datapoint(
                         function_info.discovery_method.value,
                     ),
                     usage_example=datapoint.code,  # PBT shows usage
+                    confidence=function_info.confidence,
+                    discovery_method=function_info.discovery_method.value,
                     lean_module=None,
                 )
             )

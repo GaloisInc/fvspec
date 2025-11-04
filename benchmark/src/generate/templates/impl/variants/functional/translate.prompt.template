@@ -1,4 +1,6 @@
-{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
+{% if is_function_under_test %}{% include 'impl/common/fragments/function_under_test.prompt' %}
+
+{% endif %}{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
 Provide a Lean 4 implementation by inferring its behavior from the test context below.
 
 **Function to implement**: `{{ dep_name }}`

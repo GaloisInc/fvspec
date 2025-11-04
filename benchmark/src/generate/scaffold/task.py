@@ -15,6 +15,7 @@ from inspect_ai.solver import (
 )
 
 from generate.scaffold.dataset import Datapoint, mk_dataset
+from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.formalize_impl.agent import create_bound_dependency_tools
 from generate.scaffold.formalize_impl.dataset import payloads_from_datapoint
 from generate.scaffold.formalize_impl.runner import formalize_impl_setup
@@ -64,6 +65,28 @@ def workspace_setup() -> Solver:
 
 
 @solver
+def pass_session_to_state(db_path: Path) -> Solver:
+    """Inject database session into task state for function discovery.
+
+    This solver makes a database session available to dependency payload generation,
+    enabling automatic discovery of the primary function under test.
+
+    Args:
+        db_path: Path to the pbts_full.db SQLite database
+
+    Returns:
+        Solver that stores db_path in metadata for later session creation
+    """
+
+    async def run(state: TaskState, generate: Generate) -> TaskState:
+        # Store db_path in metadata so register_dependency_tools can create sessions
+        state.metadata["db_path"] = db_path
+        return state
+
+    return run
+
+
+@solver
 def register_dependency_tools(variant: str | None = None) -> Solver:
     """Register LSP and per-dependency autoformalization tools.
 
@@ -92,7 +115,13 @@ def register_dependency_tools(variant: str | None = None) -> Solver:
         # Add dependency tools if datapoint has dependencies
         datapoint = state.metadata.get("datapoint")
         if isinstance(datapoint, Datapoint):
-            payloads = payloads_from_datapoint(datapoint)
+            # Get database session for function discovery (if available)
+            session = None
+            db_path = state.metadata.get("db_path")
+            if db_path is not None:
+                session = get_session(db_path)
+
+            payloads = payloads_from_datapoint(datapoint, session=session)
             if payloads:
                 dep_tools = create_bound_dependency_tools(payloads, variant=variant)
                 all_tools.extend(dep_tools)
@@ -135,8 +164,9 @@ def fvspec(
 
     # Load variant prompts
     system_prompt, _ = get_variant_prompts(variant)
+    db_path = DATA_DIR / datafile
     dataset = mk_dataset(
-        DATA_DIR / datafile,
+        db_path,
         now,
         variant=variant,
         sample_size=sample_size,
@@ -149,6 +179,7 @@ def fvspec(
         setup=[
             workspace_setup(),
             formalize_impl_setup(),
+            pass_session_to_state(db_path),  # Enable function discovery
             register_dependency_tools(variant=deps_variant),
         ],
         solver=[

@@ -319,6 +319,16 @@ def create_bound_dependency_tools(
     Returns:
         List of tools, one per dependency
     """
+    # Track discovered function under test (if any)
+    if payloads and "function_under_test" in payloads[0].tags:
+        discovered = payloads[0]
+        # Extract discovery method from tags (second tag is the method)
+        discovery_method = discovered.tags[1] if len(discovered.tags) > 1 else "unknown"
+        logger.info(
+            f"✓ Discovered function under test: {discovered.dep_name} "
+            f"(confidence={discovered.confidence:.2f}, method={discovery_method})"
+        )
+
     strings = get_dependency_strings()
     tools: list[Tool] = []
 

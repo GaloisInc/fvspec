@@ -691,6 +691,14 @@ class DependencyPayload(BaseModel):
     usage_example: str | None = Field(
         default=None, description="Representative usage pulled from the dataset"
     )
+    confidence: float | None = Field(
+        default=None,
+        description="Discovery confidence score (0.0-1.0) if auto-discovered",
+    )
+    discovery_method: str | None = Field(
+        default=None,
+        description="Method used to discover this function (if auto-discovered)",
+    )
     lean_module: str | None = Field(
         default=None,
         description="Optional Lean module override (otherwise derived from dep name)",
@@ -749,6 +757,12 @@ class DependencyPayload(BaseModel):
         """Lean module identifier used in prompts and caching."""
         return self.artifact.module_basename
 
+    @computed_field  # type: ignore[misc]
+    @property
+    def is_function_under_test(self) -> bool:
+        """Check if this dependency was discovered as the function under test."""
+        return "function_under_test" in self.tags
+
     def prompt_context(self) -> dict[str, object]:
         """Prepare a dictionary for Jinja template rendering."""
         callable_dict = self.callable.prompt_dict()
@@ -766,6 +780,9 @@ class DependencyPayload(BaseModel):
             "source_hash": self.source_hash or "unknown",
             "tags": list(self.tags),
             "usage_example": self.usage_example,
+            "confidence": self.confidence,
+            "discovery_method": self.discovery_method,
+            "is_function_under_test": self.is_function_under_test,
             "dep_module": self.lean_module_name,
             "callable": callable_dict,
             "module_path": callable_dict["module_path"],
@@ -785,6 +802,21 @@ class DependencyPayload(BaseModel):
         }
 
 
+class FunctionDiscoveryInfo(BaseModel):
+    """Metadata about automatic function discovery."""
+
+    model_config = ConfigDict(frozen=True)
+
+    discovered: bool = Field(..., description="Whether function was auto-discovered")
+    function_name: str | None = Field(
+        default=None, description="Name of the discovered function"
+    )
+    confidence: float | None = Field(
+        default=None, description="Discovery confidence score (0.0-1.0)"
+    )
+    method: str | None = Field(default=None, description="Method used for discovery")
+
+
 class DependencyResult(BaseModel):
     """Result metadata emitted by the autoformalization agent."""
 
@@ -798,4 +830,7 @@ class DependencyResult(BaseModel):
     )
     diagnostics: str | None = Field(
         default=None, description="Diagnostics returned by Lean, if any"
+    )
+    function_discovery: FunctionDiscoveryInfo | None = Field(
+        default=None, description="Function discovery metadata (if discovered)"
     )
