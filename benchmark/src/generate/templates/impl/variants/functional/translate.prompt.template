@@ -1,4 +1,4 @@
-{% if is_function_under_test %}{% include 'impl/common/fragments/function_under_test.prompt' %}
+{% if is_function_under_test %}{% include 'impl/common/fragments/function_under_test.prompt.template' %}
 
 {% endif %}{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
 Provide a Lean 4 implementation by inferring its behavior from the test context below.
@@ -69,6 +69,6 @@ Normalization plan:
 {% endif %}
 {% if normalization_notes %}- Notes: {{ normalization_notes }}{% endif %}
 
-{% include 'common/fragments/module_guidelines.prompt' %}
+{% include 'common/fragments/module_guidelines.prompt.template' %}
 
 {% include 'common/fragments/output_format.prompt' %}

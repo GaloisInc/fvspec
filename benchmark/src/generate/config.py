@@ -5,6 +5,16 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+# Project structure paths (relative to benchmark/ directory)
+# These are defined once here to avoid scattered Path(__file__).parent... all over
+# config.py location: benchmark/src/generate/config.py
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # benchmark/
+SRC_DIR = PROJECT_ROOT / "src"
+DATA_DIR = PROJECT_ROOT / "data"
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+LAKE_TEMPLATE_DIR = PROJECT_ROOT / "lake-template"
+TEMPLATES_DIR = SRC_DIR / "generate" / "templates"
+
 
 class AgentConfig(BaseModel):
     """Configuration for the AI agent behavior.

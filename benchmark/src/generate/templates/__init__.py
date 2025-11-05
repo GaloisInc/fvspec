@@ -1,12 +1,11 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
 import random
-from pathlib import Path
 
 import jsonlines
 from typer import Option, Typer
 
-from generate.config import load_config
+from generate.config import DATA_DIR, load_config
 from generate.templates.impl import (
     DependencyVariantRegistry,
     get_dependency_prompts,
@@ -21,8 +20,6 @@ __all__ = [
     "DependencyVariantRegistry",
     "Prompt",
 ]
-
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 app = Typer()
 DEFAULT_DATASET = "pbts.jsonl"

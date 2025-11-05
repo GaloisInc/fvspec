@@ -171,11 +171,14 @@ def test_smoke_prompt_rendering():
 
     # Test initial prompt rendering with sample data
     initial_prompt = functional_initial.render(
-        pbt_code="def test(): pass", deps=["def helper(): return 42"]
+        pbt_code="def test(): pass",
+        pbt_name="test_add",
+        function_name="add",
+        impl_signatures={"add": "def add (x y : Nat) : Nat"},
     )
     assert isinstance(initial_prompt, str)
     assert "def test(): pass" in initial_prompt
-    assert "def helper(): return 42" in initial_prompt
+    assert "def add (x y : Nat) : Nat" in initial_prompt
 
 
 def test_smoke_tool_registration():

@@ -59,15 +59,22 @@ class DependencyVariantRegistry:
             with open(metadata_path, "rb") as f:
                 metadata = tomllib.load(f)
 
+        # Check for both .prompt.template (with Jinja2) and .prompt (without)
+        system_prompt_path_template = variant_path / "system.prompt.template"
         system_prompt_path = variant_path / "system.prompt"
-        translate_prompt_path = variant_path / "translate.prompt.template"
-        refine_prompt_path = variant_path / "refine.prompt.template"
-        common_refine_path = self.templates_dir / "common" / "refine.prompt.template"
 
-        if not system_prompt_path.exists():
+        if system_prompt_path_template.exists():
+            system_prompt_text = system_prompt_path_template.read_text()
+        elif system_prompt_path.exists():
+            system_prompt_text = system_prompt_path.read_text()
+        else:
             raise FileNotFoundError(
                 f"System prompt not found for dependency variant '{name}'"
             )
+
+        translate_prompt_path = variant_path / "translate.prompt.template"
+        refine_prompt_path = variant_path / "refine.prompt.template"
+        common_refine_path = self.templates_dir / "common" / "refine.prompt.template"
         if not translate_prompt_path.exists():
             raise FileNotFoundError(
                 f"Translate prompt template not found for dependency variant '{name}'"
@@ -86,7 +93,7 @@ class DependencyVariantRegistry:
             name=name,
             style=meta.get("style", "baseline"),
             description=meta["description"],
-            system_prompt=system_prompt_path.read_text(),
+            system_prompt=system_prompt_text,
             translate_template=translate_prompt_path.read_text(),
             refine_template=refine_template,
             metadata=metadata,
