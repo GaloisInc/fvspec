@@ -119,7 +119,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         db_session = state.metadata.get("db_session")
         function_code = None
         if db_session:
-            result = lookup_function_exact(db_session, datapoint.repo_id, function_name)
+            result = lookup_function_exact(db_session, function_name, datapoint.repo_id)
             if result:
                 function_code = result.code
 
