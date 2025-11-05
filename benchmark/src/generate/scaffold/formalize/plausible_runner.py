@@ -46,9 +46,12 @@ def run_plausible(
     This function:
     1. Reads the Spec.lean file
     2. Replaces all occurrences of 'sorry' with 'plausible'
-    3. Writes to a temporary file
+    3. Overwrites the Spec.lean file with the plausible version
     4. Runs 'lake build' to compile and execute plausible tests
     5. Parses the output for success/failure/errors
+
+    Note: This overwrites the spec file with plausible instead of sorry.
+    The artifacts will contain the plausible version, not the sorry version.
 
     Args:
         spec_path: Path to the Spec.lean file
@@ -79,32 +82,25 @@ def run_plausible(
     # Replace sorry with plausible (FVAPPS approach)
     spec_plausible = spec_content.replace("sorry", "plausible")
 
-    # Write to temporary file
-    temp_spec_path = spec_path.parent / "Spec_plausible.lean"
+    # Overwrite the main Spec.lean file with plausible version
     try:
-        temp_spec_path.write_text(spec_plausible)
+        spec_path.write_text(spec_plausible)
     except Exception as e:
         return Plausibility(
-            ran=True, success=None, errors=[f"Failed to write temporary spec file: {e}"]
+            ran=True, success=None, errors=[f"Failed to write spec file: {e}"]
         )
 
     # Run lake build with timeout
     start_time = time.time()
     try:
         result = subprocess.run(
-            ["lake", "build", temp_spec_path.name],
+            ["lake", "build", spec_path.name],
             cwd=workspace_path,
             capture_output=True,
             text=True,
             timeout=timeout,
         )
         elapsed_time = time.time() - start_time
-
-        # Clean up temp file
-        try:
-            temp_spec_path.unlink()
-        except Exception:
-            pass  # Best effort cleanup
 
         # Parse results
         return _parse_plausible_output(
@@ -116,11 +112,6 @@ def run_plausible(
 
     except subprocess.TimeoutExpired:
         elapsed_time = time.time() - start_time
-        # Clean up temp file
-        try:
-            temp_spec_path.unlink()
-        except Exception:
-            pass
 
         return Plausibility(
             ran=True,
@@ -129,12 +120,6 @@ def run_plausible(
             errors=[f"Plausible execution timed out after {timeout} seconds"],
         )
     except Exception as e:
-        # Clean up temp file
-        try:
-            temp_spec_path.unlink()
-        except Exception:
-            pass
-
         return Plausibility(
             ran=True, success=None, errors=[f"Failed to execute lake build: {e}"]
         )
