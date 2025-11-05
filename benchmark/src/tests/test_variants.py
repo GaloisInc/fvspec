@@ -113,8 +113,10 @@ class TestSharedTemplates:
         assert len(config.initial_template) > 0
 
         # Should contain the common template's characteristic text
-        assert "The following Python dependencies" in config.initial_template
+        assert "Translate the following property-based test" in config.initial_template
         assert "{{ pbt_code }}" in config.initial_template
+        assert "impl_signatures" in config.initial_template
+        assert "{{ function_name }}" in config.initial_template
 
     def test_multiple_variants_share_same_initial(self):
         """Multiple variants should get identical common initial prompt."""
@@ -157,7 +159,12 @@ class TestSharedTemplates:
         assert isinstance(sys, str)
         assert len(sys) > 100
         # Should render successfully
-        rendered = init.render(pbt="test", deps=["dep"])
+        rendered = init.render(
+            pbt_code="test",
+            pbt_name="test_add",
+            function_name="add",
+            impl_signatures={},
+        )
         assert len(rendered) > 0
 
     def test_get_variant_prompts_returns_rendered_system(self):
@@ -173,13 +180,16 @@ class TestSharedTemplates:
         """Initial template should be Jinja2 Template that can render."""
         _, init = get_variant_prompts("control-functional")
 
-        # Should be able to render with variables
+        # Should be able to render with new template parameters
         rendered = init.render(
-            pbt_code="def test(): pass", deps=["def helper(): return 42"]
+            pbt_code="def test(): pass",
+            pbt_name="test_add",
+            function_name="add",
+            impl_signatures={"add": "def add (x y : Nat) : Nat"},
         )
 
         assert "def test(): pass" in rendered
-        assert "def helper(): return 42" in rendered
+        assert "def add (x y : Nat) : Nat" in rendered
 
 
 class TestTemplateContent:

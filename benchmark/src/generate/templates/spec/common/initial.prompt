@@ -1,19 +1,27 @@
-{% if deps|length > 0 %}The following Python dependencies must be formalized before writing your specification:
+Translate the following property-based test into Lean 4 theorem statements:
 
-<dependencies>
-{% for dep in deps %}
-{{ dep }}
-{% endfor %}
-</dependencies>
-
-{% include 'common/fragments/dependency_formalization.prompt' %}
-
-{% endif %}Translate the following property-based test into Lean 4:
-
-<theorem>
+<test>
 {{ pbt_code }}
-</theorem>
-{% if deps|length > 0 %}
+</test>
 
-After dependencies are formalized, use `import Fvspec.Impl` to access them in your specification.
+## Function Under Test
+Primary function: `{{ function_name }}`
+
+{% if impl_signatures %}
+## Available Function Signatures
+The following functions are already implemented in `Fvspec.Impl`:
+{% for name, sig in impl_signatures.items() %}
+- `{{ sig }}`
+{% endfor %}
+
+Use `import Fvspec.Impl` to access these implementations in your specification.
 {% endif %}
+
+## Task
+Generate Lean 4 theorem statements that capture the properties tested in the Python code:
+1. Write theorem statements with `sorry` placeholders for proofs (we're declaring, not proving!)
+2. Use the function signatures from Impl.lean
+3. Use `Fvspec.Spec` namespace
+4. Focus on capturing the test's invariants, not implementation details
+
+Output your specification in <code>...</code> tags.
