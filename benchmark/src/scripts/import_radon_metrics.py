@@ -10,7 +10,6 @@ Usage:
 
 import json
 from pathlib import Path
-from typing import Any
 
 import typer
 from rich.console import Console
@@ -61,13 +60,9 @@ class RadonMetricsDB(SQLModel, table=True):
     halstead_vocabulary: int = Field(
         description="Number of unique operators and operands"
     )
-    halstead_length: int = Field(
-        description="Total number of operators and operands"
-    )
+    halstead_length: int = Field(description="Total number of operators and operands")
     halstead_volume: float = Field(description="Program volume")
-    halstead_difficulty: float = Field(
-        description="Difficulty to understand/maintain"
-    )
+    halstead_difficulty: float = Field(description="Difficulty to understand/maintain")
     halstead_effort: float = Field(description="Effort required to implement")
     halstead_time: float = Field(description="Time to implement (seconds)")
     halstead_bugs: float = Field(description="Expected number of bugs")
@@ -129,7 +124,9 @@ def import_metrics(
 
     if dry_run:
         console.print("\n[yellow]DRY RUN MODE - No changes will be made[/yellow]")
-        console.print(f"\nWould create/update radon_metrics table with {len(metrics_data):,} rows")
+        console.print(
+            f"\nWould create/update radon_metrics table with {len(metrics_data):,} rows"
+        )
         console.print("\nSample record:")
         console.print(metrics_data[0])
         return
@@ -140,7 +137,7 @@ def import_metrics(
         console.print(f"[red]Error:[/red] Database not found: {dataset_path}")
         raise typer.Exit(code=1)
 
-    console.print(f"\n[bold]Connecting to database...[/bold]")
+    console.print("\n[bold]Connecting to database...[/bold]")
     engine = create_engine(f"sqlite:///{dataset_path}")
 
     # Drop existing table if requested
@@ -212,12 +209,12 @@ def import_metrics(
             session.commit()
 
     # Summary
-    console.print(f"\n[bold green]✓ Import complete[/bold green]")
+    console.print("\n[bold green]✓ Import complete[/bold green]")
     console.print(f"  Inserted: {inserted:,}")
     console.print(f"  Skipped: {skipped:,}")
 
     if errors:
-        console.print(f"\n[yellow]Errors encountered:[/yellow]")
+        console.print("\n[yellow]Errors encountered:[/yellow]")
         for pbt_id, error in errors[:5]:
             console.print(f"  - ID {pbt_id}: {error}")
         if len(errors) > 5:
@@ -255,8 +252,11 @@ def verify(
     with Session(engine) as session:
         # Check if table exists
         from sqlalchemy import text
+
         result = session.exec(
-            text("SELECT name FROM sqlite_master WHERE type='table' AND name='radon_metrics'")
+            text(
+                "SELECT name FROM sqlite_master WHERE type='table' AND name='radon_metrics'"
+            )
         )
         if not result.first():
             console.print("[red]✗ radon_metrics table does not exist[/red]")
