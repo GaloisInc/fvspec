@@ -8,7 +8,7 @@ import wandb
 from inspect_ai.solver import TaskState
 
 from generate.config import WandbConfig
-from generate.scaffold.quality_assessment import QualityAssessment
+from generate.scaffold.quality_assessment.models import QualityAssessment
 
 if TYPE_CHECKING:
     from wandb.sdk.wandb_run import Run
