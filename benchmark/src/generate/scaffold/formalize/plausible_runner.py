@@ -91,11 +91,11 @@ def run_plausible(
         )
 
     # Run lake build with timeout
-    # Build the Lean module (Fvspec.Spec) not the file path
+    # Build everything (no target needed)
     start_time = time.time()
     try:
         result = subprocess.run(
-            ["lake", "build", "Fvspec.Spec"],
+            ["lake", "build"],
             cwd=workspace_path,
             capture_output=True,
             text=True,
