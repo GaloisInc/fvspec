@@ -11,6 +11,7 @@ from datetime import datetime
 from pathlib import Path
 
 from inspect_ai import Task, task
+from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.dataset import Datapoint, mk_dataset
@@ -170,6 +171,25 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if spec_result.success and spec_result.lean_code:
             spec_file = workspace / "Fvspec" / "Spec.lean"
             spec_file.write_text(spec_result.lean_code)
+
+        # Set state.output so write_to_disk can persist the files
+        # The output text should contain the spec code (Impl is in workspace already)
+        output_text = spec_result.lean_code if spec_result.lean_code else ""
+        if output_text:
+            output_text = f"<code>\n{output_text}\n</code>"
+
+        state.output = ModelOutput(
+            model="orchestrated",
+            choices=[
+                ChatCompletionChoice(
+                    message=ChatMessageAssistant(
+                        content=output_text,
+                        source="generate",
+                    ),
+                    stop_reason="stop",
+                )
+            ],
+        )
 
         return state
 

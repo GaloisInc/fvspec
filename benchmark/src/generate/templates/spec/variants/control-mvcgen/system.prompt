@@ -162,7 +162,19 @@ theorem trainStep_decreases_loss (model : NNModule) (data : Tensor) (lr : Float)
 
 {% include 'common/fragments/lsp_tools.prompt' %}
 
-Include:
+## Process
+
+Before writing your final answer, work through the translation process in <analysis> tags:
+
+1. **Extract key code components**: Quote the most important parts of the Python test code, including function calls, assertions, and property checks
+2. **Identify all functions**: List out each function being tested and each dependency function referenced. It's OK for this section to be quite long.
+3. **Map property assertions**: For each assertion or property check in the test, write down what mathematical property it represents
+4. **Map types**: Determine how Python types and operations should be represented in Lean 4
+5. **Formulate theorems**: Convert the test properties into formal mathematical statements with Hoare logic pre/postconditions
+6. **Check type consistency**: Ensure your Lean 4 declarations are well-typed
+
+## Include
+
 1. **Type definitions** for dependencies (axioms/structures for torch/numpy types)
 2. **Imperative function implementations** using `do` notation, `let mut`, and `for`/`while` loops
 3. **Theorem statements** with clear pre/postconditions
