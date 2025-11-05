@@ -20,10 +20,12 @@ from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.function_discovery import lookup_function_exact
 from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
+    FunctionImplResult,
     function_impl_agent,
 )
 from generate.scaffold.formalize.spec import (
     SpecPayload,
+    SpecResult,
     spec_generation_agent,
 )
 from generate.scaffold.formalize.spec.validator import extract_signatures
@@ -138,10 +140,16 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=impl_variant,
         )
 
-        impl_result = await function_impl_agent(impl_payload, workspace)
+        # Call impl agent solver - it will store result in state.metadata["impl_result"]
+        impl_solver = function_impl_agent(impl_payload, workspace)
+        state = await impl_solver(state, generate_fn)
 
-        # Store impl result in metadata for quality assessment
-        state.metadata["impl_result"] = impl_result.model_dump()
+        # Extract result from metadata (agent stores it there)
+        impl_result_data = state.metadata.get("impl_result", {})
+        if isinstance(impl_result_data, dict):
+            impl_result = FunctionImplResult(**impl_result_data)
+        else:
+            impl_result = impl_result_data
 
         # Write Impl.lean if successful
         impl_file = workspace / "Fvspec" / "Impl.lean"
@@ -166,10 +174,16 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=spec_variant_name,
         )
 
-        spec_result = await spec_generation_agent(spec_payload, workspace)
+        # Call spec agent solver - it will store result in state.metadata["spec_result"]
+        spec_solver = spec_generation_agent(spec_payload, workspace)
+        state = await spec_solver(state, generate_fn)
 
-        # Store spec result in metadata for quality assessment
-        state.metadata["spec_result"] = spec_result.model_dump()
+        # Extract result from metadata (agent stores it there)
+        spec_result_data = state.metadata.get("spec_result", {})
+        if isinstance(spec_result_data, dict):
+            spec_result = SpecResult(**spec_result_data)
+        else:
+            spec_result = spec_result_data
 
         # Write Spec.lean if successful
         if spec_result.success and spec_result.lean_code:

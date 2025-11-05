@@ -5,6 +5,9 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+from inspect_ai.model import ModelName
+from inspect_ai.solver import TaskState
+
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.spec.agent import spec_generation_agent
 from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
@@ -41,9 +44,38 @@ async def run_spec_agent(
         variant=variant,
     )
 
+    # Create a TaskState for the solver
+    state = TaskState(
+        model=ModelName("mockllm/test"),
+        sample_id=0,
+        epoch=0,
+        input=[],
+        messages=[],
+    )
+
+    # Get the solver and call it
+    solver = spec_generation_agent(payload, workspace)
+
+    # Create a dummy generate function - the solver uses generate(state, tool_calls="loop")
+    # which will call the actual model
+    async def noop_generate(
+        state: TaskState, tool_calls: str = "loop", **kwargs
+    ) -> TaskState:
+        # This should never be called - solvers use the real generate from inspect_ai
+        raise RuntimeError("noop_generate should not be called in standalone runner")
+
     # Run agent
     logger.info(f"Running spec agent for {datapoint.name}...")
-    result = await spec_generation_agent(payload, workspace)
+
+    # Call the solver
+    state = await solver(state, noop_generate)  # type: ignore
+
+    # Extract result from metadata
+    result_data = state.metadata.get("spec_result", {})
+    if isinstance(result_data, dict):
+        result = SpecResult(**result_data)
+    else:
+        result = result_data
 
     if result.success:
         logger.info(

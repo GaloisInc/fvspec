@@ -10,11 +10,8 @@ import logging
 import re
 from pathlib import Path
 
-from inspect_ai.model import (
-    ChatMessageSystem,
-    ChatMessageUser,
-    get_model,
-)
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
 from generate.scaffold.formalize.spec.validator import validate_spec_output
@@ -23,160 +20,189 @@ from generate.templates.spec import get_variant_prompts
 logger = logging.getLogger(__name__)
 
 
-async def spec_generation_agent(
+@solver
+def spec_generation_agent(
     payload: SpecPayload,
     workspace: Path,
-    max_attempts: int = 32,
-) -> SpecResult:
-    """Generate Lean specification from PBT using impl signatures.
+) -> Solver:
+    """Generate Lean specification from PBT using solver architecture.
 
     Goal: Theorem statement that captures PBT invariants.
     Proof obligations SHOULD use 'sorry' - we're stating, not proving!
 
-    Loops until:
-    - Code compiles (no type errors)
-    - Has proper theorem statements
+    Loop terminates when model stops calling tools.
 
     Args:
         payload: Spec generation payload
         workspace: Workspace path for LSP
-        max_attempts: Maximum refinement iterations
 
     Returns:
-        Spec generation result
+        Solver that generates spec and stores result in state.metadata
     """
-    # Get spec prompts based on variant
-    system_prompt, user_template = get_variant_prompts(payload.variant)
 
-    # Prepare template context
-    context = {
-        "pbt_code": payload.pbt_code,
-        "pbt_name": payload.pbt_name,
-        "function_name": payload.function_name,
-        "impl_signatures": payload.impl_signatures,
-    }
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Check if model is available (will be None in test contexts)
+        from inspect_ai.model import get_model
 
-    # Build initial messages
-    messages = [
-        ChatMessageSystem(content=system_prompt),
-        ChatMessageUser(content=user_template.render(context)),
-    ]
+        try:
+            get_model()
+        except ValueError:
+            # No model configured (tests)
+            result = SpecResult(
+                success=False,
+                lean_code=None,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=0,
+                tool_calls=0,
+                error="No model configured",
+            )
+            state.metadata["spec_result"] = result.model_dump()
+            return state
 
-    # Try to get model (will fail in tests)
-    try:
-        model = get_model()
-    except ValueError:
-        # No model configured (tests)
-        return SpecResult(
-            success=False,
-            lean_code=None,
-            compiles=False,
-            has_sorry=False,
-            has_statements=False,
-            attempts=0,
-            tool_calls=0,
-            error="No model configured",
+        # Get spec prompts based on variant
+        system_prompt, user_template = get_variant_prompts(payload.variant)
+
+        # Prepare template context
+        context = {
+            "pbt_code": payload.pbt_code,
+            "pbt_name": payload.pbt_name,
+            "function_name": payload.function_name,
+            "impl_signatures": payload.impl_signatures,
+        }
+
+        # Build initial messages - append to state.messages
+        state.messages.append(ChatMessageSystem(content=system_prompt))
+        state.messages.append(ChatMessageUser(content=user_template.render(context)))
+
+        # Get LSP tools from workspace
+        # We'll use the same LSP tools as the impl agent
+        # (they're workspace-aware and work with any Lean file)
+        from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
+
+        tools = lean_lsp_mcp_tools()
+
+        # Add tools to state
+        state.tools = tools
+
+        # Run iterative refinement loop using generate with tool_calls="loop"
+        # This is the proper inspect_ai way - uses the injected generate function
+        # Loop terminates when model stops calling tools
+        state = await generate(state, tool_calls="loop")
+
+        # Count tool calls from message history
+        tool_calls_count = sum(
+            1 for msg in state.messages if hasattr(msg, "tool_calls") and msg.tool_calls
         )
 
-    # Get LSP tools from workspace
-    # We'll use the same LSP tools as the impl agent
-    # (they're workspace-aware and work with any Lean file)
-    from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
-
-    tools = lean_lsp_mcp_tools()
-
-    # Run iterative refinement loop using generate_loop
-    # Loop terminates when model stops calling tools
-    conversation, output = await model.generate_loop(
-        input=messages,
-        tools=tools,
-    )
-
-    # Count tool calls from message history
-    tool_calls_count = sum(
-        1 for msg in conversation if hasattr(msg, "tool_calls") and msg.tool_calls
-    )
-
-    # Calculate number of iterations (assistant responses)
-    attempts = sum(
-        1 for msg in conversation if hasattr(msg, "role") and msg.role == "assistant"
-    )
-
-    # Extract final response
-    final_message = output.message
-    if not final_message or not hasattr(final_message, "text"):
-        return SpecResult(
-            success=False,
-            lean_code=None,
-            compiles=False,
-            has_sorry=False,
-            has_statements=False,
-            attempts=attempts,
-            tool_calls=tool_calls_count,
-            error="No final message in response",
+        # Calculate number of iterations (assistant responses)
+        attempts = sum(
+            1
+            for msg in state.messages
+            if hasattr(msg, "role") and msg.role == "assistant"
         )
 
-    # Extract code from final response
-    final_text = final_message.text or ""
-    lean_code = _extract_code_block(final_text)
+        # Extract final response
+        if not state.output or not state.output.message:
+            result = SpecResult(
+                success=False,
+                lean_code=None,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error="No final message in response",
+            )
+            state.metadata["spec_result"] = result.model_dump()
+            return state
 
-    if not lean_code:
-        return SpecResult(
-            success=False,
-            lean_code=None,
-            compiles=False,
-            has_sorry=False,
-            has_statements=False,
-            attempts=attempts,
-            tool_calls=tool_calls_count,
-            error="No code block found in final response",
-        )
+        final_message = state.output.message
+        if not hasattr(final_message, "text") or not final_message.text:
+            result = SpecResult(
+                success=False,
+                lean_code=None,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error="No text in final message",
+            )
+            state.metadata["spec_result"] = result.model_dump()
+            return state
 
-    # Validate the generated code
-    # We need to check if it compiles - write to workspace and check diagnostics
-    spec_file = workspace / "Fvspec" / "Spec.lean"
-    spec_file.parent.mkdir(parents=True, exist_ok=True)
-    spec_file.write_text(lean_code)
+        # Extract code from final response
+        final_text = final_message.text
+        lean_code = _extract_code_block(final_text)
 
-    # Call lean_diagnostic_messages to check compilation
-    # We need to import and call it directly
-    from generate.scaffold.tools.declaration import call_lean_lsp_mcp
+        if not lean_code:
+            result = SpecResult(
+                success=False,
+                lean_code=None,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error="No code block found in final response",
+            )
+            state.metadata["spec_result"] = result.model_dump()
+            return state
 
-    try:
-        lsp_result = call_lean_lsp_mcp(
-            workspace=workspace,
-            tool_name="lean_diagnostic_messages",
-            arguments={"file_path": str(spec_file)},
-        )
-        diagnostics = ""
-        content = lsp_result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            diagnostics = content[0].get("text", "")
+        # Validate the generated code
+        # We need to check if it compiles - write to workspace and check diagnostics
+        spec_file = workspace / "Fvspec" / "Spec.lean"
+        spec_file.parent.mkdir(parents=True, exist_ok=True)
+        spec_file.write_text(lean_code)
 
-        validation = validate_spec_output(lean_code, diagnostics)
+        # Call lean_diagnostic_messages to check compilation
+        # We need to import and call it directly
+        from generate.scaffold.tools.declaration import call_lean_lsp_mcp
 
-        return SpecResult(
-            success=validation.valid,
-            lean_code=lean_code,
-            compiles=validation.compiles,
-            has_sorry=validation.has_sorry,
-            has_statements=validation.has_statements,
-            attempts=attempts,
-            tool_calls=tool_calls_count,
-            error="; ".join(validation.errors) if validation.errors else None,
-        )
+        try:
+            lsp_result = call_lean_lsp_mcp(
+                workspace=workspace,
+                tool_name="lean_diagnostic_messages",
+                arguments={"file_path": str(spec_file)},
+            )
+            diagnostics = ""
+            content = lsp_result.get("content", [])
+            if content and isinstance(content, list) and len(content) > 0:
+                diagnostics = content[0].get("text", "")
 
-    except Exception as e:
-        return SpecResult(
-            success=False,
-            lean_code=lean_code,
-            compiles=False,
-            has_sorry=False,
-            has_statements=False,
-            attempts=attempts,
-            tool_calls=tool_calls_count,
-            error=f"Failed to validate: {e}",
-        )
+            validation = validate_spec_output(lean_code, diagnostics)
+
+            result = SpecResult(
+                success=validation.valid,
+                lean_code=lean_code,
+                compiles=validation.compiles,
+                has_sorry=validation.has_sorry,
+                has_statements=validation.has_statements,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error="; ".join(validation.errors) if validation.errors else None,
+            )
+
+        except Exception as e:
+            result = SpecResult(
+                success=False,
+                lean_code=lean_code,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error=f"Failed to validate: {e}",
+            )
+
+        # Store result in metadata for orchestration and quality assessment
+        state.metadata["spec_result"] = result.model_dump()
+
+        return state
+
+    return solve
 
 
 def _extract_code_block(content: str) -> str:

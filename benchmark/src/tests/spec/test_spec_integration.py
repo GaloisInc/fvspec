@@ -1,10 +1,13 @@
 """Integration tests for spec generation agent."""
 
 import pytest
+from inspect_ai.model import ModelName
+from inspect_ai.solver import TaskState
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.spec import (
     SpecPayload,
+    SpecResult,
     extract_signatures,
     run_spec_agent,
     spec_generation_agent,
@@ -25,7 +28,31 @@ class TestSpecAgentIntegration:
             variant="control-functional",
         )
 
-        result = await spec_generation_agent(payload, tmp_path)
+        # Create TaskState for solver
+        state = TaskState(
+            model=ModelName("mockllm/test"),
+            sample_id=0,
+            epoch=0,
+            input=[],
+            messages=[],
+        )
+
+        # Get solver and call it
+        solver = spec_generation_agent(payload, tmp_path)
+
+        # Dummy generate function
+        async def noop_generate(
+            state: TaskState, tool_calls: str = "loop", **kwargs
+        ) -> TaskState:
+            raise RuntimeError("noop_generate should not be called")
+
+        state = await solver(state, noop_generate)  # type: ignore
+
+        # Extract result from metadata
+        result_data = state.metadata.get("spec_result", {})
+        result = (
+            SpecResult(**result_data) if isinstance(result_data, dict) else result_data
+        )
 
         # Should return result indicating no model configured (test context)
         assert not result.success
