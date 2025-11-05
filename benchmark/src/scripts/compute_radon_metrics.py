@@ -21,7 +21,6 @@ from rich.table import Table
 from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.quality_assessment.radon_metrics import (
-    RadonMetrics,
     compute_metrics_for_datapoint,
 )
 from generate.scaffold.task import DATA_DIR
@@ -50,9 +49,7 @@ def compute(
     output_dir: str = typer.Option(
         "artifacts/radon_metrics", help="Output directory for results"
     ),
-    output_format: str = typer.Option(
-        "json", help="Output format: json, csv, or both"
-    ),
+    output_format: str = typer.Option("json", help="Output format: json, csv, or both"),
     show_failures: bool = typer.Option(
         False, "--show-failures", help="Show datapoints that failed analysis"
     ),
@@ -93,9 +90,7 @@ def compute(
             from generate.scaffold.dataset.queries import sample_datapoints
 
             datapoints = sample_datapoints(session, n=sample_size, ranseed=ranseed)
-            console.print(
-                f"Sampled {len(datapoints)} datapoint(s) (seed={ranseed})"
-            )
+            console.print(f"Sampled {len(datapoints)} datapoint(s) (seed={ranseed})")
         else:
             # Load all datapoints
             from sqlmodel import select
@@ -154,7 +149,7 @@ def compute(
             failed.append({"id": dp.id, "name": dp.name})
 
     # Summary statistics
-    console.print(f"\n[bold green]✓ Analysis complete[/bold green]")
+    console.print("\n[bold green]✓ Analysis complete[/bold green]")
     console.print(f"  Successful: {len(results)}/{len(datapoints)}")
     console.print(f"  Failed: {len(failed)}/{len(datapoints)}")
 
@@ -242,9 +237,7 @@ def stats(
         console.print(f"[red]Error:[/red] Database not found at {dataset_path}")
         raise typer.Exit(code=1)
 
-    console.print(
-        f"[bold]Computing statistics from {sample_size} datapoints[/bold]\n"
-    )
+    console.print(f"[bold]Computing statistics from {sample_size} datapoints[/bold]\n")
 
     # Load sample
     with get_session(dataset_path) as session:
@@ -275,19 +268,27 @@ def stats(
     def safe_stdev(values):
         return statistics.stdev(values) if len(values) > 1 else 0
 
-    console.print(f"\n[bold green]Statistics from {len(metrics_list)} samples:[/bold green]\n")
+    console.print(
+        f"\n[bold green]Statistics from {len(metrics_list)} samples:[/bold green]\n"
+    )
 
     # LOC statistics
     locs = [m.loc for m in metrics_list]
     slocs = [m.sloc for m in metrics_list]
     console.print("[bold]Lines of Code:[/bold]")
-    console.print(f"  LOC  - Mean: {safe_mean(locs):.1f}, Median: {safe_median(locs)}, Std: {safe_stdev(locs):.1f}")
-    console.print(f"  SLOC - Mean: {safe_mean(slocs):.1f}, Median: {safe_median(slocs)}, Std: {safe_stdev(slocs):.1f}")
+    console.print(
+        f"  LOC  - Mean: {safe_mean(locs):.1f}, Median: {safe_median(locs)}, Std: {safe_stdev(locs):.1f}"
+    )
+    console.print(
+        f"  SLOC - Mean: {safe_mean(slocs):.1f}, Median: {safe_median(slocs)}, Std: {safe_stdev(slocs):.1f}"
+    )
 
     # Complexity statistics
     ccs = [m.average_complexity for m in metrics_list if m.num_functions > 0]
     console.print("\n[bold]Cyclomatic Complexity:[/bold]")
-    console.print(f"  Average CC - Mean: {safe_mean(ccs):.2f}, Median: {safe_median(ccs):.2f}, Std: {safe_stdev(ccs):.2f}")
+    console.print(
+        f"  Average CC - Mean: {safe_mean(ccs):.2f}, Median: {safe_median(ccs):.2f}, Std: {safe_stdev(ccs):.2f}"
+    )
 
     # Complexity ranks distribution
     ranks = [m.complexity_rank() for m in metrics_list]
@@ -300,15 +301,21 @@ def stats(
     # Maintainability statistics
     mis = [m.maintainability_index for m in metrics_list]
     console.print("\n[bold]Maintainability Index:[/bold]")
-    console.print(f"  Mean: {safe_mean(mis):.1f}, Median: {safe_median(mis):.1f}, Std: {safe_stdev(mis):.1f}")
+    console.print(
+        f"  Mean: {safe_mean(mis):.1f}, Median: {safe_median(mis):.1f}, Std: {safe_stdev(mis):.1f}"
+    )
 
     # Halstead statistics
     volumes = [m.halstead_volume for m in metrics_list if m.halstead_volume > 0]
     console.print("\n[bold]Halstead Metrics:[/bold]")
-    console.print(f"  Volume - Mean: {safe_mean(volumes):.1f}, Median: {safe_median(volumes):.1f}")
+    console.print(
+        f"  Volume - Mean: {safe_mean(volumes):.1f}, Median: {safe_median(volumes):.1f}"
+    )
 
     bugs = [m.halstead_bugs for m in metrics_list if m.halstead_bugs > 0]
-    console.print(f"  Estimated bugs - Mean: {safe_mean(bugs):.4f}, Median: {safe_median(bugs):.4f}")
+    console.print(
+        f"  Estimated bugs - Mean: {safe_mean(bugs):.4f}, Median: {safe_median(bugs):.4f}"
+    )
 
 
 def cli():

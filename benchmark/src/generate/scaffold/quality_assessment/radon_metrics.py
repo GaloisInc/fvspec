@@ -12,7 +12,6 @@ and can be correlated with benchmark performance.
 """
 
 from dataclasses import dataclass
-from typing import cast
 
 from pydantic import BaseModel, Field
 from radon import complexity, metrics, raw

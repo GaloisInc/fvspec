@@ -115,7 +115,7 @@ def broken(x:
     return x
 """
 
-    with pytest.raises(ValueError):
+    with pytest.raises(ValueError, match="Failed to compute radon metrics"):
         RadonMetrics.from_code(code)
 
 
@@ -288,7 +288,13 @@ def test_with_helpers(a: int, b: int):
     # Should count all three functions
     assert metrics.num_functions == 3
     assert metrics.average_complexity > 0
-    assert metrics.total_complexity == sum([
-        # Each function's complexity would be counted
-        # helper: 2 (if-else), another_helper: 1, test: 1
-    ]) or metrics.total_complexity > 0
+    assert (
+        metrics.total_complexity
+        == sum(
+            [
+                # Each function's complexity would be counted
+                # helper: 2 (if-else), another_helper: 1, test: 1
+            ]
+        )
+        or metrics.total_complexity > 0
+    )
