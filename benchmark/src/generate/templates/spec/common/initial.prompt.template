@@ -20,8 +20,9 @@ Use `import Fvspec.Impl` to access these implementations in your specification.
 ## Task
 Generate Lean 4 theorem statements that capture the properties tested in the Python code:
 1. Write theorem statements with `sorry` placeholders for proofs (we're declaring, not proving!)
-2. Use the function signatures from Impl.lean
-3. Use `Fvspec.Spec` namespace
-4. Focus on capturing the test's invariants, not implementation details
+2. **Create one theorem per assertion** - if the test has multiple `assert` statements, generate a separate theorem for each one. This provides finer-grained specification coverage.
+3. Use the function signatures from Impl.lean
+4. Use `Fvspec.Spec` namespace
+5. Focus on capturing the test's invariants, not implementation details
 
 Output your specification in <code>...</code> tags.
