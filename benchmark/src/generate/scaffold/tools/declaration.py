@@ -16,6 +16,7 @@ from inspect_ai.tool import ToolCallView, ToolError, tool
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
+from generate.scaffold.wandb_logger import log_sample_to_wandb
 
 
 def call_lean_lsp_mcp(
@@ -688,6 +689,18 @@ async def write_to_disk(state: TaskState):
             variant=variant,
             workspace=workspace,
         )
+
+        # Also copy Impl.lean from workspace if it exists
+        ret_str_impl = ""
+        if workspace:
+            workspace_impl = workspace / "Fvspec" / "Impl.lean"
+            if workspace_impl.exists():
+                impl_code = workspace_impl.read_text()
+                impl_file = utilio.get_output_filepath(
+                    date_time, sample_id, "Impl.lean", variant=variant
+                )
+                ret_str_impl = utilio.writeit(impl_file, impl_code)
+
         ret_str_tests = write_unit_tests_to_disk(
             date_time, sample_id, state, variant=variant, workspace=workspace
         )
@@ -698,12 +711,17 @@ async def write_to_disk(state: TaskState):
         state.scores = _qa_to_scores(qa)
 
         # Log to wandb if enabled
-        from generate.scaffold.wandb_logger import log_sample_to_wandb
-
         log_sample_to_wandb(state)
 
         result = (
-            ret_str_dp + "\n" + ret_str_c + "\n" + ret_str_tests + "\n" + ret_str_qa
+            ret_str_dp
+            + "\n"
+            + ret_str_c
+            + ("\n" + ret_str_impl if ret_str_impl else "")
+            + "\n"
+            + ret_str_tests
+            + "\n"
+            + ret_str_qa
         )
     else:
         result = (

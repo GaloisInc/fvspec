@@ -1,0 +1,27 @@
+## ⚠️  PRIMARY FUNCTION UNDER TEST ⚠️
+
+This dependency was **automatically discovered** as the MAIN function being tested by the property-based test:
+
+- **Function name**: `{{ dep_name }}`
+- **Discovery confidence**: {{ confidence | round(2) }}
+- **Discovery method**: {{ discovery_method }}
+
+**This is the PRIMARY implementation target** - you must implement it COMPLETELY with **ZERO `sorry` placeholders**.
+
+### Usage Context
+
+The property-based test below shows how this function is used in practice:
+
+```python
+{{ usage_example }}
+```
+
+### Requirements for This Function
+
+1. **FULLY COMPUTABLE implementation** - Use `def`, never `axiom`
+2. **ZERO `sorry` placeholders** - This requirement is STRICTER than for other dependencies
+3. **Match the behavior** implied by the test usage patterns
+4. **All helper functions** it needs must also be fully implemented (no `sorry`)
+5. **Type correctness** - All types must be properly specified and correct
+
+This discovered function is the core of what needs formalization. Take extra care to ensure it is complete, correct, and fully computable.

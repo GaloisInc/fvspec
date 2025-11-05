@@ -414,7 +414,7 @@ class QualityAssessment(BaseModel):
     variant: str = Field(description="Prompt variant name")
     model: str
     token_usage: int
-    time: float
+    time: float = Field(description="Generation time in seconds")
     num_messages: int
     num_generate_messages: int
     num_input_messages: int

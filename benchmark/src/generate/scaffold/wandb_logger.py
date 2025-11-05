@@ -1,5 +1,6 @@
 """Weights & Biases integration for fvspec benchmark tracking."""
 
+import statistics
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
@@ -9,6 +10,7 @@ from inspect_ai.solver import TaskState
 
 from generate.config import WandbConfig
 from generate.scaffold.quality_assessment import QualityAssessment
+from generate.scaffold.tools import utilio
 
 if TYPE_CHECKING:
     from wandb.sdk.wandb_run import Run
@@ -211,8 +213,6 @@ class WandbLogger:
             return
 
         # Compute aggregate statistics
-        import statistics
-
         def safe_mean(values: list[float]) -> float:
             return statistics.mean(values) if values else 0.0
 
@@ -383,8 +383,6 @@ def log_sample_to_wandb(state: TaskState) -> None:
     date_time = cast(str, state.metadata.get("date_time"))
     variant = cast(str, state.metadata.get("variant"))
     sample_id = str(state.sample_id)
-
-    from generate.scaffold.tools import utilio
 
     # Get the sample directory
     sample_dir = utilio.get_sample_output_dir(date_time, sample_id, variant)

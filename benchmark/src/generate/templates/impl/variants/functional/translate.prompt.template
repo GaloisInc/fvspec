@@ -1,0 +1,74 @@
+{% if is_function_under_test %}{% include 'impl/common/fragments/function_under_test.prompt.template' %}
+
+{% endif %}{% if "pbt_function" in tags %}You are given a function name `{{ dep_name }}` that appears in a property-based test.
+Provide a Lean 4 implementation by inferring its behavior from the test context below.
+
+**Function to implement**: `{{ dep_name }}`
+
+**Test context** (infer behavior from this):
+```python
+{{ python_source }}
+```
+
+**Your task**:
+1. Analyze how `{{ dep_name }}` is used in the test
+2. Infer its signature and behavior from the test assertions
+3. Implement it in Lean 4 (for stdlib functions, use appropriate Lean libraries or provide implementation)
+4. Ensure your implementation matches the test's expectations
+
+{% else %}You are given metadata describing a Python helper that property-based tests depend on.
+Translate it into Lean 4 while preserving the observable behaviour.
+
+Dependency metadata:
+- Qualified Python name: {{ dep_name }}
+{% if module_path %}- Python module path: {{ module_path }}{% endif %}
+- Callable kind: {{ callable_kind }}
+
+{% if callable_signature %}
+Python signature:
+```python
+{{ callable_signature }}
+```
+{% endif %}
+{% if python_docstring %}
+Docstring:
+"""
+{{ python_docstring }}
+"""
+{% endif %}
+{% if callable_arguments %}
+Arguments:
+{% for arg in callable_arguments %}
+- {{ arg.name }} ({{ arg.role }}){% if arg.annotation %}: {{ arg.annotation }}{% endif %}{% if arg.default %} = {{ arg.default }}{% endif %}
+{% endfor %}
+{% endif %}
+{% if tags %}
+Tags: {{ tags | join(", ") }}
+{% endif %}
+{% if usage_example %}
+Usage example:
+```python
+{{ usage_example }}
+```
+{% endif %}
+
+Python source:
+```python
+{{ python_source }}
+```
+{% endif %}
+
+Normalization plan:
+{% if normalization_strategy == "as_is" %}
+- Implement the helper as a pure function named `{{ lean_helper_name }}` that mirrors the Python definition `{{ normalization.function_basename }}`.
+{% elif normalization_strategy == "flatten_method" %}
+- Treat the receiver parameter `{{ normalization.receiver_name }}` as an explicit argument (use `{{ normalization.receiver_alias }}` in Lean) and expose a helper function `{{ normalization.lean_helper_name }}` that replaces the method `{{ normalization.function_basename }}`.
+{% elif normalization_strategy == "structure_method" %}
+- Define a Lean structure `{{ normalization.struct_name }}` capturing the receiver state (fields: {{ normalization.struct_fields | join(", ") if normalization.struct_fields else "none discovered" }}).
+- Implement a helper `{{ normalization.lean_helper_name }}` that takes an instance (`{{ normalization.receiver_alias }}`) and returns its result{% if normalization.mutates_receiver %}, along with the updated structure{% endif %}.
+{% endif %}
+{% if normalization_notes %}- Notes: {{ normalization_notes }}{% endif %}
+
+{% include 'common/fragments/module_guidelines.prompt.template' %}
+
+{% include 'common/fragments/output_format.prompt' %}

@@ -1,13 +1,13 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
+import json
 import random
-from pathlib import Path
 
 import jsonlines
 from typer import Option, Typer
 
-from generate.config import load_config
-from generate.templates.deps import (
+from generate.config import DATA_DIR, load_config
+from generate.templates.impl import (
     DependencyVariantRegistry,
     get_dependency_prompts,
 )
@@ -21,8 +21,6 @@ __all__ = [
     "DependencyVariantRegistry",
     "Prompt",
 ]
-
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 app = Typer()
 DEFAULT_DATASET = "pbts.jsonl"
@@ -86,8 +84,6 @@ def preview_prompts(
 
     if index_file.exists():
         # Fast path: indexed sampling
-        import json
-
         with open(index_file) as f:
             index_data = json.load(f)
             offsets = index_data["offsets"]
@@ -118,7 +114,7 @@ def preview_prompts(
         data_content = reservoir
 
     if prompt_type.lower() == "deps":
-        from generate.scaffold.depmock.models import (
+        from generate.scaffold.formalize.impl.models import (
             DependencyPayload,
         )  # local import to avoid circular dependency
 
