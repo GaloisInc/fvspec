@@ -12,11 +12,13 @@ from pathlib import Path
 import pandas as pd
 import streamlit as st
 
+from generate.config import DATA_DIR
+
 
 def get_data_dir() -> Path:
     """Get the path to the data directory."""
     possible_paths = [
-        Path(__file__).parent.parent.parent / "data",
+        DATA_DIR,
         Path.cwd() / "benchmark" / "data",
         Path.cwd() / "data",
         Path(".") / "data",
@@ -25,7 +27,7 @@ def get_data_dir() -> Path:
         if path.exists():
             return path
     # Return default
-    return Path(".") / "data"
+    return DATA_DIR
 
 
 def load_summary_csv(data_dir: Path) -> pd.DataFrame | None:

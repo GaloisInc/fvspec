@@ -15,6 +15,7 @@ from pathlib import Path
 import streamlit as st
 from sqlmodel import select
 
+from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import PBTFunction
@@ -33,7 +34,7 @@ def get_data_path() -> Path:
     """Get the path to the pbts_full.db database file."""
     # Try to find the data file relative to the project root
     possible_paths = [
-        Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db",
+        DATA_DIR / "pbts_full.db",
         Path.cwd() / "benchmark" / "data" / "pbts_full.db",
         Path.cwd() / "data" / "pbts_full.db",
     ]
@@ -42,7 +43,7 @@ def get_data_path() -> Path:
             return path
 
     # If not found, return default path with helpful error
-    return Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db"
+    return DATA_DIR / "pbts_full.db"
 
 
 def get_associated_functions(data_path: Path, pbt_id: int) -> list[str]:

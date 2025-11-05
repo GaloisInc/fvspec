@@ -15,6 +15,7 @@ from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
+from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.function_discovery import lookup_function_exact
@@ -32,8 +33,6 @@ from generate.scaffold.formalize.spec.validator import extract_signatures
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
-
-DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 
 
 @solver

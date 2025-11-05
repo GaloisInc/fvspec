@@ -1,7 +1,5 @@
 """Tests for variant registry and prompt templating (SSoT)."""
 
-from pathlib import Path
-
 import pytest
 
 from generate.templates.spec import (
@@ -224,14 +222,9 @@ class TestSharedFragments:
 
     def test_shared_fragments_exist(self):
         """All expected common fragment files should exist."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
 
         assert (fragments_dir / "task_core.prompt.template").exists()
         assert (fragments_dir / "output_format.prompt").exists()
@@ -239,21 +232,16 @@ class TestSharedFragments:
 
     def test_common_initial_prompt_exists(self):
         """Common initial prompt should exist."""
-        common_dir = (
-            Path(__file__).parent.parent / "generate" / "templates" / "spec" / "common"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        common_dir = TEMPLATES_DIR / "spec" / "common"
         assert (common_dir / "initial.prompt.template").exists()
 
     def test_task_core_fragment_content(self):
         """task_core.prompt.template should have expected content."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
         content = (fragments_dir / "task_core.prompt.template").read_text()
 
         assert "## Task" in content
@@ -262,14 +250,9 @@ class TestSharedFragments:
 
     def test_output_format_fragment_content(self):
         """output_format.prompt should specify code tag format."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
         content = (fragments_dir / "output_format.prompt").read_text()
 
         assert "## Output Format" in content
@@ -278,14 +261,9 @@ class TestSharedFragments:
 
     def test_metrics_fragment_content(self):
         """metrics.prompt should describe Faithfulness and Interest."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
         content = (fragments_dir / "metrics.prompt").read_text()
 
         assert "## Metrics" in content
