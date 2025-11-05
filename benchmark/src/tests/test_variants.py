@@ -233,7 +233,7 @@ class TestSharedFragments:
             / "fragments"
         )
 
-        assert (fragments_dir / "task_core.prompt").exists()
+        assert (fragments_dir / "task_core.prompt.template").exists()
         assert (fragments_dir / "output_format.prompt").exists()
         assert (fragments_dir / "metrics.prompt").exists()
 
@@ -242,10 +242,10 @@ class TestSharedFragments:
         common_dir = (
             Path(__file__).parent.parent / "generate" / "templates" / "spec" / "common"
         )
-        assert (common_dir / "initial.prompt").exists()
+        assert (common_dir / "initial.prompt.template").exists()
 
     def test_task_core_fragment_content(self):
-        """task_core.prompt should have expected content."""
+        """task_core.prompt.template should have expected content."""
         fragments_dir = (
             Path(__file__).parent.parent
             / "generate"
@@ -254,7 +254,7 @@ class TestSharedFragments:
             / "common"
             / "fragments"
         )
-        content = (fragments_dir / "task_core.prompt").read_text()
+        content = (fragments_dir / "task_core.prompt.template").read_text()
 
         assert "## Task" in content
         assert "Hypothesis" in content

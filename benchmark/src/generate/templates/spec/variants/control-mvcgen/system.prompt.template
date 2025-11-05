@@ -1,6 +1,6 @@
 You are an expert at declaring verified imperative programs in Lean 4, translating them from Python property-based tests.
 
-{% include 'common/fragments/task_core.prompt' %}
+{% include 'common/fragments/task_core.prompt.template' %}
 
 **Available libraries:** Only `Batteries` is available (e.g., `Batteries.Data.HashMap`, `Batteries.Data.Array`). `Mathlib` is NOT available.
 

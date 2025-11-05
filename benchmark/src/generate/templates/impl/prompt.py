@@ -45,7 +45,7 @@ def get_dependency_prompts(variant: str | None = None) -> DependencyPromptBundle
 def get_impl_function_prompts(variant: str | None = None) -> tuple[str, Template]:
     """Load system/user prompts for function implementation generation.
 
-    Loads dedicated function implementation prompts from impl/variants/{variant}/function_system.prompt
+    Loads dedicated function implementation prompts from impl/variants/{variant}/function_system.prompt.template
 
     Args:
         variant: Implementation variant name (functional or mvcgen)
@@ -61,7 +61,7 @@ def get_impl_function_prompts(variant: str | None = None) -> tuple[str, Template
 
     # Load the dedicated function system prompt (not dependency prompt!)
     variant_path = _templates_dir / "variants" / variant_name
-    function_system_prompt_path = variant_path / "function_system.prompt"
+    function_system_prompt_path = variant_path / "function_system.prompt.template"
 
     if not function_system_prompt_path.exists():
         raise FileNotFoundError(

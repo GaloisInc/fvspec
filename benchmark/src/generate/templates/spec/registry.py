@@ -107,28 +107,43 @@ class VariantRegistry:
         with open(metadata_path, "rb") as f:
             metadata = tomllib.load(f)
 
-        # Load templates
+        # Load templates - check both .prompt.template (with Jinja2) and .prompt (without)
+        system_prompt_path_template = variant_path / "system.prompt.template"
         system_prompt_path = variant_path / "system.prompt"
-        initial_prompt_path = variant_path / "initial.prompt"
 
-        if not system_prompt_path.exists():
+        if system_prompt_path_template.exists():
+            system_prompt = system_prompt_path_template.read_text()
+        elif system_prompt_path.exists():
+            system_prompt = system_prompt_path.read_text()
+        else:
             raise FileNotFoundError(
-                f"System prompt not found at {system_prompt_path} for variant '{name}'"
+                f"System prompt not found at {system_prompt_path_template} or {system_prompt_path} for variant '{name}'"
             )
 
-        system_prompt = system_prompt_path.read_text()
-
         # Fall back to common initial prompt if variant doesn't have its own
-        if not initial_prompt_path.exists():
-            common_initial = self.templates_dir / "common" / "initial.prompt"
-            if not common_initial.exists():
-                raise FileNotFoundError(
-                    f"Neither variant-specific initial prompt at {initial_prompt_path} "
-                    f"nor common initial prompt at {common_initial} found for variant '{name}'"
-                )
-            initial_template = common_initial.read_text()
-        else:
+        initial_prompt_path_template = variant_path / "initial.prompt.template"
+        initial_prompt_path = variant_path / "initial.prompt"
+
+        if initial_prompt_path_template.exists():
+            initial_template = initial_prompt_path_template.read_text()
+        elif initial_prompt_path.exists():
             initial_template = initial_prompt_path.read_text()
+        else:
+            # Try common initial prompt
+            common_initial_template = (
+                self.templates_dir / "common" / "initial.prompt.template"
+            )
+            common_initial = self.templates_dir / "common" / "initial.prompt"
+
+            if common_initial_template.exists():
+                initial_template = common_initial_template.read_text()
+            elif common_initial.exists():
+                initial_template = common_initial.read_text()
+            else:
+                raise FileNotFoundError(
+                    f"Neither variant-specific initial prompt at {initial_prompt_path_template}/{initial_prompt_path} "
+                    f"nor common initial prompt at {common_initial_template}/{common_initial} found for variant '{name}'"
+                )
 
         return VariantConfig(
             name=name,
