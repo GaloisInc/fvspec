@@ -2,12 +2,16 @@
 
 import ast
 import re
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 
 from generate.scaffold.dataset import Datapoint
+from generate.scaffold.formalize.plausible_runner import Plausibility
+
+if TYPE_CHECKING:
+    from inspect_ai.scorer import Score
 
 
 class StructuralFaithfulness(BaseModel):
@@ -445,6 +449,11 @@ class QualityAssessment(BaseModel):
     unit_tests_available: bool = Field(
         False, description="Whether unit tests are available for evaluation"
     )
+    # Plausible property testing metrics
+    plausibility: Plausibility = Field(
+        default_factory=lambda: Plausibility(),
+        description="Results from running Plausible property testing",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -506,6 +515,12 @@ class QualityAssessment(BaseModel):
             # Each test is a line containing 'test "'
             num_unit_tests = unit_tests_lspec.count('test "')
 
+        # Extract plausibility metrics from metadata
+        plausibility = state.metadata.get("plausibility", Plausibility())
+        # Ensure it's a Plausibility object (may be dict from JSON deserialization)
+        if isinstance(plausibility, dict):
+            plausibility = Plausibility(**plausibility)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -531,4 +546,229 @@ class QualityAssessment(BaseModel):
             has_unit_tests=has_unit_tests,
             num_unit_tests=num_unit_tests,
             unit_tests_available=has_unit_tests,
+            plausibility=plausibility,
         )
+
+    def to_inspect_scores(self) -> dict[str, "Score"]:
+        """Export metrics as inspect_ai Score objects for viewer.
+
+        Returns:
+            Dictionary mapping score names to Score objects
+        """
+        from inspect_ai.scorer import Score
+
+        scores = {
+            "token_usage": Score(
+                value=self.token_usage,
+                explanation=f"Total tokens used: {self.token_usage}",
+            ),
+            "time": Score(
+                value=self.time,
+                explanation=f"Generation time in seconds: {self.time:.2f}",
+            ),
+            "num_messages": Score(
+                value=self.num_messages,
+                explanation=f"Total messages exchanged: {self.num_messages}",
+            ),
+            "success": Score(
+                value="C" if self.success else "I",
+                explanation="Successfully generated Lean code in <code> tags"
+                if self.success
+                else "Failed to generate valid Lean code",
+            ),
+            "num_sorries": Score(
+                value=self.num_sorries,
+                explanation=f"Number of 'sorry' placeholders in generated code: {self.num_sorries}",
+            ),
+            "lines_code": Score(
+                value=self.lines_code,
+                explanation=f"Lines of Lean code generated: {self.lines_code}",
+            ),
+            "num_deps": Score(
+                value=self.num_deps,
+                explanation=f"Number of dependencies in sample: {self.num_deps}",
+            ),
+        }
+
+        # Add optional metrics if available
+        if self.percent_lines_added is not None:
+            scores["percent_lines_added"] = Score(
+                value=self.percent_lines_added,
+                explanation=f"Percent lines added relative to Python test: {self.percent_lines_added:.1%}",
+            )
+
+        if self.faithfulness_subjective is not None:
+            scores["faithfulness_subjective"] = Score(
+                value=self.faithfulness_subjective,
+                explanation=f"AI self-reported faithfulness (0-10): {self.faithfulness_subjective:.1f}",
+            )
+
+        if self.interest_subjective is not None:
+            scores["interest_subjective"] = Score(
+                value=self.interest_subjective,
+                explanation=f"AI self-reported complexity/interest (0-10): {self.interest_subjective:.1f}",
+            )
+
+        # Add structural faithfulness metrics if available
+        if self.structural_faithfulness is not None:
+            sf = self.structural_faithfulness
+            scores["structural_faithfulness_overall"] = Score(
+                value=sf.overall,
+                explanation=f"Weighted average of structural metrics: {sf.overall:.2%}",
+            )
+            scores["parameter_coverage"] = Score(
+                value=sf.parameter_coverage,
+                explanation=f"Fraction of Python parameters found in Lean: {sf.parameter_coverage:.2%}",
+            )
+            scores["type_correspondence"] = Score(
+                value=sf.type_correspondence,
+                explanation=f"Fraction of Python types correctly mapped to Lean: {sf.type_correspondence:.2%}",
+            )
+            scores["strategy_coverage"] = Score(
+                value=sf.strategy_coverage,
+                explanation=f"Fraction of Hypothesis strategy bounds found in Lean: {sf.strategy_coverage:.2%}",
+            )
+            scores["assertion_coverage"] = Score(
+                value=sf.assertion_coverage,
+                explanation=f"Ratio of Lean properties to Python assertions: {sf.assertion_coverage:.2%}",
+            )
+            scores["dependency_coverage"] = Score(
+                value=sf.dependency_coverage,
+                explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
+            )
+
+        # Unit test metrics
+        if self.has_unit_tests:
+            scores["has_unit_tests"] = Score(
+                value=1.0,
+                explanation=f"Unit tests extracted: {self.num_unit_tests} test(s) available for evaluation",
+            )
+            scores["num_unit_tests"] = Score(
+                value=self.num_unit_tests,
+                explanation=f"Number of extracted unit tests: {self.num_unit_tests}",
+            )
+        else:
+            scores["has_unit_tests"] = Score(
+                value=0.0,
+                explanation="No unit tests could be extracted from the PBT",
+            )
+
+        # Plausible property testing metrics
+        plaus = self.plausibility
+        if plaus.ran:
+            # plausible_ran: binary indicator
+            scores["plausible_ran"] = Score(
+                value=1.0,
+                explanation="Plausible property testing was attempted",
+            )
+
+            # plausible_success: ternary (1.0=success, 0.5=unknown, 0.0=failure)
+            if plaus.success is True:
+                scores["plausible_success"] = Score(
+                    value=1.0,
+                    explanation="Plausible found no counterexamples (property seems correct)",
+                )
+            elif plaus.success is False:
+                scores["plausible_success"] = Score(
+                    value=0.0,
+                    explanation=f"Plausible found {plaus.counterexamples} counterexample(s)",
+                )
+            else:
+                scores["plausible_success"] = Score(
+                    value=0.5,
+                    explanation=f"Plausible could not run: {'; '.join(plaus.errors[:2]) if plaus.errors else 'Unknown error'}",
+                )
+
+            # plausible_time: execution time
+            if plaus.time is not None:
+                scores["plausible_time"] = Score(
+                    value=plaus.time,
+                    explanation=f"Time to run plausible: {plaus.time:.2f}s",
+                )
+
+            # plausible_counterexamples: count
+            if plaus.counterexamples > 0:
+                scores["plausible_counterexamples"] = Score(
+                    value=plaus.counterexamples,
+                    explanation=f"Counterexamples found: {plaus.counterexamples}",
+                )
+        else:
+            scores["plausible_ran"] = Score(
+                value=0.0,
+                explanation="Plausible property testing was not attempted (disabled or spec generation failed)",
+            )
+
+        return scores
+
+    def to_wandb_metrics(self) -> dict[str, float | int]:
+        """Export metrics as wandb-compatible dictionary.
+
+        Returns:
+            Dictionary of metric names to values for wandb logging
+        """
+        from typing import Any
+
+        metrics: dict[str, Any] = {
+            "sample_id": self.sample_id,
+            "sample_name": self.sample_name,
+            # Performance metrics
+            "token_usage": self.token_usage,
+            "time": self.time,
+            "num_messages": self.num_messages,
+            "num_generate_messages": self.num_generate_messages,
+            "num_input_messages": self.num_input_messages,
+            # Code metrics
+            "success": 1 if self.success else 0,
+            "num_sorries": self.num_sorries,
+            "lines_pbt": self.lines_pbt,
+            "lines_code": self.lines_code,
+            "num_deps": self.num_deps,
+        }
+
+        # Optional metrics
+        if self.percent_lines_added is not None:
+            metrics["percent_lines_added"] = self.percent_lines_added
+
+        if self.faithfulness_subjective is not None:
+            metrics["faithfulness_subjective"] = self.faithfulness_subjective
+
+        if self.interest_subjective is not None:
+            metrics["interest_subjective"] = self.interest_subjective
+
+        # Structural faithfulness metrics
+        if self.structural_faithfulness is not None:
+            sf = self.structural_faithfulness
+            metrics.update(
+                {
+                    "structural_faithfulness_overall": sf.overall,
+                    "parameter_coverage": sf.parameter_coverage,
+                    "type_correspondence": sf.type_correspondence,
+                    "strategy_coverage": sf.strategy_coverage,
+                    "assertion_coverage": sf.assertion_coverage,
+                    "dependency_coverage": sf.dependency_coverage,
+                }
+            )
+
+        # Unit test metrics
+        metrics["has_unit_tests"] = 1 if self.has_unit_tests else 0
+        metrics["num_unit_tests"] = self.num_unit_tests
+
+        # Plausible property testing metrics
+        plaus = self.plausibility
+        metrics["plausible_ran"] = 1 if plaus.ran else 0
+        if plaus.ran:
+            # Map success to numeric (1.0=success, 0.5=unknown, 0.0=failure)
+            if plaus.success is True:
+                metrics["plausible_success"] = 1.0
+            elif plaus.success is False:
+                metrics["plausible_success"] = 0.0
+            else:
+                metrics["plausible_success"] = 0.5
+
+            if plaus.time is not None:
+                metrics["plausible_time"] = plaus.time
+
+            metrics["plausible_counterexamples"] = plaus.counterexamples
+            metrics["plausible_had_errors"] = 1 if plaus.errors else 0
+
+        return metrics

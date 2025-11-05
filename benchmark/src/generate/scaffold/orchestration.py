@@ -15,7 +15,7 @@ from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
-from generate.config import DATA_DIR
+from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.function_discovery import lookup_function_exact
@@ -24,6 +24,7 @@ from generate.scaffold.formalize.impl import (
     FunctionImplResult,
     function_impl_agent,
 )
+from generate.scaffold.formalize.plausible_runner import Plausibility, run_plausible
 from generate.scaffold.formalize.spec import (
     SpecPayload,
     SpecResult,
@@ -185,9 +186,31 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             spec_result = spec_result_data
 
         # Write Spec.lean if successful
+        spec_file = workspace / "Fvspec" / "Spec.lean"
         if spec_result.success and spec_result.lean_code:
-            spec_file = workspace / "Fvspec" / "Spec.lean"
             spec_file.write_text(spec_result.lean_code)
+
+        # Phase 4: Run plausible property testing (if enabled and spec compiled)
+        plausibility = Plausibility()
+        if spec_result.success and spec_result.lean_code and spec_file.exists():
+            try:
+                config = load_config()
+                if config.plausible.enabled:
+                    plausibility = run_plausible(
+                        spec_path=spec_file,
+                        workspace_path=workspace,
+                        timeout=config.plausible.timeout,
+                    )
+            except Exception as e:
+                # If plausible fails unexpectedly, record error but continue
+                plausibility = Plausibility(
+                    ran=True,
+                    success=None,
+                    errors=[f"Unexpected error running plausible: {e}"],
+                )
+
+        # Store plausibility results in metadata for quality assessment
+        state.metadata["plausibility"] = plausibility
 
         # Set state.output so write_to_disk can persist the files
         # The output text should contain the spec code (Impl is in workspace already)

@@ -3,7 +3,7 @@
 import statistics
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, cast
 
 import wandb
 from inspect_ai.solver import TaskState
@@ -87,6 +87,9 @@ class WandbLogger:
     ) -> None:
         """Log metrics from a completed sample to wandb.
 
+        This method now delegates to QualityAssessment.to_wandb_metrics()
+        to maintain a single source of truth for metric definitions.
+
         Args:
             qa: Quality assessment with computed metrics
             step: Optional step number (defaults to auto-incrementing sample count)
@@ -98,50 +101,8 @@ class WandbLogger:
             step = self._sample_count
             self._sample_count += 1
 
-        metrics: dict[str, Any] = {
-            "sample_id": qa.sample_id,
-            "sample_name": qa.sample_name,
-            # Performance metrics
-            "token_usage": qa.token_usage,
-            "time": qa.time,
-            "num_messages": qa.num_messages,
-            "num_generate_messages": qa.num_generate_messages,
-            "num_input_messages": qa.num_input_messages,
-            # Code metrics
-            "success": 1 if qa.success else 0,
-            "num_sorries": qa.num_sorries,
-            "lines_pbt": qa.lines_pbt,
-            "lines_code": qa.lines_code,
-            "num_deps": qa.num_deps,
-        }
-
-        # Optional metrics
-        if qa.percent_lines_added is not None:
-            metrics["percent_lines_added"] = qa.percent_lines_added
-
-        if qa.faithfulness_subjective is not None:
-            metrics["faithfulness_subjective"] = qa.faithfulness_subjective
-
-        if qa.interest_subjective is not None:
-            metrics["interest_subjective"] = qa.interest_subjective
-
-        # Structural faithfulness metrics
-        if qa.structural_faithfulness is not None:
-            sf = qa.structural_faithfulness
-            metrics.update(
-                {
-                    "structural_faithfulness_overall": sf.overall,
-                    "parameter_coverage": sf.parameter_coverage,
-                    "type_correspondence": sf.type_correspondence,
-                    "strategy_coverage": sf.strategy_coverage,
-                    "assertion_coverage": sf.assertion_coverage,
-                    "dependency_coverage": sf.dependency_coverage,
-                }
-            )
-
-        # Unit test metrics
-        metrics["has_unit_tests"] = 1 if qa.has_unit_tests else 0
-        metrics["num_unit_tests"] = qa.num_unit_tests
+        # Use centralized metric export from QualityAssessment
+        metrics = qa.to_wandb_metrics()
 
         self.run.log(metrics, step=step)
 
@@ -243,6 +204,25 @@ class WandbLogger:
             if qa.structural_faithfulness is not None
         ]
 
+        # Plausible metrics
+        plausible_ran = [1 if qa.plausibility.ran else 0 for qa in all_qa]
+        plausible_success_rate = [
+            1
+            for qa in all_qa
+            if qa.plausibility.ran and qa.plausibility.success is True
+        ]
+        plausible_total_ran = sum(plausible_ran)
+        plausible_time_values = [
+            qa.plausibility.time
+            for qa in all_qa
+            if qa.plausibility.ran and qa.plausibility.time is not None
+        ]
+        plausible_counterexample_counts = [
+            qa.plausibility.counterexamples
+            for qa in all_qa
+            if qa.plausibility.ran and qa.plausibility.counterexamples > 0
+        ]
+
         summary = {
             # Aggregate performance
             "summary/total_samples": len(all_qa),
@@ -262,6 +242,19 @@ class WandbLogger:
             # Aggregate structural faithfulness
             "summary/mean_structural_faithfulness": safe_mean(structural_overall),
             "summary/std_structural_faithfulness": safe_stdev(structural_overall),
+            # Aggregate plausible metrics
+            "summary/plausible_run_rate": safe_mean(plausible_ran),
+            "summary/plausible_success_rate": (
+                len(plausible_success_rate) / plausible_total_ran
+                if plausible_total_ran > 0
+                else 0.0
+            ),
+            "summary/mean_plausible_time": safe_mean(plausible_time_values),
+            "summary/std_plausible_time": safe_stdev(plausible_time_values),
+            "summary/total_counterexamples": sum(plausible_counterexample_counts),
+            "summary/samples_with_counterexamples": len(
+                plausible_counterexample_counts
+            ),
         }
 
         # Log to wandb summary (persists after run completes)

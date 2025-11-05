@@ -541,6 +541,21 @@ import Fvspec.Spec
 def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
     """Convert QualityAssessment metrics to inspect_ai Score objects.
 
+    This function now delegates to QualityAssessment.to_inspect_scores()
+    to maintain a single source of truth for metric definitions.
+
+    Args:
+        qa: Quality assessment with computed metrics
+
+    Returns:
+        Dictionary mapping score names to Score objects for inspect_ai viewer
+    """
+    return qa.to_inspect_scores()
+
+
+def _qa_to_scores_legacy(qa: QualityAssessment) -> dict[str, Score]:
+    """Legacy implementation - DEPRECATED. Use qa.to_inspect_scores() instead.
+
     Args:
         qa: Quality assessment with computed metrics
 
@@ -641,6 +656,51 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
         scores["has_unit_tests"] = Score(
             value=0.0,
             explanation="No unit tests could be extracted from the PBT",
+        )
+
+    # Plausible property testing metrics
+    plaus = qa.plausibility
+    if plaus.ran:
+        # plausible_ran: binary indicator
+        scores["plausible_ran"] = Score(
+            value=1.0,
+            explanation="Plausible property testing was attempted",
+        )
+
+        # plausible_success: ternary (1.0=success, 0.5=unknown, 0.0=failure)
+        if plaus.success is True:
+            scores["plausible_success"] = Score(
+                value=1.0,
+                explanation="Plausible found no counterexamples (property seems correct)",
+            )
+        elif plaus.success is False:
+            scores["plausible_success"] = Score(
+                value=0.0,
+                explanation=f"Plausible found {plaus.counterexamples} counterexample(s)",
+            )
+        else:
+            scores["plausible_success"] = Score(
+                value=0.5,
+                explanation=f"Plausible could not run: {'; '.join(plaus.errors[:2]) if plaus.errors else 'Unknown error'}",
+            )
+
+        # plausible_time: execution time
+        if plaus.time is not None:
+            scores["plausible_time"] = Score(
+                value=plaus.time,
+                explanation=f"Time to run plausible: {plaus.time:.2f}s",
+            )
+
+        # plausible_counterexamples: count
+        if plaus.counterexamples > 0:
+            scores["plausible_counterexamples"] = Score(
+                value=plaus.counterexamples,
+                explanation=f"Counterexamples found: {plaus.counterexamples}",
+            )
+    else:
+        scores["plausible_ran"] = Score(
+            value=0.0,
+            explanation="Plausible property testing was not attempted (disabled or spec generation failed)",
         )
 
     return scores
