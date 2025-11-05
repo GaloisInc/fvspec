@@ -16,6 +16,8 @@ This directory contains the fvspec benchmark generation system using the `inspec
   - `spec/` - Spec generation prompts (functional, mvcgen, terse variants)
   - `impl/` - Implementation translation prompts
   - Shared fragments in `*/common/fragments/` (single source of truth for repeated guidance; use `{% include %}` to reduce redundancy)
+  - **Naming convention**: Files with Jinja2 markup use `.prompt.template`, files without use `.prompt`
+  - **⚠️ Testing note**: Be aggressive about testing beliefs on how template rendering works. Template bugs are harder to detect by default - variables may silently fail to render, includes may not resolve, or Jinja2 logic may produce unexpected output. When modifying templates, verify the actual rendered output matches expectations.
 
 - **`data/pbts_full.db`** - Python property-based tests (SQLite database)
   - **Database**: SQLite with SQLModel ORM for type-safe queries
