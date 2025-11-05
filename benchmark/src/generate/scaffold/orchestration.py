@@ -7,6 +7,7 @@ Architecture:
 The orchestration runs both agents sequentially, passing type signatures between them.
 """
 
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -94,6 +95,9 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
     """
 
     async def run(state: TaskState, generate_fn: Generate) -> TaskState:
+        # Track total time for both agents
+        start_time = time.time()
+
         # Get workspace and datapoint
         workspace_path = state.metadata.get("workspace")
         if not workspace_path:
@@ -178,6 +182,9 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if output_text:
             output_text = f"<code>\n{output_text}\n</code>"
 
+        # Calculate total time for both agents
+        total_time = time.time() - start_time
+
         state.output = ModelOutput(
             model="orchestrated",
             choices=[
@@ -189,6 +196,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     stop_reason="stop",
                 )
             ],
+            time=total_time,
         )
 
         return state
