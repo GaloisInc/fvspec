@@ -102,7 +102,7 @@ Edit `benchmark/src/generate/config.toml` for model, sample_size, variant, wandb
 
 **Python:**
 - `from datetime import datetime` (not `import datetime`)
-- Absolute imports: `from generate.scaffold.depmock.runner import ...`
+- Absolute imports: `from generate.scaffold.formalize.impl.runner import ...`
 - Pydantic models: `BaseModel`, `.model_dump_json()`, `Field()`, `frozen=True`
 - SQLModel: Use `get_session()` context managers, `.get_deps()` for JSON parsing
 

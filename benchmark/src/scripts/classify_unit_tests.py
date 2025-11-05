@@ -162,7 +162,7 @@ Tests can have multiple tags indicating orthogonal concerns:
 ### Prioritization Strategy
 Based on results, prioritize:
 1. **Quick wins**: Focus on Tier 1 (1.1-1.3) - simple and directly transcribable
-2. **Investment**: Tier 2 (2.1-2.3) - moderate difficulty, high ROI with depmocking
+2. **Investment**: Tier 2 (2.1-2.3) - moderate difficulty, high ROI with implementation formalization
 3. **Advanced**: Tier 3 (3.1-3.3) - hard but possible with state modeling
 4. **Research**: Tier 4 (4.1-4.3) - very hard, may need axioms or advanced techniques
 

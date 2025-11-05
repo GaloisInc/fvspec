@@ -84,7 +84,7 @@ def test_pickle_unpickle_cache_multiple_rounds(self, key):
 - **In Lean**: We write `def myFunc (args) := sorry` or full implementation
 - **Example**: `hashutil.md5_file_b64`, `old.sine`, `self.klass`
 
-### Dependencies (for depmocking)
+### Dependencies (for implementation formalization)
 - **Purpose**: Helper functions that the function-under-test CALLS
 - **In Lean**: We need these to write the spec, but DON'T want to fully verify them
 - **Two types**:
@@ -108,7 +108,7 @@ The `deps` field is meant to store "custom helper functions that need translatin
 
 ### What We Actually Need
 
-**For depmocking loop:**
+**For implementation formalization loop:**
 - Dependencies that the FUNCTION UNDER TEST calls (not what the PBT calls!)
 - Example: If we're testing `md5_file_b64`, we need its dependencies
 - We DON'T need dependencies of the TEST SETUP CODE
@@ -116,7 +116,7 @@ The `deps` field is meant to store "custom helper functions that need translatin
 **For main spec loop:**
 - The function under test signature
 - The property being tested (the assertion)
-- The function under test's dependencies (from depmock)
+- The function under test's dependencies (from implementation formalization)
 
 ### The Confusion
 Right now we're conflating:
@@ -130,7 +130,7 @@ Right now we're conflating:
 2. **Get TRUE dependencies** by analyzing the function-under-test's code (not the PBT code!)
 3. **Classify associated functions**:
    - Function under test: translate fully
-   - Custom helpers: depmock
+   - Custom helpers: formalize as implementations
    - Stdlib: axiomize or skip
-4. **Depmocking targets**: Only custom helpers that the function-under-test needs
+4. **Implementation formalization targets**: Only custom helpers that the function-under-test needs
 

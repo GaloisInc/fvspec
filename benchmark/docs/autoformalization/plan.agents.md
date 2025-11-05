@@ -6,4 +6,4 @@ This is ongoing
 
 ## change tests so that they reflect new structure
 
-(impl vs spec, not calling it depmock)
+✓ COMPLETED: Renamed test files from test_depmock_*.py to test_impl_*.py to reflect current terminology

@@ -352,6 +352,6 @@ Based on our discussion and lessons from Verina/CLEVER:
 
 ---
 
-**Note**: Dependency mocking discussion has been moved to `benchmark/ideas/depmock/agents.md` for detailed analysis of approaches and tradeoffs.
+**Note**: Dependency implementation formalization discussion has been moved to detailed design documents for analysis of approaches and tradeoffs.
 
 ---

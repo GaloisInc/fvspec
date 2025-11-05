@@ -12,7 +12,7 @@ from generate.scaffold.formalize.impl.runner import (
 
 def test_formalize_impl_setup_generates_stub(monkeypatch, tmp_path: Path):
     """Verify formalize_impl scaffolding writes stubs and manifest entries."""
-    monkeypatch.setenv("DEPMOCK_CACHE_ROOT", str(tmp_path / "cache"))
+    monkeypatch.setenv("IMPL_CACHE_ROOT", str(tmp_path / "cache"))
 
     def fake_sample_dir(_dt: str, sample_id: str, _variant: str) -> Path:
         path = tmp_path / "artifacts" / sample_id

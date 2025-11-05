@@ -10,10 +10,11 @@ import logging
 import re
 from pathlib import Path
 
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
+from generate.scaffold.tools.declaration import call_lean_lsp_mcp, lean_lsp_mcp_tools
 from generate.templates.impl import get_impl_function_prompts
 
 logger = logging.getLogger(__name__)
@@ -73,8 +74,6 @@ def function_impl_agent(
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         # Check if model is available (will be None in test contexts)
-        from inspect_ai.model import get_model
-
         try:
             get_model()
         except ValueError:
@@ -108,8 +107,6 @@ def function_impl_agent(
         state.messages.append(ChatMessageUser(content=user_template.render(context)))
 
         # Get LSP tools from workspace
-        from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
-
         tools = lean_lsp_mcp_tools()
 
         # Add tools to state
@@ -184,8 +181,6 @@ def function_impl_agent(
         impl_file.write_text(lean_code)
 
         # Call lean_diagnostic_messages to check compilation
-        from generate.scaffold.tools.declaration import call_lean_lsp_mcp
-
         try:
             lsp_result = call_lean_lsp_mcp(
                 workspace=workspace,

@@ -6,11 +6,20 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+import wandb
 from inspect_ai import eval, eval_set
 from typer import Option, Typer
+from wandb.errors import CommError  # type: ignore[import-untyped]
 
 from generate.config import DATA_DIR, WandbConfig, load_config
 from generate.scaffold.dataset import Datapoint
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.queries import (
+    load_datapoints_by_id as _db_load_by_id,
+)
+from generate.scaffold.dataset.queries import (
+    sample_datapoints as _db_sample,
+)
 from generate.scaffold.formalize.impl import (
     DependencyBatchError,
     DependencyExecutionRequest,
@@ -469,15 +478,6 @@ def deps_autoformalize_command(
 
     selected: list[Datapoint] = []
 
-    # Import DB query functions
-    from generate.scaffold.dataset.connection import get_session
-    from generate.scaffold.dataset.queries import (
-        load_datapoints_by_id as _db_load_by_id,
-    )
-    from generate.scaffold.dataset.queries import (
-        sample_datapoints as _db_sample,
-    )
-
     with get_session(dataset_path) as session:
         if sample_id:
             # Use efficient ID-based lookup instead of loading entire dataset
@@ -766,9 +766,6 @@ def deps_cache_clear_wandb_command() -> None:
     This allows starting fresh with cache regeneration. The next run will
     create a new cache artifact from scratch.
     """
-    import wandb
-    from wandb.errors import CommError  # type: ignore[import-untyped]
-
     if not cfg.wandb.enabled:
         print("Error: wandb is disabled in config.toml")
         print("Enable wandb to manage remote cache artifacts")

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import builtins
 import re
+from collections import Counter
 from enum import Enum
 from typing import Literal
 
@@ -344,8 +345,6 @@ def identify_primary_call(calls: list[tuple[str, str]]) -> str | None:
     }
 
     # Count non-infrastructure calls
-    from collections import Counter
-
     func_calls = [
         name for name, _ in calls if not any(name.startswith(t) for t in test_infra)
     ]

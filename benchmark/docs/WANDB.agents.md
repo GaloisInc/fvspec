@@ -242,7 +242,7 @@ Files/
 
 3. During evaluation:
    └─ Samples read from artifacts/depcache/ as needed
-      (depmock/cache.py handles cache reads/writes)
+      (formalize/impl/cache.py handles cache reads/writes)
 
 4. Run completes (in finally block):
    └─ If sync_dep_cache enabled:

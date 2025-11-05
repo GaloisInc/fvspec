@@ -1,5 +1,6 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
+import json
 import random
 
 import jsonlines
@@ -83,8 +84,6 @@ def preview_prompts(
 
     if index_file.exists():
         # Fast path: indexed sampling
-        import json
-
         with open(index_file) as f:
             index_data = json.load(f)
             offsets = index_data["offsets"]

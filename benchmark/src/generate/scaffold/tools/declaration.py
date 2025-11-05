@@ -16,6 +16,7 @@ from inspect_ai.tool import ToolCallView, ToolError, tool
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
+from generate.scaffold.wandb_logger import log_sample_to_wandb
 
 
 def call_lean_lsp_mcp(
@@ -710,8 +711,6 @@ async def write_to_disk(state: TaskState):
         state.scores = _qa_to_scores(qa)
 
         # Log to wandb if enabled
-        from generate.scaffold.wandb_logger import log_sample_to_wandb
-
         log_sample_to_wandb(state)
 
         result = (

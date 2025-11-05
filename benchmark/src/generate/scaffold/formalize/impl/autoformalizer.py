@@ -141,7 +141,7 @@ def run_dependency_autoformalizer(
     Returns:
         DependencyRunReport describing the run outcomes.
     """
-    logger = logging.getLogger("generate.depmock.autoformalizer")
+    logger = logging.getLogger("generate.impl.autoformalizer")
     started_at = datetime.now(UTC)
     outcomes: list[DependencyOutcome] = []
 

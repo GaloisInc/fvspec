@@ -33,7 +33,7 @@ def _find_project_root(start: Path | None = None) -> Path:
 
 
 def _cache_root() -> Path:
-    override = os.environ.get("DEPMOCK_CACHE_ROOT")
+    override = os.environ.get("IMPL_CACHE_ROOT")
     if override:
         root = Path(override)
     else:

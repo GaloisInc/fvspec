@@ -10,11 +10,12 @@ import logging
 import re
 from pathlib import Path
 
-from inspect_ai.model import ChatMessageSystem, ChatMessageUser
+from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
 from generate.scaffold.formalize.spec.validator import validate_spec_output
+from generate.scaffold.tools.declaration import call_lean_lsp_mcp, lean_lsp_mcp_tools
 from generate.templates.spec import get_variant_prompts
 
 logger = logging.getLogger(__name__)
@@ -42,8 +43,6 @@ def spec_generation_agent(
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         # Check if model is available (will be None in test contexts)
-        from inspect_ai.model import get_model
-
         try:
             get_model()
         except ValueError:
@@ -79,8 +78,6 @@ def spec_generation_agent(
         # Get LSP tools from workspace
         # We'll use the same LSP tools as the impl agent
         # (they're workspace-aware and work with any Lean file)
-        from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
-
         tools = lean_lsp_mcp_tools()
 
         # Add tools to state
@@ -159,7 +156,6 @@ def spec_generation_agent(
 
         # Call lean_diagnostic_messages to check compilation
         # We need to import and call it directly
-        from generate.scaffold.tools.declaration import call_lean_lsp_mcp
 
         try:
             lsp_result = call_lean_lsp_mcp(
