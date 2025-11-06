@@ -328,6 +328,58 @@ def count_lean_theorems(code: str) -> int:
     return count
 
 
+def _detect_trivial_unit_theorems(spec_code: str) -> int:
+    """Count trivial theorems that just assert Unit-typed functions equal ().
+
+    These theorems arise when:
+    1. Implementation discovery fails → stub with `def foo : Unit := sorry`
+    2. Spec agent generates trivial `theorem foo_check : foo = () := by plausible`
+    3. Plausibility passes (tautology) but provides no verification value
+
+    Pattern: theorem <name> : <ident> = () := by ...
+
+    Args:
+        spec_code: Generated Lean specification code
+
+    Returns:
+        Number of trivial Unit equality theorems detected
+
+    Examples:
+        >>> code = "theorem top_k_1_check : top_k_1 = () := by plausible"
+        >>> _detect_trivial_unit_theorems(code)
+        1
+    """
+    # Match: theorem <name> : <ident> = () := by ...
+    # Captures theorems asserting a function equals unit value
+    pattern = r"theorem\s+\w+\s*:\s*(\w+)\s*=\s*\(\)\s*:=\s*by"
+    matches = re.findall(pattern, spec_code)
+    return len(matches)
+
+
+def _detect_unit_stub_in_impl(impl_code: str) -> bool:
+    """Detect if implementation is a Unit stub (discovery failed).
+
+    When function discovery fails, impl agent generates:
+    `def <name> : Unit := sorry`
+
+    This indicates the function source wasn't found and only a placeholder exists.
+
+    Args:
+        impl_code: Implementation code from Impl.lean
+
+    Returns:
+        True if Unit stub detected, False otherwise
+
+    Examples:
+        >>> code = "def top_k_1 : Unit := sorry"
+        >>> _detect_unit_stub_in_impl(code)
+        True
+    """
+    # Match: def <name> : Unit := sorry
+    pattern = r"def\s+\w+\s*:\s*Unit\s*:=\s*sorry"
+    return bool(re.search(pattern, impl_code))
+
+
 def _flatten_dict(
     d: dict, parent_key: str = "", sep: str = "_"
 ) -> dict[str, int | float | str | None]:
@@ -549,6 +601,15 @@ class QualityAssessment(BaseModel):
         default=False,
         description="Whether the test actually invokes @given (True = PBT, False = unit test)",
     )
+    has_unit_stub: bool = Field(
+        default=False,
+        description="Whether implementation is a Unit stub (discovery failed)",
+    )
+    num_trivial_unit_theorems: int = Field(
+        default=0,
+        ge=0,
+        description="Number of trivial theorems asserting Unit functions equal ()",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -672,6 +733,16 @@ class QualityAssessment(BaseModel):
             )
         )
 
+        # Detect Unit stubbing patterns (implementation discovery failure)
+        # Check if impl has Unit stub
+        impl_code_str = state.metadata.get("impl_code", "")
+        has_unit_stub = _detect_unit_stub_in_impl(impl_code_str)
+
+        # Count trivial Unit theorems in spec
+        num_trivial_unit_theorems = 0
+        if code_snippet:
+            num_trivial_unit_theorems = _detect_trivial_unit_theorems(code_snippet)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -706,6 +777,8 @@ class QualityAssessment(BaseModel):
             spec_sig_success=spec_sig_success,
             implementation_level=implementation_level,
             actually_invokes_given=actually_invokes_given,
+            has_unit_stub=has_unit_stub,
+            num_trivial_unit_theorems=num_trivial_unit_theorems,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
@@ -877,6 +950,20 @@ class QualityAssessment(BaseModel):
             scores["percent_plausible"] = Score(
                 value=self.percent_plausible,
                 explanation=f"Fraction of theorems that kept 'by plausible': {self.percent_plausible:.1%} ({int(self.percent_plausible * self.num_theorems)}/{self.num_theorems})",
+            )
+
+        # Unit stubbing detection metrics
+        scores["has_unit_stub"] = Score(
+            value=1.0 if self.has_unit_stub else 0.0,
+            explanation="Implementation is a Unit stub (discovery failed)"
+            if self.has_unit_stub
+            else "Implementation has proper type signature",
+        )
+
+        if self.num_trivial_unit_theorems > 0:
+            scores["num_trivial_unit_theorems"] = Score(
+                value=self.num_trivial_unit_theorems,
+                explanation=f"Trivial Unit theorems detected: {self.num_trivial_unit_theorems}/{self.num_theorems} (inflates plausibility without verification value)",
             )
 
         return scores

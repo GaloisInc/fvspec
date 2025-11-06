@@ -299,12 +299,14 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
         # Phase 2: Extract type signatures from Impl.lean
         impl_signatures = {}
+        impl_code = ""
         if impl_file.exists():
             impl_code = impl_file.read_text()
             impl_signatures = extract_signatures(impl_code)
 
-        # Store signatures for debugging and quality assessment
+        # Store signatures and impl code for debugging and quality assessment
         state.metadata["impl_signatures"] = impl_signatures
+        state.metadata["impl_code"] = impl_code  # For Unit stub detection
 
         # Phase 3: Generate theorem statements with signatures
         spec_payload = SpecPayload(
