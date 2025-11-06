@@ -151,10 +151,14 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         else:
             impl_result = impl_result_data
 
-        # Write Impl.lean if successful
+        # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
         impl_file = workspace / "Fvspec" / "Impl.lean"
-        if impl_result.success and impl_result.lean_code:
+        impl_file.parent.mkdir(parents=True, exist_ok=True)
+        if impl_result.lean_code:
             impl_file.write_text(impl_result.lean_code)
+        else:
+            # No impl code - write empty file to clear any validation artifacts
+            impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
 
         # Phase 1b: Generate implementations for all dependencies
         # Get all payloads (FUT + dependencies)
@@ -229,10 +233,16 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         else:
             spec_result = spec_result_data
 
-        # Write Spec.lean if successful
-        if spec_result.success and spec_result.lean_code:
-            spec_file = workspace / "Fvspec" / "Spec.lean"
+        # Write Spec.lean - orchestration has authoritative version (clears validation artifacts)
+        spec_file = workspace / "Fvspec" / "Spec.lean"
+        spec_file.parent.mkdir(parents=True, exist_ok=True)
+        if spec_result.lean_code:
             spec_file.write_text(spec_result.lean_code)
+        else:
+            # No spec code - write empty file to clear any validation artifacts
+            spec_file.write_text(
+                "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
+            )
 
         # Set state.output so write_to_disk can persist the files
         # The output text should contain the spec code (Impl is in workspace already)

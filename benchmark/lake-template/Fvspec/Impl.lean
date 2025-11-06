@@ -1,1 +1,1 @@
--- Dependency autoformalization spat out here
+-- Autoformalized functions spat out here
