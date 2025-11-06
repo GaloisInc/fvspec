@@ -307,6 +307,17 @@ def _count_lean_properties(code: str) -> int:
     return max(1, count)  # At least 1 if code exists
 
 
+def _count_lean_theorems(code: str) -> int:
+    """Count theorem and lemma declarations in Lean code.
+
+    This counts only explicit theorem/lemma keywords, not property
+    assertions within theorem bodies.
+    """
+    count = len(re.findall(r"\btheorem\b", code))
+    count += len(re.findall(r"\blemma\b", code))
+    return count
+
+
 # Metric computation utilities
 
 
@@ -424,6 +435,9 @@ class QualityAssessment(BaseModel):
     num_input_messages: int
     success: bool
     num_sorries: int
+    num_theorems: int = Field(
+        0, description="Number of theorems/lemmas in generated spec"
+    )
     lines_pbt: int
     lines_code: int
     num_deps: int = Field(description="Number of dependencies in the sample")
@@ -469,6 +483,7 @@ class QualityAssessment(BaseModel):
         if not mtch:
             success = False
             num_sorries = 0
+            num_theorems = 0
             lines_code = 0
             percent_lines_added = 0.0
             code_snippet = ""
@@ -476,6 +491,7 @@ class QualityAssessment(BaseModel):
             code_snippet = mtch.group(1)
             success = True
             num_sorries = code_snippet.count("sorry")
+            num_theorems = _count_lean_theorems(code_snippet)
             lines_code = code_snippet.count("\n")
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
 
@@ -537,6 +553,7 @@ class QualityAssessment(BaseModel):
             lines_pbt=lines_pbt,
             success=success,
             num_sorries=num_sorries,
+            num_theorems=num_theorems,
             lines_code=lines_code,
             num_deps=len(datapoint.get_deps()),
             percent_lines_added=percent_lines_added,
@@ -579,6 +596,10 @@ class QualityAssessment(BaseModel):
             "num_sorries": Score(
                 value=self.num_sorries,
                 explanation=f"Number of 'sorry' placeholders in generated code: {self.num_sorries}",
+            ),
+            "num_theorems": Score(
+                value=self.num_theorems,
+                explanation=f"Number of theorem/lemma declarations: {self.num_theorems}",
             ),
             "lines_code": Score(
                 value=self.lines_code,
@@ -720,6 +741,7 @@ class QualityAssessment(BaseModel):
             # Code metrics
             "success": 1 if self.success else 0,
             "num_sorries": self.num_sorries,
+            "num_theorems": self.num_theorems,
             "lines_pbt": self.lines_pbt,
             "lines_code": self.lines_code,
             "num_deps": self.num_deps,
