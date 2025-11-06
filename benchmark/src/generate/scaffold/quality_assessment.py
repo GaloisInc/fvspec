@@ -730,17 +730,19 @@ class QualityAssessment(BaseModel):
                 explanation="Plausible property testing was attempted",
             )
 
-            # plausible_success: success rate (0.0 to 1.0) or None if couldn't run
-            if plaus.success is not None:
-                scores["plausible_success"] = Score(
-                    value=plaus.success,
-                    explanation=f"Plausible success rate: {plaus.success:.1%} ({plaus.num_theorems - plaus.counterexamples}/{plaus.num_theorems} theorems passed)",
+            # plausible_success: success rate (0.0 to 1.0)
+            # If there are errors, show them; otherwise show the rate
+            if plaus.errors:
+                explanation = (
+                    f"Plausible errors (0% success): {'; '.join(plaus.errors[:2])}"
                 )
             else:
-                scores["plausible_success"] = Score(
-                    value=0.0,
-                    explanation=f"Plausible could not run: {'; '.join(plaus.errors[:2]) if plaus.errors else 'Unknown error'}",
-                )
+                explanation = f"Plausible success rate: {plaus.success:.1%} ({plaus.num_theorems - plaus.counterexamples}/{plaus.num_theorems} theorems passed)"
+
+            scores["plausible_success"] = Score(
+                value=plaus.success,
+                explanation=explanation,
+            )
 
             # plausible_time: execution time
             if plaus.time is not None:

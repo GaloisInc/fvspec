@@ -207,9 +207,7 @@ class WandbLogger:
         # Plausible metrics
         plausible_ran = [1 if qa.plausibility.ran else 0 for qa in all_qa]
         plausible_success_rates = [
-            qa.plausibility.success
-            for qa in all_qa
-            if qa.plausibility.ran and qa.plausibility.success is not None
+            qa.plausibility.success for qa in all_qa if qa.plausibility.ran
         ]
         plausible_time_values = [
             qa.plausibility.time

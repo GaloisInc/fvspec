@@ -216,7 +216,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 # If plausible fails unexpectedly, record error but continue
                 plausibility = Plausibility(
                     ran=True,
-                    success=None,
+                    success=0.0,
                     errors=[f"Unexpected error running plausible: {e}"],
                 )
 

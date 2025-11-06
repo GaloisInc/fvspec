@@ -22,9 +22,9 @@ class Plausibility(BaseModel):
         default=False,
         description="Whether plausible was attempted (may be disabled in config)",
     )
-    success: float | None = Field(
-        default=None,
-        description="Success rate: (num_theorems - counterexamples) / num_theorems, or None if couldn't run",
+    success: float = Field(
+        default=0.0,
+        description="Success rate: (num_theorems - counterexamples) / num_theorems (0.0 if errors)",
     )
     time: float | None = Field(
         default=None, description="Time taken to run plausible in seconds"
@@ -72,14 +72,14 @@ def run_plausible(
         spec_content = spec_path.read_text()
     except Exception as e:
         return Plausibility(
-            ran=True, success=None, errors=[f"Failed to read spec file: {e}"]
+            ran=True, success=0.0, errors=[f"Failed to read spec file: {e}"]
         )
 
     # Check if spec contains sorry (nothing to replace if not)
     if "sorry" not in spec_content:
         return Plausibility(
             ran=True,
-            success=None,
+            success=0.0,
             errors=["No 'sorry' found in spec to replace with 'plausible'"],
         )
 
@@ -91,7 +91,7 @@ def run_plausible(
         spec_path.write_text(spec_plausible)
     except Exception as e:
         return Plausibility(
-            ran=True, success=None, errors=[f"Failed to write spec file: {e}"]
+            ran=True, success=0.0, errors=[f"Failed to write spec file: {e}"]
         )
 
     # Run lake build with timeout
@@ -121,13 +121,13 @@ def run_plausible(
 
         return Plausibility(
             ran=True,
-            success=None,
+            success=0.0,
             time=elapsed_time,
             errors=[f"Plausible execution timed out after {timeout} seconds"],
         )
     except Exception as e:
         return Plausibility(
-            ran=True, success=None, errors=[f"Failed to execute lake build: {e}"]
+            ran=True, success=0.0, errors=[f"Failed to execute lake build: {e}"]
         )
 
 
@@ -188,11 +188,11 @@ def _parse_plausible_output(
 
     # Determine success rate
     if returncode != 0 or all_errors:
-        # Compilation failed or other errors - couldn't run plausible
-        success_rate = None
+        # Compilation failed or other errors - treat as 0% success
+        success_rate = 0.0
     elif num_theorems == 0:
-        # No theorems to test
-        success_rate = None
+        # No theorems to test - treat as 0% success
+        success_rate = 0.0
     else:
         # Compute success rate: (theorems passed) / (total theorems)
         # theorems passed = num_theorems - num_counterexamples
