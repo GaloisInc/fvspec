@@ -23,6 +23,7 @@ from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
     FunctionImplResult,
     function_impl_agent,
+    payloads_from_datapoint,
 )
 from generate.scaffold.formalize.spec import (
     SpecPayload,
@@ -154,6 +155,50 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         impl_file = workspace / "Fvspec" / "Impl.lean"
         if impl_result.success and impl_result.lean_code:
             impl_file.write_text(impl_result.lean_code)
+
+        # Phase 1b: Generate implementations for all dependencies
+        # Get all payloads (FUT + dependencies)
+        all_payloads = payloads_from_datapoint(datapoint, db_session)
+        dependency_implementations: dict[str, str] = {}
+
+        for payload in all_payloads:
+            # Skip FUT - already processed in Phase 1
+            if payload.is_function_under_test:
+                continue
+
+            # Create impl payload for this dependency
+            dep_impl_payload = FunctionImplPayload(
+                pbt_code="",  # Not needed for dependencies
+                pbt_name=payload.dep_name,
+                function_name=payload.dep_name,
+                function_code=payload.python_source,
+                dependencies={},  # Will be accumulated as we process
+                variant=impl_variant,
+            )
+
+            # Run impl agent for this dependency
+            dep_impl_solver = function_impl_agent(dep_impl_payload, workspace)
+            state = await dep_impl_solver(state, generate_fn)
+
+            # Extract result from metadata
+            dep_impl_result_data = state.metadata.get("impl_result", {})
+            if isinstance(dep_impl_result_data, dict):
+                dep_impl_result = FunctionImplResult(**dep_impl_result_data)
+            else:
+                dep_impl_result = dep_impl_result_data
+
+            # Store successful implementations
+            if dep_impl_result.success and dep_impl_result.lean_code:
+                dependency_implementations[payload.dep_name] = dep_impl_result.lean_code
+                # Append to Impl.lean (dependencies go in the same file)
+                if impl_file.exists():
+                    current_content = impl_file.read_text()
+                    impl_file.write_text(
+                        f"{current_content}\n\n{dep_impl_result.lean_code}"
+                    )
+
+        # Store dependency count for metrics
+        state.metadata["num_fns_impl"] = len(all_payloads)
 
         # Phase 2: Extract type signatures from Impl.lean
         impl_signatures = {}

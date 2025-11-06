@@ -574,9 +574,9 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
             value=qa.lines_code,
             explanation=f"Lines of Lean code generated: {qa.lines_code}",
         ),
-        "num_deps": Score(
-            value=qa.num_deps,
-            explanation=f"Number of dependencies in sample: {qa.num_deps}",
+        "num_fns_impl": Score(
+            value=qa.num_fns_impl,
+            explanation=f"Number of functions autoformalized (FUT + deps): {qa.num_fns_impl}",
         ),
     }
 

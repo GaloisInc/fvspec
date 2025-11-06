@@ -422,7 +422,9 @@ class QualityAssessment(BaseModel):
     num_sorries: int
     lines_pbt: int
     lines_code: int
-    num_deps: int = Field(description="Number of dependencies in the sample")
+    num_fns_impl: int = Field(
+        description="Number of functions autoformalized (FUT + dependencies)"
+    )
     percent_lines_added: float | None = Field(
         None, description="(lines_code - lines_pbt) / lines_pbt"
     )
@@ -523,7 +525,9 @@ class QualityAssessment(BaseModel):
             success=success,
             num_sorries=num_sorries,
             lines_code=lines_code,
-            num_deps=len(datapoint.get_deps()),
+            num_fns_impl=state.metadata.get(
+                "num_fns_impl", 1
+            ),  # Default to 1 (FUT only)
             percent_lines_added=percent_lines_added,
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,
