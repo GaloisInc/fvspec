@@ -242,15 +242,32 @@ def format_jsonl_output(
         JSON string (single line)
     """
     output = {
+        "schema_version": "v1",  # Allows for future schema migrations
         "date": datetime.now().isoformat(),
         "commit": commit,
         "model": model,
-        "total_samples": metrics["total_samples"],
-        "success_rate": metrics["success_rate"],
-        "functional_success": metrics["functional_success"],
-        "mvcgen_success": metrics["mvcgen_success"],
-        "avg_quality": metrics["avg_quality"],
-        "error_types": metrics["error_types"],
+        # Core metrics - use .get() for forward compatibility
+        "total_samples": metrics.get("total_samples", 0),
+        "success_rate": metrics.get("success_rate", 0.0),
+        "functional_success": metrics.get("functional_success", 0),
+        "mvcgen_success": metrics.get("mvcgen_success", 0),
+        "avg_quality": metrics.get("avg_quality"),
+        "error_types": metrics.get("error_types", {}),
+        # Include all other metrics for extensibility
+        "extended_metrics": {
+            k: v
+            for k, v in metrics.items()
+            if k
+            not in {
+                "total_samples",
+                "success_rate",
+                "functional_success",
+                "mvcgen_success",
+                "avg_quality",
+                "error_types",
+                "quality_scores",  # Exclude large arrays
+            }
+        },
     }
     return json.dumps(output)
 
