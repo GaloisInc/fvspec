@@ -168,8 +168,31 @@ def merge_lean_modules(
         # Build filtered content by checking each definition
         filtered_lines = []
         skip_until_next_def = False
+        in_docstring = False
+        pending_docstring_lines = []
 
         for line in lines:
+            # Track docstrings (Lean uses /-- ... -/ for doc comments)
+            stripped = line.strip()
+            if stripped.startswith("/--") and not in_docstring:
+                # Start of docstring
+                pending_docstring_lines = [line]
+                if "-/" in stripped:
+                    # Single-line docstring: /-- comment -/
+                    in_docstring = False
+                    # Don't add yet - wait for next line to see if it's a definition
+                else:
+                    # Multi-line docstring starting
+                    in_docstring = True
+                continue
+            elif in_docstring:
+                # Inside multi-line docstring
+                pending_docstring_lines.append(line)
+                if "-/" in stripped:
+                    # End of multi-line docstring
+                    in_docstring = False
+                continue
+
             # Check if this line starts a definition
             # Match: structure/def/theorem/lemma/axiom/opaque/inductive/class/instance
             def_match = re.match(
@@ -181,12 +204,17 @@ def merge_lean_modules(
                 def_name = def_match.group(2)
                 if def_name in seen_definitions:
                     # Skip this definition (already exists)
+                    # Also discard its docstring
+                    pending_docstring_lines = []
                     skip_until_next_def = True
                     continue
                 else:
                     # Track this definition and include it
                     seen_definitions.add(def_name)
                     skip_until_next_def = False
+                    # Add any pending docstring before the definition
+                    filtered_lines.extend(pending_docstring_lines)
+                    pending_docstring_lines = []
                     filtered_lines.append(line)
             else:
                 # Not a definition start
@@ -208,10 +236,20 @@ def merge_lean_modules(
                             if def_name not in seen_definitions:
                                 seen_definitions.add(def_name)
                                 skip_until_next_def = False
+                                # Add pending docstring if any
+                                filtered_lines.extend(pending_docstring_lines)
+                                pending_docstring_lines = []
                                 filtered_lines.append(line)
+                            else:
+                                # Still a duplicate, keep skipping and discard docstring
+                                pending_docstring_lines = []
                     # Otherwise keep skipping
                 else:
                     # Not skipping, include the line
+                    # But if there's a pending docstring without a definition, add it
+                    if pending_docstring_lines:
+                        filtered_lines.extend(pending_docstring_lines)
+                        pending_docstring_lines = []
                     filtered_lines.append(line)
 
         # Add filtered content if non-empty

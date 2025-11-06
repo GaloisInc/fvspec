@@ -505,3 +505,42 @@ end Fvspec.Impl"""
 
         # Should include non-duplicate
         assert "def bar := 3" in merged
+
+    def test_merge_skips_docstrings_with_duplicates(self):
+        """Test that docstrings are skipped along with duplicate definitions."""
+        module1 = """import Batteries
+
+namespace Fvspec.Impl
+
+/-- Compute power of BigInt -/
+def pow (self : BigInt) (other : BigInt) : BigInt :=
+  sorry
+
+end Fvspec.Impl"""
+
+        module2 = """import Batteries
+
+namespace Fvspec.Impl
+
+/-- Compute power of BigInt -/
+def pow (self : BigInt) (other : BigInt) : BigInt :=
+  sorry
+
+/-- Helper function -/
+def helper (x : BigInt) : BigInt :=
+  sorry
+
+end Fvspec.Impl"""
+
+        merged = append_to_lean_file(module1, module2)
+
+        # Should only have one pow definition and one docstring
+        assert merged.count("def pow") == 1
+        assert merged.count("/-- Compute power of BigInt -/") == 1
+
+        # Should include new function with its docstring
+        assert merged.count("def helper") == 1
+        assert merged.count("/-- Helper function -/") == 1
+
+        # Verify no orphaned docstrings (should have equal counts)
+        assert merged.count("/--") == merged.count("-/")
