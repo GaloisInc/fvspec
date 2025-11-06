@@ -62,6 +62,23 @@ def get_associated_functions(data_path: Path, pbt_id: int) -> list[str]:
         return []
 
 
+def extract_unit_tests_from_overlaps(unit_test_overlaps: list[dict]) -> list[dict]:
+    """Extract all unit tests from unit test overlap structures.
+    
+    Args:
+        unit_test_overlaps: List of overlap dictionaries containing unit tests
+        
+    Returns:
+        List of all unit tests extracted from the overlaps
+    """
+    all_unit_tests = []
+    for overlap in unit_test_overlaps:
+        unit_tests = overlap.get("unit_tests", [])
+        if isinstance(unit_tests, list):
+            all_unit_tests.extend(unit_tests)
+    return all_unit_tests
+
+
 class FunctionCallVisitor(ast.NodeVisitor):
     """AST visitor to extract function calls from Python code."""
 
@@ -841,13 +858,8 @@ def main():
             st.info("No overlapping unit tests found for this sample")
         else:
             # Extract all unit tests from the overlap structure
-            all_unit_tests = []
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
             shared_functions = unit_test_overlaps[0].get("shared_functions", [])
-
-            for overlap in unit_test_overlaps:
-                unit_tests = overlap.get("unit_tests", [])
-                if isinstance(unit_tests, list):
-                    all_unit_tests.extend(unit_tests)
 
             # Summary metrics
             col1, col2, col3 = st.columns(3)
@@ -966,11 +978,7 @@ def main():
 
         unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
         if unit_test_overlaps and unit_test_overlaps[0].get("unit_tests"):
-            all_unit_tests = []
-            for overlap in unit_test_overlaps:
-                unit_tests = overlap.get("unit_tests", [])
-                if isinstance(unit_tests, list):
-                    all_unit_tests.extend(unit_tests)
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
 
             col1, col2 = st.columns(2)
             with col1:
