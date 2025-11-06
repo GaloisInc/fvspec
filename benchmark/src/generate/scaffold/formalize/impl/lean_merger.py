@@ -152,11 +152,72 @@ def merge_lean_modules(
                 seen_imports.add(imp)
                 unique_imports.append(imp)
 
-    # Collect all namespace content
+    # Collect namespace content with deduplication of definitions
+    # Track definition names to prevent duplicates (structures, defs, theorems, etc.)
+    seen_definitions = set()
     content_blocks = []
+
     for module in modules:
-        if module.namespace_content.strip():
-            content_blocks.append(module.namespace_content.strip())
+        if not module.namespace_content.strip():
+            continue
+
+        # Extract definition names from this module's content
+        content = module.namespace_content.strip()
+        lines = content.split("\n")
+
+        # Build filtered content by checking each definition
+        filtered_lines = []
+        skip_until_next_def = False
+
+        for line in lines:
+            # Check if this line starts a definition
+            # Match: structure/def/theorem/lemma/axiom/opaque/inductive/class/instance
+            def_match = re.match(
+                r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+(\w+)",
+                line,
+            )
+
+            if def_match:
+                def_name = def_match.group(2)
+                if def_name in seen_definitions:
+                    # Skip this definition (already exists)
+                    skip_until_next_def = True
+                    continue
+                else:
+                    # Track this definition and include it
+                    seen_definitions.add(def_name)
+                    skip_until_next_def = False
+                    filtered_lines.append(line)
+            else:
+                # Not a definition start
+                # Check if this line starts a NEW definition (to stop skipping)
+                if skip_until_next_def:
+                    # Check if this is another top-level definition
+                    next_def = re.match(
+                        r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+",
+                        line,
+                    )
+                    if next_def:
+                        # New definition found, re-evaluate it
+                        def_match = re.match(
+                            r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+(\w+)",
+                            line,
+                        )
+                        if def_match:
+                            def_name = def_match.group(2)
+                            if def_name not in seen_definitions:
+                                seen_definitions.add(def_name)
+                                skip_until_next_def = False
+                                filtered_lines.append(line)
+                    # Otherwise keep skipping
+                else:
+                    # Not skipping, include the line
+                    filtered_lines.append(line)
+
+        # Add filtered content if non-empty
+        filtered_content = "\n".join(filtered_lines).strip()
+        if filtered_content:
+            content_blocks.append(filtered_content)
 
     # Build merged file
     parts = []

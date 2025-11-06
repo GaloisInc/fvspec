@@ -430,3 +430,78 @@ end Fvspec.Impl"""
         validate_pos = impl_content.index("def validate_config")
         assert config_pos < train_pos
         assert config_pos < validate_pos
+
+
+class TestDeduplication:
+    """Tests for definition deduplication during merging."""
+
+    def test_merge_skips_duplicate_definitions(self):
+        """Test that duplicate definitions are skipped during merge."""
+        # First module with pow function
+        module1 = """import Batteries
+
+namespace Fvspec.Impl
+
+structure BigInt where
+  sign : Int
+  digits : Array Nat
+
+def pow (self : BigInt) (other : BigInt) : BigInt :=
+  sorry
+
+end Fvspec.Impl"""
+
+        # Second module with duplicate pow and new helper
+        module2 = """import Batteries
+
+namespace Fvspec.Impl
+
+structure BigInt where
+  sign : Int
+  digits : Array Nat
+
+def pow (self : BigInt) (other : BigInt) : BigInt :=
+  sorry
+
+def helper (x : BigInt) : BigInt :=
+  sorry
+
+end Fvspec.Impl"""
+
+        merged = append_to_lean_file(module1, module2)
+
+        # Should only have one copy of each duplicate
+        assert merged.count("structure BigInt") == 1
+        assert merged.count("def pow") == 1
+
+        # Should include the new definition
+        assert merged.count("def helper") == 1
+
+    def test_merge_preserves_first_definition(self):
+        """Test that the first definition is kept when duplicates exist."""
+        module1 = """import Batteries
+
+namespace Fvspec.Impl
+
+def foo := 1
+
+end Fvspec.Impl"""
+
+        module2 = """import Batteries
+
+namespace Fvspec.Impl
+
+def foo := 2
+
+def bar := 3
+
+end Fvspec.Impl"""
+
+        merged = append_to_lean_file(module1, module2)
+
+        # Should keep first definition (foo := 1)
+        assert "def foo := 1" in merged
+        assert "def foo := 2" not in merged
+
+        # Should include non-duplicate
+        assert "def bar := 3" in merged
