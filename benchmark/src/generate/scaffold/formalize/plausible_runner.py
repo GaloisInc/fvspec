@@ -70,7 +70,7 @@ def run_plausible(
     # Read spec content
     try:
         spec_content = spec_path.read_text()
-    except Exception as e:
+    except (OSError, UnicodeDecodeError) as e:
         return Plausibility(
             ran=True, success=0.0, errors=[f"Failed to read spec file: {e}"]
         )
@@ -89,7 +89,7 @@ def run_plausible(
     # Overwrite the main Spec.lean file with plausible version
     try:
         spec_path.write_text(spec_plausible)
-    except Exception as e:
+    except OSError as e:
         return Plausibility(
             ran=True, success=0.0, errors=[f"Failed to write spec file: {e}"]
         )
@@ -125,7 +125,7 @@ def run_plausible(
             time=elapsed_time,
             errors=[f"Plausible execution timed out after {timeout} seconds"],
         )
-    except Exception as e:
+    except (OSError, ValueError) as e:
         return Plausibility(
             ran=True, success=0.0, errors=[f"Failed to execute lake build: {e}"]
         )
