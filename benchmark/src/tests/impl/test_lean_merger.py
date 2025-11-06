@@ -544,3 +544,38 @@ end Fvspec.Impl"""
 
         # Verify no orphaned docstrings (should have equal counts)
         assert merged.count("/--") == merged.count("-/")
+
+    def test_merge_skips_duplicate_abbrev(self):
+        """Test that abbrev definitions are properly deduplicated."""
+        module1 = """import Batteries
+
+namespace Fvspec.Impl
+
+/-- Type alias for a setter function -/
+abbrev Setter := Unit → Unit → Unit → Unit
+
+def pipe (setters : List Setter) : Setter :=
+  fun inst attrib newValue =>
+    setters.foldl (fun rv setter => setter inst attrib rv) newValue
+
+end Fvspec.Impl"""
+
+        module2 = """import Batteries
+
+namespace Fvspec.Impl
+
+/-- Type alias for a setter function -/
+abbrev Setter := Unit → Unit → Unit → Unit
+
+end Fvspec.Impl"""
+
+        merged = append_to_lean_file(module1, module2)
+
+        # Should only have one Setter abbrev
+        assert merged.count("abbrev Setter") == 1
+
+        # Should keep the pipe definition
+        assert "def pipe" in merged
+
+        # Should only have one docstring for Setter
+        assert merged.count("/-- Type alias for a setter function -/") == 1

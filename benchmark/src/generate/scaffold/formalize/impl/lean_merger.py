@@ -194,9 +194,9 @@ def merge_lean_modules(
                 continue
 
             # Check if this line starts a definition
-            # Match: structure/def/theorem/lemma/axiom/opaque/inductive/class/instance
+            # Match: structure/def/theorem/lemma/axiom/opaque/inductive/class/instance/abbrev
             def_match = re.match(
-                r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+(\w+)",
+                r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)",
                 line,
             )
 
@@ -222,13 +222,13 @@ def merge_lean_modules(
                 if skip_until_next_def:
                     # Check if this is another top-level definition
                     next_def = re.match(
-                        r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+",
+                        r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+",
                         line,
                     )
                     if next_def:
                         # New definition found, re-evaluate it
                         def_match = re.match(
-                            r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance)\s+(\w+)",
+                            r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)",
                             line,
                         )
                         if def_match:
