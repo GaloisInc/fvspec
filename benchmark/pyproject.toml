@@ -40,6 +40,7 @@ classify-unit-tests = "scripts.classify_unit_tests:app"
 test-unit-extraction = "scripts.test_unit_extraction:app"
 data-explorer = "scripts.data_explorer:cli"
 unit-test-dashboard = "scripts.unit_test_dashboard:cli"
+ci-digest = "scripts.ci_digest:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
