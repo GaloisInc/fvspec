@@ -7,6 +7,7 @@ Architecture:
 The orchestration runs both agents sequentially, passing type signatures between them.
 """
 
+import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -197,7 +198,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             try:
                 config = load_config()
                 if config.plausible.enabled:
-                    # Count theorems in the spec for success rate calculation
                     theorem_count = _count_lean_theorems(spec_result.lean_code)
 
                     plausibility = run_plausible(

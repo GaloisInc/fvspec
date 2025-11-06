@@ -512,7 +512,7 @@ class QualityAssessment(BaseModel):
     )
     # Plausible property testing metrics
     plausibility: Plausibility = Field(
-        default_factory=lambda: Plausibility(),
+        default_factory=Plausibility,
         description="Results from running Plausible property testing",
     )
 
