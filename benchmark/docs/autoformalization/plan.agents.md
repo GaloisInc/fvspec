@@ -1,23 +1,20 @@
 # TODOs
 
-## ✅ RESOLVED: it looks like specs are getting added to `Impl.lean`
+## Synthesizing `Testable` instances for existentials
 
-**Status**: Fixed with defense-in-depth approach
+The core issues are:
 
-**Root causes**:
-1. Impl agent hallucinations (~50% rate generating specs when asked for impls)
-2. Conditional orchestration writes leaving validation artifacts
-3. Naive string concatenation causing "already defined" errors
+1. Vacuous existence theorems (test_acos): When Python tests have no meaningful property (just "does it
+run?"), spec agent hallucinates trivial existence statements like "function returns something"
+2. Plausible incompatibility: Even legitimate existence theorems cannot be tested by plausible because it
+cannot synthesize Testable instances for statements like ∀ x, ∃ y, P(x, y)
 
-**Solutions implemented**:
-1. **Orchestration cleanup** (commit 78f40df): Unconditional workspace file writes
-2. **Post-hoc filtering** (commit 6554cb2): Strip Fvspec.Spec namespaces from impl output
-3. **Intelligent merging** (commit feb8f86): Replace string concatenation with structured module merger
+What Python constructs legitimately map to existence statements:
+- Exception assertions: with self.assertRaises(...) → ∃ msg, f(...) = error msg ✅
+- Divisibility/factorization properties: a % b == 0 implies divisibility → ∃ k, a = k * b ✅
+- "Well-defined" claims for partial functions → ∃ result, f(x) = result ❌ (vacuous for total functions)
 
-**Documentation**:
-- Evidence analysis: `HALLUCINATION.md`
-- Filtering guide: `FILTERING_IMPLEMENTATION.md`
-- Merging guide: `LEAN_MERGER.md`
-
-**Test coverage**: 41 new tests added (22 filtering + 19 merging)
-**Impact**: 0% spec pollution, 0% "already defined" errors in artifacts 
+The test_acos case suggests we need to either:
+- Guide the spec agent away from vacuous existence theorems
+- Detect when Python tests have no meaningful property to formalize
+- Accept that some samples cannot produce interesting specifications
