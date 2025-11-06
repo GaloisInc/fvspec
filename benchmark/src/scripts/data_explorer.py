@@ -64,10 +64,10 @@ def get_associated_functions(data_path: Path, pbt_id: int) -> list[str]:
 
 def extract_unit_tests_from_overlaps(unit_test_overlaps: list[dict]) -> list[dict]:
     """Extract all unit tests from unit test overlap structures.
-    
+
     Args:
         unit_test_overlaps: List of overlap dictionaries containing unit tests
-        
+
     Returns:
         List of all unit tests extracted from the overlaps
     """
