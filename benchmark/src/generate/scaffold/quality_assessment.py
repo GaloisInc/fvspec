@@ -517,6 +517,12 @@ class QualityAssessment(BaseModel):
         default_factory=Plausibility,
         description="Results from running Plausible property testing",
     )
+    percent_plausible: float | None = Field(
+        None,
+        ge=0.0,
+        le=1.0,
+        description="Fraction of theorems that kept 'by plausible' after selective reversion",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -586,6 +592,14 @@ class QualityAssessment(BaseModel):
         if isinstance(plausibility, dict):
             plausibility = Plausibility(**plausibility)
 
+        # Compute percent_plausible: fraction of theorems with 'by plausible' in final code
+        # This reflects the selective reversion (passed theorems keep plausible, failed revert to sorry)
+        percent_plausible = None
+        if success and code_snippet and num_theorems > 0:
+            # Use regex to handle variable whitespace between 'by' and 'plausible'
+            num_plausible = len(re.findall(r"by\s+plausible", code_snippet))
+            percent_plausible = num_plausible / num_theorems
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -615,6 +629,7 @@ class QualityAssessment(BaseModel):
             num_unit_tests=num_unit_tests,
             unit_tests_available=has_unit_tests,
             plausibility=plausibility,
+            percent_plausible=percent_plausible,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
@@ -765,6 +780,13 @@ class QualityAssessment(BaseModel):
             scores["plausible_ran"] = Score(
                 value=0.0,
                 explanation="Plausible property testing was not attempted (disabled or spec generation failed)",
+            )
+
+        # percent_plausible: fraction of theorems that kept 'by plausible' after selective reversion
+        if self.percent_plausible is not None:
+            scores["percent_plausible"] = Score(
+                value=self.percent_plausible,
+                explanation=f"Fraction of theorems that kept 'by plausible': {self.percent_plausible:.1%} ({int(self.percent_plausible * self.num_theorems)}/{self.num_theorems})",
             )
 
         return scores
