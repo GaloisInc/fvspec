@@ -307,7 +307,7 @@ def _count_lean_properties(code: str) -> int:
     return max(1, count)  # At least 1 if code exists
 
 
-def _count_lean_theorems(code: str) -> int:
+def count_lean_theorems(code: str) -> int:
     """Count theorem and lemma declarations in Lean code.
 
     This counts only explicit theorem/lemma keywords, not property
@@ -538,7 +538,7 @@ class QualityAssessment(BaseModel):
             code_snippet = mtch.group(1)
             success = True
             num_sorries = code_snippet.count("sorry")
-            num_theorems = _count_lean_theorems(code_snippet)
+            num_theorems = count_lean_theorems(code_snippet)
             lines_code = code_snippet.count("\n")
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
 

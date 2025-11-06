@@ -7,7 +7,6 @@ Architecture:
 The orchestration runs both agents sequentially, passing type signatures between them.
 """
 
-import re
 import time
 from datetime import datetime
 from pathlib import Path
@@ -32,6 +31,7 @@ from generate.scaffold.formalize.spec import (
     spec_generation_agent,
 )
 from generate.scaffold.formalize.spec.validator import extract_signatures
+from generate.scaffold.quality_assessment import count_lean_theorems
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
@@ -197,13 +197,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             try:
                 config = load_config()
                 if config.plausible.enabled:
-                    # Count theorems in the spec for success rate calculation
-                    theorem_count = len(
-                        re.findall(r"\btheorem\b", spec_result.lean_code)
-                    )
-                    theorem_count += len(
-                        re.findall(r"\blemma\b", spec_result.lean_code)
-                    )
+                    theorem_count = count_lean_theorems(spec_result.lean_code)
 
                     plausibility = run_plausible(
                         spec_path=spec_file,
