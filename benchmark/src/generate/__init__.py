@@ -498,7 +498,10 @@ def deps_autoformalize_command(
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / "runs" / f"{timestamp}__{path_variant}"
+    # Include ranseed in path if provided (only when not using --sample-id)
+    path_ranseed = None if sample_id else ranseed
+    run_path = utilio.mk_run_path(timestamp, path_variant, path_ranseed)
+    base_dir = Path("artifacts") / "runs" / run_path
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -538,8 +541,10 @@ def deps_autoformalize_command(
         ]
 
     for spec in specs:
+        # Pass ranseed to path construction only when sampling (not using --sample-id)
+        path_ranseed = None if sample_id else ranseed
         sample_output_dir = utilio.get_sample_output_dir(
-            timestamp, spec.sample_id, path_variant
+            timestamp, spec.sample_id, path_variant, ranseed=path_ranseed
         )
         deps_dir = sample_output_dir / "deps"
         deps_dir.mkdir(parents=True, exist_ok=True)
@@ -587,7 +592,7 @@ def deps_autoformalize_command(
 
         def executor(request: DependencyExecutionRequest) -> DependencyResult:
             sample_output_dir = utilio.get_sample_output_dir(
-                timestamp, request.spec.sample_id, path_variant
+                timestamp, request.spec.sample_id, path_variant, ranseed=path_ranseed
             )
             log_dir = sample_output_dir / "deps"
             return run_dependency_agent(
@@ -623,7 +628,7 @@ def deps_autoformalize_command(
     for outcome in report.outcomes:
         spec = outcome.spec
         sample_output_dir = utilio.get_sample_output_dir(
-            timestamp, spec.sample_id, path_variant
+            timestamp, spec.sample_id, path_variant, ranseed=path_ranseed
         )
         if outcome.status == "success" and outcome.result is not None:
             provenance = CacheProvenance(

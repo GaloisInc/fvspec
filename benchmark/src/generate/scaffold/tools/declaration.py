@@ -357,6 +357,7 @@ def write_datapoint_to_disk(
     sample_id: str,
     datapoint: Datapoint,
     variant: str,
+    ranseed: int | None = None,
 ) -> str:
     """Write datapoint metadata to the sample's artifact directory.
 
@@ -365,12 +366,13 @@ def write_datapoint_to_disk(
         sample_id: Identifier for the current sample.
         datapoint: The datapoint from the metadata of the current sample.
         variant: Prompt variant name.
+        ranseed: Random seed used for sampling (optional, included in path when provided).
 
     Returns:
         A message describing whether the write succeeded.
     """
     datapoint_file = utilio.get_output_filepath(
-        date_time, sample_id, "datapoint.json", variant=variant
+        date_time, sample_id, "datapoint.json", variant=variant, ranseed=ranseed
     )
     return utilio.writeit(datapoint_file, datapoint.model_dump_json(indent=4))
 
@@ -381,6 +383,7 @@ def write_code_to_disk(
     text: str,
     variant: str,
     workspace: Path | None = None,
+    ranseed: int | None = None,
 ) -> str:
     """Write the `<code>...</code>` snippet from text into `Spec.lean`.
 
@@ -396,6 +399,7 @@ def write_code_to_disk(
         text: The output text possibly containing <code>...</code>.
         variant: Prompt variant name.
         workspace: Optional workspace tmpdir path for fallback.
+        ranseed: Random seed used for sampling (optional, included in path when provided).
 
     Returns:
         A message describing whether the write succeeded.
@@ -419,7 +423,7 @@ def write_code_to_disk(
 
     # Write to artifacts directory (permanent storage)
     spec_file = utilio.get_output_filepath(
-        date_time, sample_id, "Spec.lean", variant=variant
+        date_time, sample_id, "Spec.lean", variant=variant, ranseed=ranseed
     )
     result = utilio.writeit(spec_file, code_snippet)
 
@@ -431,6 +435,7 @@ def write_qa_to_disk(
     sample_id: str,
     state: TaskState,
     variant: str,
+    ranseed: int | None = None,
 ) -> str:
     """Write quality-assessment results to `qa.json` for the sample.
 
@@ -439,6 +444,7 @@ def write_qa_to_disk(
         sample_id: Identifier for the current sample.
         state: The task state after completion.
         variant: Prompt variant name.
+        ranseed: Random seed used for sampling (optional, included in path when provided).
 
     Returns:
         A message describing whether the write succeeded.
@@ -447,7 +453,7 @@ def write_qa_to_disk(
     qa = QualityAssessment.from_task_state(state)
 
     qa_file = utilio.get_output_filepath(
-        date_time, sample_id, "qa.json", variant=variant
+        date_time, sample_id, "qa.json", variant=variant, ranseed=ranseed
     )
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
 
@@ -458,6 +464,7 @@ def write_unit_tests_to_disk(
     state: TaskState,
     variant: str,
     workspace: Path | None = None,
+    ranseed: int | None = None,
 ) -> str:
     """Write extracted unit tests to `Tests.lean` for the sample.
 
@@ -472,6 +479,7 @@ def write_unit_tests_to_disk(
         state: The task state containing unit tests in metadata.
         variant: Prompt variant name.
         workspace: Optional workspace tmpdir path for MCP tools.
+        ranseed: Random seed used for sampling (optional, included in path when provided).
 
     Returns:
         A message describing whether the write succeeded.
@@ -518,7 +526,7 @@ import Fvspec.Spec
 
 """
     tests_file = utilio.get_output_filepath(
-        date_time, sample_id, "Tests.lean", variant=variant
+        date_time, sample_id, "Tests.lean", variant=variant, ranseed=ranseed
     )
     result = utilio.writeit(tests_file, template_imports + tests_content)
 
@@ -577,6 +585,7 @@ async def write_to_disk(state: TaskState):
     date_time = cast(str, state.metadata.get("date_time"))
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
     variant = cast(str, state.metadata.get("variant"))
+    ranseed = state.metadata.get("ranseed")  # May be None
     sample_id = str(state.sample_id)
 
     # Get workspace path if available
@@ -584,7 +593,7 @@ async def write_to_disk(state: TaskState):
     workspace = Path(workspace_path) if workspace_path else None
 
     ret_str_dp = write_datapoint_to_disk(
-        date_time, sample_id, datapoint, variant=variant
+        date_time, sample_id, datapoint, variant=variant, ranseed=ranseed
     )
 
     # Only write code and QA if we have output
@@ -595,6 +604,7 @@ async def write_to_disk(state: TaskState):
             state.output.message.text,
             variant=variant,
             workspace=workspace,
+            ranseed=ranseed,
         )
 
         # Also copy Impl.lean from workspace if it exists
@@ -604,14 +614,21 @@ async def write_to_disk(state: TaskState):
             if workspace_impl.exists():
                 impl_code = workspace_impl.read_text()
                 impl_file = utilio.get_output_filepath(
-                    date_time, sample_id, "Impl.lean", variant=variant
+                    date_time, sample_id, "Impl.lean", variant=variant, ranseed=ranseed
                 )
                 ret_str_impl = utilio.writeit(impl_file, impl_code)
 
         ret_str_tests = write_unit_tests_to_disk(
-            date_time, sample_id, state, variant=variant, workspace=workspace
+            date_time,
+            sample_id,
+            state,
+            variant=variant,
+            workspace=workspace,
+            ranseed=ranseed,
         )
-        ret_str_qa = write_qa_to_disk(date_time, sample_id, state, variant=variant)
+        ret_str_qa = write_qa_to_disk(
+            date_time, sample_id, state, variant=variant, ranseed=ranseed
+        )
 
         # Extract quality assessment and register metrics as scores
         qa = QualityAssessment.from_task_state(state)

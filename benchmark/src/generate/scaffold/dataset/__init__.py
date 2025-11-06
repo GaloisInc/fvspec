@@ -162,6 +162,7 @@ def mk_dataset(
                     "datapoint": dp,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                     "variant": actual_variant,
+                    "ranseed": ranseed,  # For artifact path naming
                     "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
                 },
                 id=f"{dp.id:05d}_{dp.name}",
