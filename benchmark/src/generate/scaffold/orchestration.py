@@ -25,6 +25,7 @@ from generate.scaffold.formalize.impl import (
     function_impl_agent,
     payloads_from_datapoint,
 )
+from generate.scaffold.formalize.impl.lean_merger import append_to_lean_file
 from generate.scaffold.formalize.spec import (
     SpecPayload,
     SpecResult,
@@ -194,12 +195,16 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             # Store successful implementations
             if dep_impl_result.success and dep_impl_result.lean_code:
                 dependency_implementations[payload.dep_name] = dep_impl_result.lean_code
-                # Append to Impl.lean (dependencies go in the same file)
+                # Merge dependency into Impl.lean (intelligent merge, not naive append)
+                # This deduplicates imports, maintains single namespace, prevents redefinitions
                 if impl_file.exists():
                     current_content = impl_file.read_text()
-                    impl_file.write_text(
-                        f"{current_content}\n\n{dep_impl_result.lean_code}"
+                    merged_content = append_to_lean_file(
+                        current_content, dep_impl_result.lean_code
                     )
+                    impl_file.write_text(merged_content)
+                else:
+                    impl_file.write_text(dep_impl_result.lean_code)
 
         # Store dependency count for metrics
         state.metadata["num_fns_impl"] = len(all_payloads)
