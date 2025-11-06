@@ -8,12 +8,14 @@ The orchestration runs both agents sequentially, passing type signatures between
 """
 
 import time
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
 from inspect_ai.solver import Generate, Solver, TaskState, solver
+from pydantic import ValidationError
 
 from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
@@ -205,12 +207,12 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                         timeout=config.plausible.timeout,
                         num_theorems=theorem_count,
                     )
-            except Exception as e:
-                # If plausible fails unexpectedly, record error but continue
+            except (FileNotFoundError, OSError, tomllib.TOMLDecodeError, ValidationError) as e:
+                # If config loading or plausible execution fails, record error but continue
                 plausibility = Plausibility(
                     ran=True,
                     success=0.0,
-                    errors=[f"Unexpected error running plausible: {e}"],
+                    errors=[f"Error running plausible: {e}"],
                 )
 
         # Store plausibility results in metadata for quality assessment
