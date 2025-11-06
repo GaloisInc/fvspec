@@ -545,6 +545,10 @@ class QualityAssessment(BaseModel):
         default=ImplementationLevel.ABSENT,
         description="Level of FUT implementation provided: full source, signature only, or absent",
     )
+    actually_invokes_given: bool = Field(
+        default=False,
+        description="Whether the test actually invokes @given (True = PBT, False = unit test)",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -656,6 +660,18 @@ class QualityAssessment(BaseModel):
         except ValueError:
             implementation_level = ImplementationLevel.ABSENT
 
+        # Check if @given is actually invoked in the PBT code
+        # Look for @given decorator usage (handles various formatting)
+        # Matches: @given(...), @given (...), @st.given(...), @hypothesis.given(...)
+        pbt_code = datapoint.code
+        actually_invokes_given = bool(
+            re.search(
+                r"@(?:st\.|hypothesis\.)?given\s*\(",
+                pbt_code,
+                re.MULTILINE,
+            )
+        )
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -689,6 +705,7 @@ class QualityAssessment(BaseModel):
             impl_autoform_success=impl_autoform_success,
             spec_sig_success=spec_sig_success,
             implementation_level=implementation_level,
+            actually_invokes_given=actually_invokes_given,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
