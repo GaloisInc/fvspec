@@ -453,9 +453,7 @@ def main():
                 st.session_state.seed,
                 min_deps,
                 max_deps,
-                require_unit_tests=enable_unit_test_filter
-                if "enable_unit_test_filter" in locals()
-                else False,
+                require_unit_tests=enable_unit_test_filter,
             )
             if sample:
                 st.session_state.current_sample = sample
