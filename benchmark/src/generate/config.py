@@ -83,6 +83,18 @@ class WandbConfig(BaseModel):
     sync_dep_cache: bool = True
 
 
+class PlausibleConfig(BaseModel):
+    """Configuration for Plausible property testing.
+
+    Attributes:
+        enabled: Enable plausible property testing during generation
+        timeout: Timeout in seconds for plausible runs per sample
+    """
+
+    enabled: bool = True
+    timeout: int = 60
+
+
 class Config(BaseModel):
     """Top-level configuration loaded from config.toml.
 
@@ -92,6 +104,7 @@ class Config(BaseModel):
         prompt: Prompt template configuration
         dataset: Dataset sampling configuration
         wandb: Weights & Biases configuration
+        plausible: Plausible property testing configuration
     """
 
     agent: AgentConfig
@@ -99,6 +112,7 @@ class Config(BaseModel):
     prompt: PromptConfig = PromptConfig()
     dataset: DatasetConfig = DatasetConfig()
     wandb: WandbConfig = WandbConfig()
+    plausible: PlausibleConfig = PlausibleConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -113,6 +127,7 @@ class Config(BaseModel):
             prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
             dataset=DatasetConfig(**data.get("dataset", {})),  # type: ignore[arg-type]
             wandb=WandbConfig(**data.get("wandb", {})),  # type: ignore[arg-type]
+            plausible=PlausibleConfig(**data.get("plausible", {})),  # type: ignore[arg-type]
         )
 
 

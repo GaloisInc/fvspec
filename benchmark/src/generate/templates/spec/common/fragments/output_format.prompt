@@ -1,4 +1,31 @@
 ## Output Format
 When you have finalized your implementation, respond with Lean 4 code wrapped in `<code>...</code>` tags.
 
-Example: <code>theorem x : 1 = 1 := sorry</code>
+Your code must start with:
+```
+import Plausible
+import Fvspec.Impl
+
+namespace Fvspec.Spec
+open Fvspec.Impl
+```
+
+And end with:
+```
+end Fvspec.Spec
+```
+
+Example:
+```
+<code>
+import Plausible
+import Fvspec.Impl
+
+namespace Fvspec.Spec
+open Fvspec.Impl
+
+theorem x : 1 = 1 := sorry
+
+end Fvspec.Spec
+</code>
+```
