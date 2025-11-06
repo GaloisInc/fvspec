@@ -136,33 +136,42 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         spec_variant = spec_registry.get_variant(spec_variant_name)
         impl_variant = spec_variant.style  # Extract style: functional or mvcgen
 
-        impl_payload = FunctionImplPayload(
-            pbt_code=datapoint.code,
-            pbt_name=datapoint.name,
-            function_name=function_name,
-            function_code=function_code,
-            dependencies={},  # Dependencies handled separately if needed
-            variant=impl_variant,
-        )
-
-        # Call impl agent solver - it will store result in state.metadata["impl_result"]
-        impl_solver = function_impl_agent(impl_payload, workspace)
-        state = await impl_solver(state, generate_fn)
-
-        # Extract result from metadata (agent stores it there)
-        impl_result_data = state.metadata.get("impl_result", {})
-        if isinstance(impl_result_data, dict):
-            impl_result = FunctionImplResult(**impl_result_data)
-        else:
-            impl_result = impl_result_data
-
-        # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
         impl_file = workspace / "Fvspec" / "Impl.lean"
         impl_file.parent.mkdir(parents=True, exist_ok=True)
-        if impl_result.lean_code:
-            impl_file.write_text(impl_result.lean_code)
+
+        # Only process FUT if we have source code for it
+        # Skip if function_code is None - Phase 1b will handle dependencies
+        # This prevents hallucination when agent has no code to work from
+        if function_code is not None:
+            impl_payload = FunctionImplPayload(
+                pbt_code=datapoint.code,
+                pbt_name=datapoint.name,
+                function_name=function_name,
+                function_code=function_code,
+                dependencies={},  # Dependencies handled separately if needed
+                variant=impl_variant,
+            )
+
+            # Call impl agent solver - it will store result in state.metadata["impl_result"]
+            impl_solver = function_impl_agent(impl_payload, workspace)
+            state = await impl_solver(state, generate_fn)
+
+            # Extract result from metadata (agent stores it there)
+            impl_result_data = state.metadata.get("impl_result", {})
+            if isinstance(impl_result_data, dict):
+                impl_result = FunctionImplResult(**impl_result_data)
+            else:
+                impl_result = impl_result_data
+
+            # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
+            if impl_result.lean_code:
+                impl_file.write_text(impl_result.lean_code)
+            else:
+                # No impl code - write empty file to clear any validation artifacts
+                impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
         else:
-            # No impl code - write empty file to clear any validation artifacts
+            # No FUT source code - start with empty impl file
+            # Phase 1b will populate it with dependencies
             impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
 
         # Phase 1b: Generate implementations for all dependencies
