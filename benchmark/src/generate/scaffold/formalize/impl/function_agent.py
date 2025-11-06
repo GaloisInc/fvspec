@@ -14,6 +14,10 @@ from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
+from generate.scaffold.formalize.impl.filters import (
+    strip_spec_namespace,
+    validate_impl_only,
+)
 from generate.scaffold.tools.declaration import call_lean_lsp_mcp, lean_lsp_mcp_tools
 from generate.templates.impl import get_impl_function_prompts
 
@@ -160,6 +164,29 @@ def function_impl_agent(
         # Extract code from final response
         final_text = final_message.text
         lean_code = _extract_code_block(final_text)
+
+        # Filter out any hallucinated spec namespaces
+        # Model occasionally generates specs alongside impls despite prompts
+        # This is our defense-in-depth: strip specs before validation/storage
+        if lean_code:
+            original_length = len(lean_code)
+            lean_code = strip_spec_namespace(lean_code)
+
+            # Log if we stripped significant content (indicates hallucination)
+            if len(lean_code) < original_length * 0.8:
+                chars_removed = original_length - len(lean_code)
+                logger.warning(
+                    f"Impl agent hallucinated specs: stripped {chars_removed} chars "
+                    f"({chars_removed / original_length:.1%} of output)"
+                )
+
+            # Validate that filtering worked (defensive check)
+            is_valid, error = validate_impl_only(lean_code)
+            if not is_valid:
+                logger.error(
+                    f"Impl agent output still contains specs after filtering: {error}. "
+                    f"This indicates filtering logic needs updating."
+                )
 
         if not lean_code:
             result = FunctionImplResult(
