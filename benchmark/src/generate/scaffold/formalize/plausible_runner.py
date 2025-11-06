@@ -6,6 +6,7 @@ on generated Lean specifications to check for counterexamples.
 
 import re
 import subprocess
+import time
 from pathlib import Path
 
 from pydantic import BaseModel, Field
@@ -65,8 +66,6 @@ def run_plausible(
     Returns:
         Plausibility object with test results
     """
-    import time
-
     # Read spec content
     try:
         spec_content = spec_path.read_text()
