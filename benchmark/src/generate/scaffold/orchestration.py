@@ -224,8 +224,13 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         state.metadata["plausibility"] = plausibility
 
         # Set state.output so write_to_disk can persist the files
-        # The output text should contain the spec code (Impl is in workspace already)
-        output_text = spec_result.lean_code if spec_result.lean_code else ""
+        # If plausible ran, read back the modified Spec.lean (with plausible instead of sorry)
+        # Otherwise, use the original spec_result.lean_code
+        if plausibility.ran and spec_file.exists():
+            output_text = spec_file.read_text()
+        else:
+            output_text = spec_result.lean_code if spec_result.lean_code else ""
+
         if output_text:
             output_text = f"<code>\n{output_text}\n</code>"
 
