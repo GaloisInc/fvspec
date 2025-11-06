@@ -374,7 +374,7 @@ def get_unit_tests_for_sample(
     data_path: Path, sample_id: int
 ) -> list[dict[str, list | str]]:
     """Get unit tests that share functions with the given PBT sample.
-    
+
     Cached to avoid redundant database queries within the same script execution.
     The cache is keyed by (data_path, sample_id) and persists across Streamlit reruns.
     """
