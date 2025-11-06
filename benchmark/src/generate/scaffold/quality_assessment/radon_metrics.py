@@ -11,21 +11,8 @@ These metrics provide additional data points for analyzing test complexity
 and can be correlated with benchmark performance.
 """
 
-from dataclasses import dataclass
-
 from pydantic import BaseModel, Field
 from radon import complexity, metrics, raw
-
-
-@dataclass
-class CyclomaticComplexity:
-    """Cyclomatic complexity for a single function."""
-
-    name: str
-    complexity: int
-    lineno: int
-    endline: int
-    classname: str | None = None
 
 
 class RadonMetrics(BaseModel):
