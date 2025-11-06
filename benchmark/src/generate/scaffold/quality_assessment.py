@@ -523,6 +523,14 @@ class QualityAssessment(BaseModel):
         le=1.0,
         description="Fraction of theorems that kept 'by plausible' after selective reversion",
     )
+    impl_autoform_success: bool = Field(
+        default=False,
+        description="Whether implementation autoformalization succeeded (generated and compiled)",
+    )
+    spec_sig_success: bool = Field(
+        default=True,
+        description="Whether specification generation succeeded (produced valid code in <code> tags)",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -537,6 +545,7 @@ class QualityAssessment(BaseModel):
         mtch = re.search(pattern, state.messages[-1].text)
         if not mtch:
             success = False
+            spec_sig_success = False
             num_sorries = 0
             num_theorems = 0
             lines_code = 0
@@ -544,11 +553,34 @@ class QualityAssessment(BaseModel):
             code_snippet = ""
         else:
             code_snippet = mtch.group(1)
-            success = True
+            spec_sig_success = True  # Spec agent produced valid code
             num_sorries = code_snippet.count("sorry")
             num_theorems = count_lean_theorems(code_snippet)
             lines_code = code_snippet.count("\n")
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
+
+        # Check impl autoformalization status
+        impl_result_data = state.metadata.get("impl_result")
+        impl_autoform_success = False  # Default to False (no impl or failed)
+        if impl_result_data:
+            # impl_result may be dict or FunctionImplResult object
+            if isinstance(impl_result_data, dict):
+                # Check both success (generation) and compiles (validation)
+                impl_autoform_success = impl_result_data.get(
+                    "success", False
+                ) and impl_result_data.get("compiles", False)
+            else:
+                # FunctionImplResult object
+                impl_autoform_success = (
+                    impl_result_data.success and impl_result_data.compiles
+                )
+
+        # Overall success: spec succeeded (backward compatible for spec-only tasks)
+        # For tasks with impl, both spec and impl must succeed
+        if impl_result_data:
+            success = spec_sig_success and impl_autoform_success
+        else:
+            success = spec_sig_success
 
         # Extract subjective faithfulness metric (self-reported by model)
         f_pattern = r"Faithfulness.*:\s*([0-9]*.?[0-9]+)/([0-9]+)"
@@ -630,6 +662,8 @@ class QualityAssessment(BaseModel):
             unit_tests_available=has_unit_tests,
             plausibility=plausibility,
             percent_plausible=percent_plausible,
+            impl_autoform_success=impl_autoform_success,
+            spec_sig_success=spec_sig_success,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
@@ -658,6 +692,18 @@ class QualityAssessment(BaseModel):
                 explanation="Successfully generated Lean code in <code> tags"
                 if self.success
                 else "Failed to generate valid Lean code",
+            ),
+            "spec_sig_success": Score(
+                value="C" if self.spec_sig_success else "I",
+                explanation="Spec agent produced valid code in <code> tags"
+                if self.spec_sig_success
+                else "Spec agent failed to generate valid code",
+            ),
+            "impl_autoform_success": Score(
+                value="C" if self.impl_autoform_success else "I",
+                explanation="Implementation autoformalized and compiled successfully"
+                if self.impl_autoform_success
+                else "Implementation autoformalization failed or didn't compile",
             ),
             "num_sorries": Score(
                 value=self.num_sorries,
