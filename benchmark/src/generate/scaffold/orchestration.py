@@ -41,6 +41,44 @@ from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
 
 
+def _generate_fut_stub(function_name: str, pbt_code: str) -> str:
+    r"""Generate a stub implementation when FUT source code is not available.
+
+    Creates a minimal Lean implementation with a function signature inferred
+    from the PBT name and a sorry placeholder. This allows the spec agent to
+    reference the function.
+
+    Args:
+        function_name: Name of the function under test (test_ prefix removed)
+        pbt_code: The property-based test code (for future signature inference)
+
+    Returns:
+        Lean code with stub implementation in Fvspec.Impl namespace
+
+    Example:
+        >>> _generate_fut_stub("resolve_url", "...")
+        'import Batteries\\n\\nnamespace Fvspec.Impl\\n\\n/-- TODO: Implement... -/'
+    """
+    # For now, create a simple stub with sorry
+    # Future enhancement: parse PBT to infer parameter types
+    stub = f"""import Batteries
+
+namespace Fvspec.Impl
+
+/-- {function_name}: Implementation not available in source repository.
+
+    This is a stub generated because the function source code could not be
+    discovered. The specification agent should infer the signature from the
+    property-based test and generate appropriate theorems.
+
+    TODO: Implement this function based on the specification requirements. -/
+def {function_name} : Unit := sorry
+
+end Fvspec.Impl
+"""
+    return stub
+
+
 @solver
 def workspace_setup() -> Solver:
     """Create a per-sample workspace tmpdir for Lean files and LSP integration.
@@ -166,13 +204,20 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
             if impl_result.lean_code:
                 impl_file.write_text(impl_result.lean_code)
+                # Track that we provided full implementation
+                state.metadata["implementation_level"] = "provided"
             else:
                 # No impl code - write empty file to clear any validation artifacts
                 impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
+                # Track as absent (agent failed to generate)
+                state.metadata["implementation_level"] = "absent"
         else:
-            # No FUT source code - start with empty impl file
-            # Phase 1b will populate it with dependencies
-            impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
+            # No FUT source code - generate stub implementation
+            # This allows the spec agent to have a signature to work with
+            stub_impl = _generate_fut_stub(function_name, datapoint.code)
+            impl_file.write_text(stub_impl)
+            # Track that we provided only a signature
+            state.metadata["implementation_level"] = "signature"
 
         # Phase 1b: Generate implementations for all dependencies
         # Get all payloads (FUT + dependencies)

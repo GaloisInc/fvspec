@@ -2,6 +2,7 @@
 
 import ast
 import re
+from enum import Enum
 from typing import TYPE_CHECKING, cast
 
 from inspect_ai.solver import TaskState
@@ -9,6 +10,15 @@ from pydantic import BaseModel, Field
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.plausible_runner import Plausibility
+
+
+class ImplementationLevel(str, Enum):
+    """Indicates what level of FUT implementation was provided to the model."""
+
+    PROVIDED = "provided"  # Full FUT source code discovered and implemented
+    SIGNATURE = "signature"  # Only type signature/stub provided (discovery failed)
+    ABSENT = "absent"  # No FUT implementation (spec-only or error case)
+
 
 if TYPE_CHECKING:
     from inspect_ai.scorer import Score
@@ -531,6 +541,10 @@ class QualityAssessment(BaseModel):
         default=True,
         description="Whether specification generation succeeded (produced valid code in <code> tags)",
     )
+    implementation_level: ImplementationLevel = Field(
+        default=ImplementationLevel.ABSENT,
+        description="Level of FUT implementation provided: full source, signature only, or absent",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -632,6 +646,16 @@ class QualityAssessment(BaseModel):
             num_plausible = len(re.findall(r"by\s+plausible", code_snippet))
             percent_plausible = num_plausible / num_theorems
 
+        # Extract implementation level from metadata
+        implementation_level_str = state.metadata.get(
+            "implementation_level", ImplementationLevel.ABSENT.value
+        )
+        # Convert string to enum
+        try:
+            implementation_level = ImplementationLevel(implementation_level_str)
+        except ValueError:
+            implementation_level = ImplementationLevel.ABSENT
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -664,6 +688,7 @@ class QualityAssessment(BaseModel):
             percent_plausible=percent_plausible,
             impl_autoform_success=impl_autoform_success,
             spec_sig_success=spec_sig_success,
+            implementation_level=implementation_level,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
@@ -704,6 +729,10 @@ class QualityAssessment(BaseModel):
                 explanation="Implementation autoformalized and compiled successfully"
                 if self.impl_autoform_success
                 else "Implementation autoformalization failed or didn't compile",
+            ),
+            "implementation_level": Score(
+                value=self.implementation_level.value,
+                explanation=f"FUT implementation level: {self.implementation_level.value}",
             ),
             "num_sorries": Score(
                 value=self.num_sorries,
