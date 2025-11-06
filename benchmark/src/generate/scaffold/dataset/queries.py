@@ -3,6 +3,7 @@
 All data access should go through these functions for consistency and testability.
 """
 
+import random
 from typing import Any
 
 from sqlmodel import Session, func, select
@@ -31,30 +32,44 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
+    Implements deterministic sampling by:
+    1. Fetching all eligible datapoints (deps <= MAX_DEPENDENCIES)
+    2. Using Python's random.sample() with the provided seed
+    3. Returning exactly n samples (or fewer if not enough eligible)
+
     Args:
         session: SQLModel database session
         n: Number of samples to draw
-        ranseed: (Ignored; reserved for future use.) Random seed for reproducibility. Has no effect currently.
+        ranseed: Random seed for reproducibility (default: 0)
 
     Returns:
-        List of randomly sampled Datapoint objects (may be fewer than n if many samples filtered)
+        List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
 
     Note:
-        The `ranseed` parameter is currently ignored. SQLite's RANDOM() function does not support seeding,
-        so sampling is not reproducible. For deterministic sampling, consider implementing custom seeded
-        random selection in Python after fetching.
+        Uses Python's random.sample() for deterministic sampling since SQLite's RANDOM()
+        does not support seeding. All eligible datapoints are loaded into memory first.
     """
     # Use json_array_length to filter by dependency count
     # SQLite stores JSON as TEXT, so we parse with json_array_length()
-    statement = (
-        select(Datapoint)
-        .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
-        .order_by(func.random())
-        .limit(n)
+    statement = select(Datapoint).where(
+        func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES
     )
 
+    # Fetch all eligible datapoints
     results = session.exec(statement)
-    return list(results)
+    all_eligible = list(results)
+
+    # Return empty list if no eligible datapoints
+    if not all_eligible:
+        return []
+
+    # Use Python's random.sample for deterministic sampling
+    # Set seed for reproducibility
+    rng = random.Random(ranseed)
+
+    # Sample n datapoints (or all if fewer than n available)
+    sample_size = min(n, len(all_eligible))
+    return rng.sample(all_eligible, sample_size)
 
 
 def load_datapoints_by_id(
