@@ -730,20 +730,15 @@ class QualityAssessment(BaseModel):
                 explanation="Plausible property testing was attempted",
             )
 
-            # plausible_success: ternary (1.0=success, 0.5=unknown, 0.0=failure)
-            if plaus.success is True:
+            # plausible_success: success rate (0.0 to 1.0) or None if couldn't run
+            if plaus.success is not None:
                 scores["plausible_success"] = Score(
-                    value=1.0,
-                    explanation="Plausible found no counterexamples (property seems correct)",
-                )
-            elif plaus.success is False:
-                scores["plausible_success"] = Score(
-                    value=0.0,
-                    explanation=f"Plausible found {plaus.counterexamples} counterexample(s)",
+                    value=plaus.success,
+                    explanation=f"Plausible success rate: {plaus.success:.1%} ({plaus.num_theorems - plaus.counterexamples}/{plaus.num_theorems} theorems passed)",
                 )
             else:
                 scores["plausible_success"] = Score(
-                    value=0.5,
+                    value=0.0,
                     explanation=f"Plausible could not run: {'; '.join(plaus.errors[:2]) if plaus.errors else 'Unknown error'}",
                 )
 

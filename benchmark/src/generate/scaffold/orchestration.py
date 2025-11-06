@@ -196,10 +196,21 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             try:
                 config = load_config()
                 if config.plausible.enabled:
+                    # Count theorems in the spec for success rate calculation
+                    import re
+
+                    theorem_count = len(
+                        re.findall(r"\btheorem\b", spec_result.lean_code)
+                    )
+                    theorem_count += len(
+                        re.findall(r"\blemma\b", spec_result.lean_code)
+                    )
+
                     plausibility = run_plausible(
                         spec_path=spec_file,
                         workspace_path=workspace,
                         timeout=config.plausible.timeout,
+                        num_theorems=theorem_count,
                     )
             except Exception as e:
                 # If plausible fails unexpectedly, record error but continue

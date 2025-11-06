@@ -206,12 +206,11 @@ class WandbLogger:
 
         # Plausible metrics
         plausible_ran = [1 if qa.plausibility.ran else 0 for qa in all_qa]
-        plausible_success_rate = [
-            1
+        plausible_success_rates = [
+            qa.plausibility.success
             for qa in all_qa
-            if qa.plausibility.ran and qa.plausibility.success is True
+            if qa.plausibility.ran and qa.plausibility.success is not None
         ]
-        plausible_total_ran = sum(plausible_ran)
         plausible_time_values = [
             qa.plausibility.time
             for qa in all_qa
@@ -244,11 +243,8 @@ class WandbLogger:
             "summary/std_structural_faithfulness": safe_stdev(structural_overall),
             # Aggregate plausible metrics
             "summary/plausible_run_rate": safe_mean(plausible_ran),
-            "summary/plausible_success_rate": (
-                len(plausible_success_rate) / plausible_total_ran
-                if plausible_total_ran > 0
-                else 0.0
-            ),
+            "summary/plausible_mean_success_rate": safe_mean(plausible_success_rates),
+            "summary/plausible_std_success_rate": safe_stdev(plausible_success_rates),
             "summary/mean_plausible_time": safe_mean(plausible_time_values),
             "summary/std_plausible_time": safe_stdev(plausible_time_values),
             "summary/total_counterexamples": sum(plausible_counterexample_counts),

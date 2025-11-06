@@ -22,9 +22,9 @@ class Plausibility(BaseModel):
         default=False,
         description="Whether plausible was attempted (may be disabled in config)",
     )
-    success: bool | None = Field(
+    success: float | None = Field(
         default=None,
-        description="True if no counterexamples found, False if counterexamples found, None if couldn't run",
+        description="Success rate: (num_theorems - counterexamples) / num_theorems, or None if couldn't run",
     )
     time: float | None = Field(
         default=None, description="Time taken to run plausible in seconds"
@@ -36,10 +36,13 @@ class Plausibility(BaseModel):
     counterexamples: int = Field(
         default=0, description="Number of counterexamples found by plausible"
     )
+    num_theorems: int = Field(
+        default=0, description="Number of theorems tested by plausible"
+    )
 
 
 def run_plausible(
-    spec_path: Path, workspace_path: Path, timeout: int = 60
+    spec_path: Path, workspace_path: Path, timeout: int = 60, num_theorems: int = 0
 ) -> Plausibility:
     """Run plausible property testing on a Lean specification.
 
@@ -57,6 +60,7 @@ def run_plausible(
         spec_path: Path to the Spec.lean file
         workspace_path: Path to the workspace directory containing lakefile
         timeout: Maximum time in seconds to wait for lake build
+        num_theorems: Number of theorems in the spec (for success rate calculation)
 
     Returns:
         Plausibility object with test results
@@ -109,6 +113,7 @@ def run_plausible(
             stdout=result.stdout,
             stderr=result.stderr,
             elapsed_time=elapsed_time,
+            num_theorems=num_theorems,
         )
 
     except subprocess.TimeoutExpired:
@@ -127,7 +132,11 @@ def run_plausible(
 
 
 def _parse_plausible_output(
-    returncode: int, stdout: str, stderr: str, elapsed_time: float
+    returncode: int,
+    stdout: str,
+    stderr: str,
+    elapsed_time: float,
+    num_theorems: int = 0,
 ) -> Plausibility:
     """Parse the output from lake build to extract plausible results.
 
@@ -141,6 +150,7 @@ def _parse_plausible_output(
         stdout: Standard output
         stderr: Standard error
         elapsed_time: Time taken to run
+        num_theorems: Number of theorems in the spec (for success rate calculation)
 
     Returns:
         Plausibility object with parsed results
@@ -176,21 +186,23 @@ def _parse_plausible_output(
 
     all_errors = instance_errors + compilation_errors
 
-    # Determine success
-    if returncode == 0 and num_counterexamples == 0:
-        # Compiled successfully with no counterexamples
-        success = True
-    elif num_counterexamples > 0:
-        # Found counterexamples - plausible works but property may be wrong
-        success = False
+    # Determine success rate
+    if returncode != 0 or all_errors:
+        # Compilation failed or other errors - couldn't run plausible
+        success_rate = None
+    elif num_theorems == 0:
+        # No theorems to test
+        success_rate = None
     else:
-        # Compilation failed or other errors
-        success = None
+        # Compute success rate: (theorems passed) / (total theorems)
+        # theorems passed = num_theorems - num_counterexamples
+        success_rate = (num_theorems - num_counterexamples) / num_theorems
 
     return Plausibility(
         ran=True,
-        success=success,
+        success=success_rate,
         time=elapsed_time,
         errors=all_errors,
         counterexamples=num_counterexamples,
+        num_theorems=num_theorems,
     )
