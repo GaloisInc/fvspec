@@ -9,11 +9,11 @@ different impl agents, ensuring:
 """
 
 import re
-from dataclasses import dataclass
+
+from pydantic import BaseModel
 
 
-@dataclass
-class LeanModule:
+class LeanModule(BaseModel):
     """Parsed components of a Lean module."""
 
     imports: list[str]  # Import statements (e.g., "import Batteries")

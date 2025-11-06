@@ -32,3 +32,9 @@ tags = []
 upload_samples = true
 # Sync dependency cache: download at start, upload at end of runs
 sync_dep_cache = true
+
+[plausible]
+# Enable plausible property testing during generation
+enabled = true
+# Timeout in seconds for plausible runs per sample
+timeout = 60

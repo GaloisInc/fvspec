@@ -2,12 +2,16 @@
 
 import ast
 import re
-from typing import cast
+from typing import TYPE_CHECKING, cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 
 from generate.scaffold.dataset import Datapoint
+from generate.scaffold.formalize.plausible_runner import Plausibility
+
+if TYPE_CHECKING:
+    from inspect_ai.scorer import Score
 
 
 class StructuralFaithfulness(BaseModel):
@@ -303,6 +307,64 @@ def _count_lean_properties(code: str) -> int:
     return max(1, count)  # At least 1 if code exists
 
 
+def count_lean_theorems(code: str) -> int:
+    """Count theorem and lemma declarations in Lean code.
+
+    This counts only explicit theorem/lemma keywords, not property
+    assertions within theorem bodies.
+    """
+    count = len(re.findall(r"\btheorem\b", code))
+    count += len(re.findall(r"\blemma\b", code))
+    return count
+
+
+def _flatten_dict(
+    d: dict, parent_key: str = "", sep: str = "_"
+) -> dict[str, int | float | str | None]:
+    """Recursively flatten a nested dictionary.
+
+    Args:
+        d: Dictionary to flatten
+        parent_key: Prefix for nested keys
+        sep: Separator to join nested keys (default: "_")
+
+    Returns:
+        Flattened dictionary with keys joined by separator.
+        Booleans are converted to int (0/1) for wandb compatibility.
+
+    Example:
+        >>> _flatten_dict({"a": 1, "b": {"c": 2, "d": True}})
+        {"a": 1, "b_c": 2, "b_d": 1}
+    """
+    items: list[tuple[str, int | float | str | None]] = []
+
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+
+        if isinstance(v, dict):
+            # Recursively flatten nested dicts
+            items.extend(_flatten_dict(v, new_key, sep=sep).items())
+        elif isinstance(v, list):
+            # Handle lists - wandb doesn't handle them well
+            if not v:
+                # Empty list -> None
+                items.append((new_key, None))
+            elif all(isinstance(item, str) for item in v):
+                # Join string lists (e.g., errors)
+                items.append((new_key, ", ".join(v)))
+            else:
+                # For other lists, just log the length
+                items.append((f"{new_key}_count", len(v)))
+        elif isinstance(v, bool):
+            # Convert bool to int for wandb compatibility
+            items.append((new_key, 1 if v else 0))
+        else:
+            # Primitive values: int, float, str, None
+            items.append((new_key, v))
+
+    return dict(items)
+
+
 # Metric computation utilities
 
 
@@ -420,6 +482,9 @@ class QualityAssessment(BaseModel):
     num_input_messages: int
     success: bool
     num_sorries: int
+    num_theorems: int = Field(
+        0, description="Number of theorems/lemmas in generated spec"
+    )
     lines_pbt: int
     lines_code: int
     num_fns_impl: int = Field(
@@ -447,6 +512,11 @@ class QualityAssessment(BaseModel):
     unit_tests_available: bool = Field(
         False, description="Whether unit tests are available for evaluation"
     )
+    # Plausible property testing metrics
+    plausibility: Plausibility = Field(
+        default_factory=Plausibility,
+        description="Results from running Plausible property testing",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -462,6 +532,7 @@ class QualityAssessment(BaseModel):
         if not mtch:
             success = False
             num_sorries = 0
+            num_theorems = 0
             lines_code = 0
             percent_lines_added = 0.0
             code_snippet = ""
@@ -469,6 +540,7 @@ class QualityAssessment(BaseModel):
             code_snippet = mtch.group(1)
             success = True
             num_sorries = code_snippet.count("sorry")
+            num_theorems = count_lean_theorems(code_snippet)
             lines_code = code_snippet.count("\n")
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
 
@@ -508,6 +580,12 @@ class QualityAssessment(BaseModel):
             # Each test is a line containing 'test "'
             num_unit_tests = unit_tests_lspec.count('test "')
 
+        # Extract plausibility metrics from metadata
+        plausibility = state.metadata.get("plausibility", Plausibility())
+        # Ensure it's a Plausibility object (may be dict from JSON deserialization)
+        if isinstance(plausibility, dict):
+            plausibility = Plausibility(**plausibility)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -524,6 +602,7 @@ class QualityAssessment(BaseModel):
             lines_pbt=lines_pbt,
             success=success,
             num_sorries=num_sorries,
+            num_theorems=num_theorems,
             lines_code=lines_code,
             num_fns_impl=state.metadata.get(
                 "num_fns_impl", 1
@@ -535,4 +614,173 @@ class QualityAssessment(BaseModel):
             has_unit_tests=has_unit_tests,
             num_unit_tests=num_unit_tests,
             unit_tests_available=has_unit_tests,
+            plausibility=plausibility,
         )
+
+    def to_inspect_scores(self) -> dict[str, "Score"]:
+        """Export metrics as inspect_ai Score objects for viewer.
+
+        Returns:
+            Dictionary mapping score names to Score objects
+        """
+        from inspect_ai.scorer import Score
+
+        scores = {
+            "token_usage": Score(
+                value=self.token_usage,
+                explanation=f"Total tokens used: {self.token_usage}",
+            ),
+            "time": Score(
+                value=self.time,
+                explanation=f"Generation time in seconds: {self.time:.2f}",
+            ),
+            "num_messages": Score(
+                value=self.num_messages,
+                explanation=f"Total messages exchanged: {self.num_messages}",
+            ),
+            "success": Score(
+                value="C" if self.success else "I",
+                explanation="Successfully generated Lean code in <code> tags"
+                if self.success
+                else "Failed to generate valid Lean code",
+            ),
+            "num_sorries": Score(
+                value=self.num_sorries,
+                explanation=f"Number of 'sorry' placeholders in generated code: {self.num_sorries}",
+            ),
+            "num_theorems": Score(
+                value=self.num_theorems,
+                explanation=f"Number of theorem/lemma declarations: {self.num_theorems}",
+            ),
+            "lines_code": Score(
+                value=self.lines_code,
+                explanation=f"Lines of Lean code generated: {self.lines_code}",
+            ),
+            "num_fns_impl": Score(
+                value=self.num_fns_impl,
+                explanation=f"Number of functions autoformalized (FUT + deps): {self.num_fns_impl}",
+            ),
+        }
+
+        # Add optional metrics if available
+        if self.percent_lines_added is not None:
+            scores["percent_lines_added"] = Score(
+                value=self.percent_lines_added,
+                explanation=f"Percent lines added relative to Python test: {self.percent_lines_added:.1%}",
+            )
+
+        if self.faithfulness_subjective is not None:
+            scores["faithfulness_subjective"] = Score(
+                value=self.faithfulness_subjective,
+                explanation=f"AI self-reported faithfulness (0-10): {self.faithfulness_subjective:.1f}",
+            )
+
+        if self.interest_subjective is not None:
+            scores["interest_subjective"] = Score(
+                value=self.interest_subjective,
+                explanation=f"AI self-reported complexity/interest (0-10): {self.interest_subjective:.1f}",
+            )
+
+        # Add structural faithfulness metrics if available
+        if self.structural_faithfulness is not None:
+            sf = self.structural_faithfulness
+            scores["structural_faithfulness_overall"] = Score(
+                value=sf.overall,
+                explanation=f"Weighted average of structural metrics: {sf.overall:.2%}",
+            )
+            scores["parameter_coverage"] = Score(
+                value=sf.parameter_coverage,
+                explanation=f"Fraction of Python parameters found in Lean: {sf.parameter_coverage:.2%}",
+            )
+            scores["type_correspondence"] = Score(
+                value=sf.type_correspondence,
+                explanation=f"Fraction of Python types correctly mapped to Lean: {sf.type_correspondence:.2%}",
+            )
+            scores["strategy_coverage"] = Score(
+                value=sf.strategy_coverage,
+                explanation=f"Fraction of Hypothesis strategy bounds found in Lean: {sf.strategy_coverage:.2%}",
+            )
+            scores["assertion_coverage"] = Score(
+                value=sf.assertion_coverage,
+                explanation=f"Ratio of Lean properties to Python assertions: {sf.assertion_coverage:.2%}",
+            )
+            scores["dependency_coverage"] = Score(
+                value=sf.dependency_coverage,
+                explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
+            )
+
+        # Unit test metrics
+        if self.has_unit_tests:
+            scores["has_unit_tests"] = Score(
+                value=1.0,
+                explanation=f"Unit tests extracted: {self.num_unit_tests} test(s) available for evaluation",
+            )
+            scores["num_unit_tests"] = Score(
+                value=self.num_unit_tests,
+                explanation=f"Number of extracted unit tests: {self.num_unit_tests}",
+            )
+        else:
+            scores["has_unit_tests"] = Score(
+                value=0.0,
+                explanation="No unit tests could be extracted from the PBT",
+            )
+
+        # Plausible property testing metrics
+        plaus = self.plausibility
+        if plaus.ran:
+            # plausible_ran: binary indicator
+            scores["plausible_ran"] = Score(
+                value=1.0,
+                explanation="Plausible property testing was attempted",
+            )
+
+            # plausible_success: success rate (0.0 to 1.0)
+            # If there are errors, show them; otherwise show the rate
+            if plaus.errors:
+                explanation = (
+                    f"Plausible errors (0% success): {'; '.join(plaus.errors[:2])}"
+                )
+            else:
+                explanation = f"Plausible success rate: {plaus.success:.1%} ({max(0, plaus.num_theorems - plaus.counterexamples)}/{plaus.num_theorems} theorems passed)"
+
+            scores["plausible_success"] = Score(
+                value=plaus.success,
+                explanation=explanation,
+            )
+
+            # plausible_time: execution time
+            if plaus.time is not None:
+                scores["plausible_time"] = Score(
+                    value=plaus.time,
+                    explanation=f"Time to run plausible: {plaus.time:.2f}s",
+                )
+
+            # plausible_counterexamples: count
+            if plaus.counterexamples > 0:
+                scores["plausible_counterexamples"] = Score(
+                    value=plaus.counterexamples,
+                    explanation=f"Counterexamples found: {plaus.counterexamples}",
+                )
+        else:
+            scores["plausible_ran"] = Score(
+                value=0.0,
+                explanation="Plausible property testing was not attempted (disabled or spec generation failed)",
+            )
+
+        return scores
+
+    def to_wandb_metrics(self) -> dict[str, int | float | str | None]:
+        """Export metrics as wandb-compatible dictionary.
+
+        Uses model_dump() with automatic flattening of nested structures.
+        Nested keys are joined with underscores (e.g., plausibility.ran -> plausibility_ran).
+        Booleans are converted to integers (0/1) for wandb compatibility.
+
+        Returns:
+            Dictionary of metric names to values for wandb logging
+        """
+        # Get the full model as a dictionary
+        data = self.model_dump()
+
+        # Flatten nested dictionaries
+        return _flatten_dict(data)

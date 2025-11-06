@@ -8,14 +8,16 @@ The orchestration runs both agents sequentially, passing type signatures between
 """
 
 import time
+import tomllib
 from datetime import datetime
 from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
 from inspect_ai.solver import Generate, Solver, TaskState, solver
+from pydantic import ValidationError
 
-from generate.config import DATA_DIR
+from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.function_discovery import lookup_function_exact
@@ -26,12 +28,14 @@ from generate.scaffold.formalize.impl import (
     payloads_from_datapoint,
 )
 from generate.scaffold.formalize.impl.lean_merger import append_to_lean_file
+from generate.scaffold.formalize.plausible_runner import Plausibility, run_plausible
 from generate.scaffold.formalize.spec import (
     SpecPayload,
     SpecResult,
     spec_generation_agent,
 )
 from generate.scaffold.formalize.spec.validator import extract_signatures
+from generate.scaffold.quality_assessment import count_lean_theorems
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
@@ -249,9 +253,44 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
             )
 
+        # Phase 4: Run plausible property testing (if enabled and spec compiled)
+        plausibility = Plausibility()
+        if spec_result.success and spec_result.lean_code and spec_file.exists():
+            try:
+                config = load_config()
+                if config.plausible.enabled:
+                    theorem_count = count_lean_theorems(spec_result.lean_code)
+
+                    plausibility = run_plausible(
+                        spec_path=spec_file,
+                        workspace_path=workspace,
+                        timeout=config.plausible.timeout,
+                        num_theorems=theorem_count,
+                    )
+            except (
+                FileNotFoundError,
+                OSError,
+                tomllib.TOMLDecodeError,
+                ValidationError,
+            ) as e:
+                # If config loading or plausible execution fails, record error but continue
+                plausibility = Plausibility(
+                    ran=True,
+                    success=0.0,
+                    errors=[f"Error running plausible: {e}"],
+                )
+
+        # Store plausibility results in metadata for quality assessment
+        state.metadata["plausibility"] = plausibility
+
         # Set state.output so write_to_disk can persist the files
-        # The output text should contain the spec code (Impl is in workspace already)
-        output_text = spec_result.lean_code if spec_result.lean_code else ""
+        # If plausible ran, read back the modified Spec.lean (with plausible instead of sorry)
+        # Otherwise, use the original spec_result.lean_code
+        if plausibility.ran and spec_file.exists():
+            output_text = spec_file.read_text()
+        else:
+            output_text = spec_result.lean_code if spec_result.lean_code else ""
+
         if output_text:
             output_text = f"<code>\n{output_text}\n</code>"
 
