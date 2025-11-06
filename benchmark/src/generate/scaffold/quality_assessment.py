@@ -318,6 +318,53 @@ def _count_lean_theorems(code: str) -> int:
     return count
 
 
+def _flatten_dict(
+    d: dict, parent_key: str = "", sep: str = "_"
+) -> dict[str, int | float | str | None]:
+    """Recursively flatten a nested dictionary.
+
+    Args:
+        d: Dictionary to flatten
+        parent_key: Prefix for nested keys
+        sep: Separator to join nested keys (default: "_")
+
+    Returns:
+        Flattened dictionary with keys joined by separator.
+        Booleans are converted to int (0/1) for wandb compatibility.
+
+    Example:
+        >>> _flatten_dict({"a": 1, "b": {"c": 2, "d": True}})
+        {"a": 1, "b_c": 2, "b_d": 1}
+    """
+    items: list[tuple[str, int | float | str | None]] = []
+
+    for k, v in d.items():
+        new_key = f"{parent_key}{sep}{k}" if parent_key else k
+
+        if isinstance(v, dict):
+            # Recursively flatten nested dicts
+            items.extend(_flatten_dict(v, new_key, sep=sep).items())
+        elif isinstance(v, list):
+            # Handle lists - wandb doesn't handle them well
+            if not v:
+                # Empty list -> None
+                items.append((new_key, None))
+            elif all(isinstance(item, str) for item in v):
+                # Join string lists (e.g., errors)
+                items.append((new_key, ", ".join(v)))
+            else:
+                # For other lists, just log the length
+                items.append((f"{new_key}_count", len(v)))
+        elif isinstance(v, bool):
+            # Convert bool to int for wandb compatibility
+            items.append((new_key, 1 if v else 0))
+        else:
+            # Primitive values: int, float, str, None
+            items.append((new_key, v))
+
+    return dict(items)
+
+
 # Metric computation utilities
 
 
@@ -721,76 +768,18 @@ class QualityAssessment(BaseModel):
 
         return scores
 
-    def to_wandb_metrics(self) -> dict[str, float | int]:
+    def to_wandb_metrics(self) -> dict[str, int | float | str | None]:
         """Export metrics as wandb-compatible dictionary.
+
+        Uses model_dump() with automatic flattening of nested structures.
+        Nested keys are joined with underscores (e.g., plausibility.ran -> plausibility_ran).
+        Booleans are converted to integers (0/1) for wandb compatibility.
 
         Returns:
             Dictionary of metric names to values for wandb logging
         """
-        from typing import Any
+        # Get the full model as a dictionary
+        data = self.model_dump()
 
-        metrics: dict[str, Any] = {
-            "sample_id": self.sample_id,
-            "sample_name": self.sample_name,
-            # Performance metrics
-            "token_usage": self.token_usage,
-            "time": self.time,
-            "num_messages": self.num_messages,
-            "num_generate_messages": self.num_generate_messages,
-            "num_input_messages": self.num_input_messages,
-            # Code metrics
-            "success": 1 if self.success else 0,
-            "num_sorries": self.num_sorries,
-            "num_theorems": self.num_theorems,
-            "lines_pbt": self.lines_pbt,
-            "lines_code": self.lines_code,
-            "num_deps": self.num_deps,
-        }
-
-        # Optional metrics
-        if self.percent_lines_added is not None:
-            metrics["percent_lines_added"] = self.percent_lines_added
-
-        if self.faithfulness_subjective is not None:
-            metrics["faithfulness_subjective"] = self.faithfulness_subjective
-
-        if self.interest_subjective is not None:
-            metrics["interest_subjective"] = self.interest_subjective
-
-        # Structural faithfulness metrics
-        if self.structural_faithfulness is not None:
-            sf = self.structural_faithfulness
-            metrics.update(
-                {
-                    "structural_faithfulness_overall": sf.overall,
-                    "parameter_coverage": sf.parameter_coverage,
-                    "type_correspondence": sf.type_correspondence,
-                    "strategy_coverage": sf.strategy_coverage,
-                    "assertion_coverage": sf.assertion_coverage,
-                    "dependency_coverage": sf.dependency_coverage,
-                }
-            )
-
-        # Unit test metrics
-        metrics["has_unit_tests"] = 1 if self.has_unit_tests else 0
-        metrics["num_unit_tests"] = self.num_unit_tests
-
-        # Plausible property testing metrics
-        plaus = self.plausibility
-        metrics["plausible_ran"] = 1 if plaus.ran else 0
-        if plaus.ran:
-            # Map success to numeric (1.0=success, 0.5=unknown, 0.0=failure)
-            if plaus.success is True:
-                metrics["plausible_success"] = 1.0
-            elif plaus.success is False:
-                metrics["plausible_success"] = 0.0
-            else:
-                metrics["plausible_success"] = 0.5
-
-            if plaus.time is not None:
-                metrics["plausible_time"] = plaus.time
-
-            metrics["plausible_counterexamples"] = plaus.counterexamples
-            metrics["plausible_had_errors"] = 1 if plaus.errors else 0
-
-        return metrics
+        # Flatten nested dictionaries
+        return _flatten_dict(data)
