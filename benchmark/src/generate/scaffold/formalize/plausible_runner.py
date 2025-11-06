@@ -181,7 +181,7 @@ def _parse_plausible_output(
             for line in combined_output.split("\n")
             if "error:" in line.lower()
         ]
-        compilation_errors.extend(error_lines[:5])  # Limit to first 5 errors
+        compilation_errors.extend(error_lines)
 
     all_errors = instance_errors + compilation_errors
 
