@@ -207,7 +207,12 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                         timeout=config.plausible.timeout,
                         num_theorems=theorem_count,
                     )
-            except (FileNotFoundError, OSError, tomllib.TOMLDecodeError, ValidationError) as e:
+            except (
+                FileNotFoundError,
+                OSError,
+                tomllib.TOMLDecodeError,
+                ValidationError,
+            ) as e:
                 # If config loading or plausible execution fails, record error but continue
                 plausibility = Plausibility(
                     ran=True,
