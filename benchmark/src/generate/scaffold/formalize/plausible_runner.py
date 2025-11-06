@@ -187,11 +187,8 @@ def _parse_plausible_output(
     all_errors = instance_errors + compilation_errors
 
     # Determine success rate
-    if returncode != 0 or all_errors:
-        # Compilation failed or other errors - treat as 0% success
-        success_rate = 0.0
-    elif num_theorems == 0:
-        # No theorems to test - treat as 0% success
+    if returncode != 0 or all_errors or num_theorems == 0:
+        # Compilation failed, other errors, or no theorems to test - treat as 0% success
         success_rate = 0.0
     else:
         # Compute success rate: (theorems passed) / (total theorems)
