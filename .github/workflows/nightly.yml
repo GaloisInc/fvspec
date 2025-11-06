@@ -96,7 +96,7 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('benchmark/${{ steps.report.outputs.report_path }}', 'utf8');
+            const report = fs.readFileSync('benchmark/${{ steps.run.outputs.report_path }}', 'utf8');
 
             // Post to issue #85 (Nightly Evidence)
             await github.rest.issues.createComment({
