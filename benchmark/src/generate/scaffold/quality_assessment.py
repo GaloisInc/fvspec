@@ -730,10 +730,8 @@ class QualityAssessment(BaseModel):
                 if self.impl_autoform_success
                 else "Implementation autoformalization failed or didn't compile",
             ),
-            "implementation_level": Score(
-                value=self.implementation_level.value,
-                explanation=f"FUT implementation level: {self.implementation_level.value}",
-            ),
+            # Note: implementation_level is kept in qa.json but excluded from scores
+            # because it's categorical metadata (not a numeric metric to aggregate)
             "num_sorries": Score(
                 value=self.num_sorries,
                 explanation=f"Number of 'sorry' placeholders in generated code: {self.num_sorries}",
