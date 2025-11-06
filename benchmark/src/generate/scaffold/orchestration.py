@@ -222,6 +222,36 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Store dependency count for metrics
         state.metadata["num_fns_impl"] = len(all_payloads)
 
+        # Skip samples with excessive function counts (>50)
+        # Rationale: Samples with >50 functions are extreme outliers that:
+        # 1. Generate excessively large prompts and specs (degraded quality)
+        # 2. Take disproportionately long to process (hurt parallelism)
+        # 3. Exceed practical limits for meaningful specification generation
+        # Note: This is a secondary filter after MAX_DEPENDENCIES=100 (query-time filter).
+        # Some samples with <=100 deps in metadata may have >50 actual implementations
+        # when function discovery resolves them from the database.
+        MAX_FUNCTIONS_IMPL = 50
+        if len(all_payloads) > MAX_FUNCTIONS_IMPL:
+            state.metadata["skipped"] = True
+            state.metadata["skip_reason"] = (
+                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})"
+            )
+            # Set minimal output so write_to_disk knows this was intentionally skipped
+            state.output = ModelOutput(
+                model="orchestrated",
+                choices=[
+                    ChatCompletionChoice(
+                        message=ChatMessageAssistant(
+                            content=f"Sample skipped: {len(all_payloads)} functions exceeds limit of {MAX_FUNCTIONS_IMPL}",
+                            source="generate",
+                        ),
+                        stop_reason="stop",
+                    )
+                ],
+                time=time.time() - start_time,
+            )
+            return state
+
         # Phase 2: Extract type signatures from Impl.lean
         impl_signatures = {}
         if impl_file.exists():
