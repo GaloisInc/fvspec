@@ -737,7 +737,7 @@ class QualityAssessment(BaseModel):
                     f"Plausible errors (0% success): {'; '.join(plaus.errors[:2])}"
                 )
             else:
-                explanation = f"Plausible success rate: {plaus.success:.1%} ({plaus.num_theorems - plaus.counterexamples}/{plaus.num_theorems} theorems passed)"
+                explanation = f"Plausible success rate: {plaus.success:.1%} ({max(0, plaus.num_theorems - plaus.counterexamples)}/{plaus.num_theorems} theorems passed)"
 
             scores["plausible_success"] = Score(
                 value=plaus.success,
