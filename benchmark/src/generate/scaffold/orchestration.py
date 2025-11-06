@@ -44,35 +44,71 @@ from generate.templates.spec import VariantRegistry
 def _generate_fut_stub(function_name: str, pbt_code: str) -> str:
     r"""Generate a stub implementation when FUT source code is not available.
 
-    Creates a minimal Lean implementation with a function signature inferred
-    from the PBT name and a sorry placeholder. This allows the spec agent to
-    reference the function.
+    IMPORTANT: Do NOT use Unit type for stubs. This leads to trivial theorems
+    that inflate plausibility metrics without verification value.
+
+    Instead, infers signature from PBT if possible, or uses generic polymorphic
+    signature that forces the spec agent to think about types.
 
     Args:
         function_name: Name of the function under test (test_ prefix removed)
-        pbt_code: The property-based test code (for future signature inference)
+        pbt_code: The property-based test code (for signature inference)
 
     Returns:
-        Lean code with stub implementation in Fvspec.Impl namespace
+        Lean code with stub implementation using inferred or generic signature
 
-    Example:
-        >>> _generate_fut_stub("resolve_url", "...")
-        'import Batteries\\n\\nnamespace Fvspec.Impl\\n\\n/-- TODO: Implement... -/'
+    Examples:
+        >>> _generate_fut_stub("sort_list", "def test(xs): sort_list(xs)")
+        'def sort_list (input : α) : β := sorry'
+        >>> _generate_fut_stub("add", "def test(x, y): add(x, y)")
+        'def add (x : α) (y : β) : γ := sorry'
     """
-    # For now, create a simple stub with sorry
-    # Future enhancement: parse PBT to infer parameter types
+    import re
+
+    # Try to infer arity from PBT code by looking for function calls
+    # Pattern: function_name(arg1, arg2, ...)
+    call_pattern = rf"\b{re.escape(function_name)}\s*\(([^)]*)\)"
+    matches = list(re.finditer(call_pattern, pbt_code))
+
+    # Count arguments from first match
+    num_args = 0
+    if matches:
+        args_str = matches[0].group(1)
+        # Simple heuristic: count commas + 1 (if non-empty)
+        if args_str.strip():
+            num_args = args_str.count(",") + 1
+
+    # Generate signature based on inferred arity
+    # Use generic type parameters (α, β, γ) instead of Unit
+    if num_args == 0:
+        # No args detected - use generic nullary signature
+        # Avoid Unit type - use generic α instead to encourage type inference
+        signature = f"def {function_name} : α := sorry"
+    elif num_args == 1:
+        signature = f"def {function_name} (input : α) : β := sorry"
+    elif num_args == 2:
+        signature = f"def {function_name} (x : α) (y : β) : γ := sorry"
+    else:
+        # Multiple arguments - generate generic parameters
+        params = " ".join(f"(x{i} : α{i})" for i in range(1, num_args + 1))
+        signature = f"def {function_name} {params} : β := sorry"
+
     stub = f"""import Batteries
 
 namespace Fvspec.Impl
 
 /-- {function_name}: Implementation not available in source repository.
 
-    This is a stub generated because the function source code could not be
-    discovered. The specification agent should infer the signature from the
-    property-based test and generate appropriate theorems.
+    This is a stub with an inferred signature from the property-based test.
+    The actual implementation could not be discovered, so a generic signature
+    is provided to guide the specification agent.
+
+    IMPORTANT: This stub uses generic type parameters (α, β, γ) instead of Unit
+    to encourage the specification agent to infer meaningful types from the PBT
+    and avoid generating trivial tautologies.
 
     TODO: Implement this function based on the specification requirements. -/
-def {function_name} : Unit := sorry
+{signature}
 
 end Fvspec.Impl
 """
