@@ -32,10 +32,10 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
-    Implements deterministic sampling by:
-    1. Fetching all eligible datapoints (deps <= MAX_DEPENDENCIES)
-    2. Using Python's random.sample() with the provided seed
-    3. Returning exactly n samples (or fewer if not enough eligible)
+    Implements memory-efficient deterministic sampling by:
+    1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
+    2. Shuffling IDs using seeded Python RNG
+    3. Taking first n IDs and fetching full datapoints
 
     Args:
         session: SQLModel database session
@@ -46,30 +46,42 @@ def sample_datapoints(
         List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
 
     Note:
-        Uses Python's random.sample() for deterministic sampling since SQLite's RANDOM()
-        does not support seeding. All eligible datapoints are loaded into memory first.
+        Uses Python's random.shuffle() for deterministic sampling since SQLite's RANDOM()
+        does not support seeding. Only loads IDs into memory, not full datapoint objects.
     """
     # Use json_array_length to filter by dependency count
-    # SQLite stores JSON as TEXT, so we parse with json_array_length()
-    statement = select(Datapoint).where(
+    # Fetch only IDs (lightweight) instead of full datapoint objects
+    id_statement = select(Datapoint.id).where(  # type: ignore[attr-defined]
         func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES
     )
 
-    # Fetch all eligible datapoints
-    results = session.exec(statement)
-    all_eligible = list(results)
+    # Fetch all eligible IDs
+    results = session.exec(id_statement)
+    all_ids = list(results)
 
     # Return empty list if no eligible datapoints
-    if not all_eligible:
+    if not all_ids:
         return []
 
-    # Use Python's random.sample for deterministic sampling
-    # Set seed for reproducibility
+    # Shuffle IDs using seeded RNG for deterministic sampling
     rng = random.Random(ranseed)
+    rng.shuffle(all_ids)
 
-    # Sample n datapoints (or all if fewer than n available)
-    sample_size = min(n, len(all_eligible))
-    return rng.sample(all_eligible, sample_size)
+    # Take first n IDs (or all if fewer than n available)
+    sample_size = min(n, len(all_ids))
+    selected_ids = all_ids[:sample_size]
+
+    # Fetch full datapoints for selected IDs
+    datapoints_statement = select(Datapoint).where(
+        Datapoint.id.in_(selected_ids)  # type: ignore[attr-defined]
+    )
+    datapoints = list(session.exec(datapoints_statement))
+
+    # Return in shuffled order (IN clause doesn't preserve order)
+    id_to_datapoint = {dp.id: dp for dp in datapoints}
+    return [
+        id_to_datapoint[dp_id] for dp_id in selected_ids if dp_id in id_to_datapoint
+    ]
 
 
 def load_datapoints_by_id(
