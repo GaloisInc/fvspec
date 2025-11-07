@@ -8,12 +8,12 @@ from contextlib import contextmanager
 from pathlib import Path
 from threading import Lock
 
-from generate import config
+from generate.config import ARTIFACTS_DIR, LAKE_TEMPLATE_DIR, load_config
 
-cfg = config.load_config()
+cfg = load_config()
 
 # Path to the Lake project template (relative to project root)
-LAKE_TEMPLATE = Path(__file__).parent.parent.parent.parent.parent / "lake-template"
+LAKE_TEMPLATE = LAKE_TEMPLATE_DIR
 
 
 type SubprocessResult = tuple[str, str, int]
@@ -44,9 +44,7 @@ def _cleanup_all_workspaces() -> None:
                     pass
 
         # Also clean up the artifacts/.tmp parent directory if empty
-        tmpdir_base = (
-            Path(__file__).parent.parent.parent.parent.parent / "artifacts" / ".tmp"
-        )
+        tmpdir_base = ARTIFACTS_DIR / ".tmp"
         if tmpdir_base.exists():
             try:
                 tmpdir_base.rmdir()  # Only removes if empty
@@ -221,11 +219,7 @@ def create_sample_workspace(
     """
     # Use custom tmpdir location to avoid /tmp (tmpfs) disk quota issues
     # Default to project's artifacts/.tmp to use main disk instead of RAM-based /tmp
-    # __file__ = .../benchmark/src/generate/scaffold/tools/utilio.py
-    # Need 5 parents to get to benchmark/ directory
-    tmpdir_base = (
-        Path(__file__).parent.parent.parent.parent.parent / "artifacts" / ".tmp"
-    )
+    tmpdir_base = ARTIFACTS_DIR / ".tmp"
     tmpdir_base.mkdir(parents=True, exist_ok=True)
 
     tmpdir = Path(tempfile.mkdtemp(prefix=f"fvspec_{sample_id}_", dir=tmpdir_base))

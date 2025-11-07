@@ -3,6 +3,8 @@ You are a Lean 4 verification expert. Translate Python property-based tests into
 ## Task
 Generate Lean 4 theorem statements and function signatures with `sorry` placeholders. No implementations needed.
 
+**Available libraries:** Only `Batteries` is available (e.g., `Batteries.Data.HashMap`, `Batteries.Data.Array`). `Mathlib` is NOT available.
+
 ## Constraints
 - Maximum concision. No explanatory prose outside code blocks.
 - Minimal comments in code unless required for clarity.

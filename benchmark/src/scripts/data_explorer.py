@@ -4,18 +4,25 @@ Usage:
     uv run data-explorer
 """
 
+import ast
 import json
 import random
 import subprocess
 import sys
+from collections import Counter
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
+from sqlmodel import select
 
+from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.models import PBTFunction
 from generate.scaffold.dataset.queries import (
     count_total_datapoints,
+    get_overlapping_unit_tests,
 )
 from generate.scaffold.dataset.queries import (
     load_datapoints_by_id as _db_load_by_id,
@@ -29,7 +36,7 @@ def get_data_path() -> Path:
     """Get the path to the pbts_full.db database file."""
     # Try to find the data file relative to the project root
     possible_paths = [
-        Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db",
+        DATA_DIR / "pbts_full.db",
         Path.cwd() / "benchmark" / "data" / "pbts_full.db",
         Path.cwd() / "data" / "pbts_full.db",
     ]
@@ -38,7 +45,189 @@ def get_data_path() -> Path:
             return path
 
     # If not found, return default path with helpful error
-    return Path(__file__).parent.parent.parent.parent / "data" / "pbts_full.db"
+    return DATA_DIR / "pbts_full.db"
+
+
+def get_associated_functions(data_path: Path, pbt_id: int) -> list[str]:
+    """Get list of functions associated with a PBT from pbt_functions table."""
+    try:
+        with get_session(data_path) as session:
+            statement = select(PBTFunction.function_name).where(
+                PBTFunction.pbt_id == pbt_id
+            )
+            results = session.exec(statement)
+            return list(results)
+    except Exception as e:
+        st.error(f"Error fetching functions: {e}")
+        return []
+
+
+def extract_unit_tests_from_overlaps(unit_test_overlaps: list[dict]) -> list[dict]:
+    """Extract all unit tests from unit test overlap structures.
+
+    Args:
+        unit_test_overlaps: List of overlap dictionaries containing unit tests
+
+    Returns:
+        List of all unit tests extracted from the overlaps
+    """
+    all_unit_tests = []
+    for overlap in unit_test_overlaps:
+        unit_tests = overlap.get("unit_tests", [])
+        if isinstance(unit_tests, list):
+            all_unit_tests.extend(unit_tests)
+    return all_unit_tests
+
+
+class FunctionCallVisitor(ast.NodeVisitor):
+    """AST visitor to extract function calls from Python code."""
+
+    def __init__(self):
+        """Initialize the visitor with an empty call list."""
+        self.calls: list[dict[str, str | int]] = []
+
+    def visit_Call(self, node: ast.Call):
+        """Record function call details."""
+        # Extract function name (handles both simple calls and attribute access)
+        func_name = None
+        if isinstance(node.func, ast.Name):
+            func_name = node.func.id
+        elif isinstance(node.func, ast.Attribute):
+            # For attr.method() calls, try to build full name
+            parts = []
+            current = node.func
+            while isinstance(current, ast.Attribute):
+                parts.append(current.attr)
+                current = current.value
+            if isinstance(current, ast.Name):
+                parts.append(current.id)
+            func_name = ".".join(reversed(parts))
+
+        if func_name:
+            self.calls.append(
+                {
+                    "name": func_name,
+                    "line": node.lineno if hasattr(node, "lineno") else 0,
+                    "type": "attribute"
+                    if isinstance(node.func, ast.Attribute)
+                    else "direct",
+                }
+            )
+
+        self.generic_visit(node)
+
+
+def analyze_function_calls(code: str) -> dict[str, list | dict | int | str]:
+    """Analyze function calls in Python code using AST.
+
+    Returns:
+        Dictionary with call counts and detailed call information
+    """
+    try:
+        tree = ast.parse(code)
+        visitor = FunctionCallVisitor()
+        visitor.visit(tree)
+
+        # Count occurrences
+        call_counts = Counter(call["name"] for call in visitor.calls)
+
+        return {
+            "calls": visitor.calls,
+            "call_counts": dict(call_counts.most_common()),
+            "total_calls": len(visitor.calls),
+            "unique_functions": len(call_counts),
+        }
+    except SyntaxError as e:
+        return {
+            "error": f"Syntax error: {e}",
+            "calls": [],
+            "call_counts": {},
+            "total_calls": 0,
+            "unique_functions": 0,
+        }
+
+
+def identify_main_function(
+    associated_functions: list[str],
+    call_analysis: dict[str, list | dict | int | str],
+    dep_names: list[str],
+) -> dict[str, list[str] | str | dict]:
+    """Apply heuristics to identify which function is likely 'under test' vs dependencies.
+
+    Heuristics:
+    1. Most frequently called function is likely the main one
+    2. Functions in associated_functions but not in dep_names might be main
+    3. Functions called directly (not as attributes) are more likely to be main
+
+    Returns:
+        Dictionary with 'likely_main', 'likely_deps', and 'reasoning'
+    """
+    if not associated_functions:
+        return {
+            "likely_main": [],
+            "likely_deps": [],
+            "reasoning": "No associated functions found in pbt_functions table",
+        }
+
+    call_counts_raw = call_analysis.get("call_counts", {})
+    calls_raw = call_analysis.get("calls", [])
+
+    # Type narrowing for type checker
+    assert isinstance(call_counts_raw, dict)  # noqa: S101
+    assert isinstance(calls_raw, list)  # noqa: S101
+    call_counts: dict[str, int] = call_counts_raw  # type: ignore[assignment]
+    calls: list[dict[str, str | int]] = calls_raw  # type: ignore[assignment]
+
+    # Score each associated function
+    scores = {}
+    for func in associated_functions:
+        score = 0
+        reasons = []
+
+        # Check if called at all
+        call_count = call_counts.get(func, 0)  # type: ignore[union-attr]
+        if call_count > 0:
+            score += call_count
+            reasons.append(f"called {call_count}x")
+
+        # Check if NOT in dep_names (might indicate it's the main function)
+        if func not in dep_names:
+            score += 5
+            reasons.append("not in dep_names")
+
+        # Check for direct calls (not attribute access)
+        direct_calls = sum(  # type: ignore[misc]
+            1 for c in calls if c["name"] == func and c["type"] == "direct"
+        )
+        if direct_calls > 0:
+            score += 2
+            reasons.append(f"{direct_calls} direct call(s)")
+
+        scores[func] = {"score": score, "reasons": reasons}
+
+    # Sort by score
+    sorted_funcs = sorted(scores.items(), key=lambda x: x[1]["score"], reverse=True)
+
+    if not sorted_funcs:
+        return {
+            "likely_main": [],
+            "likely_deps": associated_functions,
+            "reasoning": "No functions found in code",
+        }
+
+    # Top scorer is likely main, rest are deps
+    top_score = sorted_funcs[0][1]["score"]
+    likely_main = [func for func, data in sorted_funcs if data["score"] == top_score]
+    likely_deps = [func for func, data in sorted_funcs if data["score"] < top_score]
+
+    reasoning = f"Top candidate(s): {likely_main[0]} ({', '.join(sorted_funcs[0][1]['reasons'])})"
+
+    return {
+        "likely_main": likely_main,
+        "likely_deps": likely_deps,
+        "reasoning": reasoning,
+        "all_scores": scores,
+    }
 
 
 def load_random_sample(
@@ -46,6 +235,7 @@ def load_random_sample(
     seed: int | None = None,
     min_deps: int | None = None,
     max_deps: int | None = None,
+    require_unit_tests: bool = False,
 ) -> Datapoint | None:
     """Load a single random sample from the dataset with optional filtering."""
     if not data_path.exists():
@@ -74,6 +264,18 @@ def load_random_sample(
             if max_deps is not None and num_deps > max_deps:
                 seed = random.randint(0, 1_000_000) if seed is not None else None
                 continue
+
+            # Check unit test filter
+            if require_unit_tests:
+                unit_tests = get_unit_tests_for_sample(data_path, sample.id)
+                has_tests = (
+                    unit_tests
+                    and unit_tests[0].get("unit_tests")
+                    and len(unit_tests[0]["unit_tests"]) > 0
+                )
+                if not has_tests:
+                    seed = random.randint(0, 1_000_000) if seed is not None else None
+                    continue
 
             return sample
 
@@ -172,6 +374,35 @@ def add_to_history(sample_id: int):
     st.session_state.history = history[:20]
 
 
+def load_unit_test_classifications(data_path: Path) -> pd.DataFrame | None:
+    """Load unit test classification CSV if available."""
+    csv_path = data_path.parent / "unit_test_classification.csv"
+    if not csv_path.exists():
+        return None
+    try:
+        return pd.read_csv(csv_path)
+    except Exception as e:
+        st.warning(f"Could not load unit test classifications: {e}")
+        return None
+
+
+@st.cache_data
+def get_unit_tests_for_sample(
+    data_path: Path, sample_id: int
+) -> list[dict[str, list | str]]:
+    """Get unit tests that share functions with the given PBT sample.
+
+    Cached to avoid redundant database queries within the same script execution.
+    The cache is keyed by (data_path, sample_id) and persists across Streamlit reruns.
+    """
+    try:
+        with get_session(data_path) as session:
+            return get_overlapping_unit_tests(session, sample_id)
+    except Exception as e:
+        st.error(f"Error fetching unit tests: {e}")
+        return []
+
+
 def main():
     """Main Streamlit app."""
     st.set_page_config(page_title="FVSpec Data Explorer", page_icon="🔍", layout="wide")
@@ -228,10 +459,23 @@ def main():
                 min_deps = None
                 max_deps = None
 
+            # Unit test filter
+            st.divider()
+            enable_unit_test_filter = st.checkbox("Filter by unit tests", value=False)
+            if enable_unit_test_filter:
+                st.caption("🧪 Only show samples with unit tests")
+                st.info(
+                    "Note: This filter requires checking each sample, which may be slower"
+                )
+
         if st.button("🎲 Load Random Sample", type="primary", width="stretch"):
             st.session_state.seed = random.randint(0, 1_000_000)
             sample = load_random_sample(
-                data_path, st.session_state.seed, min_deps, max_deps
+                data_path,
+                st.session_state.seed,
+                min_deps,
+                max_deps,
+                require_unit_tests=enable_unit_test_filter,
             )
             if sample:
                 st.session_state.current_sample = sample
@@ -387,8 +631,15 @@ def main():
     st.markdown("---")
 
     # Tabs for different views
-    tab1, tab2, tab3, tab4 = st.tabs(
-        ["📝 PBT", "🔗 Dependencies", "📄 Source", "📊 Metadata"]
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
+        [
+            "📝 PBT",
+            "🔗 Dependencies",
+            "🔍 Function Analysis",
+            "🧪 Unit Tests",
+            "📄 Source",
+            "📊 Metadata",
+        ]
     )
 
     with tab1:
@@ -439,13 +690,265 @@ def main():
                     st.metric("Characters", dep_chars)
 
     with tab3:
+        st.subheader("🔍 Function Interdependency Analysis")
+        st.markdown(
+            """
+            This tab helps answer: **Which function is being tested vs which are dependencies?**
+
+            Analysis combines data from:
+            - `pbt_functions` table (database-recorded associations)
+            - AST-based call analysis of the PBT code
+            - Heuristics comparing with `dep_names` field
+            """
+        )
+
+        # Get associated functions from database
+        associated_funcs = get_associated_functions(data_path, sample.id)
+
+        # Analyze function calls in PBT code
+        call_analysis = analyze_function_calls(sample.code)
+
+        # Apply heuristics to identify main function
+        identification = identify_main_function(
+            associated_funcs, call_analysis, sample.get_dep_names()
+        )
+
+        # Display results
+        st.divider()
+
+        # Overview metrics
+        col1, col2, col3, col4 = st.columns(4)
+        with col1:
+            st.metric("Associated Functions", len(associated_funcs))
+        with col2:
+            st.metric("Total Calls", call_analysis.get("total_calls", 0))
+        with col3:
+            st.metric("Unique Called", call_analysis.get("unique_functions", 0))
+        with col4:
+            st.metric("Dep Names", len(sample.get_dep_names()))
+
+        # Main function identification
+        st.divider()
+        st.subheader("Identification Results")
+
+        likely_main = identification.get("likely_main", [])
+        likely_deps = identification.get("likely_deps", [])
+        reasoning = identification.get("reasoning", "")
+
+        if likely_main:
+            st.success(f"**Likely Function Under Test:** {', '.join(likely_main)}")
+            st.caption(f"Reasoning: {reasoning}")
+        else:
+            st.warning("Could not identify a clear 'function under test'")
+
+        if likely_deps:
+            st.info(f"**Likely Dependencies:** {', '.join(likely_deps)}")
+
+        # Detailed scoring
+        with st.expander("📊 Detailed Scoring"):
+            all_scores = identification.get("all_scores", {})
+            if all_scores and isinstance(all_scores, dict):
+                for func, data in sorted(
+                    all_scores.items(),
+                    key=lambda x: x[1]["score"],
+                    reverse=True,  # type: ignore[union-attr]
+                ):
+                    score = data["score"]
+                    reasons = data["reasons"]
+                    st.markdown(f"**{func}** (score: {score})")
+                    if reasons:
+                        for reason in reasons:
+                            st.markdown(f"  - {reason}")
+                    else:
+                        st.markdown("  - No evidence in PBT code")
+            else:
+                st.info("No functions to score")
+
+        # Associated functions from database
+        st.divider()
+        st.subheader("Database: Associated Functions")
+        if associated_funcs:
+            st.markdown("Functions from `pbt_functions` table:")
+
+            # Get unit test data to check for overlaps
+            unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+            unit_test_functions = set()
+            if unit_test_overlaps:
+                for overlap in unit_test_overlaps:
+                    shared_funcs = overlap.get("shared_functions", [])
+                    unit_test_functions.update(shared_funcs)
+
+            call_counts_db_raw = call_analysis.get("call_counts", {})
+            assert isinstance(call_counts_db_raw, dict)  # noqa: S101
+            call_counts_db: dict[str, int] = call_counts_db_raw  # type: ignore[assignment]
+
+            for func in associated_funcs:
+                in_deps = (
+                    "✓ in dep_names"
+                    if func in sample.get_dep_names()
+                    else "✗ NOT in dep_names"
+                )
+                call_count = call_counts_db.get(func, 0)  # type: ignore[union-attr]
+                has_unit_tests = (
+                    "🧪 has unit tests" if func in unit_test_functions else ""
+                )
+
+                tags = f"{in_deps} - Called {call_count}x in PBT"
+                if has_unit_tests:
+                    tags = f"{tags} - {has_unit_tests}"
+
+                st.markdown(f"- `{func}` - {tags}")
+        else:
+            st.info("No associated functions in pbt_functions table for this sample")
+
+        # Call analysis from PBT code
+        st.divider()
+        st.subheader("PBT Code: Function Calls")
+
+        if "error" in call_analysis:
+            st.error(f"Could not parse PBT code: {call_analysis['error']}")
+        else:
+            call_counts_raw = call_analysis.get("call_counts", {})
+            assert isinstance(call_counts_raw, dict)  # noqa: S101
+            call_counts: dict[str, int] = call_counts_raw  # type: ignore[assignment]
+            if call_counts:
+                st.markdown("All function calls found in PBT code:")
+
+                # Show top 20 most called functions
+                for func, count in list(call_counts.items())[:20]:  # type: ignore[union-attr]
+                    in_assoc = "✓ associated" if func in associated_funcs else ""
+                    in_deps = "✓ dep_name" if func in sample.get_dep_names() else ""
+                    tags = f"{in_assoc} {in_deps}".strip()
+                    if tags:
+                        st.markdown(f"- `{func}` called **{count}x** ({tags})")
+                    else:
+                        st.markdown(f"- `{func}` called **{count}x**")
+
+                if len(call_counts) > 20:  # type: ignore[arg-type]
+                    st.caption(f"... and {len(call_counts) - 20} more functions")  # type: ignore[arg-type]
+            else:
+                st.info("No function calls detected in PBT code")
+
+        # Raw call details
+        with st.expander("🔍 Raw Call Details"):
+            calls_raw = call_analysis.get("calls", [])
+            assert isinstance(calls_raw, list)  # noqa: S101
+            calls: list[dict[str, str | int]] = calls_raw  # type: ignore[assignment]
+            if calls:
+                st.json(
+                    [
+                        {"function": c["name"], "line": c["line"], "type": c["type"]}  # type: ignore[misc]
+                        for c in calls[:50]
+                    ]
+                )
+                if len(calls) > 50:  # type: ignore[arg-type]
+                    st.caption(f"Showing first 50 of {len(calls)} calls")  # type: ignore[arg-type]
+            else:
+                st.info("No calls to display")
+
+    with tab4:
+        st.subheader("🧪 Unit Tests")
+        st.markdown(
+            """
+            Unit tests that share functions with this PBT sample.
+            These are extracted from the same codebase and test overlapping functionality.
+            """
+        )
+
+        # Load unit test data
+        unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+        classifications = load_unit_test_classifications(data_path)
+
+        if not unit_test_overlaps or not unit_test_overlaps[0].get("unit_tests"):
+            st.info("No overlapping unit tests found for this sample")
+        else:
+            # Extract all unit tests from the overlap structure
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
+            shared_functions = unit_test_overlaps[0].get("shared_functions", [])
+
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Unit Tests", len(all_unit_tests))
+            with col2:
+                st.metric("Shared Functions", len(shared_functions))
+            with col3:
+                # Count if we have classification data
+                if classifications is not None:
+                    st.metric("Classifications Available", "Yes ✓")
+                else:
+                    st.metric("Classifications Available", "No")
+
+            st.divider()
+
+            # Show shared functions
+            if shared_functions:
+                with st.expander("📋 Shared Functions", expanded=False):
+                    st.markdown("Functions tested by both PBT and unit tests:")
+                    for func in shared_functions:
+                        st.markdown(f"- `{func}`")
+
+            # Display unit tests
+            st.subheader("Unit Test List")
+
+            # Unit test selector
+            test_options = {
+                f"{i + 1}. {test.get('name', f'test_{i}')}": (i, test)
+                for i, test in enumerate(all_unit_tests)
+            }
+
+            if test_options:
+                selected_test = st.selectbox(
+                    "Select unit test to view:",
+                    options=list(test_options.keys()),
+                    key="unit_test_selector",
+                )
+
+                if selected_test:
+                    idx, test = test_options[selected_test]
+
+                    # Show test metadata
+                    col1, col2 = st.columns([1, 3])
+
+                    with col1:
+                        st.markdown("**Metadata:**")
+                        if test.get("source_file"):
+                            st.markdown(f"**File:** `{test['source_file']}`")
+                        if test.get("start_line") and test.get("end_line"):
+                            st.markdown(
+                                f"**Lines:** {test['start_line']}-{test['end_line']}"
+                            )
+
+                        # TODO: Show classification if available
+                        # (would need to join with detailed classification data by test name)
+
+                    with col2:
+                        st.markdown("**Test Code:**")
+                        st.code(
+                            test.get("code", ""), language="python", line_numbers=True
+                        )
+
+                # Show all tests in compact view
+                with st.expander("📜 All Unit Tests (Compact View)"):
+                    for i, test in enumerate(all_unit_tests, 1):
+                        st.markdown(f"**{i}. {test.get('name', 'unnamed')}**")
+                        lines = (
+                            f"Lines {test.get('start_line')}-{test.get('end_line')}"
+                            if test.get("start_line")
+                            else "Unknown location"
+                        )
+                        st.caption(
+                            f"{test.get('source_file', 'Unknown file')} - {lines}"
+                        )
+
+    with tab5:
         st.subheader("Source Code")
         if sample.source:
             st.code(sample.source, language="python", line_numbers=True)
         else:
             st.info("Source code not available in database")
 
-    with tab4:
+    with tab6:
         st.subheader("Sample Metadata")
 
         # Basic info
@@ -473,6 +976,28 @@ def main():
             st.divider()
             st.markdown("**Summary:**")
             st.info(sample.summary)
+
+        # Unit test metadata
+        st.divider()
+        st.markdown("**Unit Test Coverage:**")
+
+        unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+        if unit_test_overlaps and unit_test_overlaps[0].get("unit_tests"):
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Associated Unit Tests", len(all_unit_tests))
+            with col2:
+                shared_funcs = unit_test_overlaps[0].get("shared_functions", [])
+                st.metric("Shared Functions", len(shared_funcs))
+
+            # Show classification summary if available
+            classifications = load_unit_test_classifications(data_path)
+            if classifications is not None:
+                st.caption("✓ Classification data available - see Unit Tests tab")
+        else:
+            st.info("No associated unit tests found")
 
         # Raw JSON view
         with st.expander("🔍 Raw JSON"):

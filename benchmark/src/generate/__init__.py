@@ -6,12 +6,21 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+import wandb
 from inspect_ai import eval, eval_set
 from typer import Option, Typer
+from wandb.errors import CommError  # type: ignore[import-untyped]
 
-from generate.config import WandbConfig, load_config
+from generate.config import DATA_DIR, WandbConfig, load_config
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.depmock import (
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.queries import (
+    load_datapoints_by_id as _db_load_by_id,
+)
+from generate.scaffold.dataset.queries import (
+    sample_datapoints as _db_sample,
+)
+from generate.scaffold.formalize.impl import (
     DependencyBatchError,
     DependencyExecutionRequest,
     DependencyPayload,
@@ -26,12 +35,12 @@ from generate.scaffold.depmock import (
     run_dependency_autoformalizer,
     scan_dependencies,
 )
-from generate.scaffold.depmock.cache import CacheProvenance, read_manifest
-from generate.scaffold.depmock.runner import (
-    aggregate_dependency_modules,
+from generate.scaffold.formalize.impl.cache import CacheProvenance, read_manifest
+from generate.scaffold.formalize.impl.runner import (
+    aggregate_impl_modules,
     order_dependency_modules,
 )  # type: ignore[attr-defined]
-from generate.scaffold.task import DATA_DIR, fvspec
+from generate.scaffold.orchestration import fvspec
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.templates.spec import VariantRegistry
@@ -61,6 +70,8 @@ def main_callback(
     ),
     ranseed: int = Option(
         None,
+        "-s",
+        "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
     list_variants: bool = Option(
@@ -94,9 +105,9 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
-    force_deps_regen: bool = Option(
+    force_cache_regen: bool = Option(
         False,
-        "--force-deps-regen",
+        "--force-cache-regen",
         help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
     ),
 ) -> None:
@@ -118,7 +129,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
-        force_deps_regen: Ignore cache and regenerate all dependencies.
+        force_cache_regen: Ignore cache and regenerate all dependencies.
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -171,10 +182,10 @@ def main_callback(
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    # Handle force_deps_regen: clear local cache before starting
-    if force_deps_regen:
+    # Handle force_cache_regen: clear local cache before starting
+    if force_cache_regen:
         print(
-            "⚠️  Force regeneration enabled: clearing local cache, will overwrite existing entries"
+            "⚠️  Cache disabled: clearing local cache, will overwrite existing entries"
         )
         clear_cache()
 
@@ -189,8 +200,8 @@ def main_callback(
             timestamp=timestamp,
         )
 
-        # Download dep cache at start of run (unless force_deps_regen is enabled)
-        if wandb_cfg.sync_dep_cache and not force_deps_regen:
+        # Download dep cache at start of run (unless force_cache_regen is enabled)
+        if wandb_cfg.sync_dep_cache and not force_cache_regen:
             print("Downloading dependency cache from wandb...")
             wandb_logger.download_dep_cache()
 
@@ -237,6 +248,8 @@ def compare_variants(
     ),
     ranseed: int = Option(
         None,
+        "-s",
+        "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
     parallelism: int = Option(
@@ -437,9 +450,9 @@ def deps_autoformalize_command(
         "--validate",
         help="Typecheck aggregated dependency modules after generation.",
     ),
-    force_deps_regen: bool = Option(
+    force_cache_regen: bool = Option(
         False,
-        "--force-deps-regen",
+        "--force-cache-regen",
         help="Ignore dependency cache and regenerate all dependencies. Overwrites existing cache entries on hash collision.",
     ),
 ) -> None:
@@ -456,7 +469,7 @@ def deps_autoformalize_command(
         dry_run: Emit stubs without invoking autoformalizer.
         batch_size: Logical batch size for dataset metadata.
         validate: Typecheck aggregated modules after generation.
-        force_deps_regen: Ignore cache and regenerate all dependencies.
+        force_cache_regen: Ignore cache and regenerate all dependencies.
     """
     dataset_path = (DATA_DIR / datafile).resolve()
     if not dataset_path.exists():
@@ -464,15 +477,6 @@ def deps_autoformalize_command(
         return
 
     selected: list[Datapoint] = []
-
-    # Import DB query functions
-    from generate.scaffold.dataset.connection import get_session
-    from generate.scaffold.dataset.queries import (
-        load_datapoints_by_id as _db_load_by_id,
-    )
-    from generate.scaffold.dataset.queries import (
-        sample_datapoints as _db_sample,
-    )
 
     with get_session(dataset_path) as session:
         if sample_id:
@@ -502,16 +506,14 @@ def deps_autoformalize_command(
     )
     print(f"Artifacts will be written to {base_dir}\n")
 
-    # Force regeneration overrides skip_cached
-    effective_skip_cached = False if force_deps_regen else skip_cached
-    if force_deps_regen:
-        print(
-            "⚠️  Force regeneration enabled: ignoring cache, will overwrite existing entries\n"
-        )
+    # force_cache_regen overrides skip_cached
+    effective_skip_cached = False if force_cache_regen else skip_cached
+    if force_cache_regen:
+        print("⚠️  Cache disabled: ignoring cache, will overwrite existing entries\n")
 
     specs = scan_dependencies(
         selected,
-        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_deps_regen enabled
+        skip_cached=False,  # Always scan to discover all dependencies; cache status adjusted below if force_cache_regen enabled
         dedupe=True,
     )
 
@@ -519,8 +521,8 @@ def deps_autoformalize_command(
         print("No dependencies discovered for the selected datapoints.")
         return
 
-    # When force_deps_regen is enabled, mark all specs as uncached to force regeneration
-    if force_deps_regen:
+    # When force_cache_regen is enabled, mark all specs as uncached to force regeneration
+    if force_cache_regen:
         specs = [
             DependencySampleSpec(
                 payload=spec.payload,
@@ -600,7 +602,7 @@ def deps_autoformalize_command(
     metadata = {
         "timestamp": timestamp,
         "variant": base_variant,
-        "force_deps_regen": force_deps_regen,
+        "force_cache_regen": force_cache_regen,
     }
 
     fatal_encountered = False
@@ -656,16 +658,16 @@ def deps_autoformalize_command(
         if not deps_dir.exists():
             continue
         manifest = read_manifest(deps_dir)
-        aggregated = aggregate_dependency_modules(deps_dir, manifest)
+        aggregated = aggregate_impl_modules(deps_dir, manifest)
         ordered = order_dependency_modules(aggregated)
         body = "\n\n".join(item["code"] for item in ordered if item["code"])
         lean_text = (
-            f"namespace Fvspec.Deps\n\n{body}\n\nend Fvspec.Deps\n" if body else ""
+            f"namespace Fvspec.Impl\n\n{body}\n\nend Fvspec.Impl\n" if body else ""
         )
-        (deps_dir / "Deps.lean").write_text(lean_text)
+        (deps_dir / "Impl.lean").write_text(lean_text)
         if validate and lean_text.strip():
             stdout, stderr, exitcode = utilio.run_cmd(
-                ["lean", str(deps_dir / "Deps.lean")], cwd=deps_dir
+                ["lean", str(deps_dir / "Impl.lean")], cwd=deps_dir
             )
             validation_results[sample_id] = {
                 "exitcode": exitcode,
@@ -764,9 +766,6 @@ def deps_cache_clear_wandb_command() -> None:
     This allows starting fresh with cache regeneration. The next run will
     create a new cache artifact from scratch.
     """
-    import wandb
-    from wandb.errors import CommError  # type: ignore[import-untyped]
-
     if not cfg.wandb.enabled:
         print("Error: wandb is disabled in config.toml")
         print("Enable wandb to manage remote cache artifacts")
@@ -804,9 +803,6 @@ def deps_cache_clear_wandb_command() -> None:
     except Exception as e:
         print(f"Error deleting artifact: {e}")
         raise typer.Exit(code=1)
-
-
-# Note: index-data command removed - no longer needed with SQLite database
 
 
 def main() -> None:

@@ -5,6 +5,16 @@ from pathlib import Path
 
 from pydantic import BaseModel
 
+# Project structure paths (relative to benchmark/ directory)
+# These are defined once here to avoid scattered Path(__file__).parent... all over
+# config.py location: benchmark/src/generate/config.py
+PROJECT_ROOT = Path(__file__).resolve().parents[2]  # benchmark/
+SRC_DIR = PROJECT_ROOT / "src"
+DATA_DIR = PROJECT_ROOT / "data"
+ARTIFACTS_DIR = PROJECT_ROOT / "artifacts"
+LAKE_TEMPLATE_DIR = PROJECT_ROOT / "lake-template"
+TEMPLATES_DIR = SRC_DIR / "generate" / "templates"
+
 
 class AgentConfig(BaseModel):
     """Configuration for the AI agent behavior.
@@ -73,6 +83,18 @@ class WandbConfig(BaseModel):
     sync_dep_cache: bool = True
 
 
+class PlausibleConfig(BaseModel):
+    """Configuration for Plausible property testing.
+
+    Attributes:
+        enabled: Enable plausible property testing during generation
+        timeout: Timeout in seconds for plausible runs per sample
+    """
+
+    enabled: bool = True
+    timeout: int = 60
+
+
 class Config(BaseModel):
     """Top-level configuration loaded from config.toml.
 
@@ -82,6 +104,7 @@ class Config(BaseModel):
         prompt: Prompt template configuration
         dataset: Dataset sampling configuration
         wandb: Weights & Biases configuration
+        plausible: Plausible property testing configuration
     """
 
     agent: AgentConfig
@@ -89,6 +112,7 @@ class Config(BaseModel):
     prompt: PromptConfig = PromptConfig()
     dataset: DatasetConfig = DatasetConfig()
     wandb: WandbConfig = WandbConfig()
+    plausible: PlausibleConfig = PlausibleConfig()
 
     @classmethod
     def load(cls, config_path: Path) -> "Config":
@@ -103,6 +127,7 @@ class Config(BaseModel):
             prompt=PromptConfig(**data.get("prompt", {})),  # type: ignore[arg-type]
             dataset=DatasetConfig(**data.get("dataset", {})),  # type: ignore[arg-type]
             wandb=WandbConfig(**data.get("wandb", {})),  # type: ignore[arg-type]
+            plausible=PlausibleConfig(**data.get("plausible", {})),  # type: ignore[arg-type]
         )
 
 

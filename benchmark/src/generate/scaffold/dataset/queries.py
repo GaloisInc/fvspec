@@ -9,6 +9,7 @@ from sqlmodel import Session, func, select
 
 from generate.scaffold.dataset.models import (
     Datapoint,
+    Function,
     PBTFunction,
     UnitTest,
     UnitTestFunction,
@@ -158,3 +159,92 @@ def get_overlapping_unit_tests(
             ],
         }
     ]
+
+
+def lookup_function_exact(
+    session: Session,
+    function_name: str,
+    repo_id: int | None = None,
+) -> Function | None:
+    """Look up a function by exact name match.
+
+    Args:
+        session: SQLModel database session
+        function_name: Exact function name to look up
+        repo_id: Optional repository ID for scope-aware lookup (prefer same repo)
+
+    Returns:
+        Function object if found, None otherwise
+        If repo_id provided and multiple matches, returns same-repo match first
+    """
+    statement = select(Function).where(Function.name == function_name)
+
+    # If repo_id provided, try to get same-repo match first
+    if repo_id is not None:
+        same_repo_stmt = statement.where(Function.repo_id == repo_id)
+        result = session.exec(same_repo_stmt).first()
+        if result:
+            return result
+
+    # Fall back to any match
+    return session.exec(statement).first()
+
+
+def lookup_function_fuzzy(
+    session: Session,
+    function_name: str,
+    repo_id: int | None = None,
+    limit: int = 5,
+) -> list[Function]:
+    """Look up functions with fuzzy name matching.
+
+    Args:
+        session: SQLModel database session
+        function_name: Function name pattern (supports SQL LIKE patterns)
+        repo_id: Optional repository ID for scope-aware lookup (prefer same repo)
+        limit: Maximum number of results to return
+
+    Returns:
+        List of matching Function objects, ordered by repo match and name similarity
+    """
+    # Use SQL LIKE for fuzzy matching
+    # Try exact first, then prefix, then contains
+    patterns = [
+        function_name,  # exact
+        f"{function_name}%",  # prefix
+        f"%{function_name}%",  # contains
+    ]
+
+    results: list[Function] = []
+    for pattern in patterns:
+        statement = select(Function).where(Function.name.like(pattern)).limit(limit)  # type: ignore[attr-defined]
+
+        # If repo_id provided, prioritize same-repo matches
+        if repo_id is not None:
+            same_repo_stmt = statement.where(Function.repo_id == repo_id)
+            same_repo_results = list(session.exec(same_repo_stmt))
+            if same_repo_results:
+                return same_repo_results[:limit]
+
+        matches = list(session.exec(statement))
+        if matches:
+            return matches[:limit]
+
+    return results
+
+
+def get_associated_function_names(
+    session: Session,
+    pbt_id: int,
+) -> list[str]:
+    """Get function names associated with a PBT from pbt_functions table.
+
+    Args:
+        session: SQLModel database session
+        pbt_id: ID of the PBT
+
+    Returns:
+        List of function names associated with this PBT
+    """
+    statement = select(PBTFunction.function_name).where(PBTFunction.pbt_id == pbt_id)
+    return list(session.exec(statement))

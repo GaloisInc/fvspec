@@ -1,7 +1,5 @@
 """Tests for variant registry and prompt templating (SSoT)."""
 
-from pathlib import Path
-
 import pytest
 
 from generate.templates.spec import (
@@ -113,8 +111,10 @@ class TestSharedTemplates:
         assert len(config.initial_template) > 0
 
         # Should contain the common template's characteristic text
-        assert "The following Python dependencies" in config.initial_template
-        assert "{{ pbt }}" in config.initial_template
+        assert "Translate the following property-based test" in config.initial_template
+        assert "{{ pbt_code }}" in config.initial_template
+        assert "impl_signatures" in config.initial_template
+        assert "{{ function_name }}" in config.initial_template
 
     def test_multiple_variants_share_same_initial(self):
         """Multiple variants should get identical common initial prompt."""
@@ -157,7 +157,12 @@ class TestSharedTemplates:
         assert isinstance(sys, str)
         assert len(sys) > 100
         # Should render successfully
-        rendered = init.render(pbt="test", deps=["dep"])
+        rendered = init.render(
+            pbt_code="test",
+            pbt_name="test_add",
+            function_name="add",
+            impl_signatures={},
+        )
         assert len(rendered) > 0
 
     def test_get_variant_prompts_returns_rendered_system(self):
@@ -173,11 +178,16 @@ class TestSharedTemplates:
         """Initial template should be Jinja2 Template that can render."""
         _, init = get_variant_prompts("control-functional")
 
-        # Should be able to render with variables
-        rendered = init.render(pbt="def test(): pass", deps=["def helper(): return 42"])
+        # Should be able to render with new template parameters
+        rendered = init.render(
+            pbt_code="def test(): pass",
+            pbt_name="test_add",
+            function_name="add",
+            impl_signatures={"add": "def add (x y : Nat) : Nat"},
+        )
 
         assert "def test(): pass" in rendered
-        assert "def helper(): return 42" in rendered
+        assert "def add (x y : Nat) : Nat" in rendered
 
 
 class TestTemplateContent:
@@ -212,37 +222,27 @@ class TestSharedFragments:
 
     def test_shared_fragments_exist(self):
         """All expected common fragment files should exist."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
 
-        assert (fragments_dir / "task_core.prompt").exists()
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
+
+        assert (fragments_dir / "task_core.prompt.template").exists()
         assert (fragments_dir / "output_format.prompt").exists()
         assert (fragments_dir / "metrics.prompt").exists()
 
     def test_common_initial_prompt_exists(self):
         """Common initial prompt should exist."""
-        common_dir = (
-            Path(__file__).parent.parent / "generate" / "templates" / "spec" / "common"
-        )
-        assert (common_dir / "initial.prompt").exists()
+        from generate.config import TEMPLATES_DIR
+
+        common_dir = TEMPLATES_DIR / "spec" / "common"
+        assert (common_dir / "initial.prompt.template").exists()
 
     def test_task_core_fragment_content(self):
-        """task_core.prompt should have expected content."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
-        content = (fragments_dir / "task_core.prompt").read_text()
+        """task_core.prompt.template should have expected content."""
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
+        content = (fragments_dir / "task_core.prompt.template").read_text()
 
         assert "## Task" in content
         assert "Hypothesis" in content
@@ -250,14 +250,9 @@ class TestSharedFragments:
 
     def test_output_format_fragment_content(self):
         """output_format.prompt should specify code tag format."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
         content = (fragments_dir / "output_format.prompt").read_text()
 
         assert "## Output Format" in content
@@ -266,14 +261,9 @@ class TestSharedFragments:
 
     def test_metrics_fragment_content(self):
         """metrics.prompt should describe Faithfulness and Interest."""
-        fragments_dir = (
-            Path(__file__).parent.parent
-            / "generate"
-            / "templates"
-            / "spec"
-            / "common"
-            / "fragments"
-        )
+        from generate.config import TEMPLATES_DIR
+
+        fragments_dir = TEMPLATES_DIR / "spec" / "common" / "fragments"
         content = (fragments_dir / "metrics.prompt").read_text()
 
         assert "## Metrics" in content

@@ -1,0 +1,14 @@
+Compilation or validation failed with the following feedback:
+```
+{{ diagnostics }}
+```
+
+Please update the Lean code for module `{{ dep_module }}` (in `Fvspec.Impl`) to address the issues.
+Keep prior successful definitions if they still compile. Focus on the failing lines.
+
+## Output Format
+CRITICAL: Always respond with Lean 4 code wrapped in `<code>...</code>` tags.
+
+Example format: <code>def helper : Nat := 42</code>
+
+Do NOT include any additional text outside these tags. The code extraction system requires this exact format.
