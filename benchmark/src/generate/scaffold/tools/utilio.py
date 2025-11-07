@@ -189,6 +189,36 @@ def get_sample_output_dir(
     return sample_dir
 
 
+def cleanup_empty_sample_dirs(log_dir: Path) -> None:
+    """Remove empty sample subdirectories from a run directory.
+
+    This cleans up artifacts from inspect_ai's directory structure where it
+    pre-creates sample subdirectories that may remain empty if samples are
+    skipped or written to a different location (e.g., with ranseed in path).
+
+    Args:
+        log_dir: Path to the run directory (e.g., artifacts/runs/<timestamp>__<variant>)
+    """
+    if not log_dir.exists() or not log_dir.is_dir():
+        return
+
+    for item in log_dir.iterdir():
+        if item.is_dir():
+            # Check if directory is empty (no files, only empty subdirs)
+            try:
+                contents = list(item.rglob("*"))
+                # Filter to only files (not directories)
+                files = [c for c in contents if c.is_file()]
+                if not files:
+                    # Directory has no files, remove it
+                    import shutil
+
+                    shutil.rmtree(item)
+            except (PermissionError, OSError):
+                # Skip directories we can't access/remove
+                pass
+
+
 def writeit(spfile: Path, code: str) -> str:
     """Write content to a file.
 

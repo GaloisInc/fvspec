@@ -221,6 +221,9 @@ def main_callback(
             display=use_display,
         )
     finally:
+        # Clean up empty sample directories (created by inspect_ai but unused)
+        utilio.cleanup_empty_sample_dirs(log_dir)
+
         if wandb_cfg.enabled:
             # Upload dep cache at end of run
             if wandb_cfg.sync_dep_cache:
@@ -391,6 +394,9 @@ def compare_variants(
                 display=use_display,
             )
         finally:
+            # Clean up empty sample directories (created by inspect_ai but unused)
+            utilio.cleanup_empty_sample_dirs(log_dir)
+
             if wandb_cfg.enabled:
                 # Upload dep cache once after all variants complete
                 if wandb_cfg.sync_dep_cache and wandb_loggers:
