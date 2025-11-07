@@ -54,6 +54,62 @@ def strip_spec_namespace(lean_code: str) -> str:
     return cleaned
 
 
+def strip_spec_keywords(lean_code: str) -> str:
+    """Remove specification keywords (theorem, lemma, example) from Lean code.
+
+    This strips individual theorem/lemma/example declarations that may appear
+    inside the Impl namespace (hallucinations). It complements strip_spec_namespace
+    which removes entire Spec namespace blocks.
+
+    The function removes:
+    - Individual theorem/lemma/example declarations
+    - Their associated doc comments (if present)
+
+    Args:
+        lean_code: Lean code possibly containing spec keywords
+
+    Returns:
+        Lean code with spec keywords removed
+
+    Examples:
+        >>> code = '''namespace Fvspec.Impl
+        ... def foo := 1
+        ... example : True := trivial
+        ... end Fvspec.Impl'''
+        >>> result = strip_spec_keywords(code)
+        >>> "example" not in result
+        True
+        >>> "def foo" in result
+        True
+    """
+    # Pattern: Match doc comment (optional) + theorem/lemma/example declaration
+    # Matches multi-line declarations up to the next top-level keyword or end of namespace
+
+    # First, handle doc comments immediately before spec keywords
+    # Pattern: /-- ... -/ followed by theorem/lemma/example
+    docstring_pattern = r"/--.*?-/\s*(?=(?:theorem|lemma|example)\s+)"
+    cleaned = re.sub(docstring_pattern, "", lean_code, flags=re.DOTALL)
+
+    # Now remove the spec keyword declarations themselves
+    # Match from keyword to the next top-level keyword (def/structure/etc) or namespace end
+    # This is conservative - stops at next definition to avoid over-removing
+    spec_keywords = ["theorem", "lemma", "example"]
+
+    for keyword in spec_keywords:
+        # Pattern matches: keyword name ... up to next top-level keyword or "end"
+        # Uses lookahead to preserve the next definition
+        pattern = rf"^[ \t]*{keyword}\s+.*?(?=(?:^[ \t]*(?:def|structure|inductive|class|instance|abbrev|theorem|lemma|example)\s+)|(?:^end\s+))"
+        cleaned = re.sub(pattern, "", cleaned, flags=re.MULTILINE | re.DOTALL)
+
+    # Clean up excessive blank lines (3+ newlines → 2 newlines)
+    cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
+
+    # Clean up leading/trailing whitespace
+    cleaned = cleaned.strip()
+
+    return cleaned
+
+
 def validate_impl_only(lean_code: str) -> tuple[bool, str | None]:
     r"""Validate that code contains only Impl namespace, no specs.
 

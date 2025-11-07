@@ -2,6 +2,7 @@
 
 from generate.scaffold.formalize.impl.filters import (
     extract_impl_only,
+    strip_spec_keywords,
     strip_spec_namespace,
     validate_impl_only,
 )
@@ -140,6 +141,151 @@ end Fvspec.Spec
         assert "namespace Fvspec.Spec" not in result
         assert "theorem cosine_similarity_dim1_output_shape" not in result
         assert "theorem cosine_similarity_symmetric" not in result
+
+
+class TestStripSpecKeywords:
+    """Tests for strip_spec_keywords function."""
+
+    def test_strip_example_keyword(self):
+        """Test stripping example from impl namespace."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+example : True := trivial
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "example" not in result
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_strip_theorem_keyword(self):
+        """Test stripping theorem from impl namespace."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+theorem test_foo : foo = 1 := rfl
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "theorem" not in result
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_strip_lemma_keyword(self):
+        """Test stripping lemma from impl namespace."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+lemma test_foo : foo = 1 := rfl
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "lemma" not in result
+        assert "def foo" in result
+
+    def test_strip_multiple_spec_keywords(self):
+        """Test stripping multiple spec keywords."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+theorem test1 : foo = 1 := rfl
+
+lemma test2 : foo = 1 := rfl
+
+example : True := trivial
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "theorem" not in result
+        assert "lemma" not in result
+        assert "example" not in result
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_strip_with_docstring(self):
+        """Test stripping spec keywords with doc comments."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+/-- This is a test example -/
+example : True := trivial
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "example" not in result
+        assert "/-- This is a test example -/" not in result
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_strip_multiline_spec_keyword(self):
+        """Test stripping multi-line spec declarations."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+theorem test_foo :
+  foo = 1 := by
+  rfl
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "theorem" not in result
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_preserve_defs_only(self):
+        """Test that only defs are preserved when specs are present."""
+        code = """namespace Fvspec.Impl
+
+structure Point where
+  x : Nat
+  y : Nat
+
+def origin : Point := ⟨0, 0⟩
+
+example : origin.x = 0 := rfl
+
+def distance (p1 p2 : Point) : Nat := 0
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "structure Point" in result
+        assert "def origin" in result
+        assert "def distance" in result
+        assert "example" not in result
+
+    def test_empty_string(self):
+        """Test stripping from empty string."""
+        result = strip_spec_keywords("")
+        assert result == ""
+
+    def test_no_spec_keywords(self):
+        """Test code without spec keywords is unchanged."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "def foo" in result
+        assert "def bar" in result
 
 
 class TestValidateImplOnly:
@@ -362,3 +508,45 @@ end Fvspec.Spec
         assert "theorem bar" not in cleaned
         assert "theorem baz" not in cleaned
         assert "def foo" in cleaned
+
+    def test_combined_filtering_pipeline(self):
+        """Test full filtering pipeline: spec namespace + spec keywords."""
+        # Realistic case: model generates both Spec namespace AND
+        # individual spec keywords inside Impl namespace
+        code = """import Batteries
+
+namespace Fvspec.Impl
+
+def foo := 1
+
+/-- Example to demonstrate foo -/
+example : foo = 1 := rfl
+
+def bar := 2
+
+end Fvspec.Impl
+
+namespace Fvspec.Spec
+
+open Fvspec.Impl
+
+theorem test_foo : foo = 1 := sorry
+
+end Fvspec.Spec
+"""
+        # Apply both filters (as in function_agent.py)
+        cleaned = strip_spec_namespace(code)
+        cleaned = strip_spec_keywords(cleaned)
+
+        # Validate result
+        assert "namespace Fvspec.Spec" not in cleaned
+        assert "theorem test_foo" not in cleaned
+        assert "example" not in cleaned
+        assert "/-- Example to demonstrate foo -/" not in cleaned
+        assert "def foo" in cleaned
+        assert "def bar" in cleaned
+        assert "import Batteries" in cleaned
+
+        # Should pass validation
+        is_valid, error = validate_impl_only(cleaned)
+        assert is_valid, f"Validation failed after filtering: {error}"

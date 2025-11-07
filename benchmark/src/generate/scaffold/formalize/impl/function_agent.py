@@ -15,6 +15,7 @@ from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
 from generate.scaffold.formalize.impl.filters import (
+    strip_spec_keywords,
     strip_spec_namespace,
     validate_impl_only,
 )
@@ -165,12 +166,17 @@ def function_impl_agent(
         final_text = final_message.text
         lean_code = _extract_code_block(final_text)
 
-        # Filter out any hallucinated spec namespaces
+        # Filter out any hallucinated spec namespaces and keywords
         # Model occasionally generates specs alongside impls despite prompts
         # This is our defense-in-depth: strip specs before validation/storage
         if lean_code:
             original_length = len(lean_code)
+
+            # Apply filtering pipeline:
+            # 1. Remove entire Fvspec.Spec namespace blocks
             lean_code = strip_spec_namespace(lean_code)
+            # 2. Remove individual spec keywords (theorem/lemma/example) from Impl namespace
+            lean_code = strip_spec_keywords(lean_code)
 
             # Log if we stripped significant content (indicates hallucination)
             if len(lean_code) < original_length * 0.8:
