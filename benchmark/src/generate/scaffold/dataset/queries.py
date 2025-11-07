@@ -51,11 +51,14 @@ def sample_datapoints(
     """
     # Use json_array_length to filter by dependency count
     # Fetch only IDs (lightweight) instead of full datapoint objects
-    id_statement = select(Datapoint.id).where(  # type: ignore[attr-defined]
-        func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES
+    # ORDER BY id ensures deterministic ordering from database
+    id_statement = (
+        select(Datapoint.id)
+        .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
+        .order_by(Datapoint.id)  # type: ignore[attr-defined]
     )
 
-    # Fetch all eligible IDs
+    # Fetch all eligible IDs (deterministic order guaranteed by ORDER BY)
     results = session.exec(id_statement)
     all_ids = list(results)
 
