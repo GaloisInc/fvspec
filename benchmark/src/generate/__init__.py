@@ -6,11 +6,11 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+import wandb
 from inspect_ai import eval, eval_set
 from typer import Option, Typer
 from wandb.errors import CommError  # type: ignore[import-untyped]
 
-import wandb
 from generate.config import DATA_DIR, WandbConfig, load_config
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.dataset.connection import get_session
