@@ -14,6 +14,7 @@ from pathlib import Path
 import typer
 from rich.console import Console
 from rich.progress import track
+from sqlalchemy import text
 from sqlmodel import Field, Session, SQLModel, create_engine, select
 
 from generate.scaffold.task import DATA_DIR
@@ -144,12 +145,12 @@ def import_metrics(
     if drop_existing:
         console.print("[yellow]Dropping existing radon_metrics table...[/yellow]")
         with Session(engine) as session:
-            session.exec("DROP TABLE IF EXISTS radon_metrics")
+            session.exec(text("DROP TABLE IF EXISTS radon_metrics"))
             session.commit()
 
     # Create table
     console.print("[bold]Creating radon_metrics table...[/bold]")
-    SQLModel.metadata.create_all(engine, tables=[RadonMetricsDB.__table__])
+    SQLModel.metadata.create_all(engine)
 
     # Insert data
     console.print(f"\n[bold]Inserting {len(metrics_data):,} records...[/bold]")
@@ -251,8 +252,6 @@ def verify(
 
     with Session(engine) as session:
         # Check if table exists
-        from sqlalchemy import text
-
         result = session.exec(
             text(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='radon_metrics'"
