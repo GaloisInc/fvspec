@@ -201,7 +201,7 @@ def test_smoke_quality_assessment_from_mock_state():
     from inspect_ai.solver import TaskState
 
     from generate.scaffold.dataset import Datapoint
-    from generate.scaffold.quality_assessment.models import QualityAssessment
+    from generate.scaffold.quality_assessment import QualityAssessment
 
     mock_output = Mock()
     mock_output.model = "mock/model"

@@ -1,6 +1,5 @@
-"""Quality assessment utilities for benchmarking Lean specifications."""
+"""Quality assessment data models."""
 
-import ast
 import re
 from enum import Enum
 from typing import TYPE_CHECKING, cast
@@ -10,6 +9,31 @@ from pydantic import BaseModel, Field
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.plausible_runner import Plausibility
+from generate.scaffold.quality_assessment.lean_parsing import (
+    count_lean_theorems,
+    detect_trivial_unit_theorems,
+    detect_unit_stub_in_impl,
+    extract_lean_bounds,
+    extract_lean_parameters,
+    extract_lean_types,
+)
+from generate.scaffold.quality_assessment.metrics import (
+    compute_assertion_coverage,
+    compute_dependency_coverage,
+    compute_parameter_coverage,
+    compute_strategy_coverage,
+    compute_type_correspondence,
+)
+from generate.scaffold.quality_assessment.python_parsing import (
+    count_python_assertions,
+    extract_dependency_names,
+    extract_python_parameters,
+    extract_python_types,
+)
+from generate.scaffold.quality_assessment.serialization import flatten_dict
+
+if TYPE_CHECKING:
+    from inspect_ai.scorer import Score
 
 
 class ImplementationLevel(str, Enum):
@@ -18,10 +42,6 @@ class ImplementationLevel(str, Enum):
     PROVIDED = "provided"  # Full FUT source code discovered and implemented
     SIGNATURE = "signature"  # Only type signature/stub provided (discovery failed)
     ABSENT = "absent"  # No FUT implementation (spec-only or error case)
-
-
-if TYPE_CHECKING:
-    from inspect_ai.scorer import Score
 
 
 class StructuralFaithfulness(BaseModel):
@@ -82,25 +102,30 @@ class StructuralFaithfulness(BaseModel):
         Returns:
             StructuralFaithfulness object with computed metrics
         """
+        from generate.scaffold.quality_assessment.lean_parsing import (
+            count_lean_properties,
+            extract_hypothesis_strategies,
+        )
+
         # Extract Python structure
-        py_params = _extract_python_parameters(python_pbt)
-        py_types = _extract_python_types(python_pbt)
-        py_strategies = _extract_hypothesis_strategies(python_pbt)
-        py_assertions = _count_python_assertions(python_pbt)
-        py_dep_names = _extract_dependency_names(python_deps)
+        py_params = extract_python_parameters(python_pbt)
+        py_types = extract_python_types(python_pbt)
+        py_strategies = extract_hypothesis_strategies(python_pbt)
+        py_assertions = count_python_assertions(python_pbt)
+        py_dep_names = extract_dependency_names(python_deps)
 
         # Extract Lean structure
-        lean_params = _extract_lean_parameters(lean_code)
-        lean_types = _extract_lean_types(lean_code)
-        lean_bounds = _extract_lean_bounds(lean_code)
-        lean_properties = _count_lean_properties(lean_code)
+        lean_params = extract_lean_parameters(lean_code)
+        lean_types = extract_lean_types(lean_code)
+        lean_bounds = extract_lean_bounds(lean_code)
+        lean_properties = count_lean_properties(lean_code)
 
         # Compute metrics
-        param_cov = _compute_parameter_coverage(py_params, lean_params)
-        type_corr = _compute_type_correspondence(py_types, lean_types)
-        strat_cov = _compute_strategy_coverage(py_strategies, lean_bounds)
-        assert_cov = _compute_assertion_coverage(py_assertions, lean_properties)
-        dep_cov = _compute_dependency_coverage(py_dep_names, lean_code)
+        param_cov = compute_parameter_coverage(py_params, lean_params)
+        type_corr = compute_type_correspondence(py_types, lean_types)
+        strat_cov = compute_strategy_coverage(py_strategies, lean_bounds)
+        assert_cov = compute_assertion_coverage(py_assertions, lean_properties)
+        dep_cov = compute_dependency_coverage(py_dep_names, lean_code)
 
         # Weighted average (can tune these weights)
         overall = (
@@ -119,414 +144,6 @@ class StructuralFaithfulness(BaseModel):
             dependency_coverage=dep_cov,
             overall=overall,
         )
-
-
-# Python parsing utilities
-
-
-def _extract_python_parameters(code: str) -> list[str]:
-    """Extract parameter names from Python function definition."""
-    try:
-        tree = ast.parse(code)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                # Get parameter names (excluding 'self')
-                params = [arg.arg for arg in node.args.args if arg.arg != "self"]
-                return params
-    except SyntaxError:
-        pass
-    return []
-
-
-def _extract_python_types(code: str) -> dict[str, str]:
-    """Extract parameter types from Python function annotations."""
-    types = {}
-    try:
-        tree = ast.parse(code)
-        for node in ast.walk(tree):
-            if isinstance(node, ast.FunctionDef):
-                for arg in node.args.args:
-                    if arg.arg != "self" and arg.annotation:
-                        # Get type annotation as string
-                        if isinstance(arg.annotation, ast.Name):
-                            types[arg.arg] = arg.annotation.id
-                        elif isinstance(arg.annotation, ast.Subscript):
-                            # Handle list[int], etc.
-                            if isinstance(arg.annotation.value, ast.Name):
-                                types[arg.arg] = arg.annotation.value.id
-    except SyntaxError:
-        pass
-    return types
-
-
-def _extract_hypothesis_strategies(
-    code: str,
-) -> dict[str, list[tuple[str, int | float]]]:
-    """Extract Hypothesis strategy bounds from @given decorator.
-
-    Returns dict mapping param names to list of (constraint_type, value) tuples.
-    Example: {"x": [("min_value", 0), ("max_value", 100)]}
-    """
-    strategies = {}
-
-    # Match patterns like: x=st.integers(0, 100) or x=st.integers(min_value=0, max_value=100)
-    param_pattern = r"(\w+)\s*=\s*st\.(\w+)\([^)]*\)"
-
-    for match in re.finditer(param_pattern, code):
-        param_name = match.group(1)
-        strategy_type = match.group(2)
-        strategy_call = match.group(0)
-
-        bounds = []
-
-        # Extract positional bounds for integers/floats
-        if strategy_type in ["integers", "floats"]:
-            # Match: st.integers(0, 100)
-            pos_pattern = r"st\.\w+\((\d+),\s*(\d+)\)"
-            pos_match = re.search(pos_pattern, strategy_call)
-            if pos_match:
-                bounds.append(("min_value", int(pos_match.group(1))))
-                bounds.append(("max_value", int(pos_match.group(2))))
-
-        # Extract keyword bounds
-        for kw in ["min_value", "max_value", "min_size", "max_size"]:
-            kw_pattern = rf"{kw}\s*=\s*(\d+)"
-            kw_match = re.search(kw_pattern, strategy_call)
-            if kw_match:
-                bounds.append((kw, int(kw_match.group(1))))
-
-        if bounds:
-            strategies[param_name] = bounds
-
-    return strategies
-
-
-def _count_python_assertions(code: str) -> int:
-    """Count assert statements in Python code."""
-    try:
-        tree = ast.parse(code)
-        count = 0
-        for node in ast.walk(tree):
-            if isinstance(node, ast.Assert):
-                count += 1
-        return count
-    except SyntaxError:
-        pass
-    return 0
-
-
-def _extract_dependency_names(deps: list[str]) -> list[str]:
-    """Extract function/class names from dependency definitions."""
-    names = []
-    for dep in deps:
-        try:
-            tree = ast.parse(dep)
-            for node in ast.walk(tree):
-                if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
-                    names.append(node.name)
-        except SyntaxError:
-            pass
-    return names
-
-
-# Lean parsing utilities (regex-based)
-
-
-def _extract_lean_parameters(code: str) -> list[str]:
-    """Extract parameter names from Lean function/theorem definitions."""
-    params = []
-
-    # Match: (x : Type) or (x y : Type)
-    param_pattern = r"\(([a-zA-Z_]\w*(?:\s+[a-zA-Z_]\w*)*)\s*:\s*[^)]+\)"
-
-    for match in re.finditer(param_pattern, code):
-        # Split multiple params: "x y" → ["x", "y"]
-        param_names = match.group(1).split()
-        params.extend(param_names)
-
-    return params
-
-
-def _extract_lean_types(code: str) -> dict[str, str]:
-    """Extract parameter types from Lean code."""
-    types = {}
-
-    # Match: (x : Int) or (x y : Nat)
-    param_pattern = (
-        r"\(([a-zA-Z_]\w*(?:\s+[a-zA-Z_]\w*)*)\s*:\s*([a-zA-Z_]\w*(?:\s*\w*)*)\)"
-    )
-
-    for match in re.finditer(param_pattern, code):
-        param_names = match.group(1).split()
-        param_type = match.group(2).strip()
-        for pname in param_names:
-            types[pname] = param_type
-
-    return types
-
-
-def _extract_lean_bounds(code: str) -> dict[str, list[tuple[str, int | float]]]:
-    """Extract numeric bounds from Lean hypotheses.
-
-    Returns dict mapping param names to list of (op, value) tuples.
-    Example: {"x": [("≤", 100), ("≥", 0)]}
-    """
-    bounds = {}
-
-    # Match patterns like: 0 ≤ x, x ≤ 100, x < 50, etc.
-    # Unicode operators: ≤ ≥ < > =
-    bound_patterns = [
-        (r"(\d+)\s*≤\s*(\w+)", "min", "≤"),  # 0 ≤ x
-        (r"(\w+)\s*≤\s*(\d+)", "max", "≤"),  # x ≤ 100
-        (r"(\d+)\s*≥\s*(\w+)", "max", "≥"),  # 100 ≥ x
-        (r"(\w+)\s*≥\s*(\d+)", "min", "≥"),  # x ≥ 0
-        (r"(\d+)\s*<\s*(\w+)", "min_exclusive", "<"),
-        (r"(\w+)\s*<\s*(\d+)", "max_exclusive", "<"),
-        (r"(\d+)\s*>\s*(\w+)", "max_exclusive", ">"),
-        (r"(\w+)\s*>\s*(\d+)", "min_exclusive", ">"),
-    ]
-
-    for pattern, bound_type, op in bound_patterns:
-        for match in re.finditer(pattern, code):
-            if bound_type in ["min", "min_exclusive"]:
-                value, param = match.group(1), match.group(2)
-            else:
-                param, value = match.group(1), match.group(2)
-
-            try:
-                value_num = int(value)
-                if param not in bounds:
-                    bounds[param] = []
-                bounds[param].append((bound_type, value_num))
-            except ValueError:
-                pass
-
-    return bounds
-
-
-def _count_lean_properties(code: str) -> int:
-    """Count theorem/property statements in Lean code."""
-    # Count 'theorem' and 'lemma' keywords
-    count = len(re.findall(r"\btheorem\b", code))
-    count += len(re.findall(r"\blemma\b", code))
-
-    # Also count property assertions in theorem bodies
-    # Look for common patterns like: result = ..., result ∈ ..., etc.
-    count += len(re.findall(r"=\s*[^=]", code))  # Simple equality checks
-
-    return max(1, count)  # At least 1 if code exists
-
-
-def count_lean_theorems(code: str) -> int:
-    """Count theorem and lemma declarations in Lean code.
-
-    This counts only explicit theorem/lemma keywords, not property
-    assertions within theorem bodies.
-    """
-    count = len(re.findall(r"\btheorem\b", code))
-    count += len(re.findall(r"\blemma\b", code))
-    return count
-
-
-def _detect_trivial_unit_theorems(spec_code: str) -> int:
-    """Count trivial theorems that just assert Unit-typed functions equal ().
-
-    These theorems arise when:
-    1. Implementation discovery fails → stub with `def foo : Unit := sorry`
-    2. Spec agent generates trivial `theorem foo_check : foo = () := by plausible`
-    3. Plausibility passes (tautology) but provides no verification value
-
-    Pattern: theorem <name> : <ident> = () := by ...
-
-    Args:
-        spec_code: Generated Lean specification code
-
-    Returns:
-        Number of trivial Unit equality theorems detected
-
-    Examples:
-        >>> code = "theorem top_k_1_check : top_k_1 = () := by plausible"
-        >>> _detect_trivial_unit_theorems(code)
-        1
-    """
-    # Match: theorem <name> : <ident> = () := by ...
-    # Captures theorems asserting a function equals unit value
-    pattern = r"theorem\s+\w+\s*:\s*(\w+)\s*=\s*\(\)\s*:=\s*by"
-    matches = re.findall(pattern, spec_code)
-    return len(matches)
-
-
-def _detect_unit_stub_in_impl(impl_code: str) -> bool:
-    """Detect if implementation is a Unit stub (discovery failed).
-
-    When function discovery fails, impl agent generates:
-    `def <name> : Unit := sorry`
-
-    This indicates the function source wasn't found and only a placeholder exists.
-
-    Args:
-        impl_code: Implementation code from Impl.lean
-
-    Returns:
-        True if Unit stub detected, False otherwise
-
-    Examples:
-        >>> code = "def top_k_1 : Unit := sorry"
-        >>> _detect_unit_stub_in_impl(code)
-        True
-    """
-    # Match: def <name> : Unit := sorry
-    pattern = r"def\s+\w+\s*:\s*Unit\s*:=\s*sorry"
-    return bool(re.search(pattern, impl_code))
-
-
-def _flatten_dict(
-    d: dict, parent_key: str = "", sep: str = "_"
-) -> dict[str, int | float | str | None]:
-    """Recursively flatten a nested dictionary.
-
-    Args:
-        d: Dictionary to flatten
-        parent_key: Prefix for nested keys
-        sep: Separator to join nested keys (default: "_")
-
-    Returns:
-        Flattened dictionary with keys joined by separator.
-        Booleans are converted to int (0/1) for wandb compatibility.
-
-    Example:
-        >>> _flatten_dict({"a": 1, "b": {"c": 2, "d": True}})
-        {"a": 1, "b_c": 2, "b_d": 1}
-    """
-    items: list[tuple[str, int | float | str | None]] = []
-
-    for k, v in d.items():
-        new_key = f"{parent_key}{sep}{k}" if parent_key else k
-
-        if isinstance(v, dict):
-            # Recursively flatten nested dicts
-            items.extend(_flatten_dict(v, new_key, sep=sep).items())
-        elif isinstance(v, list):
-            # Handle lists - wandb doesn't handle them well
-            if not v:
-                # Empty list -> None
-                items.append((new_key, None))
-            elif all(isinstance(item, str) for item in v):
-                # Join string lists (e.g., errors)
-                items.append((new_key, ", ".join(v)))
-            else:
-                # For other lists, just log the length
-                items.append((f"{new_key}_count", len(v)))
-        elif isinstance(v, bool):
-            # Convert bool to int for wandb compatibility
-            items.append((new_key, 1 if v else 0))
-        else:
-            # Primitive values: int, float, str, None
-            items.append((new_key, v))
-
-    return dict(items)
-
-
-# Metric computation utilities
-
-
-def _compute_parameter_coverage(py_params: list[str], lean_params: list[str]) -> float:
-    """Compute fraction of Python parameters found in Lean."""
-    if not py_params:
-        return 1.0  # No params to check
-
-    py_set = set(py_params)
-    lean_set = set(lean_params)
-    matched = py_set & lean_set
-
-    return len(matched) / len(py_set)
-
-
-def _compute_type_correspondence(
-    py_types: dict[str, str], lean_types: dict[str, str]
-) -> float:
-    """Compute fraction of Python types correctly mapped to Lean."""
-    if not py_types:
-        return 1.0
-
-    # Type mapping rules
-    TYPE_MAP = {
-        "int": ["Int", "Nat", "ℕ", "ℤ", "Integer"],
-        "float": ["Float", "Real", "ℝ"],
-        "str": ["String"],
-        "bool": ["Bool", "Prop"],
-        "list": ["List", "Array"],
-        "dict": ["Map", "HashMap", "Finmap"],
-        "set": ["Set", "Finset"],
-    }
-
-    correct = 0
-    total = 0
-
-    for param, py_type in py_types.items():
-        if param in lean_types:
-            total += 1
-            lean_type = lean_types[param]
-
-            # Check if mapping is sensible
-            if py_type in TYPE_MAP:
-                if any(lt in lean_type for lt in TYPE_MAP[py_type]):
-                    correct += 1
-            else:
-                # Unknown type, be lenient (might be custom type)
-                correct += 0.5
-
-    return correct / total if total > 0 else 1.0
-
-
-def _compute_strategy_coverage(
-    py_strategies: dict[str, list[tuple[str, int | float]]],
-    lean_bounds: dict[str, list[tuple[str, int | float]]],
-) -> float:
-    """Compute fraction of Hypothesis strategy bounds found in Lean."""
-    if not py_strategies:
-        return 1.0
-
-    total_bounds = 0
-    matched_bounds = 0
-
-    for param, py_bounds in py_strategies.items():
-        for bound_type, value in py_bounds:
-            total_bounds += 1
-
-            # Check if similar bound exists in Lean
-            if param in lean_bounds:
-                for lean_bound_type, lean_value in lean_bounds[param]:
-                    # Match min_value with min/≥, max_value with max/≤
-                    if bound_type == "min_value" and "min" in lean_bound_type:
-                        if abs(value - lean_value) <= 1:  # Allow small differences
-                            matched_bounds += 1
-                            break
-                    elif bound_type == "max_value" and "max" in lean_bound_type:
-                        if abs(value - lean_value) <= 1:
-                            matched_bounds += 1
-                            break
-
-    return matched_bounds / total_bounds if total_bounds > 0 else 1.0
-
-
-def _compute_assertion_coverage(py_assertions: int, lean_properties: int) -> float:
-    """Compute ratio of Lean properties to Python assertions."""
-    if py_assertions == 0:
-        return 1.0 if lean_properties > 0 else 0.0
-
-    # Ideal: at least as many Lean properties as Python assertions
-    ratio = lean_properties / py_assertions
-    return min(1.0, ratio)  # Cap at 1.0
-
-
-def _compute_dependency_coverage(dep_names: list[str], lean_code: str) -> float:
-    """Compute fraction of dependency names found in Lean code."""
-    if not dep_names:
-        return 1.0
-
-    found = sum(1 for name in dep_names if name in lean_code)
-    return found / len(dep_names)
 
 
 class QualityAssessment(BaseModel):
@@ -736,12 +353,12 @@ class QualityAssessment(BaseModel):
         # Detect Unit stubbing patterns (implementation discovery failure)
         # Check if impl has Unit stub
         impl_code_str = state.metadata.get("impl_code", "")
-        has_unit_stub = _detect_unit_stub_in_impl(impl_code_str)
+        has_unit_stub = detect_unit_stub_in_impl(impl_code_str)
 
         # Count trivial Unit theorems in spec
         num_trivial_unit_theorems = 0
         if code_snippet:
-            num_trivial_unit_theorems = _detect_trivial_unit_theorems(code_snippet)
+            num_trivial_unit_theorems = detect_trivial_unit_theorems(code_snippet)
 
         return cls(
             sample_id=datapoint.id,
@@ -982,4 +599,4 @@ class QualityAssessment(BaseModel):
         data = self.model_dump()
 
         # Flatten nested dictionaries
-        return _flatten_dict(data)
+        return flatten_dict(data)
