@@ -5,9 +5,9 @@ from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+import wandb
 from inspect_ai.solver import TaskState
 
-import wandb
 from generate.config import WandbConfig
 from generate.scaffold.quality_assessment.models import QualityAssessment
 from generate.scaffold.tools import utilio
