@@ -1,12 +1,10 @@
 """CLI helpers for previewing benchmark prompt templates."""
 
-import json
-import random
-
-import jsonlines
 from typer import Option, Typer
 
 from generate.config import DATA_DIR, load_config
+from generate.scaffold.dataset.connection import get_session
+from generate.scaffold.dataset.queries import sample_datapoints
 from generate.templates.impl import (
     DependencyVariantRegistry,
     get_dependency_prompts,
@@ -23,7 +21,7 @@ __all__ = [
 ]
 
 app = Typer()
-DEFAULT_DATASET = "pbts.jsonl"
+DEFAULT_DATASET = "pbts_full.db"
 
 
 @app.command()
@@ -32,7 +30,7 @@ def preview_prompts(
         DEFAULT_DATASET,
         "--data",
         "-d",
-        help="Dataset JSONL file under benchmark/data (default: pbts.jsonl).",
+        help="Dataset SQLite database file under benchmark/data (default: pbts_full.db).",
     ),
     variant: str = Option(
         None,
@@ -56,12 +54,12 @@ def preview_prompts(
         help="Random seed for sampling. If not specified, uses value from config.toml (default: 0).",
     ),
 ) -> None:
-    """Preview prompts for the given data file and variant.
+    """Preview prompts for the given database and variant.
 
-    Randomly samples from the dataset using reservoir sampling.
+    Randomly samples from the SQLite database.
 
     Args:
-        data: JSONL file name located under benchmark/data
+        data: SQLite database file name located under benchmark/data
         variant: Prompt variant to preview
         prompt_type: Which prompt family to preview ('spec' or 'deps')
         sample_size: Number of samples to randomly select
@@ -76,42 +74,11 @@ def preview_prompts(
     )
     actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
 
-    the_jsonl = DATA_DIR / data
-    index_file = DATA_DIR / f"{data}.index"
+    db_path = DATA_DIR / data
 
-    # Use indexed sampling if available (fast), otherwise reservoir sampling (slow)
-    rng = random.Random(actual_ranseed)
-
-    if index_file.exists():
-        # Fast path: indexed sampling
-        with open(index_file) as f:
-            index_data = json.load(f)
-            offsets = index_data["offsets"]
-
-        total_lines = len(offsets)
-        selected_indices = rng.sample(
-            range(total_lines), min(actual_sample_size, total_lines)
-        )
-
-        data_content = []
-        with open(the_jsonl, "rb") as f:
-            for idx in sorted(selected_indices):
-                f.seek(offsets[idx])
-                line = f.readline().decode("utf-8")
-                data_content.append(json.loads(line))
-    else:
-        # Slow path: reservoir sampling (reads entire file)
-        reservoir: list[dict] = []
-        with jsonlines.open(the_jsonl) as reader:
-            for idx, obj in enumerate(reader):
-                if idx < actual_sample_size:
-                    reservoir.append(obj)
-                else:
-                    # Reservoir sampling: randomly replace elements
-                    j = rng.randint(0, idx)
-                    if j < actual_sample_size:
-                        reservoir[j] = obj
-        data_content = reservoir
+    # Sample datapoints from database
+    with get_session(db_path) as session:
+        datapoints = sample_datapoints(session, actual_sample_size, actual_ranseed)
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.formalize.impl.models import (
@@ -122,9 +89,9 @@ def preview_prompts(
         variant_name = variant or registry.default_variant()
         prompts = get_dependency_prompts(variant_name)
 
-        for obj in data_content:
-            dep_sources = obj.get("deps") or []
-            dep_names = obj.get("dep_names") or []
+        for datapoint in datapoints:
+            dep_sources = datapoint.get_deps()
+            dep_names = datapoint.get_dep_names()
             if not dep_sources:
                 continue
 
@@ -132,7 +99,7 @@ def preview_prompts(
                 dep_name = (
                     dep_names[index]
                     if index < len(dep_names)
-                    else f"{obj.get('pbt_name', 'dependency')}_{index}"
+                    else f"{datapoint.name}_{index}"
                 )
                 payload = DependencyPayload(
                     dep_name=dep_name or f"dependency_{index}",
@@ -150,10 +117,21 @@ def preview_prompts(
 
         system_prompt, initial_template = get_variant_prompts(variant_name)
 
-        for obj in data_content:
+        for datapoint in datapoints:
+            # Infer function name from test name (remove test_ prefix)
+            function_name = datapoint.name.replace("test_", "").replace("Test", "")
+
+            # Prepare template context (matching spec agent context)
+            context = {
+                "pbt_code": datapoint.code,
+                "pbt_name": datapoint.name,
+                "function_name": function_name,
+                "impl_signatures": {},  # Empty for preview (no impl available yet)
+            }
+
             print(f"=== Spec Variant: {variant_name} ===")
             print(system_prompt)
-            print(initial_template.render(pbt=obj["pbt"], deps=obj["deps"]))
+            print(initial_template.render(**context))
             print("=" * 80)
 
 

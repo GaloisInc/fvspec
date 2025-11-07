@@ -71,10 +71,18 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
         dp: The datapoint to convert
 
     Returns:
-        A Prompt containing the property-based test and dependencies
+        A Prompt containing the property-based test, metadata, and dependencies
     """
+    # Infer function name from test name (remove test_ prefix)
+    function_name = dp.name.replace("test_", "").replace("Test", "")
+
     # DB datapoint stores deps as JSON string
-    return Prompt(pbt=dp.code, deps=dp.get_deps())
+    return Prompt(
+        pbt=dp.code,
+        pbt_name=dp.name,
+        function_name=function_name,
+        deps=dp.get_deps(),
+    )
 
 
 def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
@@ -112,7 +120,15 @@ def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
         Rendered initial prompt string
     """
     _, initial_template = get_variant_prompts(variant)
-    return initial_template.render(pbt=prompt.pbt, deps=prompt.deps)
+    # Render with the context expected by the template
+    # impl_signatures is empty at dataset creation time (populated during orchestration)
+    context = {
+        "pbt_code": prompt.pbt,
+        "pbt_name": prompt.pbt_name,
+        "function_name": prompt.function_name,
+        "impl_signatures": {},  # Empty at dataset creation - populated during spec agent phase
+    }
+    return initial_template.render(**context)
 
 
 def mk_dataset(
