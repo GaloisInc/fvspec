@@ -12,11 +12,12 @@ import json
 from pathlib import Path
 
 import typer
-from generate.scaffold.task import DATA_DIR
 from rich.console import Console
 from rich.progress import track
 from sqlalchemy import text
 from sqlmodel import Field, Session, SQLModel, create_engine, select
+
+from generate.config import DATA_DIR
 
 app = typer.Typer()
 console = Console()
