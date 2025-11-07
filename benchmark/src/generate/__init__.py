@@ -176,9 +176,10 @@ def main_callback(
     )
 
     # Create log directory in artifacts/runs
+    # Use mk_run_path to include ranseed in path (consistent with sample directories)
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
-    log_dir_name = f"{timestamp}__{use_variant}"
+    log_dir_name = utilio.mk_run_path(timestamp, use_variant, use_ranseed)
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
