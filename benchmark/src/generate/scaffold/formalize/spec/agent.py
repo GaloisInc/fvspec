@@ -73,7 +73,7 @@ def spec_generation_agent(
 
         # Build initial messages - append to state.messages
         state.messages.append(ChatMessageSystem(content=system_prompt))
-        state.messages.append(ChatMessageUser(content=user_template.render(context)))
+        state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 
         # Get LSP tools from workspace
         # We'll use the same LSP tools as the impl agent
