@@ -14,7 +14,7 @@ from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import ToolCallView, ToolError, tool
 
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.quality_assessment import QualityAssessment
+from generate.scaffold.quality_assessment.models import QualityAssessment
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import log_sample_to_wandb
 

@@ -17,7 +17,6 @@ htmlcov
 .direnv
 .lake
 data/
-benchmark/data/
 logs/
 
 .env

@@ -12,6 +12,7 @@ import sys
 from collections import Counter
 from pathlib import Path
 
+import pandas as pd
 import streamlit as st
 from sqlmodel import select
 
@@ -21,6 +22,7 @@ from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import PBTFunction
 from generate.scaffold.dataset.queries import (
     count_total_datapoints,
+    get_overlapping_unit_tests,
 )
 from generate.scaffold.dataset.queries import (
     load_datapoints_by_id as _db_load_by_id,
@@ -58,6 +60,23 @@ def get_associated_functions(data_path: Path, pbt_id: int) -> list[str]:
     except Exception as e:
         st.error(f"Error fetching functions: {e}")
         return []
+
+
+def extract_unit_tests_from_overlaps(unit_test_overlaps: list[dict]) -> list[dict]:
+    """Extract all unit tests from unit test overlap structures.
+
+    Args:
+        unit_test_overlaps: List of overlap dictionaries containing unit tests
+
+    Returns:
+        List of all unit tests extracted from the overlaps
+    """
+    all_unit_tests = []
+    for overlap in unit_test_overlaps:
+        unit_tests = overlap.get("unit_tests", [])
+        if isinstance(unit_tests, list):
+            all_unit_tests.extend(unit_tests)
+    return all_unit_tests
 
 
 class FunctionCallVisitor(ast.NodeVisitor):
@@ -216,6 +235,7 @@ def load_random_sample(
     seed: int | None = None,
     min_deps: int | None = None,
     max_deps: int | None = None,
+    require_unit_tests: bool = False,
 ) -> Datapoint | None:
     """Load a single random sample from the dataset with optional filtering."""
     if not data_path.exists():
@@ -244,6 +264,18 @@ def load_random_sample(
             if max_deps is not None and num_deps > max_deps:
                 seed = random.randint(0, 1_000_000) if seed is not None else None
                 continue
+
+            # Check unit test filter
+            if require_unit_tests:
+                unit_tests = get_unit_tests_for_sample(data_path, sample.id)
+                has_tests = (
+                    unit_tests
+                    and unit_tests[0].get("unit_tests")
+                    and len(unit_tests[0]["unit_tests"]) > 0
+                )
+                if not has_tests:
+                    seed = random.randint(0, 1_000_000) if seed is not None else None
+                    continue
 
             return sample
 
@@ -342,6 +374,35 @@ def add_to_history(sample_id: int):
     st.session_state.history = history[:20]
 
 
+def load_unit_test_classifications(data_path: Path) -> pd.DataFrame | None:
+    """Load unit test classification CSV if available."""
+    csv_path = data_path.parent / "unit_test_classification.csv"
+    if not csv_path.exists():
+        return None
+    try:
+        return pd.read_csv(csv_path)
+    except Exception as e:
+        st.warning(f"Could not load unit test classifications: {e}")
+        return None
+
+
+@st.cache_data
+def get_unit_tests_for_sample(
+    data_path: Path, sample_id: int
+) -> list[dict[str, list | str]]:
+    """Get unit tests that share functions with the given PBT sample.
+
+    Cached to avoid redundant database queries within the same script execution.
+    The cache is keyed by (data_path, sample_id) and persists across Streamlit reruns.
+    """
+    try:
+        with get_session(data_path) as session:
+            return get_overlapping_unit_tests(session, sample_id)
+    except Exception as e:
+        st.error(f"Error fetching unit tests: {e}")
+        return []
+
+
 def main():
     """Main Streamlit app."""
     st.set_page_config(page_title="FVSpec Data Explorer", page_icon="🔍", layout="wide")
@@ -398,10 +459,23 @@ def main():
                 min_deps = None
                 max_deps = None
 
+            # Unit test filter
+            st.divider()
+            enable_unit_test_filter = st.checkbox("Filter by unit tests", value=False)
+            if enable_unit_test_filter:
+                st.caption("🧪 Only show samples with unit tests")
+                st.info(
+                    "Note: This filter requires checking each sample, which may be slower"
+                )
+
         if st.button("🎲 Load Random Sample", type="primary", width="stretch"):
             st.session_state.seed = random.randint(0, 1_000_000)
             sample = load_random_sample(
-                data_path, st.session_state.seed, min_deps, max_deps
+                data_path,
+                st.session_state.seed,
+                min_deps,
+                max_deps,
+                require_unit_tests=enable_unit_test_filter,
             )
             if sample:
                 st.session_state.current_sample = sample
@@ -557,11 +631,12 @@ def main():
     st.markdown("---")
 
     # Tabs for different views
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(
+    tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs(
         [
             "📝 PBT",
             "🔗 Dependencies",
             "🔍 Function Analysis",
+            "🧪 Unit Tests",
             "📄 Source",
             "📊 Metadata",
         ]
@@ -694,9 +769,19 @@ def main():
         st.subheader("Database: Associated Functions")
         if associated_funcs:
             st.markdown("Functions from `pbt_functions` table:")
+
+            # Get unit test data to check for overlaps
+            unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+            unit_test_functions = set()
+            if unit_test_overlaps:
+                for overlap in unit_test_overlaps:
+                    shared_funcs = overlap.get("shared_functions", [])
+                    unit_test_functions.update(shared_funcs)
+
             call_counts_db_raw = call_analysis.get("call_counts", {})
             assert isinstance(call_counts_db_raw, dict)  # noqa: S101
             call_counts_db: dict[str, int] = call_counts_db_raw  # type: ignore[assignment]
+
             for func in associated_funcs:
                 in_deps = (
                     "✓ in dep_names"
@@ -704,7 +789,15 @@ def main():
                     else "✗ NOT in dep_names"
                 )
                 call_count = call_counts_db.get(func, 0)  # type: ignore[union-attr]
-                st.markdown(f"- `{func}` - {in_deps} - Called {call_count}x in PBT")
+                has_unit_tests = (
+                    "🧪 has unit tests" if func in unit_test_functions else ""
+                )
+
+                tags = f"{in_deps} - Called {call_count}x in PBT"
+                if has_unit_tests:
+                    tags = f"{tags} - {has_unit_tests}"
+
+                st.markdown(f"- `{func}` - {tags}")
         else:
             st.info("No associated functions in pbt_functions table for this sample")
 
@@ -754,13 +847,108 @@ def main():
                 st.info("No calls to display")
 
     with tab4:
+        st.subheader("🧪 Unit Tests")
+        st.markdown(
+            """
+            Unit tests that share functions with this PBT sample.
+            These are extracted from the same codebase and test overlapping functionality.
+            """
+        )
+
+        # Load unit test data
+        unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+        classifications = load_unit_test_classifications(data_path)
+
+        if not unit_test_overlaps or not unit_test_overlaps[0].get("unit_tests"):
+            st.info("No overlapping unit tests found for this sample")
+        else:
+            # Extract all unit tests from the overlap structure
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
+            shared_functions = unit_test_overlaps[0].get("shared_functions", [])
+
+            # Summary metrics
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Unit Tests", len(all_unit_tests))
+            with col2:
+                st.metric("Shared Functions", len(shared_functions))
+            with col3:
+                # Count if we have classification data
+                if classifications is not None:
+                    st.metric("Classifications Available", "Yes ✓")
+                else:
+                    st.metric("Classifications Available", "No")
+
+            st.divider()
+
+            # Show shared functions
+            if shared_functions:
+                with st.expander("📋 Shared Functions", expanded=False):
+                    st.markdown("Functions tested by both PBT and unit tests:")
+                    for func in shared_functions:
+                        st.markdown(f"- `{func}`")
+
+            # Display unit tests
+            st.subheader("Unit Test List")
+
+            # Unit test selector
+            test_options = {
+                f"{i + 1}. {test.get('name', f'test_{i}')}": (i, test)
+                for i, test in enumerate(all_unit_tests)
+            }
+
+            if test_options:
+                selected_test = st.selectbox(
+                    "Select unit test to view:",
+                    options=list(test_options.keys()),
+                    key="unit_test_selector",
+                )
+
+                if selected_test:
+                    idx, test = test_options[selected_test]
+
+                    # Show test metadata
+                    col1, col2 = st.columns([1, 3])
+
+                    with col1:
+                        st.markdown("**Metadata:**")
+                        if test.get("source_file"):
+                            st.markdown(f"**File:** `{test['source_file']}`")
+                        if test.get("start_line") and test.get("end_line"):
+                            st.markdown(
+                                f"**Lines:** {test['start_line']}-{test['end_line']}"
+                            )
+
+                        # TODO: Show classification if available
+                        # (would need to join with detailed classification data by test name)
+
+                    with col2:
+                        st.markdown("**Test Code:**")
+                        st.code(
+                            test.get("code", ""), language="python", line_numbers=True
+                        )
+
+                # Show all tests in compact view
+                with st.expander("📜 All Unit Tests (Compact View)"):
+                    for i, test in enumerate(all_unit_tests, 1):
+                        st.markdown(f"**{i}. {test.get('name', 'unnamed')}**")
+                        lines = (
+                            f"Lines {test.get('start_line')}-{test.get('end_line')}"
+                            if test.get("start_line")
+                            else "Unknown location"
+                        )
+                        st.caption(
+                            f"{test.get('source_file', 'Unknown file')} - {lines}"
+                        )
+
+    with tab5:
         st.subheader("Source Code")
         if sample.source:
             st.code(sample.source, language="python", line_numbers=True)
         else:
             st.info("Source code not available in database")
 
-    with tab5:
+    with tab6:
         st.subheader("Sample Metadata")
 
         # Basic info
@@ -788,6 +976,28 @@ def main():
             st.divider()
             st.markdown("**Summary:**")
             st.info(sample.summary)
+
+        # Unit test metadata
+        st.divider()
+        st.markdown("**Unit Test Coverage:**")
+
+        unit_test_overlaps = get_unit_tests_for_sample(data_path, sample.id)
+        if unit_test_overlaps and unit_test_overlaps[0].get("unit_tests"):
+            all_unit_tests = extract_unit_tests_from_overlaps(unit_test_overlaps)
+
+            col1, col2 = st.columns(2)
+            with col1:
+                st.metric("Associated Unit Tests", len(all_unit_tests))
+            with col2:
+                shared_funcs = unit_test_overlaps[0].get("shared_functions", [])
+                st.metric("Shared Functions", len(shared_funcs))
+
+            # Show classification summary if available
+            classifications = load_unit_test_classifications(data_path)
+            if classifications is not None:
+                st.caption("✓ Classification data available - see Unit Tests tab")
+        else:
+            st.info("No associated unit tests found")
 
         # Raw JSON view
         with st.expander("🔍 Raw JSON"):

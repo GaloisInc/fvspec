@@ -1,0 +1,115 @@
+name: Nightly Benchmark
+
+on:
+  schedule:
+    # Run at 2 AM UTC every day
+    - cron: '0 2 * * *'
+  workflow_dispatch: # Allow manual triggering
+
+jobs:
+  nightly-eval:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # For pushing to ci-results branch
+      issues: write # For posting comments
+    defaults:
+      run:
+        working-directory: benchmark
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Need full history for orphan branch
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "benchmark/uv.lock"
+
+      - name: Set up Python
+        run: uv python install
+
+      - name: Install dependencies
+        run: uv sync
+
+      - name: Run benchmark and generate reports
+        id: run
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Run evaluation and generate markdown report
+          uv run ci-digest \
+            --datafile ../.github/pbts_ci.db \
+            --model anthropic/claude-haiku-4-5-20251001 \
+            --variant control-functional \
+            --sample-size 64 \
+            --output artifacts/nightly_report.md \
+            --output-format markdown \
+            --commit ${{ github.sha }}
+
+          # Find the log directory that was just created
+          LOG_DIR=$(find artifacts/ci -type d -name "ci_*__control-functional" -printf '%T@ %p\n' | sort -rn | head -1 | cut -d' ' -f2-)
+          echo "log_dir=$LOG_DIR" >> $GITHUB_OUTPUT
+          echo "report_path=artifacts/nightly_report.md" >> $GITHUB_OUTPUT
+
+      - name: Append to ci-results branch
+        run: |
+          # Generate JSONL summary using the same log directory
+          uv run ci-digest \
+            --log-dir ${{ steps.run.outputs.log_dir }} \
+            --model anthropic/claude-haiku-4-5-20251001 \
+            --output-format jsonl \
+            --commit ${{ github.sha }} \
+            > /tmp/result.jsonl
+
+          # Configure git
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Try to fetch existing branch, or create new orphan branch
+          git fetch origin ci-results:ci-results 2>/dev/null || {
+            git checkout --orphan ci-results
+            git rm -rf .
+            touch results.jsonl
+            git add results.jsonl
+            git commit -m "Initialize ci-results branch"
+            git push origin ci-results
+          }
+
+          # Switch to ci-results branch
+          git checkout ci-results
+
+          # Append new result
+          cat /tmp/result.jsonl >> results.jsonl
+
+          # Commit and push
+          git add results.jsonl
+          git commit -m "Nightly results for $(date +%Y-%m-%d) (commit: ${{ github.sha }})"
+          git push origin ci-results
+
+          # Switch back to original branch
+          git checkout -
+
+      - name: Post to tracking issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const report = fs.readFileSync('benchmark/${{ steps.run.outputs.report_path }}', 'utf8');
+
+            // Post to issue #85 (Nightly Evidence)
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: 85,
+              body: report
+            });
+
+      - name: Upload full logs as artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: nightly-eval-${{ github.run_number }}
+          path: ${{ steps.run.outputs.log_dir }}
+          retention-days: 90
