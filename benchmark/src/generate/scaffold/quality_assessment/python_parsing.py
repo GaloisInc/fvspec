@@ -34,6 +34,7 @@ def extract_python_types(code: str) -> dict[str, str]:
                             if isinstance(arg.annotation.value, ast.Name):
                                 types[arg.arg] = arg.annotation.value.id
     except SyntaxError:
+        # Ignore syntax errors in input code and return empty types dict
         pass
     return types
 
