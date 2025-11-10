@@ -4,9 +4,26 @@ from pathlib import Path
 
 from scripts.check_run import (
     CompilationResult,
+    extract_sample_id,
     find_latest_run,
     find_sample_dirs,
 )
+
+
+class TestExtractSampleId:
+    """Tests for extracting sample ID from directory name."""
+
+    def test_extract_sample_id_basic(self) -> None:
+        """Test basic sample ID extraction."""
+        assert extract_sample_id("00307__test_mul") == "00307"
+
+    def test_extract_sample_id_with_underscores(self) -> None:
+        """Test extraction with underscores in test name."""
+        assert extract_sample_id("00645__test_soft_label") == "00645"
+
+    def test_extract_sample_id_long_name(self) -> None:
+        """Test extraction with longer directory name."""
+        assert extract_sample_id("06576__test_reduce_scatter_very_long") == "06576"
 
 
 class TestFindLatestRun:
