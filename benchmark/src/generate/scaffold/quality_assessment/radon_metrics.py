@@ -11,8 +11,12 @@ These metrics provide additional data points for analyzing test complexity
 and can be correlated with benchmark performance.
 """
 
+import logging
+
 from pydantic import BaseModel, Field
 from radon import complexity, metrics, raw
+
+logger = logging.getLogger(__name__)
 
 
 class RadonMetrics(BaseModel):
@@ -184,6 +188,7 @@ def compute_metrics_for_datapoint(datapoint_code: str) -> RadonMetrics | None:
     """
     try:
         return RadonMetrics.from_code(datapoint_code)
-    except Exception:
-        # Failed to analyze (syntax errors, etc.)
+    except (SyntaxError, ValueError, AttributeError) as e:
+        # Failed to analyze (syntax errors, radon parsing failures, etc.)
+        logger.debug(f"Radon metrics analysis failed: {e}")
         return None
