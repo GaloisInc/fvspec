@@ -62,5 +62,6 @@ def extract_dependency_names(deps: list[str]) -> list[str]:
                 if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                     names.append(node.name)
         except SyntaxError:
+            # Ignore dependencies that are not valid Python code
             pass
     return names
