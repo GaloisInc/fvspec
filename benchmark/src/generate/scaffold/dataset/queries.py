@@ -82,9 +82,10 @@ def sample_datapoints(
 
     # Return in shuffled order (IN clause doesn't preserve order)
     id_to_datapoint = {dp.id: dp for dp in datapoints}
-    return [
-        id_to_datapoint[dp_id] for dp_id in selected_ids if dp_id in id_to_datapoint
-    ]
+    missing_ids = [dp_id for dp_id in selected_ids if dp_id not in id_to_datapoint]
+    if missing_ids:
+        raise KeyError(f"Datapoint(s) with ID(s) {missing_ids} not found in database. Data integrity issue.")
+    return [id_to_datapoint[dp_id] for dp_id in selected_ids]
 
 
 def load_datapoints_by_id(
