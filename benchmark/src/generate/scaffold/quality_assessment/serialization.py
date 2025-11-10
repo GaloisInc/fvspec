@@ -2,7 +2,7 @@
 
 
 def flatten_dict(
-    d: dict, parent_key: str = "", sep: str = "_"
+    d: dict, parent_key: str = "", sep: str = "__"
 ) -> dict[str, int | float | str | None]:
     """Recursively flatten a nested dictionary.
 
