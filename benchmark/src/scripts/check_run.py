@@ -29,6 +29,21 @@ app = typer.Typer(help="Check Lean compilation for benchmark samples")
 console = Console()
 
 
+def extract_sample_id(dir_name: str) -> str:
+    """Extract sample ID from directory name.
+
+    Directory names follow the pattern: <id>__<pbt_name>
+    e.g., 00307__test_mul -> 00307
+
+    Args:
+        dir_name: Directory name containing sample ID and test name
+
+    Returns:
+        Sample ID portion of the directory name
+    """
+    return dir_name.split("__")[0]
+
+
 class CompilationResult(BaseModel, frozen=True):
     """Result of compiling a single sample."""
 
@@ -86,15 +101,11 @@ def find_sample_dirs(run_path: Path, sample_ids: list[str] | None = None) -> lis
         if not item.is_dir():
             continue
 
-        # Sample directories are named: <id>_<pbt_name> or <id>__<pbt_name>
-        # e.g., 00307_test_mul or 00307__test_mul
-        # Try double underscore first, then single underscore
-        parts = (
-            item.name.split("__", 1) if "__" in item.name else item.name.split("_", 1)
-        )
-        if len(parts) == 2 and parts[0].isdigit():
-            sample_id = parts[0]
-            if sample_ids is None or sample_id in sample_ids:
+        # Sample directories are named: <id>__<pbt_name>
+        # e.g., 00307__test_mul
+        if "__" in item.name:
+            sample_id = extract_sample_id(item.name)
+            if sample_id.isdigit() and (sample_ids is None or sample_id in sample_ids):
                 sample_dirs.append(item)
 
     # Sort by sample ID for consistent ordering
@@ -117,13 +128,8 @@ def compile_sample(
     Returns:
         CompilationResult with success status and details
     """
-    # Extract sample ID from directory name (handles both _ and __ separators)
-    parts = (
-        sample_path.name.split("__", 1)
-        if "__" in sample_path.name
-        else sample_path.name.split("_", 1)
-    )
-    sample_id = parts[0]
+    # Extract sample ID from directory name
+    sample_id = extract_sample_id(sample_path.name)
     start_time = datetime.now()
 
     # Check for required files
@@ -355,7 +361,7 @@ def main(
         task = progress.add_task("Compiling samples...", total=len(sample_dirs))
 
         for sample_dir in sample_dirs:
-            sample_id_str = sample_dir.name.split("__")[0]
+            sample_id_str = extract_sample_id(sample_dir.name)
             progress.update(task, description=f"Compiling {sample_id_str}...")
 
             result = compile_sample(sample_dir, timeout=timeout)
