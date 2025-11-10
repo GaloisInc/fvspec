@@ -12,6 +12,13 @@ import re
 
 from pydantic import BaseModel
 
+# Regex pattern for matching Lean definition keywords and capturing the identifier name
+_LEAN_DEF_PATTERN = r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)"
+# Pattern for matching definition keywords without capturing the name
+_LEAN_DEF_KEYWORD_PATTERN = (
+    r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+"
+)
+
 
 class LeanModule(BaseModel):
     """Parsed components of a Lean module."""
@@ -195,10 +202,7 @@ def merge_lean_modules(
 
             # Check if this line starts a definition
             # Match: structure/def/theorem/lemma/axiom/opaque/inductive/class/instance/abbrev
-            def_match = re.match(
-                r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)",
-                line,
-            )
+            def_match = re.match(_LEAN_DEF_PATTERN, line)
 
             if def_match:
                 def_name = def_match.group(2)
@@ -221,16 +225,10 @@ def merge_lean_modules(
                 # Check if this line starts a NEW definition (to stop skipping)
                 if skip_until_next_def:
                     # Check if this is another top-level definition
-                    next_def = re.match(
-                        r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+",
-                        line,
-                    )
+                    next_def = re.match(_LEAN_DEF_KEYWORD_PATTERN, line)
                     if next_def:
                         # New definition found, re-evaluate it
-                        def_match = re.match(
-                            r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)",
-                            line,
-                        )
+                        def_match = re.match(_LEAN_DEF_PATTERN, line)
                         if def_match:
                             def_name = def_match.group(2)
                             if def_name not in seen_definitions:
