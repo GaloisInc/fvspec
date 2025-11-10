@@ -179,7 +179,6 @@ def merge_lean_modules(
                 pending_docstring_lines = [line]
                 if "-/" in stripped:
                     # Single-line docstring: /-- comment -/
-                    in_docstring = False
                     # Don't add yet - wait for next line to see if it's a definition
                 else:
                     # Multi-line docstring starting
