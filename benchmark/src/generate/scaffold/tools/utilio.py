@@ -103,15 +103,41 @@ def no_code_block_found(sample_id: str, text: str) -> str:
     return f"{msg} for sample_id={sample_id}"
 
 
+def mk_run_path(date_time: str, variant: str, ranseed: int | None = None) -> str:
+    """Construct run directory name for artifacts.
+
+    Args:
+        date_time: Timestamp string (e.g., "2025-11-06T12-01-34")
+        variant: Prompt variant name
+        ranseed: Random seed used for sampling (optional)
+
+    Returns:
+        Run directory name in format:
+        - With ranseed: "2025-11-06T12-01-34__s4__control-functional"
+        - Without ranseed: "2025-11-06T12-01-34__control-functional"
+
+    Examples:
+        >>> mk_run_path("2025-11-06T12-01-34", "control-functional", ranseed=4)
+        '2025-11-06T12-01-34__s4__control-functional'
+        >>> mk_run_path("2025-11-06T12-01-34", "control-functional")
+        '2025-11-06T12-01-34__control-functional'
+    """
+    if ranseed is not None:
+        return f"{date_time}__s{ranseed}__{variant}"
+    else:
+        return f"{date_time}__{variant}"
+
+
 def get_output_filepath(
     date_time: str,
     sample_id: str,
     file_name: str,
     variant: str,
+    ranseed: int | None = None,
 ) -> Path:
     """Construct output file path in the artifacts directory structure.
 
-    Creates a directory structure: artifacts/runs/<date_time>__<variant>/<sample_id>/<file_name>
+    Creates a directory structure: artifacts/runs/<run_path>/<sample_id>/<file_name>
 
     The function locates the project root by searching for pyproject.toml.
 
@@ -120,6 +146,7 @@ def get_output_filepath(
         sample_id: Unique identifier for the sample
         file_name: Name of the output file (e.g., 'Spec.lean', 'qa.json')
         variant: Prompt variant name
+        ranseed: Random seed used for sampling (optional, included in path when provided)
 
     Returns:
         Path to the output file
@@ -139,9 +166,10 @@ def get_output_filepath(
             )
         root_dir = root_dir.parent
 
-    # Create directory name based on variant
-    timestamped_dir = f"{date_time}__{variant}"
-    output_dir = root_dir / "artifacts" / "runs" / timestamped_dir / sample_id
+    # Create directory name using mk_run_path
+    run_path = mk_run_path(date_time, variant, ranseed)
+
+    output_dir = root_dir / "artifacts" / "runs" / run_path / sample_id
     output_dir.mkdir(parents=True, exist_ok=True)
 
     spec_file = output_dir / file_name
@@ -152,12 +180,43 @@ def get_sample_output_dir(
     date_time: str,
     sample_id: str,
     variant: str,
+    ranseed: int | None = None,
 ) -> Path:
     """Return the artifact directory for a given sample."""
-    path = get_output_filepath(date_time, sample_id, "Spec.lean", variant)
+    path = get_output_filepath(date_time, sample_id, "Spec.lean", variant, ranseed)
     sample_dir = path.parent
     sample_dir.mkdir(parents=True, exist_ok=True)
     return sample_dir
+
+
+def cleanup_empty_sample_dirs(log_dir: Path) -> None:
+    """Remove empty sample subdirectories from a run directory.
+
+    This cleans up artifacts from inspect_ai's directory structure where it
+    pre-creates sample subdirectories that may remain empty if samples are
+    skipped or written to a different location (e.g., with ranseed in path).
+
+    Args:
+        log_dir: Path to the run directory (e.g., artifacts/runs/<timestamp>__<variant>)
+    """
+    if not log_dir.exists() or not log_dir.is_dir():
+        return
+
+    for item in log_dir.iterdir():
+        if item.is_dir():
+            # Check if directory is empty (no files, only empty subdirs)
+            try:
+                contents = list(item.rglob("*"))
+                # Filter to only files (not directories)
+                files = [c for c in contents if c.is_file()]
+                if not files:
+                    # Directory has no files, remove it
+                    import shutil
+
+                    shutil.rmtree(item)
+            except (PermissionError, OSError):
+                # Skip directories we can't access/remove
+                pass
 
 
 def writeit(spfile: Path, code: str) -> str:

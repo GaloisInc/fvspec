@@ -25,7 +25,9 @@ from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
     FunctionImplResult,
     function_impl_agent,
+    payloads_from_datapoint,
 )
+from generate.scaffold.formalize.impl.lean_merger import append_to_lean_file
 from generate.scaffold.formalize.plausible_runner import Plausibility, run_plausible
 from generate.scaffold.formalize.spec import (
     SpecPayload,
@@ -37,6 +39,80 @@ from generate.scaffold.quality_assessment import count_lean_theorems
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
+
+
+def _generate_fut_stub(function_name: str, pbt_code: str) -> str:
+    r"""Generate a stub implementation when FUT source code is not available.
+
+    IMPORTANT: Do NOT use Unit type for stubs. This leads to trivial theorems
+    that inflate plausibility metrics without verification value.
+
+    Instead, infers signature from PBT if possible, or uses generic polymorphic
+    signature that forces the spec agent to think about types.
+
+    Args:
+        function_name: Name of the function under test (test_ prefix removed)
+        pbt_code: The property-based test code (for signature inference)
+
+    Returns:
+        Lean code with stub implementation using inferred or generic signature
+
+    Examples:
+        >>> _generate_fut_stub("sort_list", "def test(xs): sort_list(xs)")
+        'def sort_list (input : α) : β := sorry'
+        >>> _generate_fut_stub("add", "def test(x, y): add(x, y)")
+        'def add (x : α) (y : β) : γ := sorry'
+    """
+    import re
+
+    # Try to infer arity from PBT code by looking for function calls
+    # Pattern: function_name(arg1, arg2, ...)
+    call_pattern = rf"\b{re.escape(function_name)}\s*\(([^)]*)\)"
+    matches = list(re.finditer(call_pattern, pbt_code))
+
+    # Count arguments from first match
+    num_args = 0
+    if matches:
+        args_str = matches[0].group(1)
+        # Simple heuristic: count commas + 1 (if non-empty)
+        if args_str.strip():
+            num_args = args_str.count(",") + 1
+
+    # Generate signature based on inferred arity
+    # Use generic type parameters (α, β, γ) instead of Unit
+    if num_args == 0:
+        # No args detected - use generic nullary signature
+        # Avoid Unit type - use generic α instead to encourage type inference
+        signature = f"def {function_name} : α := sorry"
+    elif num_args == 1:
+        signature = f"def {function_name} (input : α) : β := sorry"
+    elif num_args == 2:
+        signature = f"def {function_name} (x : α) (y : β) : γ := sorry"
+    else:
+        # Multiple arguments - generate generic parameters
+        params = " ".join(f"(x{i} : α{i})" for i in range(1, num_args + 1))
+        signature = f"def {function_name} {params} : β := sorry"
+
+    stub = f"""import Batteries
+
+namespace Fvspec.Impl
+
+/-- {function_name}: Implementation not available in source repository.
+
+    This is a stub with an inferred signature from the property-based test.
+    The actual implementation could not be discovered, so a generic signature
+    is provided to guide the specification agent.
+
+    IMPORTANT: This stub uses generic type parameters (α, β, γ) instead of Unit
+    to encourage the specification agent to infer meaningful types from the PBT
+    and avoid generating trivial tautologies.
+
+    TODO: Implement this function based on the specification requirements. -/
+{signature}
+
+end Fvspec.Impl
+"""
+    return stub
 
 
 @solver
@@ -134,39 +210,139 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         spec_variant = spec_registry.get_variant(spec_variant_name)
         impl_variant = spec_variant.style  # Extract style: functional or mvcgen
 
-        impl_payload = FunctionImplPayload(
-            pbt_code=datapoint.code,
-            pbt_name=datapoint.name,
-            function_name=function_name,
-            function_code=function_code,
-            dependencies={},  # Dependencies handled separately if needed
-            variant=impl_variant,
-        )
-
-        # Call impl agent solver - it will store result in state.metadata["impl_result"]
-        impl_solver = function_impl_agent(impl_payload, workspace)
-        state = await impl_solver(state, generate_fn)
-
-        # Extract result from metadata (agent stores it there)
-        impl_result_data = state.metadata.get("impl_result", {})
-        if isinstance(impl_result_data, dict):
-            impl_result = FunctionImplResult(**impl_result_data)
-        else:
-            impl_result = impl_result_data
-
-        # Write Impl.lean if successful
         impl_file = workspace / "Fvspec" / "Impl.lean"
-        if impl_result.success and impl_result.lean_code:
-            impl_file.write_text(impl_result.lean_code)
+        impl_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Only process FUT if we have source code for it
+        # Skip if function_code is None - Phase 1b will handle dependencies
+        # This prevents hallucination when agent has no code to work from
+        if function_code is not None:
+            impl_payload = FunctionImplPayload(
+                pbt_code=datapoint.code,
+                pbt_name=datapoint.name,
+                function_name=function_name,
+                function_code=function_code,
+                dependencies={},  # Dependencies handled separately if needed
+                variant=impl_variant,
+            )
+
+            # Call impl agent solver - it will store result in state.metadata["impl_result"]
+            impl_solver = function_impl_agent(impl_payload, workspace)
+            state = await impl_solver(state, generate_fn)
+
+            # Extract result from metadata (agent stores it there)
+            impl_result_data = state.metadata.get("impl_result", {})
+            if isinstance(impl_result_data, dict):
+                impl_result = FunctionImplResult(**impl_result_data)
+            else:
+                impl_result = impl_result_data
+
+            # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
+            if impl_result.lean_code:
+                impl_file.write_text(impl_result.lean_code)
+                # Track that we provided full implementation
+                state.metadata["implementation_level"] = "provided"
+            else:
+                # No impl code - write empty file to clear any validation artifacts
+                impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
+                # Track as absent (agent failed to generate)
+                state.metadata["implementation_level"] = "absent"
+        else:
+            # No FUT source code - generate stub implementation
+            # This allows the spec agent to have a signature to work with
+            stub_impl = _generate_fut_stub(function_name, datapoint.code)
+            impl_file.write_text(stub_impl)
+            # Track that we provided only a signature
+            state.metadata["implementation_level"] = "signature"
+
+        # Phase 1b: Generate implementations for all dependencies
+        # Get all payloads (FUT + dependencies)
+        all_payloads = payloads_from_datapoint(datapoint, db_session)
+        dependency_implementations: dict[str, str] = {}
+
+        for payload in all_payloads:
+            # Skip FUT - already processed in Phase 1
+            if payload.is_function_under_test:
+                continue
+
+            # Create impl payload for this dependency
+            dep_impl_payload = FunctionImplPayload(
+                pbt_code="",  # Not needed for dependencies
+                pbt_name=payload.dep_name,
+                function_name=payload.dep_name,
+                function_code=payload.python_source,
+                dependencies={},  # Will be accumulated as we process
+                variant=impl_variant,
+            )
+
+            # Run impl agent for this dependency
+            dep_impl_solver = function_impl_agent(dep_impl_payload, workspace)
+            state = await dep_impl_solver(state, generate_fn)
+
+            # Extract result from metadata
+            dep_impl_result_data = state.metadata.get("impl_result", {})
+            if isinstance(dep_impl_result_data, dict):
+                dep_impl_result = FunctionImplResult(**dep_impl_result_data)
+            else:
+                dep_impl_result = dep_impl_result_data
+
+            # Store successful implementations
+            if dep_impl_result.success and dep_impl_result.lean_code:
+                dependency_implementations[payload.dep_name] = dep_impl_result.lean_code
+                # Merge dependency into Impl.lean (intelligent merge, not naive append)
+                # This deduplicates imports, maintains single namespace, prevents redefinitions
+                if impl_file.exists():
+                    current_content = impl_file.read_text()
+                    merged_content = append_to_lean_file(
+                        current_content, dep_impl_result.lean_code
+                    )
+                    impl_file.write_text(merged_content)
+                else:
+                    impl_file.write_text(dep_impl_result.lean_code)
+
+        # Store dependency count for metrics
+        state.metadata["num_fns_impl"] = len(all_payloads)
+
+        # Skip samples with excessive function counts (>50)
+        # Rationale: Samples with >50 functions are extreme outliers that:
+        # 1. Generate excessively large prompts and specs (degraded quality)
+        # 2. Take disproportionately long to process (hurt parallelism)
+        # 3. Exceed practical limits for meaningful specification generation
+        # Note: This is a secondary filter after MAX_DEPENDENCIES=100 (query-time filter).
+        # Some samples with <=100 deps in metadata may have >50 actual implementations
+        # when function discovery resolves them from the database.
+        MAX_FUNCTIONS_IMPL = 50
+        if len(all_payloads) > MAX_FUNCTIONS_IMPL:
+            state.metadata["skipped"] = True
+            state.metadata["skip_reason"] = (
+                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})"
+            )
+            # Set minimal output so write_to_disk knows this was intentionally skipped
+            state.output = ModelOutput(
+                model="orchestrated",
+                choices=[
+                    ChatCompletionChoice(
+                        message=ChatMessageAssistant(
+                            content=f"Sample skipped: {len(all_payloads)} functions exceeds limit of {MAX_FUNCTIONS_IMPL}",
+                            source="generate",
+                        ),
+                        stop_reason="stop",
+                    )
+                ],
+                time=time.time() - start_time,
+            )
+            return state
 
         # Phase 2: Extract type signatures from Impl.lean
         impl_signatures = {}
+        impl_code = ""
         if impl_file.exists():
             impl_code = impl_file.read_text()
             impl_signatures = extract_signatures(impl_code)
 
-        # Store signatures for debugging and quality assessment
+        # Store signatures and impl code for debugging and quality assessment
         state.metadata["impl_signatures"] = impl_signatures
+        state.metadata["impl_code"] = impl_code  # For Unit stub detection
 
         # Phase 3: Generate theorem statements with signatures
         spec_payload = SpecPayload(
@@ -188,10 +364,16 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         else:
             spec_result = spec_result_data
 
-        # Write Spec.lean if successful
+        # Write Spec.lean - orchestration has authoritative version (clears validation artifacts)
         spec_file = workspace / "Fvspec" / "Spec.lean"
-        if spec_result.success and spec_result.lean_code:
+        spec_file.parent.mkdir(parents=True, exist_ok=True)
+        if spec_result.lean_code:
             spec_file.write_text(spec_result.lean_code)
+        else:
+            # No spec code - write empty file to clear any validation artifacts
+            spec_file.write_text(
+                "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
+            )
 
         # Phase 4: Run plausible property testing (if enabled and spec compiled)
         plausibility = Plausibility()

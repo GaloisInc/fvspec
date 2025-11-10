@@ -176,9 +176,10 @@ def main_callback(
     )
 
     # Create log directory in artifacts/runs
+    # Use mk_run_path to include ranseed in path (consistent with sample directories)
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
-    log_dir_name = f"{timestamp}__{use_variant}"
+    log_dir_name = utilio.mk_run_path(timestamp, use_variant, use_ranseed)
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -220,6 +221,9 @@ def main_callback(
             display=use_display,
         )
     finally:
+        # Clean up empty sample directories (created by inspect_ai but unused)
+        utilio.cleanup_empty_sample_dirs(log_dir)
+
         if wandb_cfg.enabled:
             # Upload dep cache at end of run
             if wandb_cfg.sync_dep_cache:
@@ -390,6 +394,9 @@ def compare_variants(
                 display=use_display,
             )
         finally:
+            # Clean up empty sample directories (created by inspect_ai but unused)
+            utilio.cleanup_empty_sample_dirs(log_dir)
+
             if wandb_cfg.enabled:
                 # Upload dep cache once after all variants complete
                 if wandb_cfg.sync_dep_cache and wandb_loggers:
@@ -498,7 +505,10 @@ def deps_autoformalize_command(
     timestamp = datetime.now().strftime("%Y-%m-%dT%H-%M-%S")
     base_variant = variant or cfg.prompt.variant or "default"
     path_variant = f"{base_variant}-deps"
-    base_dir = Path("artifacts") / "runs" / f"{timestamp}__{path_variant}"
+    # Include ranseed in path if provided (only when not using --sample-id)
+    path_ranseed = None if sample_id else ranseed
+    run_path = utilio.mk_run_path(timestamp, path_variant, path_ranseed)
+    base_dir = Path("artifacts") / "runs" / run_path
     base_dir.mkdir(parents=True, exist_ok=True)
 
     print(
@@ -538,8 +548,10 @@ def deps_autoformalize_command(
         ]
 
     for spec in specs:
+        # Pass ranseed to path construction only when sampling (not using --sample-id)
+        path_ranseed = None if sample_id else ranseed
         sample_output_dir = utilio.get_sample_output_dir(
-            timestamp, spec.sample_id, path_variant
+            timestamp, spec.sample_id, path_variant, ranseed=path_ranseed
         )
         deps_dir = sample_output_dir / "deps"
         deps_dir.mkdir(parents=True, exist_ok=True)
@@ -587,7 +599,7 @@ def deps_autoformalize_command(
 
         def executor(request: DependencyExecutionRequest) -> DependencyResult:
             sample_output_dir = utilio.get_sample_output_dir(
-                timestamp, request.spec.sample_id, path_variant
+                timestamp, request.spec.sample_id, path_variant, ranseed=path_ranseed
             )
             log_dir = sample_output_dir / "deps"
             return run_dependency_agent(
@@ -623,7 +635,7 @@ def deps_autoformalize_command(
     for outcome in report.outcomes:
         spec = outcome.spec
         sample_output_dir = utilio.get_sample_output_dir(
-            timestamp, spec.sample_id, path_variant
+            timestamp, spec.sample_id, path_variant, ranseed=path_ranseed
         )
         if outcome.status == "success" and outcome.result is not None:
             provenance = CacheProvenance(

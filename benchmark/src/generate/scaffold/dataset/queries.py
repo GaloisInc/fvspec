@@ -3,6 +3,7 @@
 All data access should go through these functions for consistency and testability.
 """
 
+import random
 from typing import Any
 
 from sqlmodel import Session, func, select
@@ -31,30 +32,62 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
+    Implements memory-efficient deterministic sampling by:
+    1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
+    2. Shuffling IDs using seeded Python RNG
+    3. Taking first n IDs and fetching full datapoints
+
     Args:
         session: SQLModel database session
         n: Number of samples to draw
-        ranseed: (Ignored; reserved for future use.) Random seed for reproducibility. Has no effect currently.
+        ranseed: Random seed for reproducibility (default: 0)
 
     Returns:
-        List of randomly sampled Datapoint objects (may be fewer than n if many samples filtered)
+        List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
 
     Note:
-        The `ranseed` parameter is currently ignored. SQLite's RANDOM() function does not support seeding,
-        so sampling is not reproducible. For deterministic sampling, consider implementing custom seeded
-        random selection in Python after fetching.
+        Uses Python's random.shuffle() for deterministic sampling since SQLite's RANDOM()
+        does not support seeding. Only loads IDs into memory, not full datapoint objects.
     """
     # Use json_array_length to filter by dependency count
-    # SQLite stores JSON as TEXT, so we parse with json_array_length()
-    statement = (
-        select(Datapoint)
+    # Fetch only IDs (lightweight) instead of full datapoint objects
+    # ORDER BY id ensures deterministic ordering from database
+    id_statement = (
+        select(Datapoint.id)
         .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
-        .order_by(func.random())
-        .limit(n)
+        .order_by(Datapoint.id)  # type: ignore[attr-defined]
     )
 
-    results = session.exec(statement)
-    return list(results)
+    # Fetch all eligible IDs (deterministic order guaranteed by ORDER BY)
+    results = session.exec(id_statement)
+    all_ids = list(results)
+
+    # Return empty list if no eligible datapoints
+    if not all_ids:
+        return []
+
+    # Shuffle IDs using seeded RNG for deterministic sampling
+    rng = random.Random(ranseed)
+    rng.shuffle(all_ids)
+
+    # Take first n IDs (or all if fewer than n available)
+    sample_size = min(n, len(all_ids))
+    selected_ids = all_ids[:sample_size]
+
+    # Fetch full datapoints for selected IDs
+    datapoints_statement = select(Datapoint).where(
+        Datapoint.id.in_(selected_ids)  # type: ignore[attr-defined]
+    )
+    datapoints = list(session.exec(datapoints_statement))
+
+    # Return in shuffled order (IN clause doesn't preserve order)
+    id_to_datapoint = {dp.id: dp for dp in datapoints}
+    missing_ids = [dp_id for dp_id in selected_ids if dp_id not in id_to_datapoint]
+    if missing_ids:
+        raise KeyError(
+            f"Datapoint(s) with ID(s) {missing_ids} not found in database. Data integrity issue."
+        )
+    return [id_to_datapoint[dp_id] for dp_id in selected_ids]
 
 
 def load_datapoints_by_id(

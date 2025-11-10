@@ -6,18 +6,36 @@ Python and Lean code structure without relying on LLM self-assessment.
 
 import pytest
 
-from generate.scaffold.quality_assessment.models import (
-    StructuralFaithfulness,
-    _compute_parameter_coverage,
-    _compute_type_correspondence,
-    _count_python_assertions,
-    _extract_dependency_names,
-    _extract_hypothesis_strategies,
-    _extract_lean_bounds,
-    _extract_lean_parameters,
-    _extract_lean_types,
-    _extract_python_parameters,
-    _extract_python_types,
+from generate.scaffold.quality_assessment import StructuralFaithfulness
+from generate.scaffold.quality_assessment.lean_parsing import (
+    extract_hypothesis_strategies as _extract_hypothesis_strategies,
+)
+from generate.scaffold.quality_assessment.lean_parsing import (
+    extract_lean_bounds as _extract_lean_bounds,
+)
+from generate.scaffold.quality_assessment.lean_parsing import (
+    extract_lean_parameters as _extract_lean_parameters,
+)
+from generate.scaffold.quality_assessment.lean_parsing import (
+    extract_lean_types as _extract_lean_types,
+)
+from generate.scaffold.quality_assessment.metrics import (
+    compute_parameter_coverage as _compute_parameter_coverage,
+)
+from generate.scaffold.quality_assessment.metrics import (
+    compute_type_correspondence as _compute_type_correspondence,
+)
+from generate.scaffold.quality_assessment.python_parsing import (
+    count_python_assertions as _count_python_assertions,
+)
+from generate.scaffold.quality_assessment.python_parsing import (
+    extract_dependency_names as _extract_dependency_names,
+)
+from generate.scaffold.quality_assessment.python_parsing import (
+    extract_python_parameters as _extract_python_parameters,
+)
+from generate.scaffold.quality_assessment.python_parsing import (
+    extract_python_types as _extract_python_types,
 )
 
 # Python parsing tests

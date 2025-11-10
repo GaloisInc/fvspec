@@ -9,7 +9,7 @@ import wandb
 from inspect_ai.solver import TaskState
 
 from generate.config import WandbConfig
-from generate.scaffold.quality_assessment.models import QualityAssessment
+from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
 
 if TYPE_CHECKING:

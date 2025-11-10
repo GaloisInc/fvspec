@@ -12,6 +12,124 @@ from pathlib import Path
 from pydantic import BaseModel, Field
 
 
+def _extract_theorem_locations(lean_code: str) -> dict[str, int]:
+    r"""Extract theorem/lemma names and their declaration line numbers.
+
+    Parses Lean code to find all theorem and lemma declarations and map
+    them to their starting line numbers. This is used to attribute errors
+    to specific theorems during selective plausible reversion.
+
+    Args:
+        lean_code: The Lean source code to parse
+
+    Returns:
+        Dictionary mapping theorem names to their declaration line numbers (1-indexed)
+
+    Example:
+        >>> code = "theorem foo : P := sorry\ntheorem bar : Q := sorry"
+        >>> _extract_theorem_locations(code)
+        {'foo': 1, 'bar': 2}
+    """
+    theorem_map = {}
+    lines = lean_code.split("\n")
+    for i, line in enumerate(lines, start=1):
+        # Match theorem/lemma declarations at the start of a line (may have whitespace)
+        match = re.match(r"^\s*(theorem|lemma)\s+(\w+)", line)
+        if match:
+            theorem_name = match.group(2)
+            theorem_map[theorem_name] = i
+    return theorem_map
+
+
+def _get_mcp_diagnostics(spec_path: Path) -> list[str]:
+    """Get diagnostic messages from Lean LSP via MCP tools.
+
+    This function attempts to call the MCP lean_diagnostic_messages tool
+    to get structured error information from the Lean Language Server.
+
+    Args:
+        spec_path: Path to the Spec.lean file to get diagnostics for
+
+    Returns:
+        List of diagnostic error messages. Empty list if MCP unavailable or no errors.
+
+    Note:
+        This is a placeholder that will need MCP integration. For now, returns
+        empty list as fallback (causing full reversion on any error).
+    """
+    # TODO: Integrate with MCP lean_diagnostic_messages tool
+    # For now, return empty list (will cause fallback to full reversion)
+    # Real implementation would call:
+    #   from generate.scaffold.tools.declaration import call_mcp_tool
+    #   result = call_mcp_tool("lean_diagnostic_messages", {"file_path": str(spec_path)})
+    #   return _parse_mcp_diagnostic_response(result)
+    return []
+
+
+def _map_errors_to_theorems(
+    diagnostics: list[str], theorem_locations: dict[str, int]
+) -> set[str]:
+    """Map diagnostic error messages to theorem names.
+
+    Parses diagnostic messages to extract line numbers, then maps those
+    line numbers to theorem names using the theorem location map.
+
+    Args:
+        diagnostics: List of diagnostic error messages from LSP
+        theorem_locations: Map of theorem names to line numbers
+
+    Returns:
+        Set of theorem names that have errors
+
+    Note:
+        Currently returns all theorems as failed (placeholder implementation).
+        Real implementation would parse line numbers from diagnostics.
+    """
+    # TODO: Parse diagnostics for line numbers and map to theorems
+    # Placeholder: assume all theorems failed if any diagnostics present
+    if diagnostics:
+        return set(theorem_locations.keys())
+    return set()
+
+
+def _selective_revert(
+    content: str, failed_theorems: set[str], theorem_locations: dict[str, int]
+) -> str:
+    """Selectively revert 'by plausible' back to 'sorry' for failed theorems.
+
+    Replaces plausible with sorry only for theorems that failed during
+    plausible testing, preserving plausible for theorems that succeeded.
+
+    Args:
+        content: Lean code with all theorems using 'by plausible'
+        failed_theorems: Set of theorem names that failed plausible testing
+        theorem_locations: Map of theorem names to their declaration line numbers
+
+    Returns:
+        Modified Lean code with selective reversion applied
+
+    Strategy:
+        For each failed theorem, find its declaration line and replace
+        the first occurrence of 'by plausible' after that line with 'sorry'.
+    """
+    lines = content.split("\n")
+
+    for theorem_name in failed_theorems:
+        start_line = theorem_locations.get(theorem_name)
+        if start_line is None:
+            continue
+
+        # Search from theorem declaration onwards for 'by plausible'
+        # (theorem body typically starts on same line or next few lines)
+        for i in range(start_line - 1, min(start_line + 10, len(lines))):
+            if i < len(lines) and "by plausible" in lines[i]:
+                # Replace first occurrence of 'by plausible' with 'sorry'
+                lines[i] = lines[i].replace("by plausible", "sorry", 1)
+                break
+
+    return "\n".join(lines)
+
+
 class Plausibility(BaseModel):
     """Results from running Plausible property testing on a specification.
 
@@ -45,17 +163,20 @@ class Plausibility(BaseModel):
 def run_plausible(
     spec_path: Path, workspace_path: Path, timeout: int = 60, num_theorems: int = 0
 ) -> Plausibility:
-    """Run plausible property testing on a Lean specification.
+    """Run plausible property testing on a Lean specification with selective reversion.
 
     This function:
-    1. Reads the Spec.lean file
-    2. Replaces all occurrences of 'sorry' with 'plausible'
+    1. Reads the Spec.lean file and extracts theorem locations
+    2. Replaces all occurrences of 'sorry' with 'by plausible'
     3. Overwrites the Spec.lean file with the plausible version
     4. Runs 'lake build' to compile and execute plausible tests
-    5. Parses the output for success/failure/errors
+    5. On errors: Gets diagnostics and identifies which theorems failed
+    6. Selectively reverts failed theorems back to 'sorry'
+    7. Parses the output for success/failure/errors
 
-    Note: This overwrites the spec file with plausible instead of sorry.
-    The artifacts will contain the plausible version, not the sorry version.
+    The final artifact contains 'by plausible' for successful theorems and
+    'sorry' for theorems that failed plausible testing (compilation errors,
+    instance synthesis failures, counterexamples, etc.).
 
     Args:
         spec_path: Path to the Spec.lean file
@@ -66,7 +187,7 @@ def run_plausible(
     Returns:
         Plausibility object with test results
     """
-    # Read spec content
+    # Phase 1: Read spec content and extract theorem locations
     try:
         spec_content = spec_path.read_text()
     except (OSError, UnicodeDecodeError) as e:
@@ -82,8 +203,18 @@ def run_plausible(
             errors=["No 'sorry' found in spec to replace with 'plausible'"],
         )
 
-    # Replace sorry with plausible (FVAPPS approach)
-    spec_plausible = spec_content.replace("sorry", "plausible")
+    # Extract theorem locations before replacement (for selective reversion later)
+    theorem_locations = _extract_theorem_locations(spec_content)
+
+    # Phase 2: Replace sorry with plausible (FVAPPS approach)
+    # Handle both `... := sorry` and `... := by sorry` (both need `... := by plausible`)
+    spec_plausible = spec_content
+    # First replace `:= by sorry` with `:= by plausible`
+    spec_plausible = re.sub(
+        r":=\s+by\s+sorry(?=\W|$)", ":= by plausible", spec_plausible
+    )
+    # Then replace remaining `:= sorry` with `:= by plausible`
+    spec_plausible = re.sub(r":=\s+sorry(?=\W|$)", ":= by plausible", spec_plausible)
 
     # Overwrite the main Spec.lean file with plausible version
     try:
@@ -93,8 +224,7 @@ def run_plausible(
             ran=True, success=0.0, errors=[f"Failed to write spec file: {e}"]
         )
 
-    # Run lake build with timeout
-    # Build everything (no target needed)
+    # Phase 3: Run lake build with timeout
     start_time = time.time()
     try:
         result = subprocess.run(
@@ -106,7 +236,35 @@ def run_plausible(
         )
         elapsed_time = time.time() - start_time
 
-        # Parse results
+        # Phase 4: Selective reversion on errors
+        # If build failed, try to identify which theorems caused failures
+        # and revert only those back to sorry
+        if result.returncode != 0:
+            # Get diagnostics from MCP (if available)
+            diagnostics = _get_mcp_diagnostics(spec_path)
+
+            # Map errors to specific theorems
+            failed_theorems = _map_errors_to_theorems(diagnostics, theorem_locations)
+
+            # If we identified specific failed theorems, selectively revert them
+            # Otherwise, revert all theorems (fallback behavior)
+            if failed_theorems and failed_theorems != set(theorem_locations.keys()):
+                # Partial failure: selectively revert only failed theorems
+                spec_final = _selective_revert(
+                    spec_plausible, failed_theorems, theorem_locations
+                )
+            else:
+                # Total failure or couldn't identify specific failures: revert all
+                spec_final = spec_content  # Revert to original (all sorry)
+
+            # Write the final version with selective reversion
+            try:
+                spec_path.write_text(spec_final)
+            except OSError:
+                # Non-fatal: continue with results even if reversion fails
+                pass
+
+        # Phase 5: Parse results
         return _parse_plausible_output(
             returncode=result.returncode,
             stdout=result.stdout,
@@ -118,6 +276,13 @@ def run_plausible(
     except subprocess.TimeoutExpired:
         elapsed_time = time.time() - start_time
 
+        # On timeout, revert everything to sorry
+        try:
+            spec_path.write_text(spec_content)
+        except OSError:
+            # Non-fatal: continue with results even if reversion fails
+            pass
+
         return Plausibility(
             ran=True,
             success=0.0,
@@ -125,6 +290,13 @@ def run_plausible(
             errors=[f"Plausible execution timed out after {timeout} seconds"],
         )
     except (OSError, ValueError) as e:
+        # On other errors, revert everything to sorry
+        try:
+            spec_path.write_text(spec_content)
+        except OSError:
+            # Non-fatal: continue with results even if reversion fails
+            pass
+
         return Plausibility(
             ran=True, success=0.0, errors=[f"Failed to execute lake build: {e}"]
         )
