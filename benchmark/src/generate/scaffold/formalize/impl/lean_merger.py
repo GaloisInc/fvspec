@@ -15,7 +15,9 @@ from pydantic import BaseModel
 # Regex pattern for matching Lean definition keywords and capturing the identifier name
 _LEAN_DEF_PATTERN = r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+(\w+)"
 # Pattern for matching definition keywords without capturing the name
-_LEAN_DEF_KEYWORD_PATTERN = r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+"
+_LEAN_DEF_KEYWORD_PATTERN = (
+    r"^\s*(structure|def|theorem|lemma|axiom|opaque|inductive|class|instance|abbrev)\s+"
+)
 
 
 class LeanModule(BaseModel):
