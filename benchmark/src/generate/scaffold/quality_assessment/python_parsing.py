@@ -38,6 +38,7 @@ def extract_python_types(code: str) -> dict[str, str]:
                             if isinstance(arg.annotation.value, ast.Name):
                                 types[arg.arg] = arg.annotation.value.id
     except SyntaxError as e:
+        # Ignore syntax errors in input code and return empty types dict
         logger.debug(f"Failed to parse Python types: {e}")
         pass
     return types
@@ -68,6 +69,7 @@ def extract_dependency_names(deps: list[str]) -> list[str]:
                 if isinstance(node, (ast.FunctionDef, ast.ClassDef)):
                     names.append(node.name)
         except SyntaxError as e:
+            # Ignore dependencies that are not valid Python code
             logger.debug(f"Failed to parse dependency: {e}")
             pass
     return names

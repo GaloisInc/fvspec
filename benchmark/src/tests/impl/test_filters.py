@@ -362,6 +362,9 @@ end Fvspec.Impl
         # Current implementation will flag this as invalid (conservative)
         # This is acceptable - better to be strict
         is_valid, error = validate_impl_only(code)
+        assert not is_valid
+        assert error is not None
+        assert "theorem" in error
         # If we wanted to be more lenient, we'd need more sophisticated parsing
         # For now, accept that comments with "theorem " will fail validation
 

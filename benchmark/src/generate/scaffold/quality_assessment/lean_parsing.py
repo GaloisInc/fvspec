@@ -70,6 +70,7 @@ def extract_lean_bounds(code: str) -> dict[str, list[tuple[str, int | float]]]:
                     bounds[param] = []
                 bounds[param].append((bound_type, value_num))
             except ValueError:
+                # Skip values that cannot be converted to int (non-numeric bounds are ignored)
                 pass
 
     return bounds

@@ -352,7 +352,6 @@ class QualityAssessment(BaseModel):
             re.search(
                 r"@(?:st\.|hypothesis\.)?given\s*\(",
                 pbt_code,
-                re.MULTILINE,
             )
         )
 
