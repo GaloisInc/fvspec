@@ -86,12 +86,9 @@ def find_sample_dirs(run_path: Path, sample_ids: list[str] | None = None) -> lis
         if not item.is_dir():
             continue
 
-        # Sample directories are named: <id>_<pbt_name> or <id>__<pbt_name>
-        # e.g., 00307_test_mul or 00307__test_mul
-        # Try double underscore first, then single underscore
-        parts = (
-            item.name.split("__", 1) if "__" in item.name else item.name.split("_", 1)
-        )
+        # Sample directories are named: <id>__<pbt_name>
+        # e.g., 00307__test_mul
+        parts = item.name.split("__", 1)
         if len(parts) == 2 and parts[0].isdigit():
             sample_id = parts[0]
             if sample_ids is None or sample_id in sample_ids:
@@ -117,12 +114,8 @@ def compile_sample(
     Returns:
         CompilationResult with success status and details
     """
-    # Extract sample ID from directory name (handles both _ and __ separators)
-    parts = (
-        sample_path.name.split("__", 1)
-        if "__" in sample_path.name
-        else sample_path.name.split("_", 1)
-    )
+    # Extract sample ID from directory name
+    parts = sample_path.name.split("__", 1)
     sample_id = parts[0]
     start_time = datetime.now()
 
