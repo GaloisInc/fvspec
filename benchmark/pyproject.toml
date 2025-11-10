@@ -35,6 +35,7 @@ dependencies = [
 [project.scripts]
 preview-prompts = "generate.templates:main"
 fvspec = "generate:main"
+check-run = "scripts.check_run:app"
 analyze-deps-regex = "scripts.analyze_deps_regex:cli"
 analyze-deps = "scripts.analyze_deps:main"
 classify-unit-tests = "scripts.classify_unit_tests:app"
