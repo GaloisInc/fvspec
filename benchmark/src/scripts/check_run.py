@@ -9,7 +9,7 @@ This script tests whether generated Lean code compiles by:
 
 Usage:
     uv run check-run                    # Check latest run, all samples
-    uv run check-run --sample-id 307    # Check specific sample in latest run
+    uv run check-run 307                # Check specific sample in latest run
     uv run check-run --run-path benchmark/artifacts/runs/2025-10-29T21-14-12__control-functional
 """
 
