@@ -184,11 +184,7 @@ def merge_lean_modules(
             if stripped.startswith("/--") and not in_docstring:
                 # Start of docstring
                 pending_docstring_lines = [line]
-                if "-/" in stripped:
-                    # Single-line docstring: /-- comment -/
-                    _in_docstring = False  # Already False; explicit for symmetry with multi-line case
-                    # Don't add yet - wait for next line to see if it's a definition
-                else:
+                if "-/" not in stripped:
                     # Multi-line docstring starting
                     in_docstring = True
                 continue

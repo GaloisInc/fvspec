@@ -210,7 +210,9 @@ def run_plausible(
     # Handle both `... := sorry` and `... := by sorry` (both need `... := by plausible`)
     spec_plausible = spec_content
     # First replace `:= by sorry` with `:= by plausible`
-    spec_plausible = re.sub(r":=\s+by\s+sorry(?=\W|$)", ":= by plausible", spec_plausible)
+    spec_plausible = re.sub(
+        r":=\s+by\s+sorry(?=\W|$)", ":= by plausible", spec_plausible
+    )
     # Then replace remaining `:= sorry` with `:= by plausible`
     spec_plausible = re.sub(r":=\s+sorry(?=\W|$)", ":= by plausible", spec_plausible)
 

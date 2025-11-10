@@ -1,5 +1,6 @@
 """Quality assessment data models."""
 
+import logging
 import re
 from enum import Enum
 from typing import TYPE_CHECKING, cast
@@ -7,12 +8,16 @@ from typing import TYPE_CHECKING, cast
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 
+logger = logging.getLogger(__name__)
+
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.plausible_runner import Plausibility
 from generate.scaffold.quality_assessment.lean_parsing import (
+    count_lean_properties,
     count_lean_theorems,
     detect_trivial_unit_theorems,
     detect_unit_stub_in_impl,
+    extract_hypothesis_strategies,
     extract_lean_bounds,
     extract_lean_parameters,
     extract_lean_types,
@@ -102,11 +107,6 @@ class StructuralFaithfulness(BaseModel):
         Returns:
             StructuralFaithfulness object with computed metrics
         """
-        from generate.scaffold.quality_assessment.lean_parsing import (
-            count_lean_properties,
-            extract_hypothesis_strategies,
-        )
-
         # Extract Python structure
         py_params = extract_python_parameters(python_pbt)
         py_types = extract_python_types(python_pbt)
@@ -301,8 +301,11 @@ class QualityAssessment(BaseModel):
                     python_deps=datapoint.get_deps(),
                     lean_code=code_snippet,
                 )
-            except Exception:
+            except (SyntaxError, ValueError, AttributeError, KeyError) as e:
                 # If structural analysis fails, continue without it
+                logger.warning(
+                    f"Structural faithfulness analysis failed for sample {datapoint.id}: {e}"
+                )
                 pass
 
         # Extract unit test information from metadata
@@ -335,7 +338,10 @@ class QualityAssessment(BaseModel):
         # Convert string to enum
         try:
             implementation_level = ImplementationLevel(implementation_level_str)
-        except ValueError:
+        except ValueError as e:
+            logger.warning(
+                f"Invalid implementation level '{implementation_level_str}' for sample {datapoint.id}: {e}"
+            )
             implementation_level = ImplementationLevel.ABSENT
 
         # Check if @given is actually invoked in the PBT code
