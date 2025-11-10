@@ -292,6 +292,7 @@ def run_plausible(
         try:
             spec_path.write_text(spec_content)
         except OSError:
+            # Non-fatal: continue with results even if reversion fails
             pass
 
         return Plausibility(
