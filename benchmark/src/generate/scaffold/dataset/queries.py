@@ -24,6 +24,95 @@ from generate.scaffold.dataset.models import (
 # 4. Exceed practical limits for meaningful specification generation
 MAX_DEPENDENCIES = 100
 
+# Utility function filtering for unit test extraction
+# Rationale: Shared utility functions create false positives in PBT-unit test linking.
+# For example, a PBT testing "Tile" operation and a unit test testing "TypeRegistry"
+# may both use "np.random.rand" and "st.integers", but they test completely different
+# functionality. By filtering out common utility prefixes and modules, we reduce
+# false positives from ~96% to a more meaningful semantic matching.
+UTILITY_PREFIXES = [
+    "np.",
+    "st.",
+    "torch.",
+    "tf.",
+    "pytest.",
+    "unittest.",
+    "core.",
+    "hypothesis.",
+    "random.",
+    "math.",
+    "os.",
+    "sys.",
+    "json.",
+    "pickle.",
+    "itertools.",
+    "functools.",
+    "collections.",
+]
+
+UTILITY_MODULES = {
+    "np",
+    "st",
+    "pytest",
+    "unittest",
+    "torch",
+    "tf",
+    "core",
+    "hypothesis",
+    "random",
+    "math",
+    "os",
+    "sys",
+    "json",
+    "pickle",
+    "itertools",
+    "functools",
+    "collections",
+    "astype",  # numpy method
+    "append",  # common list method
+    "extend",  # common list method
+    "assertEqual",  # unittest method
+    "assertTrue",  # unittest method
+    "assertFalse",  # unittest method
+}
+
+
+def filter_utility_functions(functions: list[str]) -> list[str]:
+    """Remove common utility functions from shared function list.
+
+    This reduces false positives in PBT-unit test linking by removing functions
+    that are utilities (numpy, hypothesis, testing frameworks) rather than the
+    actual functions being tested.
+
+    Args:
+        functions: List of function names (e.g., ["np.random.rand", "tile", "st.integers"])
+
+    Returns:
+        Filtered list with utility functions removed (e.g., ["tile"])
+
+    Examples:
+        >>> filter_utility_functions(["np.random.rand", "tile", "st.integers"])
+        ["tile"]
+        >>> filter_utility_functions(["pytest.mark", "test_foo"])
+        ["test_foo"]
+        >>> filter_utility_functions(["np.tile", "core.CreateOperator"])
+        []  # Both are utilities
+    """
+    filtered = []
+    for func_name in functions:
+        # Skip if starts with utility prefix
+        if any(func_name.startswith(prefix) for prefix in UTILITY_PREFIXES):
+            continue
+
+        # Skip if the base module/function is a utility
+        base = func_name.split(".")[0] if "." in func_name else func_name
+        if base in UTILITY_MODULES:
+            continue
+
+        filtered.append(func_name)
+
+    return filtered
+
 
 def sample_datapoints(
     session: Session,
@@ -126,6 +215,7 @@ def count_total_datapoints(session: Session) -> int:
 def get_overlapping_unit_tests(
     session: Session,
     pbt_id: int,
+    filter_utilities: bool = True,
 ) -> list[dict[str, Any]]:
     """Get unit tests that share functions with a given PBT.
 
@@ -134,18 +224,22 @@ def get_overlapping_unit_tests(
     Args:
         session: SQLModel database session
         pbt_id: ID of the PBT to find overlaps for
+        filter_utilities: If True, filter out utility functions (numpy, hypothesis, etc.)
+                         to reduce false positives. Default: True.
 
     Returns:
         List of overlap dictionaries with structure:
         [
             {
-                "shared_functions": ["func1", "func2"],
+                "shared_functions": ["func1", "func2"],  # Non-utility functions only if filter_utilities=True
                 "unit_tests": [
                     {"code": "...", "name": "test_foo", ...},
                     ...
                 ]
             }
         ]
+
+        Returns empty list if no non-utility functions are shared (when filter_utilities=True).
 
     Note:
         Batches queries to avoid SQLite's 999 variable limit on IN clauses.
@@ -158,6 +252,13 @@ def get_overlapping_unit_tests(
 
     if not shared_functions:
         return []
+
+    # Filter out utility functions if requested
+    if filter_utilities:
+        shared_functions = filter_utility_functions(shared_functions)
+        if not shared_functions:
+            # All functions were utilities - no semantic overlap
+            return []
 
     # Get all unit test IDs that use these functions
     unit_test_ids_stmt = select(UnitTestFunction.unit_test_id).where(
