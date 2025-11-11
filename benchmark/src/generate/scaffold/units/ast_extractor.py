@@ -19,6 +19,31 @@ TS_PYTHON = Language(language())
 TS_PARSER = Parser(TS_PYTHON)
 
 
+def get_asserted_functions(unit_test_code: str) -> list[str]:
+    """Extract function names that appear in assert statements.
+
+    Convenience function for extracting asserted functions without creating an
+    ASTExtractor instance.
+
+    Args:
+        unit_test_code: Python source code containing the unit test
+
+    Returns:
+        List of function names that appear in assertions
+
+    Example:
+        >>> code = '''
+        ... result = compute(5)
+        ... assert result == 10
+        ... assert validate(result) == True
+        ... '''
+        >>> get_asserted_functions(code)
+        ['validate']
+    """
+    extractor = ASTExtractor()
+    return extractor.get_asserted_functions(unit_test_code)
+
+
 class ASTExtractor(ast.NodeVisitor):
     """Extract unit tests from Python code via AST analysis.
 
@@ -520,3 +545,105 @@ class ASTExtractor(ast.NodeVisitor):
                 pass
 
         return self.tests
+
+    def get_asserted_functions(self, pbt_code: str) -> list[str]:
+        """Extract function names that appear in assert statements.
+
+        This identifies which functions are actually being validated by a unit test,
+        as opposed to helper functions that are merely called but not asserted on.
+
+        Args:
+            pbt_code: Python source code containing the unit test
+
+        Returns:
+            List of function names that appear in assertions
+
+        Example:
+            >>> code = '''
+            ... data = generate_data()
+            ... result = process(data)
+            ... assert result == [1, 2, 3]
+            ... assert validate(result) == True
+            ... '''
+            >>> extractor = ASTExtractor()
+            >>> extractor.get_asserted_functions(code)
+            ['validate']  # 'result' is a variable, 'generate_data' and 'process' aren't in assertions
+        """
+        asserted_funcs = []
+
+        try:
+            with warnings.catch_warnings():
+                warnings.filterwarnings("ignore", category=SyntaxWarning)
+                tree = ast.parse(pbt_code)
+
+            # Find all assert statements
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Assert):
+                    # Extract function calls from the assertion
+                    for subnode in ast.walk(node.test):
+                        if isinstance(subnode, ast.Call):
+                            func_name = self._extract_function_name(subnode)
+                            if func_name:
+                                asserted_funcs.append(func_name)
+
+        except SyntaxError:
+            # Fallback to tree-sitter for malformed code
+            try:
+                tree = TS_PARSER.parse(bytes(pbt_code, "utf8"))
+                root_node = tree.root_node
+
+                def find_asserts(node):
+                    """Recursively find assert_statement nodes."""
+                    if node.type == "assert_statement":
+                        yield node
+                    for child in node.children:
+                        yield from find_asserts(child)
+
+                for assert_node in find_asserts(root_node):
+                    # Find function calls within assert
+                    def find_calls(node):
+                        if node.type == "call":
+                            # Extract function name from call
+                            for child in node.children:
+                                if child.type in ["identifier", "attribute"]:
+                                    text = pbt_code[child.start_byte : child.end_byte]
+                                    asserted_funcs.append(text)
+                                    break
+                        for child in node.children:
+                            find_calls(child)
+
+                    find_calls(assert_node)
+
+            except Exception:
+                # Tree-sitter also failed, return empty list
+                pass
+
+        return list(set(asserted_funcs))  # Remove duplicates
+
+    def _extract_function_name(self, call_node: ast.Call) -> str | None:
+        """Extract function name from a Call node.
+
+        Handles:
+        - Simple names: foo()
+        - Attributes: obj.method()
+        - Nested attributes: obj.sub.method()
+
+        Args:
+            call_node: AST Call node
+
+        Returns:
+            Function name string, or None if extraction fails
+
+        Examples:
+            >>> # foo() -> "foo"
+            >>> # obj.method() -> "method" or "obj.method" (full path)
+            >>> # a.b.c() -> "c" or "a.b.c" (full path)
+        """
+        if isinstance(call_node.func, ast.Name):
+            # Simple function call: foo()
+            return call_node.func.id
+        elif isinstance(call_node.func, ast.Attribute):
+            # Attribute call: obj.method()
+            # Return the method name (last part)
+            return call_node.func.attr
+        return None

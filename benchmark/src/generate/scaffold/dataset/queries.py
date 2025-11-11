@@ -216,6 +216,7 @@ def get_overlapping_unit_tests(
     session: Session,
     pbt_id: int,
     filter_utilities: bool = True,
+    filter_by_assertions: bool = False,
 ) -> list[dict[str, Any]]:
     """Get unit tests that share functions with a given PBT.
 
@@ -226,6 +227,9 @@ def get_overlapping_unit_tests(
         pbt_id: ID of the PBT to find overlaps for
         filter_utilities: If True, filter out utility functions (numpy, hypothesis, etc.)
                          to reduce false positives. Default: True.
+        filter_by_assertions: If True, additionally filter to only unit tests that
+                             assert on the target function (Phase 2 filtering).
+                             Default: False (requires target function inference).
 
     Returns:
         List of overlap dictionaries with structure:
@@ -239,10 +243,13 @@ def get_overlapping_unit_tests(
             }
         ]
 
-        Returns empty list if no non-utility functions are shared (when filter_utilities=True).
+        Returns empty list if no non-utility functions are shared (when filter_utilities=True)
+        or no unit tests assert on target function (when filter_by_assertions=True).
 
     Note:
         Batches queries to avoid SQLite's 999 variable limit on IN clauses.
+        Phase 2 filtering (filter_by_assertions) requires querying the PBT to infer
+        the target function name.
     """
     # Get all function names shared by this PBT
     shared_funcs_stmt = select(PBTFunction.function_name).where(
@@ -280,21 +287,53 @@ def get_overlapping_unit_tests(
         )
         unit_tests.extend(session.exec(unit_tests_stmt))
 
+    # Convert to dictionaries
+    unit_test_dicts = [
+        {
+            "code": ut.code,
+            "name": ut.name,
+            "source_file": ut.source_file,
+            "start_line": ut.start_line,
+            "end_line": ut.end_line,
+        }
+        for ut in unit_tests
+    ]
+
+    # Phase 2 filtering: Only keep unit tests that assert on target function
+    if filter_by_assertions and unit_test_dicts:
+        # Need to infer target function from PBT
+        # Import here to avoid circular dependency
+        from generate.scaffold.dataset.unit_test_filtering import (
+            filter_unit_tests_by_assertions,
+        )
+
+        # Query the PBT to infer target function
+        datapoint_stmt = select(Datapoint).where(Datapoint.id == pbt_id)
+        datapoint = session.exec(datapoint_stmt).first()
+
+        if datapoint:
+            # Infer target function from PBT name
+            # Import here to avoid circular dependency
+            from generate.scaffold.dataset import infer_target_function
+
+            target_func = infer_target_function(datapoint)
+
+            if target_func:
+                # Apply assertion-based filtering
+                unit_test_dicts = filter_unit_tests_by_assertions(
+                    unit_test_dicts, target_func
+                )
+
+    # Return empty if all filtered out
+    if not unit_test_dicts:
+        return []
+
     # Format as expected by existing code
     # Group by shared functions (simplified - just one group for now)
     return [
         {
             "shared_functions": shared_functions,
-            "unit_tests": [
-                {
-                    "code": ut.code,
-                    "name": ut.name,
-                    "source_file": ut.source_file,
-                    "start_line": ut.start_line,
-                    "end_line": ut.end_line,
-                }
-                for ut in unit_tests
-            ],
+            "unit_tests": unit_test_dicts,
         }
     ]
 

@@ -75,6 +75,9 @@ def main(
     output: Annotated[
         Path | None, typer.Option(help="Output file for detailed results (JSON)")
     ] = None,
+    phase2: Annotated[
+        bool, typer.Option(help="Enable Phase 2 assertion-based filtering")
+    ] = False,
 ):
     """Measure unit test extraction rate on sampled datapoints."""
     console.print("\n[bold cyan]Unit Test Extraction Measurement[/bold cyan]")
@@ -89,6 +92,7 @@ def main(
     console.print(f"Database: {pbts_db}")
     console.print(f"Sample size: {num_samples}")
     console.print(f"Random seed: {ranseed}")
+    console.print(f"Phase 2 filtering: {'enabled' if phase2 else 'disabled'}")
     console.print()
 
     # Statistics
@@ -133,7 +137,9 @@ def main(
                 stats["total_samples"] += 1
 
                 # Query overlaps (reuse session)
-                overlaps = get_overlapping_unit_tests(session, dp.id)
+                overlaps = get_overlapping_unit_tests(
+                    session, dp.id, filter_by_assertions=phase2
+                )
 
                 # Count overlapping tests
                 num_overlaps = sum(len(overlap["unit_tests"]) for overlap in overlaps)
