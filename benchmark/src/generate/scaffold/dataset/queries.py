@@ -148,8 +148,7 @@ def get_overlapping_unit_tests(
         ]
 
     Note:
-        This may be expensive for PBTs with many shared functions.
-        Consider caching or materializing this data if needed frequently.
+        Batches queries to avoid SQLite's 999 variable limit on IN clauses.
     """
     # Get all function names shared by this PBT
     shared_funcs_stmt = select(PBTFunction.function_name).where(
@@ -169,11 +168,16 @@ def get_overlapping_unit_tests(
     if not unit_test_ids:
         return []
 
-    # Fetch the actual unit tests
-    unit_tests_stmt = select(UnitTest).where(
-        UnitTest.id.in_(unit_test_ids)  # type: ignore[attr-defined]
-    )
-    unit_tests = list(session.exec(unit_tests_stmt))
+    # Fetch the actual unit tests in batches (SQLite limit: 999 variables)
+    BATCH_SIZE = 500  # Conservative batch size
+    unit_tests = []
+
+    for i in range(0, len(unit_test_ids), BATCH_SIZE):
+        batch_ids = unit_test_ids[i : i + BATCH_SIZE]
+        unit_tests_stmt = select(UnitTest).where(
+            UnitTest.id.in_(batch_ids)  # type: ignore[attr-defined]
+        )
+        unit_tests.extend(session.exec(unit_tests_stmt))
 
     # Format as expected by existing code
     # Group by shared functions (simplified - just one group for now)

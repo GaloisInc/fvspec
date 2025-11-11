@@ -2,13 +2,21 @@
 
 This module uses Python's ast module to perform static analysis and extract
 concrete test cases through constant propagation and symbolic execution.
+Tree-sitter is used as a fallback for malformed code that ast.parse() can't handle.
 """
 
 import ast
 import warnings
 from typing import Any
 
+from tree_sitter import Language, Parser
+from tree_sitter_python import language
+
 from generate.scaffold.units.models import TestCase
+
+# Initialize tree-sitter parser for Python
+TS_PYTHON = Language(language())
+TS_PARSER = Parser(TS_PYTHON)
 
 
 class ASTExtractor(ast.NodeVisitor):
@@ -429,6 +437,48 @@ class ASTExtractor(ast.NodeVisitor):
             # Fallback to string representation
             return str(value)
 
+    def _extract_with_tree_sitter(self, pbt_code: str) -> None:
+        """Extract assertions using tree-sitter when ast.parse fails.
+
+        This is a fallback for malformed/incomplete Python code.
+        Currently extracts simple assert statements only.
+
+        Args:
+            pbt_code: Python source code to parse
+        """
+        tree = TS_PARSER.parse(bytes(pbt_code, "utf8"))
+        root_node = tree.root_node
+
+        # Find all assert statements
+        def find_asserts(node):
+            """Recursively find assert_statement nodes."""
+            if node.type == "assert_statement":
+                yield node
+            for child in node.children:
+                yield from find_asserts(child)
+
+        for assert_node in find_asserts(root_node):
+            # Try to extract comparison from assert
+            # Tree-sitter structure: assert_statement -> comparison_operator
+            for child in assert_node.children:
+                if child.type == "comparison_operator":
+                    # Extract left, operator, right
+                    text = pbt_code[child.start_byte : child.end_byte]
+                    # Try to parse extracted expression with ast for easier handling
+                    try:
+                        expr = ast.parse(text, mode="eval").body
+                        if isinstance(expr, ast.Compare) and isinstance(
+                            expr.ops[0], ast.Eq
+                        ):
+                            test_case = self._extract_test_from_comparison(
+                                expr.left, expr.comparators[0]
+                            )
+                            if test_case:
+                                self.tests.append(test_case)
+                    except SyntaxError:
+                        # Can't parse even the extracted expression
+                        continue
+
     def extract_tests(self, pbt_code: str, func_name: str = "") -> list[TestCase]:
         """Extract unit tests from PBT code.
 
@@ -456,13 +506,17 @@ class ASTExtractor(ast.NodeVisitor):
         self.symbol_table = {}
 
         try:
-            # Suppress SyntaxWarning for invalid escape sequences in scraped code
+            # Try Python's built-in ast module first (fastest)
             with warnings.catch_warnings():
                 warnings.filterwarnings("ignore", category=SyntaxWarning)
                 tree = ast.parse(pbt_code)
             self.visit(tree)
         except SyntaxError:
-            # Can't parse the code, return empty list
-            pass
+            # Fallback to tree-sitter for malformed/incomplete code
+            try:
+                self._extract_with_tree_sitter(pbt_code)
+            except Exception:
+                # Tree-sitter also failed, return empty list
+                pass
 
         return self.tests

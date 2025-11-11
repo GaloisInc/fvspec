@@ -64,6 +64,18 @@ __all__ = [
 ]
 
 
+def infer_target_function(dp: Datapoint) -> str:
+    """Infer the target function name from a PBT datapoint.
+
+    Args:
+        dp: Datapoint from pbts_full.db
+
+    Returns:
+        Inferred function name (removes test_ prefix and Test suffix)
+    """
+    return dp.name.replace("test_", "").replace("Test", "")
+
+
 def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     """Convert a datapoint to a prompt.
 
@@ -73,8 +85,8 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     Returns:
         A Prompt containing the property-based test, metadata, and dependencies
     """
-    # Infer function name from test name (remove test_ prefix)
-    function_name = dp.name.replace("test_", "").replace("Test", "")
+    # Infer function name from test name
+    function_name = infer_target_function(dp)
 
     # DB datapoint stores deps as JSON string
     return Prompt(
@@ -85,15 +97,21 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     )
 
 
-def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
+def extract_datapoint_unit_tests(
+    dp: Datapoint,
+    db_path: Path | None = None,
+    overlaps: list[dict] | None = None,
+) -> str | None:
     """Extract unit tests from a datapoint's overlapping unit tests.
 
     Attempts to extract concrete unit tests from the actual unit test code
-    (not the PBT code) using AST analysis.
+    (not the PBT code) using AST/tree-sitter analysis.
     If successful, generates LSpec test suite code that can be used for evaluation.
 
     Args:
-        dp: The datapoint containing the overlapping unit tests
+        dp: The datapoint containing the PBT
+        db_path: Path to the pbts_full.db database (optional if overlaps provided)
+        overlaps: Pre-queried overlapping unit tests (optional, for performance)
 
     Returns:
         Generated LSpec code string if tests were extracted, None otherwise
@@ -102,11 +120,54 @@ def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
         Unit tests are for EVALUATION only - they should NOT be shown to the model.
         They validate model implementations after spec generation.
 
-    TODO: Implement unit test extraction from DB by querying get_overlapping_unit_tests()
+        For performance, prefer passing pre-queried `overlaps` to avoid redundant
+        database queries.
     """
-    # For now, return None - we'll implement this when we need it
-    # Should call get_overlapping_unit_tests(session, dp.id) and process results
-    return None
+    from generate.scaffold.units import extract_unit_tests, generate_test_suite
+    from generate.scaffold.units.models import TestSuite
+
+    # Query overlapping unit tests if not provided
+    if overlaps is None:
+        if db_path is None:
+            raise ValueError("Must provide either db_path or overlaps")
+        with get_session(db_path) as session:
+            overlaps = get_overlapping_unit_tests(session, dp.id)
+
+    if not overlaps:
+        return None
+
+    # Determine target function from PBT
+    target_func = infer_target_function(dp)
+    if not target_func:
+        return None
+
+    # Extract tests from each overlapping unit test
+    all_tests = []
+    for overlap in overlaps:
+        for unit_test in overlap["unit_tests"]:
+            # Run AST/tree-sitter extractor on unit test code
+            test_suite = extract_unit_tests(
+                pbt_code=unit_test["code"], func_name=target_func
+            )
+            if test_suite:
+                all_tests.extend(test_suite.exact_tests + test_suite.float_tests)
+
+    if not all_tests:
+        return None
+
+    # Generate LSpec code
+    test_suite = TestSuite(
+        exact_tests=[t for t in all_tests if not t.is_float],
+        float_tests=[t for t in all_tests if t.is_float],
+        extraction_stats={
+            "method": "db_overlaps",
+            "count": len(all_tests),
+            "exact_count": len([t for t in all_tests if not t.is_float]),
+            "float_count": len([t for t in all_tests if t.is_float]),
+        },
+    )
+
+    return generate_test_suite(test_suite)
 
 
 def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
@@ -167,7 +228,7 @@ def mk_dataset(
     samples = []
     for dp in datapoints:
         # Extract unit tests for evaluation (NOT shown to model)
-        unit_tests_lspec = extract_datapoint_unit_tests(dp)
+        unit_tests_lspec = extract_datapoint_unit_tests(dp, db_path)
 
         samples.append(
             Sample(
