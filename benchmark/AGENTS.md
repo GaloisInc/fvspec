@@ -22,7 +22,7 @@ This directory contains the fvspec benchmark generation system using the `inspec
 - **`data/pbts_full.db`** - Python property-based tests (SQLite database)
   - **Database**: SQLite with SQLModel ORM for type-safe queries
   - **Statistics**: 54,345 PBTs, 6.3M unit tests, 448K PBT-function associations
-  - Uses efficient DB queries and sampling (no need for indexing)
+  - **Performance**: Add indexes for unit test extraction with `uv run add-unit-test-indexes` (run once per database)
 
 ## Common Commands
 
@@ -36,6 +36,10 @@ uv run fvspec compare-variants --variant control-functional --variant terse-func
 # Dependency autoformalization
 uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
 uv run fvspec deps cache-clear-local
+
+# Unit test extraction
+uv run add-unit-test-indexes                          # Add DB indexes (run once)
+uv run measure-unit-extraction --num-samples 100      # Measure extraction rate
 
 # View results
 uv run inspect view --log-dir artifacts
