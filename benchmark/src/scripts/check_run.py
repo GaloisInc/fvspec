@@ -32,8 +32,8 @@ console = Console()
 def extract_sample_id(dir_name: str) -> str:
     """Extract sample ID from directory name.
 
-    Directory names follow the pattern: <id>__<pbt_name>
-    e.g., 00307__test_mul -> 00307
+    Directory names follow the pattern: <id>_<pbt_name>
+    e.g., 10104_test_versioned_div_scalar -> 10104
 
     Args:
         dir_name: Directory name containing sample ID and test name
@@ -41,7 +41,7 @@ def extract_sample_id(dir_name: str) -> str:
     Returns:
         Sample ID portion of the directory name
     """
-    return dir_name.split("__")[0]
+    return dir_name.split("_", 1)[0]
 
 
 class CompilationResult(BaseModel, frozen=True):
@@ -101,9 +101,9 @@ def find_sample_dirs(run_path: Path, sample_ids: list[str] | None = None) -> lis
         if not item.is_dir():
             continue
 
-        # Sample directories are named: <id>__<pbt_name>
-        # e.g., 00307__test_mul
-        if "__" in item.name:
+        # Sample directories are named: <id>_<pbt_name>
+        # e.g., 10104_test_versioned_div_scalar
+        if "_" in item.name:
             sample_id = extract_sample_id(item.name)
             if sample_id.isdigit() and (sample_ids is None or sample_id in sample_ids):
                 sample_dirs.append(item)

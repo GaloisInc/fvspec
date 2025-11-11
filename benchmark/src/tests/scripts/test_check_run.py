@@ -15,15 +15,15 @@ class TestExtractSampleId:
 
     def test_extract_sample_id_basic(self) -> None:
         """Test basic sample ID extraction."""
-        assert extract_sample_id("00307__test_mul") == "00307"
+        assert extract_sample_id("10104_test_versioned_div_scalar") == "10104"
 
     def test_extract_sample_id_with_underscores(self) -> None:
         """Test extraction with underscores in test name."""
-        assert extract_sample_id("00645__test_soft_label") == "00645"
+        assert extract_sample_id("00645_test_soft_label") == "00645"
 
     def test_extract_sample_id_long_name(self) -> None:
         """Test extraction with longer directory name."""
-        assert extract_sample_id("06576__test_reduce_scatter_very_long") == "06576"
+        assert extract_sample_id("06576_test_reduce_scatter_very_long") == "06576"
 
 
 class TestFindLatestRun:
@@ -72,9 +72,9 @@ class TestFindSampleDirs:
 
     def test_find_sample_dirs_all_samples(self, tmp_path: Path) -> None:
         """Test finding all samples in a run."""
-        # Create sample directories (note: use __ not _)
-        sample1 = tmp_path / "00307__test_mul"
-        sample2 = tmp_path / "00645__test_soft_label"
+        # Create sample directories (use single underscore)
+        sample1 = tmp_path / "00307_test_mul"
+        sample2 = tmp_path / "00645_test_soft_label"
         sample1.mkdir()
         sample2.mkdir()
 
@@ -88,9 +88,9 @@ class TestFindSampleDirs:
 
     def test_find_sample_dirs_specific_ids(self, tmp_path: Path) -> None:
         """Test finding specific sample IDs."""
-        sample1 = tmp_path / "00307__test_mul"
-        sample2 = tmp_path / "00645__test_soft_label"
-        sample3 = tmp_path / "06576__test_reduce_scatter"
+        sample1 = tmp_path / "00307_test_mul"
+        sample2 = tmp_path / "00645_test_soft_label"
+        sample3 = tmp_path / "06576_test_reduce_scatter"
         sample1.mkdir()
         sample2.mkdir()
         sample3.mkdir()
@@ -103,7 +103,7 @@ class TestFindSampleDirs:
 
     def test_find_sample_dirs_no_match(self, tmp_path: Path) -> None:
         """Test with sample IDs that don't exist."""
-        sample1 = tmp_path / "00307__test_mul"
+        sample1 = tmp_path / "00307_test_mul"
         sample1.mkdir()
 
         result = find_sample_dirs(tmp_path, sample_ids=["99999"])
@@ -111,9 +111,9 @@ class TestFindSampleDirs:
 
     def test_find_sample_dirs_sorted(self, tmp_path: Path) -> None:
         """Test that results are sorted by sample ID."""
-        sample3 = tmp_path / "06576__test_reduce_scatter"
-        sample1 = tmp_path / "00307__test_mul"
-        sample2 = tmp_path / "00645__test_soft_label"
+        sample3 = tmp_path / "06576_test_reduce_scatter"
+        sample1 = tmp_path / "00307_test_mul"
+        sample2 = tmp_path / "00645_test_soft_label"
 
         # Create in non-sorted order
         sample3.mkdir()
@@ -123,9 +123,9 @@ class TestFindSampleDirs:
         result = find_sample_dirs(tmp_path)
         assert len(result) == 3
         # Should be sorted by name
-        assert result[0].name == "00307__test_mul"
-        assert result[1].name == "00645__test_soft_label"
-        assert result[2].name == "06576__test_reduce_scatter"
+        assert result[0].name == "00307_test_mul"
+        assert result[1].name == "00645_test_soft_label"
+        assert result[2].name == "06576_test_reduce_scatter"
 
 
 class TestCompilationResult:
