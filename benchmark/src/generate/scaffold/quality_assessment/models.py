@@ -227,6 +227,48 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of trivial theorems asserting Unit functions equal ()",
     )
+    # Radon code complexity metrics for the Python PBT
+    radon__loc: int | None = Field(None, description="Total lines of code")
+    radon__sloc: int | None = Field(
+        None, description="Source lines of code (no blanks/comments)"
+    )
+    radon__lloc: int | None = Field(None, description="Logical lines of code")
+    radon__comments: int | None = Field(None, description="Number of comment lines")
+    radon__blank: int | None = Field(None, description="Number of blank lines")
+    radon__multi: int | None = Field(None, description="Multi-line strings")
+    radon__single_comments: int | None = Field(None, description="Single-line comments")
+    radon__num_functions: int | None = Field(
+        None, description="Number of functions analyzed"
+    )
+    radon__avg_complexity: float | None = Field(
+        None, description="Average cyclomatic complexity"
+    )
+    radon__max_complexity: int | None = Field(None, description="Maximum complexity")
+    radon__total_complexity: int | None = Field(
+        None, description="Sum of function complexities"
+    )
+    radon__complexity_rank: str | None = Field(
+        None, description="Complexity rank (A-F)"
+    )
+    radon__maintainability_index: float | None = Field(
+        None, description="Maintainability index (0-100)"
+    )
+    radon__maintainability_rank: str | None = Field(
+        None, description="Maintainability rank (A-C)"
+    )
+    radon__halstead_vocabulary: int | None = Field(
+        None, description="Halstead vocabulary"
+    )
+    radon__halstead_length: int | None = Field(None, description="Halstead length")
+    radon__halstead_volume: float | None = Field(None, description="Halstead volume")
+    radon__halstead_difficulty: float | None = Field(
+        None, description="Halstead difficulty"
+    )
+    radon__halstead_effort: float | None = Field(None, description="Halstead effort")
+    radon__halstead_time: float | None = Field(
+        None, description="Halstead time (seconds)"
+    )
+    radon__halstead_bugs: float | None = Field(None, description="Expected bugs")
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -365,6 +407,69 @@ class QualityAssessment(BaseModel):
         if code_snippet:
             num_trivial_unit_theorems = detect_trivial_unit_theorems(code_snippet)
 
+        # Query radon code complexity metrics from database
+        radon_metrics = {}
+        try:
+            # Import RadonMetricsDB from import script
+            # Use lazy import to avoid circular dependencies
+            from importlib import import_module
+
+            from sqlmodel import Session, create_engine, select
+
+            from generate.config import DATA_DIR
+
+            # Try to import RadonMetricsDB
+            try:
+                radon_module = import_module("scripts.import_radon_metrics")
+                RadonMetricsDB = radon_module.RadonMetricsDB
+
+                # Connect to database
+                dataset_path = (DATA_DIR / "pbts_full.db").resolve()
+                if dataset_path.exists():
+                    engine = create_engine(f"sqlite:///{dataset_path}")
+                    with Session(engine) as session:
+                        result = session.exec(
+                            select(RadonMetricsDB).where(
+                                RadonMetricsDB.pbt_id == datapoint.id
+                            )
+                        ).first()
+
+                        if result:
+                            radon_metrics = {
+                                "radon__loc": result.loc,
+                                "radon__sloc": result.sloc,
+                                "radon__lloc": result.lloc,
+                                "radon__comments": result.comments,
+                                "radon__blank": result.blank,
+                                "radon__multi": result.multi,
+                                "radon__single_comments": result.single_comments,
+                                "radon__num_functions": result.num_functions,
+                                "radon__avg_complexity": result.avg_complexity,
+                                "radon__max_complexity": result.max_complexity,
+                                "radon__total_complexity": result.total_complexity,
+                                "radon__complexity_rank": result.complexity_rank,
+                                "radon__maintainability_index": result.maintainability_index,
+                                "radon__maintainability_rank": result.maintainability_rank,
+                                "radon__halstead_vocabulary": result.halstead_vocabulary,
+                                "radon__halstead_length": result.halstead_length,
+                                "radon__halstead_volume": result.halstead_volume,
+                                "radon__halstead_difficulty": result.halstead_difficulty,
+                                "radon__halstead_effort": result.halstead_effort,
+                                "radon__halstead_time": result.halstead_time,
+                                "radon__halstead_bugs": result.halstead_bugs,
+                            }
+            except (ImportError, ModuleNotFoundError):
+                # RadonMetricsDB not available (script not in path)
+                logger.debug("RadonMetricsDB not available for import")
+                pass
+
+        except Exception as e:
+            # Radon metrics query failed - log but don't fail the entire QA
+            logger.debug(
+                f"Failed to query radon metrics for sample {datapoint.id}: {e}"
+            )
+            pass
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -401,6 +506,32 @@ class QualityAssessment(BaseModel):
             actually_invokes_given=actually_invokes_given,
             has_unit_stub=has_unit_stub,
             num_trivial_unit_theorems=num_trivial_unit_theorems,
+            # Radon metrics (None if not found in database)
+            radon__loc=radon_metrics.get("radon__loc"),
+            radon__sloc=radon_metrics.get("radon__sloc"),
+            radon__lloc=radon_metrics.get("radon__lloc"),
+            radon__comments=radon_metrics.get("radon__comments"),
+            radon__blank=radon_metrics.get("radon__blank"),
+            radon__multi=radon_metrics.get("radon__multi"),
+            radon__single_comments=radon_metrics.get("radon__single_comments"),
+            radon__num_functions=radon_metrics.get("radon__num_functions"),
+            radon__avg_complexity=radon_metrics.get("radon__avg_complexity"),
+            radon__max_complexity=radon_metrics.get("radon__max_complexity"),
+            radon__total_complexity=radon_metrics.get("radon__total_complexity"),
+            radon__complexity_rank=radon_metrics.get("radon__complexity_rank"),
+            radon__maintainability_index=radon_metrics.get(
+                "radon__maintainability_index"
+            ),
+            radon__maintainability_rank=radon_metrics.get(
+                "radon__maintainability_rank"
+            ),
+            radon__halstead_vocabulary=radon_metrics.get("radon__halstead_vocabulary"),
+            radon__halstead_length=radon_metrics.get("radon__halstead_length"),
+            radon__halstead_volume=radon_metrics.get("radon__halstead_volume"),
+            radon__halstead_difficulty=radon_metrics.get("radon__halstead_difficulty"),
+            radon__halstead_effort=radon_metrics.get("radon__halstead_effort"),
+            radon__halstead_time=radon_metrics.get("radon__halstead_time"),
+            radon__halstead_bugs=radon_metrics.get("radon__halstead_bugs"),
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:
