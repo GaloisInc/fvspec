@@ -162,9 +162,7 @@ class Radon(BaseModel):
     blank: int | None = Field(None, description="Number of blank lines")
     multi: int | None = Field(None, description="Multi-line strings")
     single_comments: int | None = Field(None, description="Single-line comments")
-    num_functions: int | None = Field(
-        None, description="Number of functions analyzed"
-    )
+    num_functions: int | None = Field(None, description="Number of functions analyzed")
     avg_complexity: float | None = Field(
         None, description="Average cyclomatic complexity"
     )
@@ -182,13 +180,9 @@ class Radon(BaseModel):
     halstead_vocabulary: int | None = Field(None, description="Halstead vocabulary")
     halstead_length: int | None = Field(None, description="Halstead length")
     halstead_volume: float | None = Field(None, description="Halstead volume")
-    halstead_difficulty: float | None = Field(
-        None, description="Halstead difficulty"
-    )
+    halstead_difficulty: float | None = Field(None, description="Halstead difficulty")
     halstead_effort: float | None = Field(None, description="Halstead effort")
-    halstead_time: float | None = Field(
-        None, description="Halstead time (seconds)"
-    )
+    halstead_time: float | None = Field(None, description="Halstead time (seconds)")
     halstead_bugs: float | None = Field(None, description="Expected bugs")
 
 
