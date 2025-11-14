@@ -356,6 +356,62 @@ Run smoke tests to verify the pipeline won't crash:
 uv run pytest
 ```
 
+## Radon Code Metrics
+
+The benchmark automatically logs radon code complexity metrics for each sample. These metrics provide objective measures of code complexity and maintainability for the Python PBTs.
+
+### Automatic Integration
+
+Radon metrics are **automatically queried and logged** during benchmark runs if the `radon_metrics` table exists in the database. The metrics are included in:
+- Per-sample wandb logs (`radon__avg_complexity`, `radon__sloc`, etc.)
+- `qa.json` files in artifacts directories
+- Inspect AI viewer scores
+
+**21 metrics per sample:**
+- Raw: LOC, SLOC, LLOC, comments, blank lines
+- Complexity: Average/max/total cyclomatic complexity, complexity rank
+- Maintainability: Index and rank (0-100, higher is better)
+- Halstead: Vocabulary, length, volume, difficulty, effort, time, bugs
+
+### Setup (One-Time)
+
+If radon metrics aren't in the database yet, compute and import them once:
+
+```bash
+# Compute metrics for all PBTs in the database
+uv run compute-radon-metrics --output artifacts/radon_metrics/metrics.json
+
+# Import into database (creates radon_metrics table)
+uv run import-radon-metrics artifacts/radon_metrics/metrics.json
+
+# Verify import
+uv run import-radon-metrics verify
+```
+
+After this one-time setup, **all future benchmark runs will automatically include radon metrics**.
+
+### Viewing Radon Metrics
+
+**In wandb:**
+- Per-sample metrics logged at each step: `radon__avg_complexity`, `radon__maintainability_index`, etc.
+- Filter by "radon__" prefix to see all metrics
+- Compare across runs and variants
+
+**In Inspect AI viewer:**
+```bash
+uv run inspect view --log-dir artifacts
+# Browse samples to see radon metrics in the scores table
+```
+
+**In qa.json files:**
+```bash
+cat artifacts/<run>/12345_test_foo/qa.json | jq '.radon__avg_complexity'
+```
+
+### Note on Backfilling
+
+Due to wandb API limitations, you **cannot retroactively add metrics to finished runs**. To get radon metrics for existing variants, re-run the benchmarks after setting up the radon_metrics table.
+
 ## Other utilities
 
 Preview prompt templates:
