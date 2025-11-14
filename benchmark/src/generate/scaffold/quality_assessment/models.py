@@ -3,13 +3,16 @@
 import logging
 import re
 from enum import Enum
+from importlib import import_module
 from typing import TYPE_CHECKING, cast
 
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
+from sqlmodel import Session, create_engine, select
 
 logger = logging.getLogger(__name__)
 
+from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.plausible_runner import Plausibility
 from generate.scaffold.quality_assessment.lean_parsing import (
@@ -412,12 +415,6 @@ class QualityAssessment(BaseModel):
         try:
             # Import RadonMetricsDB from import script
             # Use lazy import to avoid circular dependencies
-            from importlib import import_module
-
-            from sqlmodel import Session, create_engine, select
-
-            from generate.config import DATA_DIR
-
             # Try to import RadonMetricsDB
             try:
                 radon_module = import_module("scripts.import_radon_metrics")
