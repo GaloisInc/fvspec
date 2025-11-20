@@ -16,4 +16,4 @@ project = "fvspec"
 
 # Local storage path (relative to benchmark/ root)
 # Uses artifacts/ which is already gitignored
-output_dir = "artifacts/dataset"
+output_dir = "dataset"

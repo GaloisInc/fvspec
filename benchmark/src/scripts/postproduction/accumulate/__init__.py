@@ -152,7 +152,7 @@ def sync(
     # Setup output directory (relative to benchmark/ root, not manifest location)
     # Go up from src/scripts/postproduction/accumulate/ to benchmark/
     benchmark_root = manifest.parent.parent.parent.parent
-    output_dir = benchmark_root / config.project.output_dir
+    output_dir = benchmark_root / "artifacts" / config.project.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     console.print(f"Output directory: {output_dir}\n")
 
