@@ -33,10 +33,6 @@ This directory contains the fvspec benchmark generation system using the `inspec
 uv run fvspec --variant control-mvcgen --sample-size 50 --parallelism 10
 uv run fvspec compare-variants --variant control-functional --variant terse-functional
 
-# Dependency autoformalization
-uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
-uv run fvspec deps cache-clear-local
-
 # View results
 uv run inspect view --log-dir artifacts
 
@@ -55,7 +51,9 @@ uv run ruff format && uv run ruff check && uv run pytest
    - Stored in metadata (NOT shown to model) for evaluation purposes
    - Float tests use external validation with numpy.isclose semantics
 3. **Function discovery**: Tree-sitter based lookup (92% coverage)
-4. **Implementation Agent**: Generate function implementation → Impl.lean (zero sorry)
+4. **Implementation Agent**: Generate function under test + all dependencies → Impl.lean (zero sorry)
+   - Each function (FUT and dependencies) processed via `function_impl_agent()`
+   - All implementations generated live during eval (no caching or stubs)
 5. **Signature extraction**: Parse type signatures from Impl.lean
 6. **Specification Agent**: Generate theorem statements → Spec.lean (with sorry)
 7. Extract code, run quality assessment, save artifacts

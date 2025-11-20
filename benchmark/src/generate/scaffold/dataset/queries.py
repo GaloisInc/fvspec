@@ -29,18 +29,26 @@ def sample_datapoints(
     session: Session,
     n: int,
     ranseed: int | None = 0,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
     Implements memory-efficient deterministic sampling by:
     1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
-    2. Shuffling IDs using seeded Python RNG
+    2. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
     3. Taking first n IDs and fetching full datapoints
+
+    When start_idx and/or end_idx are provided, returns a sequential slice
+    of datapoints instead of random sampling. This enables resumable large-scale
+    runs by processing the dataset in chunks.
 
     Args:
         session: SQLModel database session
-        n: Number of samples to draw
-        ranseed: Random seed for reproducibility (default: 0)
+        n: Number of samples to draw (ignored if start_idx/end_idx provided)
+        ranseed: Random seed for reproducibility (default: 0, ignored if start_idx/end_idx provided)
+        start_idx: Starting index in the ordered dataset (0-indexed, inclusive)
+        end_idx: Ending index in the ordered dataset (0-indexed, exclusive)
 
     Returns:
         List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
@@ -48,6 +56,9 @@ def sample_datapoints(
     Note:
         Uses Python's random.shuffle() for deterministic sampling since SQLite's RANDOM()
         does not support seeding. Only loads IDs into memory, not full datapoint objects.
+
+        Sequential mode (start_idx/end_idx): Returns datapoints[start_idx:end_idx] from
+        the ordered, filtered dataset. Useful for splitting large runs across multiple jobs.
     """
     # Use json_array_length to filter by dependency count
     # Fetch only IDs (lightweight) instead of full datapoint objects
@@ -66,13 +77,19 @@ def sample_datapoints(
     if not all_ids:
         return []
 
-    # Shuffle IDs using seeded RNG for deterministic sampling
-    rng = random.Random(ranseed)
-    rng.shuffle(all_ids)
+    # Sequential mode: slice by indices if provided
+    if start_idx is not None or end_idx is not None:
+        # Use Python's slice semantics (None = unbounded)
+        selected_ids = all_ids[start_idx:end_idx]
+    else:
+        # Random sampling mode: shuffle and take first n
+        # Shuffle IDs using seeded RNG for deterministic sampling
+        rng = random.Random(ranseed)
+        rng.shuffle(all_ids)
 
-    # Take first n IDs (or all if fewer than n available)
-    sample_size = min(n, len(all_ids))
-    selected_ids = all_ids[:sample_size]
+        # Take first n IDs (or all if fewer than n available)
+        sample_size = min(n, len(all_ids))
+        selected_ids = all_ids[:sample_size]
 
     # Fetch full datapoints for selected IDs
     datapoints_statement = select(Datapoint).where(
@@ -80,7 +97,9 @@ def sample_datapoints(
     )
     datapoints = list(session.exec(datapoints_statement))
 
-    # Return in shuffled order (IN clause doesn't preserve order)
+    # Return in correct order
+    # For sequential mode, preserve order from all_ids slice
+    # For random mode, preserve shuffled order
     id_to_datapoint = {dp.id: dp for dp in datapoints}
     missing_ids = [dp_id for dp_id in selected_ids if dp_id not in id_to_datapoint]
     if missing_ids:

@@ -57,33 +57,6 @@ uv run fvspec --parallelism 10
 uv run fvspec compare-variants --parallelism 32
 ```
 
-## Dependency Utilities
-
-Sometimes you only need the dependency modules, not the full benchmark loop. The `deps` subcommands handle that:
-
-```bash
-# Autoformalize dependencies for specific datapoint ids
-uv run fvspec deps autoformalize --sample-id 5 --sample-id 47
-
-# Sample N datapoints (default 1) and generate stubs/cached Lean modules
-uv run fvspec deps autoformalize --sample-size 10 -s 42
-
-# Force regenerate dependencies (ignores cache, overwrites on collision)
-uv run fvspec --force-cache-regen --sample-size 10
-uv run fvspec deps autoformalize --force-cache-regen --sample-id 42
-
-# Cache management
-uv run fvspec deps cache-clear-local     # Clear local dependency cache
-uv run fvspec deps cache-clear-wandb     # Delete remote wandb cache artifact
-```
-
-`autoformalize` writes Lean modules and manifests alongside other artifacts (e.g. `artifacts/<timestamp>__control-functional-deps/.../deps/`). If the cache already contains a Lean file for the dependency hash, it is reused; otherwise a computable stub is emitted and marked for later refinement by the autoformalizer agent.
-
-**Cache management:**
-- `--force-cache-regen`: Ignores cache and regenerates all dependencies from scratch, overwriting existing entries on hash collision
-- `cache-clear-local`: Clears local cache in `artifacts/depcache/`
-- `cache-clear-wandb`: Deletes the wandb cache artifact to start fresh across the team (requires wandb enabled)
-
 ## Viewing Results
 
 ### Inspect AI Viewer (Recommended)
@@ -379,10 +352,10 @@ If radon metrics aren't in the database yet, compute and import them once:
 
 ```bash
 # Compute metrics for all PBTs in the database
-uv run compute-radon-metrics --output artifacts/radon_metrics/metrics.json
+uv run compute-radon-metrics compute
 
 # Import into database (creates radon_metrics table)
-uv run import-radon-metrics artifacts/radon_metrics/metrics.json
+uv run import-radon-metrics import-metrics artifacts/radon_metrics/<timestamp>_metrics.json
 
 # Verify import
 uv run import-radon-metrics verify

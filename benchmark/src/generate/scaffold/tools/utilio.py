@@ -103,27 +103,47 @@ def no_code_block_found(sample_id: str, text: str) -> str:
     return f"{msg} for sample_id={sample_id}"
 
 
-def mk_run_path(date_time: str, variant: str, ranseed: int | None = None) -> str:
+def mk_run_path(
+    date_time: str,
+    variant: str,
+    ranseed: int | None = None,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
+) -> str:
     """Construct run directory name for artifacts.
 
     Args:
         date_time: Timestamp string (e.g., "2025-11-06T12-01-34")
         variant: Prompt variant name
         ranseed: Random seed used for sampling (optional)
+        start_idx: Starting index for sequential sampling (optional)
+        end_idx: Ending index for sequential sampling (optional)
 
     Returns:
         Run directory name in format:
+        - With indices: "2025-11-06T12-01-34__idx0-1000__control-functional"
         - With ranseed: "2025-11-06T12-01-34__s4__control-functional"
-        - Without ranseed: "2025-11-06T12-01-34__control-functional"
+        - Without either: "2025-11-06T12-01-34__control-functional"
 
     Examples:
         >>> mk_run_path("2025-11-06T12-01-34", "control-functional", ranseed=4)
         '2025-11-06T12-01-34__s4__control-functional'
         >>> mk_run_path("2025-11-06T12-01-34", "control-functional")
         '2025-11-06T12-01-34__control-functional'
+        >>> mk_run_path("2025-11-06T12-01-34", "control-functional", start_idx=0, end_idx=1000)
+        '2025-11-06T12-01-34__idx0-1000__control-functional'
+        >>> mk_run_path("2025-11-06T12-01-34", "control-functional", start_idx=1000, end_idx=2000)
+        '2025-11-06T12-01-34__idx1000-2000__control-functional'
     """
-    if ranseed is not None:
+    # Sequential mode: include indices in path
+    if start_idx is not None or end_idx is not None:
+        start_str = str(start_idx) if start_idx is not None else "0"
+        end_str = str(end_idx) if end_idx is not None else "end"
+        return f"{date_time}__idx{start_str}-{end_str}__{variant}"
+    # Random sampling mode: include ranseed
+    elif ranseed is not None:
         return f"{date_time}__s{ranseed}__{variant}"
+    # No sampling parameters
     else:
         return f"{date_time}__{variant}"
 
@@ -134,6 +154,8 @@ def get_output_filepath(
     file_name: str,
     variant: str,
     ranseed: int | None = None,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
 ) -> Path:
     """Construct output file path in the artifacts directory structure.
 
@@ -147,6 +169,8 @@ def get_output_filepath(
         file_name: Name of the output file (e.g., 'Spec.lean', 'qa.json')
         variant: Prompt variant name
         ranseed: Random seed used for sampling (optional, included in path when provided)
+        start_idx: Starting index for sequential sampling (optional)
+        end_idx: Ending index for sequential sampling (optional)
 
     Returns:
         Path to the output file
@@ -167,7 +191,7 @@ def get_output_filepath(
         root_dir = root_dir.parent
 
     # Create directory name using mk_run_path
-    run_path = mk_run_path(date_time, variant, ranseed)
+    run_path = mk_run_path(date_time, variant, ranseed, start_idx, end_idx)
 
     output_dir = root_dir / "artifacts" / "runs" / run_path / sample_id
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -181,9 +205,13 @@ def get_sample_output_dir(
     sample_id: str,
     variant: str,
     ranseed: int | None = None,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
 ) -> Path:
     """Return the artifact directory for a given sample."""
-    path = get_output_filepath(date_time, sample_id, "Spec.lean", variant, ranseed)
+    path = get_output_filepath(
+        date_time, sample_id, "Spec.lean", variant, ranseed, start_idx, end_idx
+    )
     sample_dir = path.parent
     sample_dir.mkdir(parents=True, exist_ok=True)
     return sample_dir

@@ -137,6 +137,8 @@ def mk_dataset(
     variant: str | None = None,
     sample_size: int = 100,
     ranseed: int | None = 0,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from pbts_full.db.
 
@@ -146,9 +148,11 @@ def mk_dataset(
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset
         ranseed: Random seed used for sampling datapoints (Note: SQLite RANDOM() limitations)
+        start_idx: Starting index for sequential sampling (0-indexed, inclusive)
+        end_idx: Ending index for sequential sampling (0-indexed, exclusive)
 
     Returns:
-        MemoryDataset with randomly sampled datapoints
+        MemoryDataset with randomly sampled datapoints (or sequential slice if indices provided)
     """
     # Get the actual variant name (resolve default if needed)
     registry = VariantRegistry()
@@ -156,10 +160,23 @@ def mk_dataset(
 
     # Sample datapoints from DB
     with get_session(db_path) as session:
-        datapoints = _db_sample(session, n=sample_size, ranseed=ranseed)
+        datapoints = _db_sample(
+            session,
+            n=sample_size,
+            ranseed=ranseed,
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )
 
     console = Console()
-    if len(datapoints) < sample_size:
+    # Adjust warning message for sequential vs random mode
+    if start_idx is not None or end_idx is not None:
+        expected_count = (end_idx or float("inf")) - (start_idx or 0)
+        if len(datapoints) < expected_count:
+            console.print(
+                f"[yellow]⚠[/yellow] Sampled {len(datapoints)} datapoints (expected {expected_count} from indices)"
+            )
+    elif len(datapoints) < sample_size:
         console.print(
             f"[yellow]⚠[/yellow] Sampled {len(datapoints)} datapoints (requested {sample_size})"
         )
@@ -179,6 +196,8 @@ def mk_dataset(
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                     "variant": actual_variant,
                     "ranseed": ranseed,  # For artifact path naming
+                    "start_idx": start_idx,  # For sequential run tracking
+                    "end_idx": end_idx,  # For sequential run tracking
                     "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
                 },
                 id=f"{dp.id:05d}_{dp.name}",
