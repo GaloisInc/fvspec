@@ -60,8 +60,8 @@ manifest_path = st.sidebar.text_input(
 
 try:
     manifest = load_manifest(manifest_path)
-    # Output directory is relative to benchmark/ root
-    output_dir = Path(manifest["project"]["output_dir"])
+    # Output directory is relative to benchmark/ root, under "artifacts"
+    output_dir = Path("artifacts") / manifest["project"]["output_dir"]
 
     st.sidebar.success(f"Loaded {len(manifest['run_names'])} runs from manifest")
 
