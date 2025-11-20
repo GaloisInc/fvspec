@@ -21,15 +21,10 @@ entity = "fvspec"
 project = "fvspec"
 output_dir = "artifacts/postproduction"
 
-[[runs]]
-id = "wqd4mi3y"
-name = "2025-11-20T07-48-32__control-functional__idx0-2"
-notes = "Sequential sampling test"
-
-[[runs]]
-id = "8ld0ihci"
-name = "2025-11-20T07-45-23__control-functional__s0__n2"
-notes = "Random sampling test"
+run_names = [
+  "2025-11-20T07-48-32__control-functional__idx0-2",
+  "2025-11-20T07-45-23__control-functional__s0__n2"
+]
 ```
 
 **Finding run IDs:**
