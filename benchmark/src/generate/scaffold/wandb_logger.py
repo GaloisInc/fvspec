@@ -308,8 +308,15 @@ def log_sample_to_wandb(state: TaskState) -> None:
     variant = cast(str, state.metadata.get("variant"))
     sample_id = str(state.sample_id)
 
+    # Extract sampling mode parameters (for directory path construction)
+    ranseed = state.metadata.get("ranseed")
+    start_idx = state.metadata.get("start_idx")
+    end_idx = state.metadata.get("end_idx")
+
     # Get the sample directory
-    sample_dir = utilio.get_sample_output_dir(date_time, sample_id, variant)
+    sample_dir = utilio.get_sample_output_dir(
+        date_time, sample_id, variant, ranseed, start_idx, end_idx
+    )
 
     # Upload all sample files to the run incrementally
     logger.log_sample_files(sample_dir)
