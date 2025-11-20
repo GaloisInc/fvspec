@@ -20,11 +20,7 @@ from inspect_ai.solver._task_state import sample_state
 from inspect_ai.tool import Tool, ToolCallError, ToolCallView, ToolError, tool
 from inspect_ai.util._store import store
 
-from generate.scaffold.formalize.impl.cache import (
-    CacheProvenance,
-    store_dependency_result,
-)
-from generate.scaffold.formalize.impl.models import DependencyPayload, DependencyResult
+from generate.scaffold.formalize.impl.models import DependencyPayload
 from generate.scaffold.tools import utilio
 from generate.templates.impl import get_dependency_prompts
 from generate.templates.impl.strings import get_dependency_strings
@@ -445,29 +441,6 @@ def create_bound_dependency_tools(
                 else:
                     # Fallback if we can't parse definitions
                     def_list = "definitions"
-
-                # Create result
-                result = DependencyResult(
-                    lean_module=bound_payload.lean_module_name,
-                    lean_code=lean_code,
-                    variant=variant,
-                    status="ok",
-                    diagnostics=None,
-                )
-
-                # Persist to cache
-                from generate.scaffold.formalize.impl.cache import _cache_root
-
-                provenance = CacheProvenance(
-                    model=str(state.model) if state.model else None,
-                    run_id=str(state.sample_id),
-                )
-                _record = store_dependency_result(
-                    bound_payload,
-                    result,
-                    cache_root=_cache_root(),
-                    provenance=provenance,
-                )
 
                 # Write to sample's deps/ directory
                 date_time = state.metadata.get("date_time")
