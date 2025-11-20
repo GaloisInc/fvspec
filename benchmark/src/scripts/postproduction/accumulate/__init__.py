@@ -260,11 +260,8 @@ def status(
         uv run python -m scripts.postproduction.accumulate status
     """
     config = load_manifest(manifest)
-    # Output directory is relative to benchmark/ root
-    # Resolve to absolute path first to handle relative paths correctly
-    manifest_abs = manifest.resolve()
-    # manifest.toml -> accumulate -> postproduction -> scripts -> src -> benchmark (5 levels up)
-    benchmark_root = manifest_abs.parent.parent.parent.parent.parent
+    # Output directory is relative to benchmark/ root (assumed to be current working directory)
+    benchmark_root = Path.cwd()
     output_dir = benchmark_root / config.project.output_dir
 
     console.print("[bold]Download status:[/bold]\n")
