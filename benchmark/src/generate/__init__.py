@@ -160,16 +160,6 @@ def main_callback(
     # Initialize wandb logger if enabled
     wandb_logger = init_wandb_logger(wandb_cfg)
     if wandb_cfg.enabled:
-        wandb_logger.init_run(
-            variant=use_variant or "default",
-            model=cfg.agent.model,
-            sample_size=use_sample_size,
-            ranseed=use_ranseed,
-            timestamp=timestamp,
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
-
         # Register cleanup handler for both normal exit and signals
         def cleanup_wandb():
             wandb_logger.finish()
@@ -184,6 +174,16 @@ def main_callback(
 
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
+
+        wandb_logger.init_run(
+            variant=use_variant or "default",
+            model=cfg.agent.model,
+            sample_size=use_sample_size,
+            ranseed=use_ranseed,
+            timestamp=timestamp,
+            start_idx=start_idx,
+            end_idx=end_idx,
+        )
 
     try:
         eval(
