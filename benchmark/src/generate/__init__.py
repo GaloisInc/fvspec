@@ -167,7 +167,6 @@ def main_callback(
         atexit.register(cleanup_wandb)
 
         # Handle Ctrl+C and other termination signals
-        # Register these BEFORE init_run to ensure they're active during initialization
         def signal_handler(signum, frame):
             print("\n⚠️  Interrupted - finalizing wandb run...")
             cleanup_wandb()
@@ -347,7 +346,6 @@ def compare_variants(
             atexit.register(cleanup_all_wandb)
 
             # Handle Ctrl+C and other termination signals
-            # Register these BEFORE init_run calls to ensure they're active during initialization
             def signal_handler(signum, frame):
                 print("\n⚠️  Interrupted - finalizing wandb runs...")
                 cleanup_all_wandb()
