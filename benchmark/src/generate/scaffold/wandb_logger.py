@@ -43,6 +43,8 @@ class WandbLogger:
         ranseed: int,
         timestamp: str,
         group: str | None = None,
+        start_idx: int | None = None,
+        end_idx: int | None = None,
     ) -> None:
         """Initialize a wandb run for a benchmark evaluation.
 
@@ -53,16 +55,42 @@ class WandbLogger:
             ranseed: Random seed used for sampling
             timestamp: Timestamp string for the run
             group: Optional group name for comparing multiple variants
+            start_idx: Starting index for sequential sampling (optional)
+            end_idx: Ending index for sequential sampling (optional)
         """
         if not self.config.enabled:
             return
 
-        run_name = f"{variant}__{timestamp}"
+        # Build run name based on sampling mode
+        # Sequential mode: <timestamp>__<variant>__idxX-Y
+        # Random mode: <timestamp>__<variant>__sX__nY
+        if start_idx is not None or end_idx is not None:
+            start_str = str(start_idx) if start_idx is not None else "0"
+            end_str = str(end_idx) if end_idx is not None else "end"
+            run_name = f"{timestamp}__{variant}__idx{start_str}-{end_str}"
+        else:
+            run_name = f"{timestamp}__{variant}__s{ranseed}__n{sample_size}"
+
         if group:
             run_name = f"{group}__{run_name}"
 
         artifacts_dir = Path.cwd() / "artifacts"
         artifacts_dir.mkdir(parents=True, exist_ok=True)
+
+        # Build config dict with optional indices
+        config_dict = {
+            "variant": variant,
+            "model": model,
+            "sample_size": sample_size,
+            "ranseed": ranseed,
+            "timestamp": timestamp,
+        }
+
+        # Add indices to config if in sequential mode
+        if start_idx is not None:
+            config_dict["start_idx"] = start_idx
+        if end_idx is not None:
+            config_dict["end_idx"] = end_idx
 
         self.run = wandb.init(
             project=self.config.project,
@@ -70,13 +98,7 @@ class WandbLogger:
             name=run_name,
             group=group,
             tags=[variant, *self.config.tags],
-            config={
-                "variant": variant,
-                "model": model,
-                "sample_size": sample_size,
-                "ranseed": ranseed,
-                "timestamp": timestamp,
-            },
+            config=config_dict,
             dir=str(artifacts_dir),
             reinit="return_previous",
         )

@@ -445,6 +445,8 @@ def fvspec(
     sample_size: int = 100,
     ranseed: int | None = 0,
     timestamp: datetime | None = None,
+    start_idx: int | None = None,
+    end_idx: int | None = None,
 ) -> Task:
     """Create fvspec benchmark task with two-agent architecture.
 
@@ -454,6 +456,8 @@ def fvspec(
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
         timestamp: Pre-created timestamp (defaults to now if None)
+        start_idx: Starting index for sequential sampling (0-indexed, inclusive)
+        end_idx: Ending index for sequential sampling (0-indexed, exclusive)
 
     Returns:
         Task configured with two-agent orchestration
@@ -472,6 +476,8 @@ def fvspec(
         variant=resolved_variant,
         sample_size=sample_size,
         ranseed=ranseed,
+        start_idx=start_idx,
+        end_idx=end_idx,
     )
 
     # Two-agent architecture: impl → spec

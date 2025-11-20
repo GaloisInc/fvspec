@@ -42,6 +42,16 @@ def main_callback(
         "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
+    start_idx: int = Option(
+        None,
+        "--start-idx",
+        help="Starting index for sequential sampling (0-indexed, inclusive). When provided with --end-idx, processes a sequential slice instead of random sampling. Useful for splitting large runs across multiple jobs.",
+    ),
+    end_idx: int = Option(
+        None,
+        "--end-idx",
+        help="Ending index for sequential sampling (0-indexed, exclusive). When provided with --start-idx, processes a sequential slice instead of random sampling.",
+    ),
     list_variants: bool = Option(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
@@ -81,10 +91,11 @@ def main_callback(
     Args:
         ctx: Typer context.
         datafile: Path to the JSONL file containing test data.
-        skip_index: Skip using index file and use reservoir sampling.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
+        start_idx: Starting index for sequential sampling (0-indexed, inclusive).
+        end_idx: Ending index for sequential sampling (0-indexed, exclusive).
         list_variants: List available variants and exit.
         display: Display mode for eval logs (overrides config or CLI default).
         parallelism: Number of concurrent samples to evaluate.
@@ -137,10 +148,12 @@ def main_callback(
     )
 
     # Create log directory in artifacts/runs
-    # Use mk_run_path to include ranseed in path (consistent with sample directories)
+    # Use mk_run_path to include ranseed or indices in path (consistent with sample directories)
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
-    log_dir_name = utilio.mk_run_path(timestamp, use_variant, use_ranseed)
+    log_dir_name = utilio.mk_run_path(
+        timestamp, use_variant, use_ranseed, start_idx, end_idx
+    )
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
 
@@ -153,6 +166,8 @@ def main_callback(
             sample_size=use_sample_size,
             ranseed=use_ranseed,
             timestamp=timestamp,
+            start_idx=start_idx,
+            end_idx=end_idx,
         )
 
         # Register cleanup handler for both normal exit and signals
@@ -178,6 +193,8 @@ def main_callback(
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
                 timestamp=now,
+                start_idx=start_idx,
+                end_idx=end_idx,
             ),
             model=cfg.agent.model,
             log_dir=str(log_dir),
@@ -213,6 +230,16 @@ def compare_variants(
         "--ranseed",
         help="Random seed used for dataset sampling. Overrides config.toml (default: 0).",
     ),
+    start_idx: int = Option(
+        None,
+        "--start-idx",
+        help="Starting index for sequential sampling (0-indexed, inclusive). When provided with --end-idx, processes a sequential slice instead of random sampling.",
+    ),
+    end_idx: int = Option(
+        None,
+        "--end-idx",
+        help="Ending index for sequential sampling (0-indexed, exclusive). When provided with --start-idx, processes a sequential slice instead of random sampling.",
+    ),
     parallelism: int = Option(
         None,
         "-p",
@@ -246,10 +273,11 @@ def compare_variants(
 
     Args:
         datafile: Path to the JSONL file containing test data.
-        skip_index: Skip using index file and use reservoir sampling.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
+        start_idx: Starting index for sequential sampling (0-indexed, inclusive).
+        end_idx: Ending index for sequential sampling (0-indexed, exclusive).
         parallelism: Number of samples to evaluate concurrently.
         display: Display mode for eval logs (overrides config.toml).
         wandb_disable: Disable wandb logging (default is enabled).
@@ -319,6 +347,8 @@ def compare_variants(
                     ranseed=use_ranseed,
                     timestamp=timestamp,
                     group=group_name,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
                 )
                 wandb_loggers[v] = variant_logger
 
@@ -346,6 +376,8 @@ def compare_variants(
                 sample_size=use_sample_size,
                 ranseed=use_ranseed,
                 timestamp=now,
+                start_idx=start_idx,
+                end_idx=end_idx,
             )
             for v in variants_to_compare
         ]
