@@ -338,20 +338,6 @@ def compare_variants(
 
         wandb_loggers = {}
         if wandb_cfg.enabled:
-            for v in variants_to_compare:
-                variant_logger = init_wandb_logger(wandb_cfg)
-                variant_logger.init_run(
-                    variant=v,
-                    model=cfg.agent.model,
-                    sample_size=use_sample_size,
-                    ranseed=use_ranseed,
-                    timestamp=timestamp,
-                    group=group_name,
-                    start_idx=start_idx,
-                    end_idx=end_idx,
-                )
-                wandb_loggers[v] = variant_logger
-
             # Register cleanup handlers for all wandb loggers
             def cleanup_all_wandb():
                 for logger in wandb_loggers.values():
@@ -367,6 +353,20 @@ def compare_variants(
 
             signal.signal(signal.SIGINT, signal_handler)
             signal.signal(signal.SIGTERM, signal_handler)
+
+            for v in variants_to_compare:
+                variant_logger = init_wandb_logger(wandb_cfg)
+                variant_logger.init_run(
+                    variant=v,
+                    model=cfg.agent.model,
+                    sample_size=use_sample_size,
+                    ranseed=use_ranseed,
+                    timestamp=timestamp,
+                    group=group_name,
+                    start_idx=start_idx,
+                    end_idx=end_idx,
+                )
+                wandb_loggers[v] = variant_logger
 
         # Create task instances for each variant (use same timestamp for all)
         tasks = [
