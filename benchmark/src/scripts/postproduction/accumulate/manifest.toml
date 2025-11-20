@@ -1,6 +1,14 @@
 # Manifest for post-production analysis
 # Lists W&B runs to download and aggregate for analysis
 
+# Run names to download
+# These are the run names shown in W&B dashboard
+# The tool will look up the run ID automatically
+run_names = [
+    "2025-11-20T07-48-32__control-functional__idx0-2",
+    "2025-11-20T07-45-23__control-functional__s0__n2",
+]
+
 # Project configuration
 [project]
 entity = "fvspec"
@@ -9,25 +17,3 @@ project = "fvspec"
 # Local storage path (relative to benchmark/ root)
 # Uses artifacts/ which is already gitignored
 output_dir = "artifacts/postproduction"
-
-# Runs to analyze
-# Each run is identified by its W&B run ID
-# You can find run IDs in the W&B dashboard URL or via: wandb run list
-
-[[runs]]
-# Example: Sequential sampling run
-id = "wqd4mi3y"
-name = "2025-11-20T07-48-32__control-functional__idx0-2"
-notes = "Test sequential sampling idx0-2"
-
-[[runs]]
-# Example: Random sampling run
-id = "8ld0ihci"
-name = "2025-11-20T07-45-23__control-functional__s0__n2"
-notes = "Test random sampling s0 n2"
-
-# Add more runs as needed:
-# [[runs]]
-# id = "kvwhzorb"
-# name = "2025-11-20T06-15-10__control-functional"
-# notes = "Description of this run"

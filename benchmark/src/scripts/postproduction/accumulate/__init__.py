@@ -32,19 +32,11 @@ class ProjectConfig(BaseModel):
     output_dir: str
 
 
-class RunConfig(BaseModel):
-    """Run configuration from manifest.toml."""
-
-    id: str
-    name: str
-    notes: str = ""
-
-
 class Manifest(BaseModel):
     """Manifest schema for runs to download."""
 
     project: ProjectConfig
-    runs: list[RunConfig]
+    run_names: list[str]
 
 
 def load_manifest(manifest_path: Path) -> Manifest:
@@ -168,29 +160,50 @@ def sync(
     console.print("Initializing W&B API...")
     api = wandb.Api()
 
+    # Lookup runs by name to get IDs
+    console.print("Looking up runs by name...")
+    run_lookup = {}
+    for run_name in config.run_names:
+        try:
+            # Search for run by name
+            runs = api.runs(
+                f"{config.project.entity}/{config.project.project}",
+                filters={"display_name": run_name},
+            )
+            matching_runs = list(runs)
+            if matching_runs:
+                run_lookup[run_name] = matching_runs[0].id
+                console.print(f"  Found: {run_name} -> {matching_runs[0].id}")
+            else:
+                console.print(
+                    f"  [yellow]Warning: No run found with name '{run_name}'[/yellow]"
+                )
+        except Exception as e:
+            console.print(f"  [red]Error looking up '{run_name}': {e}[/red]")
+
     # Download runs
-    console.print(f"\nDownloading {len(config.runs)} runs:")
+    console.print(f"\nDownloading {len(run_lookup)} runs:")
     results = []
 
-    for run_config in track(
-        config.runs, description="Downloading runs", console=console
+    for run_name, run_id in track(
+        run_lookup.items(), description="Downloading runs", console=console
     ):
-        run_dir = output_dir / run_config.id
+        run_dir = output_dir / run_id
 
         # Skip if already exists (unless force)
         if run_dir.exists() and not force:
             console.print(
-                f"  [dim]Skipping {run_config.id} ({run_config.name}) - already exists[/dim]"
+                f"  [dim]Skipping {run_name} ({run_id}) - already exists[/dim]"
             )
             continue
 
-        console.print(f"  Downloading {run_config.id} ({run_config.name})...")
+        console.print(f"  Downloading {run_name} ({run_id})...")
         try:
             result = download_run(
                 api,
                 config.project.entity,
                 config.project.project,
-                run_config.id,
+                run_id,
                 output_dir,
             )
             results.append(result)
@@ -199,9 +212,7 @@ def sync(
             )
         except Exception as e:
             console.print(f"    [red]✗ Error: {e}[/red]")
-            results.append(
-                {"run_id": run_config.id, "run_name": run_config.name, "error": str(e)}
-            )
+            results.append({"run_id": run_id, "run_name": run_name, "error": str(e)})
 
     # Summary
     console.print("\n[bold]Summary:[/bold]")
@@ -209,7 +220,7 @@ def sync(
     failed = [r for r in results if "error" in r]
     console.print(f"  Successful: {len(successful)}")
     console.print(f"  Failed: {len(failed)}")
-    console.print(f"  Total runs in manifest: {len(config.runs)}")
+    console.print(f"  Total runs in manifest: {len(config.run_names)}")
     console.print(f"\nData saved to: {output_dir}")
 
 
@@ -229,13 +240,9 @@ def list_runs(
     """
     config = load_manifest(manifest)
 
-    console.print(f"[bold]Runs in {manifest}:[/bold]\n")
-    for i, run in enumerate(config.runs, 1):
-        console.print(f"{i}. {run.id}")
-        console.print(f"   Name: {run.name}")
-        if run.notes:
-            console.print(f"   Notes: {run.notes}")
-        console.print()
+    console.print(f"[bold]Run names in {manifest}:[/bold]\n")
+    for i, run_name in enumerate(config.run_names, 1):
+        console.print(f"{i}. {run_name}")
 
 
 @app.command()
@@ -259,15 +266,35 @@ def status(
 
     console.print("[bold]Download status:[/bold]\n")
 
-    for run in config.runs:
-        run_dir = output_dir / run.id
-        if run_dir.exists():
-            # Count files
-            files_dir = run_dir / "files"
-            file_count = len(list(files_dir.glob("**/*"))) if files_dir.exists() else 0
-            console.print(f"[green]✓[/green] {run.id} - {file_count} files")
-        else:
-            console.print(f"[red]✗[/red] {run.id} - not downloaded")
+    # Need to look up run IDs from names
+    api = wandb.Api()
+    for run_name in config.run_names:
+        try:
+            runs = api.runs(
+                f"{config.project.entity}/{config.project.project}",
+                filters={"display_name": run_name},
+            )
+            matching_runs = list(runs)
+            if matching_runs:
+                run_id = matching_runs[0].id
+                run_dir = output_dir / run_id
+                if run_dir.exists():
+                    # Count files
+                    files_dir = run_dir / "files"
+                    file_count = (
+                        len(list(files_dir.glob("**/*"))) if files_dir.exists() else 0
+                    )
+                    console.print(
+                        f"[green]✓[/green] {run_name} ({run_id}) - {file_count} files"
+                    )
+                else:
+                    console.print(
+                        f"[red]✗[/red] {run_name} ({run_id}) - not downloaded"
+                    )
+            else:
+                console.print(f"[yellow]?[/yellow] {run_name} - not found in W&B")
+        except Exception as e:
+            console.print(f"[red]✗[/red] {run_name} - error: {e}")
 
 
 if __name__ == "__main__":
