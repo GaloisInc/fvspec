@@ -71,8 +71,7 @@ class WandbConfig(BaseModel):
         project: wandb project name
         entity: wandb entity/team name (optional)
         tags: Additional tags for runs
-        upload_samples: Upload all sample outputs as artifacts (Spec.lean, qa.json, datapoint.json)
-        sync_dep_cache: Download cache at start, upload at end of runs
+        upload_samples: Upload all sample outputs (Spec.lean, Impl.lean, Tests.lean, qa.json, datapoint.json)
     """
 
     enabled: bool = False
@@ -80,7 +79,6 @@ class WandbConfig(BaseModel):
     entity: str | None = None
     tags: list[str] = []
     upload_samples: bool = True
-    sync_dep_cache: bool = True
 
 
 class PlausibleConfig(BaseModel):

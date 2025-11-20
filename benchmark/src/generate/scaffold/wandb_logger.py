@@ -1,7 +1,6 @@
 """Weights & Biases integration for fvspec benchmark tracking."""
 
 import statistics
-from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -106,42 +105,19 @@ class WandbLogger:
 
         self.run.log(metrics, step=step)
 
-    def log_artifact(
-        self,
-        artifact_path: Path,
-        artifact_type: str,
-        name: str | None = None,
-    ) -> None:
-        """Log a file artifact to wandb.
-
-        Args:
-            artifact_path: Path to the artifact file
-            artifact_type: Type of artifact (e.g., "lean_code", "qa_json")
-            name: Optional name for the artifact (defaults to filename)
-        """
-        if not self.config.enabled or self.run is None:
-            return
-
-        if not artifact_path.exists():
-            return
-
-        artifact = wandb.Artifact(
-            name=name or artifact_path.stem,
-            type=artifact_type,
-        )
-        artifact.add_file(str(artifact_path))
-        self.run.log_artifact(artifact)
-
-    def log_sample_to_artifact(self, sample_dir: Path, sample_id: str) -> None:
+    def log_sample_files(self, sample_dir: Path) -> None:
         """Upload sample files to wandb run incrementally.
 
         This method uploads the sample's Lean code, QA JSON, and datapoint JSON
         directly to the wandb run using run.save(). Files are uploaded immediately
         and incrementally, so they're preserved even if the run is canceled.
 
+        Files appear in the wandb UI under "Files" tab for the run, organized by
+        the directory structure: <timestamp>__<variant>/<sample_id>__<pbt_name>/
+
         Args:
             sample_dir: Directory containing the sample's output files
-            sample_id: Unique identifier for the sample
+                       (e.g., artifacts/runs/2025-11-10T15-18-13__control-functional/10104_test_foo/)
         """
         if not self.config.enabled or not self.config.upload_samples:
             return
@@ -153,7 +129,6 @@ class WandbLogger:
             return
 
         # Upload sample files directly to the run (incremental uploads)
-        # Files appear in the wandb UI under "Files" tab for the run
         for file_path in sample_dir.glob("*"):
             if file_path.is_file() and file_path.suffix in {".lean", ".json"}:
                 # Use run.save() to upload files incrementally
@@ -255,66 +230,6 @@ class WandbLogger:
         for key, value in summary.items():
             self.run.summary[key] = value
 
-    def download_dep_cache(self) -> Path | None:
-        """Download the latest dependency cache from wandb artifacts.
-
-        Returns:
-            Path to the cache directory if successful, None otherwise
-        """
-        if not self.config.enabled or not self.config.sync_dep_cache:
-            return None
-
-        if self.run is None:
-            return None
-
-        try:
-            # Try to use the latest dep cache artifact
-            artifact = self.run.use_artifact(
-                "dep-cache:latest", type="dependency-cache"
-            )
-            cache_dir = Path.cwd() / "artifacts" / "depcache"
-            artifact.download(root=str(cache_dir))
-            return cache_dir
-        except Exception as e:
-            # Artifact doesn't exist yet (first run) or download failed
-            print(f"Note: Could not download dep cache: {e}")
-            return None
-
-    def upload_dep_cache(self) -> None:
-        """Upload the current dependency cache to wandb artifacts.
-
-        Creates a new version of the dep-cache artifact with the current state
-        of the local dependency cache.
-        """
-        if not self.config.enabled or not self.config.sync_dep_cache:
-            return
-
-        if self.run is None:
-            return
-
-        cache_dir = Path.cwd() / "artifacts" / "depcache"
-        if not cache_dir.exists() or not any(cache_dir.iterdir()):
-            # No cache to upload
-            return
-
-        try:
-            artifact = wandb.Artifact(
-                name="dep-cache",
-                type="dependency-cache",
-                description="Cached dependency formalizations",
-                metadata={
-                    "updated_at": datetime.now().isoformat(),
-                },
-            )
-
-            # Add entire cache directory
-            artifact.add_dir(str(cache_dir))
-
-            # Log the artifact
-            self.run.log_artifact(artifact)
-        except Exception as e:
-            print(f"Warning: Could not upload dep cache: {e}")
-
     def finish(self) -> None:
         """Finish the wandb run."""
         if self.run is not None:
@@ -350,10 +265,10 @@ def get_wandb_logger() -> WandbLogger | None:
 
 
 def log_sample_to_wandb(state: TaskState) -> None:
-    """Log metrics and artifacts for a completed sample to wandb.
+    """Log metrics and files for a completed sample to wandb.
 
     This function is designed to be called from the write_to_disk cleanup function.
-    It logs both per-sample metrics and uploads sample files to the run artifact.
+    It logs both per-sample metrics and uploads sample files to the run.
 
     Args:
         state: The task state after sample completion
@@ -366,7 +281,7 @@ def log_sample_to_wandb(state: TaskState) -> None:
     qa = QualityAssessment.from_task_state(state)
     logger.log_sample_metrics(qa)
 
-    # Upload sample files to run artifact
+    # Upload sample files to run
     date_time = cast(str, state.metadata.get("date_time"))
     variant = cast(str, state.metadata.get("variant"))
     sample_id = str(state.sample_id)
@@ -374,5 +289,5 @@ def log_sample_to_wandb(state: TaskState) -> None:
     # Get the sample directory
     sample_dir = utilio.get_sample_output_dir(date_time, sample_id, variant)
 
-    # Log all sample files to the run artifact incrementally
-    logger.log_sample_to_artifact(sample_dir, sample_id)
+    # Upload all sample files to the run incrementally
+    logger.log_sample_files(sample_dir)
