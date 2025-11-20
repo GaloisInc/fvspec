@@ -352,7 +352,7 @@ If radon metrics aren't in the database yet, compute and import them once:
 
 ```bash
 # Compute metrics for all PBTs in the database
-uv run compute-radon-metrics --output artifacts/radon_metrics/metrics.json
+uv run compute-radon-metrics compute --output artifacts/radon_metrics/metrics.json
 
 # Import into database (creates radon_metrics table)
 uv run import-radon-metrics artifacts/radon_metrics/metrics.json

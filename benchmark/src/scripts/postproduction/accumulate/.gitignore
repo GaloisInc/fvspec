@@ -1,0 +1,8 @@
+# Gitignore for postproduction accumulate
+
+# Downloaded W&B run data is in artifacts/postproduction/
+# which is already covered by benchmark/artifacts/.gitignore
+
+# Python cache
+__pycache__/
+*.pyc

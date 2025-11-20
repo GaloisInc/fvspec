@@ -45,6 +45,7 @@ unit-test-dashboard = "scripts.unit_test_dashboard:cli"
 compute-radon-metrics = "scripts.compute_radon_metrics:cli"
 import-radon-metrics = "scripts.import_radon_metrics:cli"
 ci-digest = "scripts.ci_digest:main"
+accumulate = "scripts.postproduction.accumulate:app"
 
 [tool.pytest.ini_options]
 filterwarnings = [
