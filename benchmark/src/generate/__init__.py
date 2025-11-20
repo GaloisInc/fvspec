@@ -1,5 +1,7 @@
 """Generate the benchmark."""
 
+import atexit
+import signal
 from datetime import datetime
 from pathlib import Path
 
@@ -153,6 +155,21 @@ def main_callback(
             timestamp=timestamp,
         )
 
+        # Register cleanup handler for both normal exit and signals
+        def cleanup_wandb():
+            wandb_logger.finish()
+
+        atexit.register(cleanup_wandb)
+
+        # Handle Ctrl+C and other termination signals
+        def signal_handler(signum, frame):
+            print("\n⚠️  Interrupted - finalizing wandb run...")
+            cleanup_wandb()
+            raise KeyboardInterrupt()
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
     try:
         eval(
             fvspec(
@@ -171,8 +188,8 @@ def main_callback(
         # Clean up empty sample directories (created by inspect_ai but unused)
         utilio.cleanup_empty_sample_dirs(log_dir)
 
-        if wandb_cfg.enabled:
-            wandb_logger.finish()
+        # Note: wandb cleanup handled by atexit/signal handlers
+        # to ensure it runs even on interrupts
 
 
 @app.command(name="compare-variants")
@@ -305,6 +322,22 @@ def compare_variants(
                 )
                 wandb_loggers[v] = variant_logger
 
+            # Register cleanup handlers for all wandb loggers
+            def cleanup_all_wandb():
+                for logger in wandb_loggers.values():
+                    logger.finish()
+
+            atexit.register(cleanup_all_wandb)
+
+            # Handle Ctrl+C and other termination signals
+            def signal_handler(signum, frame):
+                print("\n⚠️  Interrupted - finalizing wandb runs...")
+                cleanup_all_wandb()
+                raise KeyboardInterrupt()
+
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
         # Create task instances for each variant (use same timestamp for all)
         tasks = [
             fvspec(
@@ -330,9 +363,8 @@ def compare_variants(
             # Clean up empty sample directories (created by inspect_ai but unused)
             utilio.cleanup_empty_sample_dirs(log_dir)
 
-            if wandb_cfg.enabled:
-                for variant_logger in wandb_loggers.values():
-                    variant_logger.finish()
+            # Note: wandb cleanup handled by atexit/signal handlers
+            # to ensure it runs even on interrupts
 
             # Clean up empty log directory (handles both failures and mocked eval_set in tests)
             if log_dir.exists() and not any(log_dir.iterdir()):
