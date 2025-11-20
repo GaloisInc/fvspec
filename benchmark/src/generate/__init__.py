@@ -160,6 +160,22 @@ def main_callback(
     # Initialize wandb logger if enabled
     wandb_logger = init_wandb_logger(wandb_cfg)
     if wandb_cfg.enabled:
+        # Register cleanup handler for both normal exit and signals
+        def cleanup_wandb():
+            wandb_logger.finish()
+
+        atexit.register(cleanup_wandb)
+
+        # Handle Ctrl+C and other termination signals
+        # Register these BEFORE init_run to ensure they're active during initialization
+        def signal_handler(signum, frame):
+            print("\n⚠️  Interrupted - finalizing wandb run...")
+            cleanup_wandb()
+            raise KeyboardInterrupt()
+
+        signal.signal(signal.SIGINT, signal_handler)
+        signal.signal(signal.SIGTERM, signal_handler)
+
         wandb_logger.init_run(
             variant=use_variant or "default",
             model=cfg.agent.model,
@@ -169,21 +185,6 @@ def main_callback(
             start_idx=start_idx,
             end_idx=end_idx,
         )
-
-        # Register cleanup handler for both normal exit and signals
-        def cleanup_wandb():
-            wandb_logger.finish()
-
-        atexit.register(cleanup_wandb)
-
-        # Handle Ctrl+C and other termination signals
-        def signal_handler(signum, frame):
-            print("\n⚠️  Interrupted - finalizing wandb run...")
-            cleanup_wandb()
-            raise KeyboardInterrupt()
-
-        signal.signal(signal.SIGINT, signal_handler)
-        signal.signal(signal.SIGTERM, signal_handler)
 
     try:
         eval(
@@ -338,6 +339,23 @@ def compare_variants(
 
         wandb_loggers = {}
         if wandb_cfg.enabled:
+            # Register cleanup handlers for all wandb loggers
+            def cleanup_all_wandb():
+                for logger in wandb_loggers.values():
+                    logger.finish()
+
+            atexit.register(cleanup_all_wandb)
+
+            # Handle Ctrl+C and other termination signals
+            # Register these BEFORE init_run calls to ensure they're active during initialization
+            def signal_handler(signum, frame):
+                print("\n⚠️  Interrupted - finalizing wandb runs...")
+                cleanup_all_wandb()
+                raise KeyboardInterrupt()
+
+            signal.signal(signal.SIGINT, signal_handler)
+            signal.signal(signal.SIGTERM, signal_handler)
+
             for v in variants_to_compare:
                 variant_logger = init_wandb_logger(wandb_cfg)
                 variant_logger.init_run(
@@ -351,22 +369,6 @@ def compare_variants(
                     end_idx=end_idx,
                 )
                 wandb_loggers[v] = variant_logger
-
-            # Register cleanup handlers for all wandb loggers
-            def cleanup_all_wandb():
-                for logger in wandb_loggers.values():
-                    logger.finish()
-
-            atexit.register(cleanup_all_wandb)
-
-            # Handle Ctrl+C and other termination signals
-            def signal_handler(signum, frame):
-                print("\n⚠️  Interrupted - finalizing wandb runs...")
-                cleanup_all_wandb()
-                raise KeyboardInterrupt()
-
-            signal.signal(signal.SIGINT, signal_handler)
-            signal.signal(signal.SIGTERM, signal_handler)
 
         # Create task instances for each variant (use same timestamp for all)
         tasks = [
