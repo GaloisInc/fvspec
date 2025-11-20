@@ -63,10 +63,10 @@ try:
     # Output directory is relative to benchmark/ root
     output_dir = Path(manifest["project"]["output_dir"])
 
-    st.sidebar.success(f"Loaded {len(manifest['runs'])} runs from manifest")
+    st.sidebar.success(f"Loaded {len(manifest['run_names'])} runs from manifest")
 
     # Run selection
-    run_options = {f"{r['id']}: {r['name']}": r["id"] for r in manifest["runs"]}
+    run_options = {run_id: run_id for run_id in manifest["run_names"]}
 
     if not run_options:
         st.warning("No runs found in manifest.toml")
