@@ -21,7 +21,7 @@ ranseed = 0
 
 [wandb]
 # Enable Weights & Biases logging
-enabled = true
+enabled = false
 # Project name in wandb
 project = "fvspec"
 # Entity/team name (optional, defaults to your personal account)
