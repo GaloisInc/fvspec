@@ -1,6 +1,7 @@
 """Generate the benchmark."""
 
 import atexit
+import os
 import signal
 from datetime import datetime
 from pathlib import Path
@@ -16,6 +17,11 @@ from generate.scaffold.wandb_logger import init_wandb_logger
 from generate.templates.spec import VariantRegistry
 
 cfg = load_config()
+
+# Set WANDB_MODE=disabled to prevent authentication when wandb is disabled
+# This must happen before any wandb imports or operations
+if not cfg.wandb.enabled:
+    os.environ["WANDB_MODE"] = "disabled"
 
 app = Typer(no_args_is_help=False, invoke_without_command=True)
 
