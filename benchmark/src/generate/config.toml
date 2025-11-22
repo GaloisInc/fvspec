@@ -4,7 +4,7 @@ max_tokens = -1
 
 [meta]
 # Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
-display = "rich"
+display = "none"
 # Number of samples to evaluate in parallel
 parallelism = 128
 
