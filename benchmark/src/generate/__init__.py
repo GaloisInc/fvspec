@@ -74,7 +74,7 @@ def main_callback(
     wandb_disable: bool = Option(
         False,
         "--wandb-disable",
-        help="Disable Weights & Biases logging. Default is to enable wandb.",
+        help="Disable Weights & Biases logging (overrides config.toml setting).",
     ),
     wandb_project: str = Option(
         None,
@@ -143,10 +143,11 @@ def main_callback(
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
 
-    # Configure wandb settings: CLI args > config
-    # Default is enabled unless --wandb-disable flag is set
+    # Configure wandb settings: CLI flag > config
+    # --wandb-disable flag explicitly disables, otherwise use config.toml setting
+    wandb_enabled = cfg.wandb.enabled if not wandb_disable else False
     wandb_cfg = WandbConfig(
-        enabled=not wandb_disable,
+        enabled=wandb_enabled,
         project=wandb_project or cfg.wandb.project,
         entity=wandb_entity or cfg.wandb.entity,
         tags=(wandb_tags or []) + cfg.wandb.tags,
@@ -259,7 +260,7 @@ def compare_variants(
     wandb_disable: bool = Option(
         False,
         "--wandb-disable",
-        help="Disable Weights & Biases logging. Default is to enable wandb.",
+        help="Disable Weights & Biases logging (overrides config.toml setting).",
     ),
     wandb_project: str = Option(
         None,
@@ -328,10 +329,11 @@ def compare_variants(
     log_dir.mkdir(parents=True, exist_ok=True)
 
     try:
-        # Configure wandb settings: CLI args > config
-        # Default is enabled unless --wandb-disable flag is set
+        # Configure wandb settings: CLI flag > config
+        # --wandb-disable flag explicitly disables, otherwise use config.toml setting
+        wandb_enabled = cfg.wandb.enabled if not wandb_disable else False
         wandb_cfg = WandbConfig(
-            enabled=not wandb_disable,
+            enabled=wandb_enabled,
             project=wandb_project or cfg.wandb.project,
             entity=wandb_entity or cfg.wandb.entity,
             tags=(wandb_tags or []) + cfg.wandb.tags,
