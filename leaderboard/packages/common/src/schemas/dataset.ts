@@ -25,8 +25,8 @@ export const DatasetSampleDetailSchema = z.object({
   tests: z.string(), // Generated Lean tests
 
   // Metadata
-  summary: z.string().optional(),
-  repo_id: z.string().optional(),
+  summary: z.string().nullable().optional(), // Can be null or missing
+  repo_id: z.number().optional(), // Number, not string
   source_file: z.string().optional(),
   variant: z.string().optional(),
   model: z.string().optional(),
