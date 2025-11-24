@@ -349,7 +349,7 @@ def bar := 2
 end Fvspec.Impl"""
         result = strip_spec_keywords(code)
         # Note: This removes standalone "sorry" lines, not "sorry" within def bodies
-        assert "sorry" not in result  # Standalone "sorry" should be removed
+        assert "sorry" not in result
         assert "def foo" in result
         assert "def bar" in result
 
