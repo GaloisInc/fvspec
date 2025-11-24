@@ -36,7 +36,7 @@ export const DatasetSampleDetailSchema = z.object({
   lines_pbt: z.number().optional(),
   lines_code: z.number().optional(),
   num_theorems: z.number().optional(),
-  structural_faithfulness: z.record(z.string(), z.unknown()).optional(),
+  structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
 /**
