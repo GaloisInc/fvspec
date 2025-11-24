@@ -4,6 +4,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { serve } from '@hono/node-server'
 import { eq, desc, sql, and } from 'drizzle-orm'
+import path from 'node:path'
 import {
   CreateSubmissionSchema,
   ResultsRequestSchema,
@@ -16,12 +17,26 @@ import { db } from './db/client.js'
 import { submissions, runs, results, attestations } from './db/schema.js'
 import { submissionsQueue } from './lib/queue.js'
 import { requireApiToken } from './lib/auth.js'
+import { loadDataset, getAllSamples, getSampleById } from './lib/dataset.js'
 
 const app = new Hono()
 
 // Middleware
 app.use('*', logger())
 app.use('*', cors())
+
+// Load dataset at startup
+// Use environment variable or default relative path
+const datasetPath =
+  process.env.DATASET_PATH ||
+  path.resolve(process.cwd(), '../../../benchmark/artifacts/dataset-out/fvspec.jsonl')
+try {
+  loadDataset(datasetPath)
+  console.log('[startup] Dataset loaded successfully')
+} catch (error) {
+  console.error('[startup] Failed to load dataset:', error)
+  console.error('[startup] Dataset endpoints will not be available')
+}
 
 // Health check
 app.get('/', c => c.json({ ok: true, service: 'fvspec-leaderboard-api' }))
@@ -277,6 +292,52 @@ app.get('/runs/:id', async c => {
       return c.json({ error: error.message }, 400)
     }
     return c.json({ error: 'Internal server error' }, 500)
+  }
+})
+
+/**
+ * GET /dataset/list
+ * Returns list of all dataset samples (minimal data for dropdown)
+ */
+app.get('/dataset/list', c => {
+  try {
+    const samples = getAllSamples()
+    return c.json({ samples, total: samples.length })
+  } catch (error) {
+    console.error('GET /dataset/list error:', error)
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500)
+    }
+    return c.json({ error: 'Failed to load dataset' }, 500)
+  }
+})
+
+/**
+ * GET /dataset/:id
+ * Returns full sample by ID
+ */
+app.get('/dataset/:id', c => {
+  try {
+    const idParam = c.req.param('id')
+    const id = parseInt(idParam, 10)
+
+    if (isNaN(id)) {
+      return c.json({ error: 'Invalid sample ID' }, 400)
+    }
+
+    const sample = getSampleById(id)
+
+    if (!sample) {
+      return c.json({ error: 'Sample not found' }, 404)
+    }
+
+    return c.json(sample)
+  } catch (error) {
+    console.error('GET /dataset/:id error:', error)
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500)
+    }
+    return c.json({ error: 'Failed to load sample' }, 500)
   }
 })
 

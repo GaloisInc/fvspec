@@ -10,9 +10,20 @@ export const metadata = {
 export default function PaperPage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Pre-Alpha Warning Banner */}
+      <div className="border-b bg-red-500/10 border-red-500/20">
+        <div className="container mx-auto px-4 py-3">
+          <p className="text-center text-sm md:text-base font-semibold text-red-700 dark:text-red-400">
+            ⚠️ STUB CONTENT — This is NOT the real paper. All text is AI-generated placeholder. ⚠️
+          </p>
+        </div>
+      </div>
+
       <div className="border-b">
         <div className="container mx-auto px-4 py-8">
-          <Badge className="mb-4">Research Paper</Badge>
+          <Badge className="mb-4" variant="destructive">
+            DRAFT STUB (NOT REAL PAPER)
+          </Badge>
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             fvspec: Evaluating AI Models on Formal Verification Tasks
           </h1>
@@ -49,9 +60,26 @@ export default function PaperPage() {
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
         <article className="prose prose-gray dark:prose-invert max-w-none">
-          <Card className="mb-8">
+          <div className="mb-6 p-4 bg-red-50 dark:bg-red-950/20 border-2 border-red-200 dark:border-red-800 rounded-lg">
+            <p className="text-sm font-semibold text-red-800 dark:text-red-300 mb-2">
+              ⚠️ NOTICE: THIS IS NOT THE REAL PAPER ⚠️
+            </p>
+            <p className="text-xs text-red-700 dark:text-red-400 mb-2">
+              This entire page contains AI-generated stub text for UI/UX mockup purposes ONLY. The
+              abstract, results, claims, and references are all fake placeholder content.
+            </p>
+            <p className="text-xs font-semibold text-red-800 dark:text-red-300">
+              Treat this exactly like lorem ipsum — it is NOT ready for reading, review, citation,
+              or distribution.
+            </p>
+          </div>
+
+          <Card className="mb-8 border-red-500/20 bg-red-500/5">
             <CardContent className="pt-6">
-              <h2 className="text-xl font-bold mb-4">Abstract</h2>
+              <h2 className="text-xl font-bold mb-2">Abstract</h2>
+              <p className="text-xs text-red-700 dark:text-red-400 font-semibold mb-4 uppercase">
+                Stub text — Not the real abstract
+              </p>
               <p className="text-muted-foreground leading-relaxed">
                 We present <strong>fvspec</strong>, a benchmark for evaluating AI models on formal
                 verification tasks using Lean 4. Unlike existing benchmarks that rely on synthetic

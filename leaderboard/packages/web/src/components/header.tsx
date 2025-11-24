@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 
 export function Header() {
   return (
@@ -8,6 +9,9 @@ export function Header() {
         <div className="flex items-center gap-6">
           <Link href="/" className="flex items-center space-x-2">
             <span className="font-bold text-xl">fvspec</span>
+            <Badge variant="outline" className="text-xs">
+              PRE-ALPHA
+            </Badge>
           </Link>
           <nav className="hidden md:flex gap-6">
             <Link
@@ -15,6 +19,12 @@ export function Header() {
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >
               Leaderboard
+            </Link>
+            <Link
+              href="/dataset/341"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Dataset
             </Link>
             <Link
               href="/submit"
