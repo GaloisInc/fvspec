@@ -1,26 +1,27 @@
-"""Post-production: Merge multiple benchmark runs into a unified dataset.
+"""Post-production: Merge multiple benchmark runs into a unified JSONL dataset.
 
-This CLI tool merges sample directories from multiple runs listed in runs.txt
-into a single dataset-out/ directory. Handles conflicts by prefixing duplicate
-sample IDs with CONFLICT_N__.
+This CLI tool merges sample data from multiple runs listed in runs.txt
+into a single JSONL file where each line contains all data for one sample:
+- datapoint.json fields
+- qa.json fields
+- Lean code (spec, impl, tests)
+- Run provenance
 
 Usage (from benchmark/ directory):
     uv run merge runs.txt
     uv run merge --runs-file src/scripts/postproduction/merge/runs.txt
-    uv run merge --dry-run
+    uv run merge --output artifacts/dataset-out/my-dataset.jsonl
 """
 
-import shutil
-from collections import defaultdict
+import json
 from pathlib import Path
 from typing import Any
 
 import typer
 from rich.console import Console
 from rich.progress import track
-from rich.table import Table
 
-app = typer.Typer(help="Merge multiple benchmark runs into a unified dataset")
+app = typer.Typer(help="Merge multiple benchmark runs into a unified JSONL dataset")
 console = Console()
 
 
@@ -38,105 +39,96 @@ def load_runs_file(runs_file: Path) -> list[str]:
     return runs
 
 
-def find_samples_in_run(artifacts_dir: Path, run_name: str) -> dict[str, Path]:
-    """Find all sample directories in a run.
+def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
+    """Process a single sample directory into a combined JSON object.
 
     Args:
-        artifacts_dir: Path to artifacts/ directory
-        run_name: Name of the run directory
+        sample_dir: Path to sample directory (e.g., 341_test_foo/)
+        run_name: Name of the run this sample came from
 
     Returns:
-        Dictionary mapping sample_id to full path
+        Combined dictionary with all sample data, or None if files missing
     """
-    run_dir = artifacts_dir / "runs" / run_name
-    if not run_dir.exists():
-        console.print(f"[yellow]Warning: Run directory not found: {run_dir}[/yellow]")
-        return {}
+    # Load JSON files
+    datapoint_file = sample_dir / "datapoint.json"
+    qa_file = sample_dir / "qa.json"
 
-    samples = {}
-    for item in run_dir.iterdir():
-        # Skip .eval files and other non-sample items
-        if item.is_dir() and not item.name.startswith("."):
-            sample_id = item.name
-            samples[sample_id] = item
+    if not datapoint_file.exists() or not qa_file.exists():
+        console.print(
+            f"[yellow]Skipping {sample_dir.name}: missing datapoint.json or qa.json[/yellow]"
+        )
+        return None
 
-    return samples
+    with open(datapoint_file) as f:
+        datapoint = json.load(f)
+
+    with open(qa_file) as f:
+        qa = json.load(f)
+
+    # Read Lean code files
+    spec_file = sample_dir / "Spec.lean"
+    impl_file = sample_dir / "Impl.lean"
+    tests_file = sample_dir / "Tests.lean"
+
+    spec_code = spec_file.read_text() if spec_file.exists() else None
+    impl_code = impl_file.read_text() if impl_file.exists() else None
+    tests_code = tests_file.read_text() if tests_file.exists() else None
+
+    # Combine all data
+    combined = {
+        **datapoint,  # All fields from datapoint.json
+        **qa,  # All fields from qa.json
+        "spec": spec_code,
+        "impl": impl_code,
+        "tests": tests_code,
+        "run_provenance": run_name,  # Which run this sample came from
+    }
+
+    return combined
 
 
-def collect_all_samples(
-    artifacts_dir: Path, run_names: list[str]
-) -> dict[str, list[Path]]:
-    """Collect all samples from all runs, tracking conflicts.
+def merge_runs_to_jsonl(
+    artifacts_dir: Path, run_names: list[str], output_file: Path
+) -> dict[str, int]:
+    """Merge all samples from all runs into a single JSONL file.
 
     Args:
         artifacts_dir: Path to artifacts/ directory
         run_names: List of run directory names
-
-    Returns:
-        Dictionary mapping sample_id to list of paths (multiple if conflicts)
-    """
-    all_samples: dict[str, list[Path]] = defaultdict(list)
-
-    for run_name in run_names:
-        samples = find_samples_in_run(artifacts_dir, run_name)
-        for sample_id, path in samples.items():
-            all_samples[sample_id].append(path)
-
-    return dict(all_samples)
-
-
-def merge_samples(
-    all_samples: dict[str, list[Path]],
-    output_dir: Path,
-    dry_run: bool = False,
-) -> dict[str, Any]:
-    """Merge samples into output directory, handling conflicts.
-
-    Args:
-        all_samples: Dictionary mapping sample_id to list of source paths
-        output_dir: Target directory for merged samples
-        dry_run: If True, don't actually copy files
+        output_file: Path to output JSONL file
 
     Returns:
         Statistics about the merge operation
     """
-    stats: dict[str, Any] = {
-        "unique_samples": 0,
-        "conflicted_samples": 0,
-        "total_copies": 0,
-        "conflicts": [],
-    }
+    stats = {"total_samples": 0, "skipped": 0, "runs_processed": 0}
 
-    for sample_id, source_paths in track(
-        all_samples.items(),
-        description="Merging samples",
-        console=console,
-    ):
-        if len(source_paths) == 1:
-            # No conflict - copy directly
-            target = output_dir / sample_id
-            if not dry_run:
-                if target.exists():
-                    shutil.rmtree(target)
-                shutil.copytree(source_paths[0], target)
-            stats["unique_samples"] += 1
-            stats["total_copies"] += 1
+    with open(output_file, "w") as outfile:
+        for run_name in track(
+            run_names, description="Processing runs", console=console
+        ):
+            run_dir = artifacts_dir / "runs" / run_name
 
-        else:
-            # Conflict - copy all versions with CONFLICT_N__ prefix
-            stats["conflicted_samples"] += 1
-            stats["conflicts"].append(
-                {"sample_id": sample_id, "num_versions": len(source_paths)}
-            )
+            if not run_dir.exists():
+                console.print(
+                    f"[yellow]Warning: Run directory not found: {run_dir}[/yellow]"
+                )
+                continue
 
-            for i, source_path in enumerate(source_paths):
-                conflict_name = f"CONFLICT_{i}__{sample_id}"
-                target = output_dir / conflict_name
-                if not dry_run:
-                    if target.exists():
-                        shutil.rmtree(target)
-                    shutil.copytree(source_path, target)
-                stats["total_copies"] += 1
+            stats["runs_processed"] += 1
+
+            # Process each sample directory in the run
+            for sample_dir in sorted(run_dir.iterdir()):
+                # Skip .eval files and other non-sample items
+                if not sample_dir.is_dir() or sample_dir.name.startswith("."):
+                    continue
+
+                combined = process_sample(sample_dir, run_name)
+                if combined:
+                    # Write as single-line JSON
+                    outfile.write(json.dumps(combined) + "\n")
+                    stats["total_samples"] += 1
+                else:
+                    stats["skipped"] += 1
 
     return stats
 
@@ -147,37 +139,27 @@ def main(
         ...,
         help="Path to runs.txt file (absolute or relative to benchmark/)",
     ),
-    output_dir: str = typer.Option(
-        "artifacts/dataset-out",
+    output: str = typer.Option(
+        "artifacts/dataset-out/fvspec.jsonl",
         "--output",
         "-o",
-        help="Output directory for merged samples (relative to benchmark/)",
-    ),
-    dry_run: bool = typer.Option(
-        False,
-        "--dry-run",
-        "-n",
-        help="Show what would be done without actually copying files",
-    ),
-    force: bool = typer.Option(
-        False,
-        "--force",
-        "-f",
-        help="Remove existing output directory if it exists",
+        help="Output JSONL file path (relative to benchmark/)",
     ),
 ) -> None:
-    """Merge multiple benchmark runs into a unified dataset.
+    """Merge multiple benchmark runs into a unified JSONL dataset.
 
-    Reads run directory names from runs_file (e.g., runs.txt) and merges all
-    sample directories into a single output directory. Handles conflicts by
-    prefixing duplicate sample IDs with CONFLICT_N__.
+    Reads run directory names from runs_file (e.g., runs.txt) and creates
+    a JSONL file where each line contains all data for one sample:
+    - All fields from datapoint.json
+    - All fields from qa.json
+    - Lean code (spec, impl, tests) as string fields
+    - run_provenance field indicating which run it came from
 
     Examples (from benchmark/ directory):
         uv run merge src/scripts/postproduction/merge/runs.txt
-        uv run merge runs.txt --output artifacts/my-dataset
-        uv run merge runs.txt --dry-run
+        uv run merge runs.txt --output artifacts/dataset-out/my-dataset.jsonl
     """
-    console.print("[bold]Post-production: Merging benchmark runs[/bold]\n")
+    console.print("[bold]Post-production: Merging benchmark runs to JSONL[/bold]\n")
 
     # Load runs file
     if not runs_file.exists():
@@ -197,7 +179,7 @@ def main(
 
     # Setup paths
     artifacts_dir = Path("artifacts")
-    output_path = Path(output_dir)
+    output_path = Path(output)
 
     if not artifacts_dir.exists():
         console.print(
@@ -206,79 +188,24 @@ def main(
         console.print("Make sure you're running from the benchmark/ directory")
         raise typer.Exit(1)
 
-    # Check output directory
-    if output_path.exists():
-        if force:
-            console.print(
-                f"\n[yellow]Removing existing output directory: {output_path}[/yellow]"
-            )
-            if not dry_run:
-                shutil.rmtree(output_path)
-        elif not dry_run:
-            console.print(
-                f"[red]Error: Output directory already exists: {output_path}[/red]"
-            )
-            console.print(
-                "Use --force to remove it or choose a different output directory"
-            )
-            raise typer.Exit(1)
+    # Create output directory if needed
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Create output directory
-    if not dry_run:
-        output_path.mkdir(parents=True, exist_ok=True)
-    console.print(f"\nOutput directory: {output_path}")
+    console.print(f"\nOutput file: {output_path}")
 
-    if dry_run:
-        console.print("[yellow]DRY RUN MODE - No files will be copied[/yellow]")
-
-    # Collect all samples
-    console.print("\nCollecting samples from all runs...")
-    all_samples = collect_all_samples(artifacts_dir, run_names)
-
-    console.print(f"Found {len(all_samples)} unique sample IDs\n")
-
-    # Merge samples
-    stats = merge_samples(all_samples, output_path, dry_run=dry_run)
+    # Merge runs to JSONL
+    stats = merge_runs_to_jsonl(artifacts_dir, run_names, output_path)
 
     # Display summary
     console.print("\n[bold]Merge Summary:[/bold]\n")
+    console.print(f"  Runs processed: {stats['runs_processed']}")
+    console.print(f"  Total samples: {stats['total_samples']}")
+    console.print(f"  Skipped: {stats['skipped']}")
 
-    summary_table = Table(show_header=True, header_style="bold")
-    summary_table.add_column("Metric", style="cyan")
-    summary_table.add_column("Count", style="green", justify="right")
-
-    summary_table.add_row("Unique samples", str(stats["unique_samples"]))
-    summary_table.add_row("Conflicted samples", str(stats["conflicted_samples"]))
-    summary_table.add_row("Total copies", str(stats["total_copies"]))
-
-    console.print(summary_table)
-
-    # Display conflicts if any
-    if stats["conflicts"]:
-        console.print("\n[bold]Conflicts detected:[/bold]\n")
-
-        conflict_table = Table(show_header=True, header_style="bold")
-        conflict_table.add_column("Sample ID", style="yellow")
-        conflict_table.add_column("Versions", style="red", justify="right")
-
-        for conflict in stats["conflicts"][:20]:  # Show first 20
-            conflict_table.add_row(conflict["sample_id"], str(conflict["num_versions"]))
-
-        if len(stats["conflicts"]) > 20:
-            conflict_table.add_row(f"... and {len(stats['conflicts']) - 20} more", "")
-
-        console.print(conflict_table)
-
-        console.print(
-            "\n[yellow]Note: Conflicted samples saved as CONFLICT_N__<sample_id>[/yellow]"
-        )
-
-    if not dry_run:
-        console.print(
-            f"\n[green]✓[/green] Merge complete! Data saved to: {output_path}"
-        )
-    else:
-        console.print("\n[yellow]Dry run complete. No files were copied.[/yellow]")
+    console.print(f"\n[green]✓[/green] Merge complete! Data saved to: {output_path}")
+    console.print(
+        f"[dim]File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB[/dim]"
+    )
 
 
 if __name__ == "__main__":
