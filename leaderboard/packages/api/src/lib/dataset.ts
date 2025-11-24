@@ -8,6 +8,12 @@ import { DatasetSampleDetail, DatasetSampleListItem } from '@fvspec/common'
 let datasetCache: Map<number, DatasetSampleDetail> | null = null
 
 /**
+ * Cached sorted list of all samples for efficient retrieval.
+ * Populated once during loadDataset() to avoid recreating on every getAllSamples() call.
+ */
+let sampleListCache: DatasetSampleListItem[] | null = null
+
+/**
  * Load dataset from JSONL file and cache in memory.
  * Should be called once at API startup.
  *
@@ -51,6 +57,18 @@ export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> 
     }
 
     datasetCache = cache
+
+    // Populate sample list cache
+    const samples: DatasetSampleListItem[] = []
+    for (const [sampleId, sample] of cache.entries()) {
+      samples.push({
+        sample_id: sampleId,
+        sample_name: sample.sample_name,
+      })
+    }
+    samples.sort((a, b) => a.sample_id - b.sample_id)
+    sampleListCache = samples
+
     console.log(`[dataset] Successfully loaded ${cache.size} samples`)
 
     return cache
@@ -62,7 +80,7 @@ export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> 
 
 /**
  * Get list of all samples (minimal data for dropdown).
- * Returns array sorted by sample_id.
+ * Returns cached array sorted by sample_id.
  *
  * @returns Array of {sample_id, sample_name}
  * @throws Error if dataset not loaded
@@ -72,17 +90,21 @@ export function getAllSamples(): DatasetSampleListItem[] {
     throw new Error('Dataset not loaded. Call loadDataset() first.')
   }
 
-  const samples: DatasetSampleListItem[] = []
+  // Return cached list (populated during loadDataset)
+  if (sampleListCache) {
+    return sampleListCache
+  }
 
+  // Fallback: build list if cache is missing (shouldn't happen in normal flow)
+  const samples: DatasetSampleListItem[] = []
   for (const [sampleId, sample] of datasetCache.entries()) {
     samples.push({
       sample_id: sampleId,
       sample_name: sample.sample_name,
     })
   }
-
-  // Sort by sample_id for consistent ordering
   samples.sort((a, b) => a.sample_id - b.sample_id)
+  sampleListCache = samples
 
   return samples
 }
