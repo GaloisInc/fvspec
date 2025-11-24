@@ -175,23 +175,22 @@ pnpm exec drizzle-kit push
 
 ### 4. Nginx Configuration
 
-#### Copy Configuration Files
+#### Install Nginx Configuration via Symlink
+
+Following the operations directory pattern, we symlink the nginx config from the
+repository as the single source of truth:
 
 ```bash
-# Copy nginx config
-sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+# Symlink nginx config from repository to sites-available
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
   /etc/nginx/sites-available/fvspec-leaderboard
 
-# The config is already set up for /home/quinnd/fvspec/ paths
-# Review if needed:
-# sudo nano /etc/nginx/sites-available/fvspec-leaderboard
-
-# Create symlink
-sudo ln -s /etc/nginx/sites-available/fvspec-leaderboard \
+# Enable the site by symlinking to sites-enabled
+sudo ln -sf /etc/nginx/sites-available/fvspec-leaderboard \
   /etc/nginx/sites-enabled/
 
 # Remove default site (optional)
-sudo rm /etc/nginx/sites-enabled/default
+sudo rm -f /etc/nginx/sites-enabled/default
 
 # Test configuration
 sudo nginx -t
@@ -199,6 +198,9 @@ sudo nginx -t
 # Reload nginx
 sudo systemctl reload nginx
 ```
+
+**Why symlinks?** Configuration lives in the repository (single source of truth).
+Updates via `git pull` are automatically reflected after `nginx -t && nginx -s reload`.
 
 #### Setup SSL (Optional for Prototype)
 
@@ -223,65 +225,36 @@ sudo certbot renew --dry-run
 
 ### 5. Systemd Services
 
-#### API Service
+Following the operations directory pattern, we symlink systemd service files from
+the repository as the single source of truth.
+
+#### Install Service Files via Symlinks
 
 ```bash
-sudo nano /etc/systemd/system/fvspec-api.service
+# Symlink API service
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
+  /etc/systemd/system/fvspec-api.service
+
+# Symlink Worker service
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
+  /etc/systemd/system/fvspec-worker.service
 ```
 
-```ini
-[Unit]
-Description=fvspec Leaderboard API
-After=network.target postgresql.service redis.service
+**Why symlinks?** Service definitions live in the repository (single source of truth).
+Updates via `git pull` are automatically available after `systemctl daemon-reload`.
 
-[Service]
-Type=simple
-User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
-EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
-ExecStart=/usr/local/bin/pnpm start
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
+The service files are located in `/home/quinnd/fvspec/leaderboard/operations/`:
 
-[Install]
-WantedBy=multi-user.target
-```
-
-#### Worker Service
-
-```bash
-sudo nano /etc/systemd/system/fvspec-worker.service
-```
-
-```ini
-[Unit]
-Description=fvspec Leaderboard Worker
-After=network.target redis.service
-
-[Service]
-Type=simple
-User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/worker
-EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
-ExecStart=/usr/local/bin/pnpm start
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
+- `fvspec-api.service` - API service configuration
+- `fvspec-worker.service` - Worker service configuration
 
 #### Enable and Start Services
 
 ```bash
-# Reload systemd
+# Reload systemd to pick up new service files
 sudo systemctl daemon-reload
 
-# Enable services
+# Enable services (start automatically on boot)
 sudo systemctl enable fvspec-api
 sudo systemctl enable fvspec-worker
 
@@ -292,6 +265,13 @@ sudo systemctl start fvspec-worker
 # Check status
 sudo systemctl status fvspec-api
 sudo systemctl status fvspec-worker
+```
+
+**Note**: After updating service files via `git pull`, run:
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart fvspec-api  # or fvspec-worker
 ```
 
 ### 6. Verify Deployment

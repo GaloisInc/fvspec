@@ -1,0 +1,17 @@
+[Unit]
+Description=fvspec Leaderboard API
+After=network.target postgresql.service redis.service
+
+[Service]
+Type=simple
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
+ExecStart=/usr/bin/pnpm start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

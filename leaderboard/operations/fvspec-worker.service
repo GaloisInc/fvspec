@@ -1,0 +1,17 @@
+[Unit]
+Description=fvspec Leaderboard Worker
+After=network.target redis.service
+
+[Service]
+Type=simple
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/worker
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
+ExecStart=/usr/bin/pnpm start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

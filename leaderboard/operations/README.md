@@ -76,15 +76,15 @@ pnpm build
 
 ### Step 3: Install Nginx Configuration
 
-On the server:
+On the server, symlink the nginx config from the repository (single source of truth):
 
 ```bash
-# Copy configuration to nginx sites-available
-sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+# Symlink nginx config from repository to sites-available
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
   /etc/nginx/sites-available/fvspec-leaderboard
 
-# Create symlink to sites-enabled
-sudo ln -s /etc/nginx/sites-available/fvspec-leaderboard \
+# Enable the site by symlinking to sites-enabled
+sudo ln -sf /etc/nginx/sites-available/fvspec-leaderboard \
   /etc/nginx/sites-enabled/
 
 # Test configuration
@@ -93,6 +93,9 @@ sudo nginx -t
 # Reload nginx
 sudo systemctl reload nginx
 ```
+
+**Note**: Using symlinks means configuration updates via `git pull` are automatically
+reflected after running `nginx -t && systemctl reload nginx`.
 
 ### Step 4: Setup SSL with Certbot (Optional for Prototype)
 
@@ -229,60 +232,43 @@ pnpm start
 
 ### Systemd Service for API
 
-Create `/etc/systemd/system/fvspec-api.service`:
-
-```ini
-[Unit]
-Description=fvspec Leaderboard API
-After=network.target postgresql.service redis.service
-
-[Service]
-Type=simple
-User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
-EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
-ExecStart=/usr/bin/pnpm start
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=multi-user.target
-```
-
-Enable and start:
+Symlink the service file from the repository (single source of truth):
 
 ```bash
+# Symlink API service
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
+  /etc/systemd/system/fvspec-api.service
+
+# Reload systemd to pick up the service file
 sudo systemctl daemon-reload
+
+# Enable and start
 sudo systemctl enable fvspec-api
 sudo systemctl start fvspec-api
 sudo systemctl status fvspec-api
 ```
 
+The service file is located at `/home/quinnd/fvspec/leaderboard/operations/fvspec-api.service`.
+
 ## Worker Backend Setup
 
-The worker runs separately and doesn't need nginx configuration. Use a similar systemd service:
+The worker runs separately and doesn't need nginx configuration. Symlink the service file:
 
-```ini
-[Unit]
-Description=fvspec Leaderboard Worker
-After=network.target redis.service
+```bash
+# Symlink Worker service
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
+  /etc/systemd/system/fvspec-worker.service
 
-[Service]
-Type=simple
-User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/worker
-EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
-ExecStart=/usr/bin/pnpm start
-Restart=always
-RestartSec=10
-StandardOutput=journal
-StandardError=journal
+# Reload systemd to pick up the service file
+sudo systemctl daemon-reload
 
-[Install]
-WantedBy=multi-user.target
+# Enable and start
+sudo systemctl enable fvspec-worker
+sudo systemctl start fvspec-worker
+sudo systemctl status fvspec-worker
 ```
+
+The service file is located at `/home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service`.
 
 ## Configuration Details
 
