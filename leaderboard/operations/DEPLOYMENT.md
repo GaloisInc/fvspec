@@ -4,11 +4,12 @@ This guide covers deploying the fvspec leaderboard to a production server using 
 
 ## Quick Start Checklist
 
-- [ ] Domain name configured (e.g., `leaderboard.fvspec.org`)
+- [ ] EC2 server: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com`
+- [ ] Existing monorepo at `/home/quinnd/fvspec/`
 - [ ] Server with nginx installed (Ubuntu/Debian recommended)
 - [ ] PostgreSQL and Redis running
 - [ ] Node.js 20+ and pnpm installed
-- [ ] SSL certificate (via certbot)
+- [ ] SSL certificate (via certbot, optional for prototype)
 - [ ] GitHub Actions secrets configured (for automated deployment)
 
 ## Deployment Architecture
@@ -91,20 +92,20 @@ sudo systemctl status redis-server
 
 ### 3. Application Deployment
 
-#### Clone Repository
+#### Navigate to Existing Repository
+
+The monorepo is already cloned at `/home/quinnd/fvspec/`:
 
 ```bash
-# Create application directory
-mkdir -p /home/quinn/fvspec-leaderboard
-cd /home/quinn/fvspec-leaderboard
+# Navigate to the leaderboard directory
+cd /home/quinnd/fvspec/leaderboard
 
-# Clone repository
-git clone https://github.com/GaloisInc/fvspec.git .
-# Or if using deploy key:
-# git clone git@github.com:GaloisInc/fvspec.git .
+# Pull latest changes
+git pull
 
-# Navigate to leaderboard
-cd leaderboard
+# If starting fresh, you might need to clone:
+# cd /home/quinnd
+# git clone https://github.com/GaloisInc/fvspec.git
 ```
 
 #### Install Dependencies
@@ -116,6 +117,9 @@ pnpm install
 #### Configure Environment
 
 ```bash
+# Navigate to leaderboard directory
+cd /home/quinnd/fvspec/leaderboard
+
 # Create environment file
 cat > .env <<EOF
 # Database
@@ -130,14 +134,17 @@ PORT=3001
 NODE_ENV=production
 
 # Worker
-RUNNER_NAME=production-runner-01
+RUNNER_NAME=prototype-runner-01
 RUNNER_TRUST=internal
 TIME_LIMIT_SEC=7200
 MEMORY_MB=16000
 WORKER_CONCURRENCY=1
 
 # Frontend (for build time)
-NEXT_PUBLIC_API_URL=https://leaderboard.fvspec.org/api
+# For prototype without SSL:
+NEXT_PUBLIC_API_URL=http://ec2-35-95-72-128.us-west-2.compute.amazonaws.com/api
+# For production with SSL:
+# NEXT_PUBLIC_API_URL=https://leaderboard.fvspec.org/api
 EOF
 
 # Secure the file
@@ -172,15 +179,15 @@ pnpm exec drizzle-kit push
 
 ```bash
 # Copy nginx config
-sudo cp /home/quinn/fvspec-leaderboard/leaderboard/operations/nginx-leaderboard.conf \
-  /etc/nginx/sites-available/leaderboard.fvspec.org
+sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+  /etc/nginx/sites-available/fvspec-leaderboard
 
-# Update the root path in the config if needed
-sudo nano /etc/nginx/sites-available/leaderboard.fvspec.org
-# Change: root /home/quinn/fvspec-leaderboard/leaderboard/packages/web/out;
+# The config is already set up for /home/quinnd/fvspec/ paths
+# Review if needed:
+# sudo nano /etc/nginx/sites-available/fvspec-leaderboard
 
 # Create symlink
-sudo ln -s /etc/nginx/sites-available/leaderboard.fvspec.org \
+sudo ln -s /etc/nginx/sites-available/fvspec-leaderboard \
   /etc/nginx/sites-enabled/
 
 # Remove default site (optional)
@@ -193,15 +200,26 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-#### Setup SSL
+#### Setup SSL (Optional for Prototype)
+
+For the prototype, you can skip SSL and use HTTP only. For production:
 
 ```bash
-# Get SSL certificate
+# Option 1: Use custom domain pointed at EC2 IP
 sudo certbot --nginx -d leaderboard.fvspec.org
+
+# Option 2: Try with EC2 hostname (may not work with Let's Encrypt)
+# sudo certbot --nginx -d ec2-35-95-72-128.us-west-2.compute.amazonaws.com
 
 # Test auto-renewal
 sudo certbot renew --dry-run
 ```
+
+**Note**: Let's Encrypt typically doesn't issue certificates for EC2 hostnames. For the prototype, either:
+
+- Use HTTP without SSL (current nginx config default)
+- Point a custom domain at the EC2 IP and use certbot with that domain
+- Use a self-signed certificate for testing
 
 ### 5. Systemd Services
 
@@ -218,9 +236,9 @@ After=network.target postgresql.service redis.service
 
 [Service]
 Type=simple
-User=quinn
-WorkingDirectory=/home/quinn/fvspec-leaderboard/leaderboard/packages/api
-EnvironmentFile=/home/quinn/fvspec-leaderboard/leaderboard/.env
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 ExecStart=/usr/local/bin/pnpm start
 Restart=always
 RestartSec=10
@@ -244,9 +262,9 @@ After=network.target redis.service
 
 [Service]
 Type=simple
-User=quinn
-WorkingDirectory=/home/quinn/fvspec-leaderboard/leaderboard/packages/worker
-EnvironmentFile=/home/quinn/fvspec-leaderboard/leaderboard/.env
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/worker
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 ExecStart=/usr/local/bin/pnpm start
 Restart=always
 RestartSec=10
@@ -281,10 +299,10 @@ sudo systemctl status fvspec-worker
 ```bash
 # Check nginx
 sudo systemctl status nginx
-curl -I https://leaderboard.fvspec.org
+curl -I http://ec2-35-95-72-128.us-west-2.compute.amazonaws.com
 
 # Check API
-curl https://leaderboard.fvspec.org/api/health
+curl http://ec2-35-95-72-128.us-west-2.compute.amazonaws.com/api/health
 
 # Check logs
 sudo journalctl -u fvspec-api -f
@@ -409,7 +427,7 @@ jobs:
 ### Frontend Only
 
 ```bash
-cd /home/quinn/fvspec-leaderboard/leaderboard/packages/web
+cd /home/quinnd/fvspec/leaderboard/packages/web
 git pull
 pnpm install
 pnpm build
@@ -419,7 +437,7 @@ pnpm build
 ### API Update
 
 ```bash
-cd /home/quinn/fvspec-leaderboard/leaderboard/packages/api
+cd /home/quinnd/fvspec/leaderboard/packages/api
 git pull
 pnpm install
 sudo systemctl restart fvspec-api
@@ -428,7 +446,7 @@ sudo systemctl restart fvspec-api
 ### Worker Update
 
 ```bash
-cd /home/quinn/fvspec-leaderboard/leaderboard/packages/worker
+cd /home/quinnd/fvspec/leaderboard/packages/worker
 git pull
 pnpm install
 sudo systemctl restart fvspec-worker
@@ -437,7 +455,7 @@ sudo systemctl restart fvspec-worker
 ### Database Migration
 
 ```bash
-cd /home/quinn/fvspec-leaderboard/leaderboard/packages/api
+cd /home/quinnd/fvspec/leaderboard/packages/api
 pnpm exec drizzle-kit push
 sudo systemctl restart fvspec-api
 ```

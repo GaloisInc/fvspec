@@ -34,8 +34,9 @@ If you want to run the API on a separate subdomain or port with nginx as a rever
 ### Prerequisites
 
 - Ubuntu/Debian server with nginx installed
-- Domain name pointed to your server (e.g., `leaderboard.fvspec.org`)
-- SSL certificate (via certbot or manual)
+- Server hostname: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com` (prototype)
+- Existing monorepo clone at `/home/quinnd/fvspec/`
+- SSL certificate (via certbot or manual, optional for prototype)
 - Built Next.js static site in `packages/web/out/`
 
 ### Step 1: Build the Frontend
@@ -63,7 +64,12 @@ const nextConfig: NextConfig = {
 
 ```bash
 # From your local machine
-scp -r leaderboard/packages/web/out/ user@SERVER_IP:/home/user/fvspec-leaderboard/
+scp -r leaderboard/packages/web/out/ quinnd@ec2-35-95-72-128.us-west-2.compute.amazonaws.com:/home/quinnd/fvspec/leaderboard/packages/web/
+
+# Or if already on the server, just rebuild in place:
+cd /home/quinnd/fvspec/leaderboard/packages/web
+git pull
+pnpm build
 ```
 
 **Option B: GitHub Actions** (see Deployment Methods below)
@@ -74,11 +80,11 @@ On the server:
 
 ```bash
 # Copy configuration to nginx sites-available
-sudo cp /home/user/fvspec-leaderboard/operations/nginx-leaderboard.conf \
-  /etc/nginx/sites-available/leaderboard.fvspec.org
+sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+  /etc/nginx/sites-available/fvspec-leaderboard
 
 # Create symlink to sites-enabled
-sudo ln -s /etc/nginx/sites-available/leaderboard.fvspec.org \
+sudo ln -s /etc/nginx/sites-available/fvspec-leaderboard \
   /etc/nginx/sites-enabled/
 
 # Test configuration
@@ -88,11 +94,19 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Step 4: Setup SSL with Certbot
+### Step 4: Setup SSL with Certbot (Optional for Prototype)
+
+For production with a domain name:
 
 ```bash
 sudo certbot --nginx -d leaderboard.fvspec.org
 ```
+
+For the prototype on EC2 (`ec2-35-95-72-128.us-west-2.compute.amazonaws.com`), you can:
+
+- Skip SSL and use HTTP only (simpler for prototyping)
+- Or obtain a free SSL certificate for the EC2 hostname using Let's Encrypt
+- Or use a custom domain pointed at the EC2 IP and then use certbot
 
 Certbot will automatically modify the nginx configuration to add SSL certificates and HTTPS redirects.
 
@@ -148,14 +162,14 @@ jobs:
           chmod 600 ~/.ssh/deploy_key
           rsync -avz -e "ssh -i ~/.ssh/deploy_key -o StrictHostKeyChecking=no" \
             leaderboard/packages/web/out/ \
-            $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/fvspec-leaderboard/out/
+            $SERVER_USER@$SERVER_IP:/home/$SERVER_USER/fvspec/leaderboard/packages/web/out/
 ```
 
 **Required secrets** (Settings → Secrets → Actions):
 
 - `LEADERBOARD_SSH_KEY`: Private SSH key for server access
-- `LEADERBOARD_SERVER_IP`: Server IP address
-- `LEADERBOARD_SERVER_USER`: SSH username (e.g., `quinn`)
+- `LEADERBOARD_SERVER_IP`: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com` (or just the IP)
+- `LEADERBOARD_SERVER_USER`: `quinnd`
 
 ### Manual Deployment
 
@@ -165,9 +179,24 @@ cd leaderboard/packages/web
 pnpm build
 
 # 2. Copy to server
-scp -r out/ user@SERVER_IP:/home/user/fvspec-leaderboard/
+scp -r out/ quinnd@ec2-35-95-72-128.us-west-2.compute.amazonaws.com:/home/quinnd/fvspec/leaderboard/packages/web/
 
 # 3. Nginx will automatically serve updated files (no reload needed)
+```
+
+**Or deploy directly on the server:**
+
+```bash
+# SSH to server
+ssh quinnd@ec2-35-95-72-128.us-west-2.compute.amazonaws.com
+
+# Navigate and rebuild
+cd /home/quinnd/fvspec/leaderboard/packages/web
+git pull
+pnpm install
+pnpm build
+
+# Nginx automatically serves new files
 ```
 
 ## API Backend Setup
@@ -177,17 +206,21 @@ The nginx configuration includes a reverse proxy for the API backend. On the ser
 ### Install and Run API
 
 ```bash
-# Clone repo or copy API package
-cd /home/user/fvspec-leaderboard
+# Navigate to the leaderboard directory
+cd /home/quinnd/fvspec/leaderboard
 pnpm install
 
 # Set environment variables
 cat > .env <<EOF
-DATABASE_URL=postgresql://user:pass@localhost:5432/fvspec
+DATABASE_URL=postgresql://fvspec_user:your-password@localhost:5432/fvspec
 REDIS_URL=redis://localhost:6379
-API_TOKEN=your-secret-token
+API_TOKEN=$(openssl rand -hex 32)
 PORT=3001
+NODE_ENV=production
 EOF
+
+# Secure the file
+chmod 600 .env
 
 # Run API (use systemd service or PM2 for production)
 cd packages/api
@@ -205,14 +238,14 @@ After=network.target postgresql.service redis.service
 
 [Service]
 Type=simple
-User=user
-WorkingDirectory=/home/user/fvspec-leaderboard/packages/api
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
@@ -238,14 +271,14 @@ After=network.target redis.service
 
 [Service]
 Type=simple
-User=user
-WorkingDirectory=/home/user/fvspec-leaderboard/packages/worker
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/worker
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 ExecStart=/usr/bin/pnpm start
 Restart=always
 RestartSec=10
 StandardOutput=journal
 StandardError=journal
-Environment=NODE_ENV=production
 
 [Install]
 WantedBy=multi-user.target
