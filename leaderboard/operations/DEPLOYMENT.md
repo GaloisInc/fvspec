@@ -234,19 +234,19 @@ The nginx configuration should:
 
 ### 5. Systemd Services
 
-#### Install Service Files
+#### Install Service Files via Symlinks
 
-**NOTE:** Service files are NOT symlinked. Copy them and manually sync after updates:
+Symlink service files from the repository as the single source of truth:
 
 ```bash
-# Copy all three service files
-sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-web.service \
+# Symlink all three service files
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-web.service \
   /etc/systemd/system/fvspec-web.service
 
-sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
   /etc/systemd/system/fvspec-api.service
 
-sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
   /etc/systemd/system/fvspec-worker.service
 
 # Reload systemd
@@ -256,10 +256,12 @@ sudo systemctl daemon-reload
 **After git pull with service file changes:**
 
 ```bash
-sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-*.service \
-  /etc/systemd/system/
 sudo systemctl daemon-reload
+sudo systemctl restart fvspec-web fvspec-api fvspec-worker
 ```
+
+**Why symlinks?** Service definitions live in the repository (single source of truth).
+Updates via `git pull` are automatically reflected after `systemctl daemon-reload && systemctl restart`.
 
 The service files are located in `/home/quinnd/fvspec/leaderboard/operations/`:
 
