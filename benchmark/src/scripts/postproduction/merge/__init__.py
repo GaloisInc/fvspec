@@ -100,7 +100,7 @@ def merge_samples(
     Returns:
         Statistics about the merge operation
     """
-    stats = {
+    stats: dict[str, Any] = {
         "unique_samples": 0,
         "conflicted_samples": 0,
         "total_copies": 0,
