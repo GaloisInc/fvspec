@@ -21,6 +21,12 @@ export function Header() {
               Leaderboard
             </Link>
             <Link
+              href="/dataset/341"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Dataset
+            </Link>
+            <Link
               href="/submit"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
             >

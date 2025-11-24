@@ -2,6 +2,9 @@ import { z } from 'zod'
 import { CreateSubmissionSchema } from './submission.js'
 import { AttestationSchema } from './attestation.js'
 
+// Re-export dataset schemas
+export * from './dataset.js'
+
 /**
  * POST /submit request
  */
