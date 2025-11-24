@@ -303,6 +303,13 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Store dependency count for metrics
         state.metadata["num_fns_impl"] = len(all_payloads)
 
+        # Close database session after function discovery completes
+        # This frees the connection and file descriptors
+        db_session = state.metadata.get("db_session")
+        if db_session:
+            db_session.close()
+            state.metadata.pop("db_session", None)
+
         # Skip samples with excessive function counts (>50)
         # Rationale: Samples with >50 functions are extreme outliers that:
         # 1. Generate excessively large prompts and specs (degraded quality)

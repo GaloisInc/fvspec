@@ -721,4 +721,13 @@ async def write_to_disk(state: TaskState):
     if workspace_path:
         utilio.cleanup_sample_workspace(Path(workspace_path))
 
+    # Safety net: Close database session if still open
+    # (Should already be closed in orchestration, but ensure cleanup)
+    db_session = state.metadata.get("db_session")
+    if db_session:
+        try:
+            db_session.close()
+        except Exception:
+            pass  # Ignore errors on safety net cleanup
+
     return result

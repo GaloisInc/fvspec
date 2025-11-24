@@ -55,14 +55,15 @@ def strip_spec_namespace(lean_code: str) -> str:
 
 
 def strip_spec_keywords(lean_code: str) -> str:
-    """Remove specification keywords (theorem, lemma, example) from Lean code.
+    """Remove specification keywords (theorem, lemma, example, axiom, sorry) from Lean code.
 
-    This strips individual theorem/lemma/example declarations that may appear
-    inside the Impl namespace (hallucinations). It complements strip_spec_namespace
-    which removes entire Spec namespace blocks.
+    This strips individual theorem/lemma/example/axiom declarations and sorry placeholders
+    that may appear inside the Impl namespace (hallucinations). It complements
+    strip_spec_namespace which removes entire Spec namespace blocks.
 
     The function removes:
-    - Individual theorem/lemma/example declarations
+    - Individual theorem/lemma/example/axiom declarations
+    - Standalone sorry placeholders
     - Their associated doc comments (if present)
 
     Args:
@@ -86,20 +87,26 @@ def strip_spec_keywords(lean_code: str) -> str:
     # Matches multi-line declarations up to the next top-level keyword or end of namespace
 
     # First, handle doc comments immediately before spec keywords
-    # Pattern: /-- ... -/ followed by theorem/lemma/example
-    docstring_pattern = r"/--.*?-/\s*(?=(?:theorem|lemma|example)\s+)"
+    # Pattern: /-- ... -/ followed by theorem/lemma/example/axiom
+    docstring_pattern = r"/--.*?-/\s*(?=(?:theorem|lemma|example|axiom)\s+)"
     cleaned = re.sub(docstring_pattern, "", lean_code, flags=re.DOTALL)
 
     # Now remove the spec keyword declarations themselves
     # Match from keyword to the next top-level keyword (def/structure/etc) or namespace end
     # This is conservative - stops at next definition to avoid over-removing
-    spec_keywords = ["theorem", "lemma", "example"]
+    spec_keywords = ["theorem", "lemma", "example", "axiom"]
 
     for keyword in spec_keywords:
-        # Pattern matches: keyword name ... up to next top-level keyword or "end"
+        # Pattern matches: keyword name ... up to next top-level keyword or "end" or EOF
         # Uses lookahead to preserve the next definition
-        pattern = rf"^[ \t]*{keyword}\s+.*?(?=(?:^[ \t]*(?:def|structure|inductive|class|instance|abbrev|theorem|lemma|example)\s+)|(?:^end\s+))"
+        # Added \Z to catch keywords at end of file (fixes bug where EOF declarations weren't removed)
+        pattern = rf"^[ \t]*{keyword}\s+.*?(?=(?:^[ \t]*(?:def|structure|inductive|class|instance|abbrev|theorem|lemma|example|axiom)\s+)|(?:^end\s+)|(?:\Z))"
         cleaned = re.sub(pattern, "", cleaned, flags=re.MULTILINE | re.DOTALL)
+
+    # Also remove standalone "sorry" placeholders (not part of larger declarations)
+    # Pattern: Line with just "sorry" (possibly with whitespace)
+    sorry_pattern = r"^[ \t]*sorry[ \t]*$"
+    cleaned = re.sub(sorry_pattern, "", cleaned, flags=re.MULTILINE)
 
     # Clean up excessive blank lines (3+ newlines → 2 newlines)
     cleaned = re.sub(r"\n\s*\n\s*\n+", "\n\n", cleaned)
@@ -145,6 +152,8 @@ def validate_impl_only(lean_code: str) -> tuple[bool, str | None]:
         (r"\btheorem\s+", "theorem"),
         (r"\blemma\s+", "lemma"),
         (r"\bexample\s+", "example"),
+        (r"\baxiom\s+", "axiom"),
+        (r"\bsorry\b", "sorry"),  # sorry often appears without trailing whitespace
     ]
 
     for pattern, keyword in forbidden_keywords:
