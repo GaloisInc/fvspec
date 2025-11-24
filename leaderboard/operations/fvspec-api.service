@@ -8,7 +8,8 @@ User=quinnd
 WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
 EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 Environment="PORT=3002"
-ExecStart=/home/quinnd/.local/share/pnpm/pnpm start
+# Use tsx to run TypeScript directly (no build step needed)
+ExecStart=/home/quinnd/.local/share/pnpm/pnpm exec tsx src/index.ts
 Restart=always
 RestartSec=10
 StandardOutput=journal
