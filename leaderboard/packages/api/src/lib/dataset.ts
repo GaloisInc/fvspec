@@ -1,5 +1,9 @@
 import fs from 'node:fs'
-import { DatasetSampleDetail, DatasetSampleListItem } from '@fvspec/common'
+import {
+  DatasetSampleDetail,
+  DatasetSampleListItem,
+  DatasetSampleDetailSchema,
+} from '@fvspec/common'
 
 /**
  * In-memory cache of dataset samples.
@@ -32,19 +36,15 @@ export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> 
       try {
         const sample = JSON.parse(lines[i]) as unknown
 
-        // Validate required fields
-        if (
-          !sample ||
-          typeof sample !== 'object' ||
-          !('sample_id' in sample) ||
-          typeof sample.sample_id !== 'number'
-        ) {
-          console.warn(`[dataset] Line ${i + 1}: Missing or invalid sample_id, skipping`)
+        // Validate using Zod schema
+        const parseResult = DatasetSampleDetailSchema.safeParse(sample)
+        if (!parseResult.success) {
+          console.warn(`[dataset] Line ${i + 1}: Invalid sample data:`, parseResult.error)
           continue
         }
 
         // Store in cache
-        cache.set(sample.sample_id, sample as DatasetSampleDetail)
+        cache.set(parseResult.data.sample_id, parseResult.data)
       } catch (parseError) {
         console.warn(`[dataset] Line ${i + 1}: Failed to parse JSON:`, parseError)
       }
