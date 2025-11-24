@@ -23,7 +23,23 @@ const app = new Hono()
 
 // Middleware
 app.use('*', logger())
-app.use('*', cors())
+app.use(
+  '*',
+  cors({
+    origin: '*',
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    exposeHeaders: ['Content-Length'],
+    credentials: false,
+  })
+)
+
+// Handle preflight requests for Private Network Access
+// Required when public sites (https://fvspec-benchmark.galois.com) access localhost
+app.options('*', c => {
+  c.header('Access-Control-Allow-Private-Network', 'true')
+  return c.body(null, 204)
+})
 
 // Load dataset at startup
 // Use environment variable or default relative path
