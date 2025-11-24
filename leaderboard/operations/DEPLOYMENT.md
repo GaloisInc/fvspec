@@ -4,8 +4,8 @@ This guide covers deploying the fvspec leaderboard to a production server using 
 
 ## Quick Start Checklist
 
-- [ ] EC2 server: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com`
-- [ ] Existing monorepo at `/home/quinnd/fvspec/`
+- [x] EC2 server: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com`
+- [x] Existing monorepo at `/home/quinnd/fvspec/`
 - [ ] Server with nginx installed (Ubuntu/Debian recommended)
 - [ ] PostgreSQL and Redis running
 - [ ] Node.js 20+ and pnpm installed
@@ -156,15 +156,15 @@ chmod 600 .env
 ```bash
 cd packages/web
 
-# For static export, first update next.config.ts:
-# (See next section for details)
-
-# Build
+# Build (creates .next directory with optimized production build)
 pnpm build
 
 # Verify build output
-ls -la out/
+ls -la .next/
 ```
+
+**Note:** The current setup uses Next.js with server-side rendering (NOT static export).
+The build creates a `.next` directory that requires `next start` to serve.
 
 #### Run Database Migrations
 
@@ -175,14 +175,14 @@ pnpm exec drizzle-kit push
 
 ### 4. Nginx Configuration
 
-#### Install Nginx Configuration via Symlink
+#### Install Nginx Configuration
 
-Following the operations directory pattern, we symlink the nginx config from the
-repository as the single source of truth:
+**NOTE:** The nginx config is NOT symlinked due to certbot needing write access.
+Instead, copy the file and manually sync changes after git updates:
 
 ```bash
-# Symlink nginx config from repository to sites-available
-sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+# Copy nginx config from repository to sites-available
+sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
   /etc/nginx/sites-available/fvspec-leaderboard
 
 # Enable the site by symlinking to sites-enabled
@@ -199,79 +199,91 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-**Why symlinks?** Configuration lives in the repository (single source of truth).
-Updates via `git pull` are automatically reflected after `nginx -t && nginx -s reload`.
-
-#### Setup SSL (Optional for Prototype)
-
-For the prototype, you can skip SSL and use HTTP only. For production:
+**After git pull with nginx changes:**
 
 ```bash
-# Option 1: Use custom domain pointed at EC2 IP
-sudo certbot --nginx -d leaderboard.fvspec.org
-
-# Option 2: Try with EC2 hostname (may not work with Let's Encrypt)
-# sudo certbot --nginx -d ec2-35-95-72-128.us-west-2.compute.amazonaws.com
-
-# Test auto-renewal
-sudo certbot renew --dry-run
+sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+  /etc/nginx/sites-available/fvspec-leaderboard
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-**Note**: Let's Encrypt typically doesn't issue certificates for EC2 hostnames. For the prototype, either:
+#### Setup SSL
 
-- Use HTTP without SSL (current nginx config default)
-- Point a custom domain at the EC2 IP and use certbot with that domain
-- Use a self-signed certificate for testing
+**IMPORTANT:** The current deployment uses AWS Elastic Load Balancer (ELB) for SSL termination.
+
+**DO NOT run certbot** - it will conflict with the ELB's SSL configuration.
+
+**Current architecture:**
+
+```
+Internet → AWS ELB (HTTPS:443) → EC2 nginx (HTTP:80) → Services
+          ↑ Handles SSL         ↑ Plain HTTP only
+```
+
+The nginx configuration should:
+
+- Listen on port 80 (HTTP) only
+- Trust `X-Forwarded-Proto` headers from ELB
+- Let ELB handle all SSL/TLS termination
+
+**If you need to manage SSL certificates:**
+
+- Configure them in AWS Certificate Manager (ACM)
+- Attach them to the ELB listener
+- Never run certbot on the EC2 instance
 
 ### 5. Systemd Services
 
-Following the operations directory pattern, we symlink systemd service files from
-the repository as the single source of truth.
+#### Install Service Files
 
-#### Install Service Files via Symlinks
+**NOTE:** Service files are NOT symlinked. Copy them and manually sync after updates:
 
 ```bash
-# Symlink API service
-sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
+# Copy all three service files
+sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-web.service \
+  /etc/systemd/system/fvspec-web.service
+
+sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-api.service \
   /etc/systemd/system/fvspec-api.service
 
-# Symlink Worker service
-sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
+sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-worker.service \
   /etc/systemd/system/fvspec-worker.service
+
+# Reload systemd
+sudo systemctl daemon-reload
 ```
 
-**Why symlinks?** Service definitions live in the repository (single source of truth).
-Updates via `git pull` are automatically available after `systemctl daemon-reload`.
+**After git pull with service file changes:**
+
+```bash
+sudo cp /home/quinnd/fvspec/leaderboard/operations/fvspec-*.service \
+  /etc/systemd/system/
+sudo systemctl daemon-reload
+```
 
 The service files are located in `/home/quinnd/fvspec/leaderboard/operations/`:
 
-- `fvspec-api.service` - API service configuration
+- `fvspec-web.service` - Web frontend (Next.js SSR on port 3000)
+- `fvspec-api.service` - API service (Hono on port 3002)
 - `fvspec-worker.service` - Worker service configuration
 
 #### Enable and Start Services
 
 ```bash
-# Reload systemd to pick up new service files
-sudo systemctl daemon-reload
-
 # Enable services (start automatically on boot)
+sudo systemctl enable fvspec-web
 sudo systemctl enable fvspec-api
 sudo systemctl enable fvspec-worker
 
 # Start services
+sudo systemctl start fvspec-web
 sudo systemctl start fvspec-api
 sudo systemctl start fvspec-worker
 
 # Check status
+sudo systemctl status fvspec-web
 sudo systemctl status fvspec-api
 sudo systemctl status fvspec-worker
-```
-
-**Note**: After updating service files via `git pull`, run:
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart fvspec-api  # or fvspec-worker
 ```
 
 ### 6. Verify Deployment
@@ -289,31 +301,23 @@ sudo journalctl -u fvspec-api -f
 sudo journalctl -u fvspec-worker -f
 ```
 
-## Next.js Static Export Configuration
+## Current Architecture: Next.js with Server-Side Rendering
 
-To enable static export, update `packages/web/next.config.ts`:
+**The frontend currently uses standard Next.js SSR, NOT static export.**
 
-```typescript
-import type { NextConfig } from 'next'
+This means:
 
-const nextConfig: NextConfig = {
-  output: 'export', // Enable static HTML export
-  reactCompiler: true,
-  turbopack: {},
-  // If using API routes, you may need to adjust basePath
-  // basePath: process.env.NODE_ENV === 'production' ? '' : '',
-}
+- `pnpm build` creates `.next/` directory (not `out/`)
+- Requires `next start` to serve (via systemd service)
+- Supports server-side rendering, API routes, dynamic features
+- Runs on port 3000 by default
 
-export default nextConfig
-```
+To switch to static export in the future:
 
-**Note**: Static export has some limitations:
-
-- No API routes in Next.js (we use separate Hono API, so this is fine)
-- No server-side rendering (all pages are pre-rendered)
-- No dynamic routes without `getStaticPaths`
-
-For the leaderboard, static export works well since we're using client-side rendering with API calls.
+1. Add `output: 'export'` to `next.config.ts`
+2. Build will create `out/` directory
+3. Can serve directly from nginx (no Node.js process needed)
+4. Limitations: no SSR, no API routes, no dynamic routes without `getStaticPaths`
 
 ## Automated Deployment with GitHub Actions
 

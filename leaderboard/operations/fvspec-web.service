@@ -1,0 +1,17 @@
+[Unit]
+Description=fvspec Leaderboard Web Frontend
+After=network.target
+
+[Service]
+Type=simple
+User=quinnd
+WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/web
+EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
+ExecStart=/usr/bin/pnpm start
+Restart=always
+RestartSec=10
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target
