@@ -6,9 +6,10 @@ After=network.target
 Type=simple
 User=quinnd
 WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/web
-EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
+EnvironmentFile=-/home/quinnd/fvspec/leaderboard/.env
 Environment="PORT=3000"
 Environment="HOSTNAME=localhost"
+Environment="NEXT_PUBLIC_API_URL=/api"
 ExecStart=/home/quinnd/.local/share/pnpm/pnpm start
 Restart=always
 RestartSec=10
