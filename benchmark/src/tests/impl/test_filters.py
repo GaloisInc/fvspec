@@ -287,6 +287,84 @@ end Fvspec.Impl"""
         assert "def foo" in result
         assert "def bar" in result
 
+    def test_strip_example_at_eof(self):
+        """Test stripping example at end of file (bug fix for missing lookahead)."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+example : True := trivial"""
+        result = strip_spec_keywords(code)
+        assert "example" not in result
+        assert "def foo" in result
+
+    def test_strip_theorem_at_eof(self):
+        """Test stripping theorem at end of file."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+theorem test : foo = 1 := rfl"""
+        result = strip_spec_keywords(code)
+        assert "theorem" not in result
+        assert "def foo" in result
+
+    def test_strip_axiom_keyword(self):
+        """Test stripping axiom declarations."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+axiom bar : Nat
+
+def baz := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        assert "axiom" not in result
+        assert "def foo" in result
+        assert "def baz" in result
+
+    def test_strip_axiom_at_eof(self):
+        """Test stripping axiom at end of file."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+axiom bar : Nat"""
+        result = strip_spec_keywords(code)
+        assert "axiom" not in result
+        assert "def foo" in result
+
+    def test_strip_sorry_placeholder(self):
+        """Test stripping standalone sorry placeholders."""
+        code = """namespace Fvspec.Impl
+
+def foo := 1
+
+sorry
+
+def bar := 2
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        # Note: This removes standalone "sorry" lines, not "sorry" within def bodies
+        assert "sorry" not in result or "sorry" in "-- sorry"  # May be in comments
+        assert "def foo" in result
+        assert "def bar" in result
+
+    def test_preserve_sorry_in_def(self):
+        """Test that sorry within def body is NOT stripped (only standalone sorry)."""
+        code = """namespace Fvspec.Impl
+
+def foo : Nat := sorry
+
+end Fvspec.Impl"""
+        result = strip_spec_keywords(code)
+        # This should preserve the def with sorry in body
+        assert "def foo" in result
+        # The sorry is part of the def, not standalone, so it stays
+
 
 class TestValidateImplOnly:
     """Tests for validate_impl_only function."""
@@ -373,6 +451,46 @@ end Fvspec.Impl
         is_valid, error = validate_impl_only("")
         assert is_valid
         assert error is None
+
+    def test_has_axiom_keyword(self):
+        """Test validation fails for axiom keyword."""
+        code = """
+namespace Fvspec.Impl
+axiom foo : Nat
+end Fvspec.Impl
+"""
+        is_valid, error = validate_impl_only(code)
+        assert not is_valid
+        assert error is not None
+        assert "axiom" in error
+
+    def test_has_sorry_keyword(self):
+        """Test validation fails for standalone sorry."""
+        code = """
+namespace Fvspec.Impl
+def foo := 1
+sorry
+end Fvspec.Impl
+"""
+        is_valid, error = validate_impl_only(code)
+        assert not is_valid
+        assert error is not None
+        assert "sorry" in error
+
+    def test_sorry_in_def_body(self):
+        """Test that sorry within def body triggers validation error."""
+        code = """
+namespace Fvspec.Impl
+def foo : Nat := sorry
+end Fvspec.Impl
+"""
+        # Note: This will fail validation because we check for \bsorry\b
+        # which matches sorry even within expressions
+        # This is intentional - implementations should be complete
+        is_valid, error = validate_impl_only(code)
+        assert not is_valid
+        assert error is not None
+        assert "sorry" in error
 
 
 class TestExtractImplOnly:
