@@ -118,11 +118,25 @@ export const metadata = {
 export default function LeaderboardPage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Pre-Alpha Warning Banner */}
+      <div className="border-b bg-red-500/10 border-red-500/20">
+        <div className="container mx-auto px-4 py-3">
+          <p className="text-center text-sm md:text-base font-semibold text-red-700 dark:text-red-400">
+            ⚠️ MOCKUP DATA — All leaderboard entries below are fake placeholder data, not real
+            benchmark results ⚠️
+          </p>
+        </div>
+      </div>
+
       <div className="border-b">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-4xl font-bold tracking-tight mb-2">Full Leaderboard</h1>
           <p className="text-lg text-muted-foreground">
             Complete rankings for all models across verification tracks
+          </p>
+          <p className="text-sm text-muted-foreground italic mt-1">
+            (All models, organizations, scores, and rankings are UI mockups only — not real
+            evaluation results)
           </p>
         </div>
       </div>

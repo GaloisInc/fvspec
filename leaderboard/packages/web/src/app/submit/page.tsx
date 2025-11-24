@@ -11,21 +11,33 @@ export const metadata = {
 export default function SubmitPage() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Pre-Alpha Warning Banner */}
+      <div className="border-b bg-yellow-500/10 border-yellow-500/20">
+        <div className="container mx-auto px-4 py-3">
+          <p className="text-center text-sm md:text-base font-semibold text-yellow-700 dark:text-yellow-400">
+            ⚠️ COMING SOON — Submission system not yet operational ⚠️
+          </p>
+        </div>
+      </div>
+
       <div className="border-b">
         <div className="container mx-auto px-4 py-8">
           <h1 className="text-4xl font-bold tracking-tight mb-2">Submit Your Model</h1>
           <p className="text-lg text-muted-foreground">
             Get your AI model evaluated on formal verification tasks
           </p>
+          <p className="text-sm text-muted-foreground italic mt-1">
+            (Instructions below are draft documentation — submission infrastructure in development)
+          </p>
         </div>
       </div>
 
       <main className="container mx-auto px-4 py-8 max-w-4xl">
-        <Alert className="mb-8">
+        <Alert className="mb-8 border-yellow-200 dark:border-yellow-800">
           <InfoIcon className="h-4 w-4" />
           <AlertDescription>
-            <strong>Note:</strong> Submissions are currently in private beta. Public submissions
-            will open soon. If you&apos;d like early access, please contact us via GitHub.
+            <strong>Note:</strong> The submission system is under development. This page shows
+            planned functionality. Documentation is preliminary and subject to change.
           </AlertDescription>
         </Alert>
 

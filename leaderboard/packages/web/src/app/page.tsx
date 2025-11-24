@@ -64,10 +64,23 @@ const topSubmissions = [
 export default function Home() {
   return (
     <div className="min-h-screen bg-background">
+      {/* Pre-Alpha Warning Banner */}
+      <div className="border-b bg-yellow-500/10 border-yellow-500/20">
+        <div className="container mx-auto px-4 py-3">
+          <p className="text-center text-sm md:text-base font-semibold text-yellow-700 dark:text-yellow-400">
+            ⚠️ PRE-ALPHA PREVIEW — Leaderboard shows mockup data. Paper abstract is draft stub. Do
+            not share publicly. ⚠️
+          </p>
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="border-b bg-gradient-to-b from-background to-muted/20">
         <div className="container mx-auto px-4 py-16 md:py-24">
           <div className="max-w-3xl">
+            <Badge variant="outline" className="mb-4 text-xs">
+              PRE-ALPHA PREVIEW
+            </Badge>
             <h1 className="text-4xl md:text-6xl font-bold tracking-tight mb-4">
               fvspec Leaderboard
             </h1>
@@ -103,11 +116,14 @@ export default function Home() {
               <Card>
                 <CardHeader>
                   <div className="text-4xl font-bold">200</div>
-                  <CardTitle className="text-base">Benchmark Problems</CardTitle>
+                  <CardTitle className="text-base">Benchmark Problems (target)</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
                     Real-world property-based tests from GitHub, not synthetic puzzles
+                  </p>
+                  <p className="text-xs text-muted-foreground italic mt-2">
+                    Initial dataset is smaller and preliminary
                   </p>
                 </CardContent>
               </Card>
@@ -124,12 +140,12 @@ export default function Home() {
               </Card>
               <Card>
                 <CardHeader>
-                  <div className="text-4xl font-bold">5</div>
+                  <div className="text-4xl font-bold">?</div>
                   <CardTitle className="text-base">Model Submissions</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Cryptographically-attested results from leading AI models
+                    Cryptographically-attested results (leaderboard data is currently mockup)
                   </p>
                 </CardContent>
               </Card>
@@ -145,7 +161,13 @@ export default function Home() {
             <div className="flex items-center justify-between mb-8">
               <div>
                 <h2 className="text-3xl font-bold mb-2">Top Models</h2>
-                <p className="text-muted-foreground">Current leaders on the functional track</p>
+                <p className="text-muted-foreground mb-1">
+                  Current leaders on the functional track
+                </p>
+                <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+                  ⚠️ MOCKUP DATA — All models, scores, and organizations below are placeholder
+                  examples ⚠️
+                </p>
               </div>
               <Button variant="outline" asChild>
                 <Link href="/leaderboard">
@@ -256,6 +278,9 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <h3 className="font-semibold mb-3">Abstract</h3>
+                  <p className="text-xs text-red-700 dark:text-red-400 mb-3 font-semibold">
+                    ⚠️ DRAFT STUB — This is NOT the real abstract. Placeholder text only. ⚠️
+                  </p>
                   <p className="text-muted-foreground leading-relaxed text-sm">
                     We present <strong className="text-foreground">fvspec</strong>, a benchmark for
                     evaluating AI models on formal verification tasks using Lean 4. Unlike existing
@@ -285,7 +310,10 @@ export default function Home() {
       {/* Footer */}
       <footer className="border-t">
         <div className="container mx-auto px-4 py-8">
-          <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground">
+          <div className="max-w-4xl mx-auto text-center text-sm text-muted-foreground space-y-3">
+            <p className="text-xs font-semibold text-yellow-700 dark:text-yellow-400">
+              ⚠️ PRE-ALPHA WEBSITE — Not ready for public sharing or distribution ⚠️
+            </p>
             <p>
               fvspec extends{' '}
               <a
