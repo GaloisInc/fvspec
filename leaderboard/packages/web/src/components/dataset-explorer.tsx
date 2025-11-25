@@ -67,8 +67,8 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
       {/* Pre-alpha warning banner */}
       <Alert>
         <AlertDescription>
-          <strong>Early Development Dataset:</strong> This preview contains 322 samples while we
-          work out generation pipeline kinks. The final benchmark will be{' '}
+          <strong>Early Development Dataset:</strong> This preview contains {samples.length} samples
+          while we work out generation pipeline kinks. The final benchmark will be{' '}
           <strong>2+ orders of magnitude larger</strong> with significantly improved specification
           quality. Current samples are experimental and may contain imperfect translations.
         </AlertDescription>

@@ -47,7 +47,35 @@ export const DatasetListResponseSchema = z.object({
   total: z.number(),
 })
 
+/**
+ * Distribution statistics for a metric.
+ */
+export const DistributionStatsSchema = z.object({
+  mean: z.number().nullable(),
+  median: z.number().nullable(),
+  q1: z.number().nullable(),
+  q3: z.number().nullable(),
+  min: z.number().nullable(),
+  max: z.number().nullable(),
+})
+
+/**
+ * Aggregate statistics for the entire dataset.
+ */
+export const DatasetStatsSchema = z.object({
+  total: z.number(),
+  faithfulness: DistributionStatsSchema,
+  theorems: DistributionStatsSchema,
+  lines_pbt: DistributionStatsSchema,
+  lines_code: DistributionStatsSchema,
+  by_variant: z.record(z.string(), z.number()),
+  by_model: z.record(z.string(), z.number()),
+  by_repo: z.array(z.object({ key: z.string(), count: z.number() })),
+})
+
 // Export TypeScript types
 export type DatasetSampleListItem = z.infer<typeof DatasetSampleListItemSchema>
 export type DatasetSampleDetail = z.infer<typeof DatasetSampleDetailSchema>
 export type DatasetListResponse = z.infer<typeof DatasetListResponseSchema>
+export type DistributionStats = z.infer<typeof DistributionStatsSchema>
+export type DatasetStats = z.infer<typeof DatasetStatsSchema>

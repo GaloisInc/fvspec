@@ -3,7 +3,9 @@ import {
   DatasetSampleDetail,
   DatasetSampleListItem,
   DatasetSampleDetailSchema,
+  DatasetStats,
 } from '@fvspec/common'
+import { calculateDistribution, countByValue, getTopEntries } from './stats.js'
 
 /**
  * In-memory cache of dataset samples.
@@ -131,4 +133,52 @@ export function getSampleById(id: number): DatasetSampleDetail | null {
  */
 export function getDatasetSize(): number {
   return datasetCache?.size ?? 0
+}
+
+/**
+ * Calculate aggregate statistics across all samples.
+ *
+ * @returns DatasetStats object with distributions and breakdowns
+ * @throws Error if dataset not loaded
+ */
+export function getDatasetStats(): DatasetStats {
+  if (!datasetCache) {
+    throw new Error('Dataset not loaded. Call loadDataset() first.')
+  }
+
+  const samples = Array.from(datasetCache.values())
+
+  // Extract faithfulness scores (overall score from structural_faithfulness)
+  const faithfulnessScores = samples.map(
+    s => s.structural_faithfulness?.overall as number | undefined
+  )
+
+  // Extract metrics
+  const theorems = samples.map(s => s.num_theorems)
+  const linesPbt = samples.map(s => s.lines_pbt)
+  const linesCode = samples.map(s => s.lines_code)
+
+  // Count by variant
+  const variants = samples.map(s => s.variant)
+  const byVariant = countByValue(variants)
+
+  // Count by model
+  const models = samples.map(s => s.model)
+  const byModel = countByValue(models)
+
+  // Count by repo (top 10)
+  const repoIds = samples.map(s => s.repo_id)
+  const repoIdCounts = countByValue(repoIds)
+  const byRepo = getTopEntries(repoIdCounts, 10)
+
+  return {
+    total: samples.length,
+    faithfulness: calculateDistribution(faithfulnessScores),
+    theorems: calculateDistribution(theorems),
+    lines_pbt: calculateDistribution(linesPbt),
+    lines_code: calculateDistribution(linesCode),
+    by_variant: byVariant,
+    by_model: byModel,
+    by_repo: byRepo,
+  }
 }

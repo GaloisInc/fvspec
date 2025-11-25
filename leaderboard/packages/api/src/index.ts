@@ -17,7 +17,7 @@ import { db } from './db/client.js'
 import { submissions, runs, results, attestations } from './db/schema.js'
 import { submissionsQueue } from './lib/queue.js'
 import { requireApiToken } from './lib/auth.js'
-import { loadDataset, getAllSamples, getSampleById } from './lib/dataset.js'
+import { loadDataset, getAllSamples, getSampleById, getDatasetStats } from './lib/dataset.js'
 
 const app = new Hono()
 
@@ -325,6 +325,24 @@ app.get('/dataset/list', c => {
       return c.json({ error: error.message }, 500)
     }
     return c.json({ error: 'Failed to load dataset' }, 500)
+  }
+})
+
+/**
+ * GET /dataset/stats
+ * Returns aggregate statistics for the entire dataset
+ * IMPORTANT: Must come before /dataset/:id to avoid being matched as an ID
+ */
+app.get('/dataset/stats', c => {
+  try {
+    const stats = getDatasetStats()
+    return c.json(stats)
+  } catch (error) {
+    console.error('GET /dataset/stats error:', error)
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500)
+    }
+    return c.json({ error: 'Failed to calculate statistics' }, 500)
   }
 })
 
