@@ -5,7 +5,7 @@ Benchmark generation system using the `inspect_ai` framework.
 ## Key Components
 
 **`src/generate/scaffold/`** - Core evaluation
-- `orchestration.py` - Two-agent orchestration (impl → spec)
+- `orchestration.py` - Three-agent orchestration (impl → spec + units in parallel)
 - `dataset/` - Sample loading, unit test extraction, function discovery
 - `formalize/impl/` - Implementation agent
 - `formalize/spec/` - Specification agent
