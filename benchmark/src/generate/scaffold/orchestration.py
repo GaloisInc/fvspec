@@ -5,7 +5,8 @@ Architecture:
 2. Specification Agent: Generates theorem statements (with sorry for proofs)
 3. Units Agent: Generates LSpec test suites from Python property-based tests
 
-The orchestration runs all agents sequentially with conversation isolation via fork().
+The orchestration runs agents with conversation isolation via fork(). Spec and units
+agents run in parallel since they both depend on impl agent but not on each other.
 """
 
 import logging
@@ -477,7 +478,10 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         state.store.set("impl_signatures", impl_signatures)
         state.store.set("impl_code", impl_code)  # For Unit stub detection
 
-        # Phase 3: Generate theorem statements with signatures
+        # Phase 3+4: Generate theorem statements and unit tests in parallel
+        logger.info("Phase 3+4: Running spec and units agents in parallel")
+
+        # Build payloads for both agents
         spec_payload = SpecPayload(
             pbt_code=datapoint.code,
             pbt_name=datapoint.name,
@@ -486,18 +490,29 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=spec_variant_name,
         )
 
-        # Call spec agent solver with fork() for conversation isolation
-        spec_solver = spec_agent_solver(spec_payload, workspace)
-        spec_state = await fork(state, spec_solver)
+        units_payload = UnitsPayload(
+            pbt_code=datapoint.code,
+            pbt_name=datapoint.name,
+            function_name=function_name,
+            impl_signatures=impl_signatures,
+        )
 
-        # Extract result from isolated state's store
+        # Create solvers
+        spec_solver = spec_agent_solver(spec_payload, workspace)
+        units_solver = units_agent_solver(units_payload, workspace)
+
+        # Run both agents in parallel with fork() for conversation isolation
+        # fork() natively supports parallel execution when passed a list of solvers
+        spec_state, units_state = await fork(state, [spec_solver, units_solver])
+
+        # Extract spec result from isolated state's store
         spec_result_data = spec_state.store.get("spec_result", {})
         if isinstance(spec_result_data, dict):
             spec_result = SpecResult(**spec_result_data)
         else:
             spec_result = spec_result_data
 
-        # Save isolated conversation to parent store for debugging/replay
+        # Save spec isolated conversation to parent store for debugging/replay
         state.store.set(
             "spec_conversation", [msg.model_dump() for msg in spec_state.messages]
         )
@@ -517,27 +532,14 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
             )
 
-        # Phase 4: Generate unit tests with units agent
-        logger.info("Phase 4: Generating unit tests with units agent")
-        units_payload = UnitsPayload(
-            pbt_code=datapoint.code,
-            pbt_name=datapoint.name,
-            function_name=function_name,
-            impl_signatures=impl_signatures,
-        )
-
-        # Call units agent solver with fork() for conversation isolation
-        units_solver = units_agent_solver(units_payload, workspace)
-        units_state = await fork(state, units_solver)
-
-        # Extract result from isolated state's store
+        # Extract units result from isolated state's store
         units_result_data = units_state.store.get("units_result", {})
         if isinstance(units_result_data, dict):
             units_result = UnitsResult(**units_result_data)
         else:
             units_result = units_result_data
 
-        # Save isolated conversation to parent store for debugging/replay
+        # Save units isolated conversation to parent store for debugging/replay
         state.store.set(
             "units_conversation", [msg.model_dump() for msg in units_state.messages]
         )
