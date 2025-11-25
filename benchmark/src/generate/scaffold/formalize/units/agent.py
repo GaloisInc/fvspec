@@ -94,14 +94,31 @@ def units_generation_agent(
         # Validate output
         if lean_code:
             validation = validate_units_output(lean_code)
-            result = UnitsResult(
-                success=validation.has_tests,
-                lean_code=lean_code,
-                test_count=count_tests(lean_code),
-                has_tests=validation.has_tests,
-                attempts=attempts,
-                tool_calls=0,  # No LSP tools in MVP
-            )
+            if validation.has_tests:
+                result = UnitsResult(
+                    success=True,
+                    lean_code=lean_code,
+                    test_count=count_tests(lean_code),
+                    has_tests=True,
+                    attempts=attempts,
+                    tool_calls=0,  # No LSP tools in MVP
+                )
+            else:
+                # Validation failed - include descriptive error message
+                error_msg = (
+                    "; ".join(validation.errors)
+                    if validation.errors
+                    else "Validation failed"
+                )
+                result = UnitsResult(
+                    success=False,
+                    lean_code=lean_code,
+                    test_count=count_tests(lean_code),
+                    has_tests=False,
+                    error=error_msg,
+                    attempts=attempts,
+                    tool_calls=0,
+                )
         else:
             result = UnitsResult(
                 success=False,
