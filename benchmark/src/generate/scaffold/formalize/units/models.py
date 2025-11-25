@@ -8,14 +8,14 @@ from pydantic import BaseModel, ConfigDict, Field
 class UnitsPayload(BaseModel):
     """Input payload for units generation agent.
 
-    Contains all information needed to generate LSpec unit tests from a
-    property-based test, including optional implementation signatures.
+    Contains all information needed to generate LSpec unit tests from
+    concrete unit test examples, including optional implementation signatures.
     """
 
     model_config = ConfigDict(frozen=True)
 
-    pbt_code: str = Field(..., description="Property-based test source code")
-    pbt_name: str = Field(..., description="Test function name")
+    unit_test_code: str = Field(..., description="Concrete unit test source code")
+    unit_test_name: str = Field(..., description="Unit test function name")
     function_name: str = Field(..., description="Primary function name")
     impl_signatures: dict[str, str] = Field(
         default_factory=dict,

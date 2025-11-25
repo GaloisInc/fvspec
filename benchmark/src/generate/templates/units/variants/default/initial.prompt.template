@@ -1,11 +1,11 @@
-Generate LSpec unit tests for the following Python unit test.
+Generate LSpec unit tests for the following Python unit tests.
 
 ## Function Name
 {{ function_name }}
 
-## Property-Based Test
+## Unit Tests (Concrete Examples)
 ```python
-{{ pbt_code }}
+{{ unit_test_code }}
 ```
 
 {% if impl_signatures %}
@@ -17,7 +17,7 @@ Generate LSpec unit tests for the following Python unit test.
 
 ## Your Task
 
-1. Analyze the Python test to identify concrete test cases or patterns
+1. Analyze the Python unit tests to extract concrete test cases
 2. Convert them to LSpec syntax
 3. Generate a test suite in Lean 4
 

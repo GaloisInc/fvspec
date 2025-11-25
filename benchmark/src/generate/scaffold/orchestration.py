@@ -313,18 +313,17 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         all_payloads = payloads_from_datapoint(datapoint, db_session)
 
         # Check if unit tests exist for this datapoint (for units agent decision)
-        has_unit_tests = False
+        unit_tests_data = []
         if db_session:
             from generate.scaffold.dataset.queries import get_overlapping_unit_tests
 
             overlaps = get_overlapping_unit_tests(db_session, datapoint.id)
-            has_unit_tests = bool(
-                overlaps and any(o.get("unit_tests") for o in overlaps)
-            )
-            logger.info(
-                f"Found {len(overlaps[0].get('unit_tests', [])) if overlaps else 0} "
-                f"unit tests for {function_name}"
-            )
+            if overlaps:
+                # Extract all unit tests from overlaps
+                for overlap in overlaps:
+                    unit_tests_data.extend(overlap.get("unit_tests", []))
+
+            logger.info(f"Found {len(unit_tests_data)} unit tests for {function_name}")
 
         # Close database session before any fork() calls
         # This prevents "cannot pickle 'module' object" errors during deepcopy
@@ -495,6 +494,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Phase 3+4: Generate theorem statements and unit tests (parallel if unit tests exist)
         # Spec agent uses PBT (datapoint.code), units agent uses concrete unit tests from DB
         # Only invoke units agent if database has unit tests for this function
+        has_unit_tests = len(unit_tests_data) > 0
+
         if has_unit_tests:
             logger.info("Phase 3+4: Running spec and units agents in parallel")
         else:
@@ -514,9 +515,20 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
         # Conditionally create and run units agent in parallel with spec
         if has_unit_tests:
+            # Concatenate all unit test code
+            unit_test_code = "\n\n".join(
+                ut["code"] for ut in unit_tests_data if ut.get("code")
+            )
+            # Use first test name as representative (or create descriptive name)
+            unit_test_name = (
+                unit_tests_data[0]["name"]
+                if unit_tests_data
+                else f"test_{function_name}"
+            )
+
             units_payload = UnitsPayload(
-                pbt_code=datapoint.code,
-                pbt_name=datapoint.name,
+                unit_test_code=unit_test_code,
+                unit_test_name=unit_test_name,
                 function_name=function_name,
                 impl_signatures=impl_signatures,
             )

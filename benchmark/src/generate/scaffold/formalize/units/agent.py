@@ -58,8 +58,8 @@ def units_generation_agent(
 
         # Prepare template context
         context = {
-            "pbt_code": payload.pbt_code,
-            "pbt_name": payload.pbt_name,
+            "unit_test_code": payload.unit_test_code,
+            "unit_test_name": payload.unit_test_name,
             "function_name": payload.function_name,
             "impl_signatures": payload.impl_signatures,
         }
