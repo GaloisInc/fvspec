@@ -601,7 +601,7 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
     return qa.to_inspect_scores()
 
 
-async def write_to_disk(state: TaskState):
+async def write_to_disk(state: TaskState) -> None:
     """Persist sample outputs and register quality metrics for inspect_ai.
 
     Writes the datapoint metadata, extracted Lean code, and QA report to disk
@@ -634,7 +634,8 @@ async def write_to_disk(state: TaskState):
     workspace_path = state.metadata.get("workspace")
     workspace = Path(workspace_path) if workspace_path else None
 
-    ret_str_dp = write_datapoint_to_disk(
+    # Write datapoint metadata (return value available for future logging)
+    _ = write_datapoint_to_disk(
         date_time,
         sample_id,
         datapoint,
@@ -646,7 +647,8 @@ async def write_to_disk(state: TaskState):
 
     # Only write code and QA if we have output
     if state.output and state.output.choices:
-        ret_str_c = write_code_to_disk(
+        # Write generated Spec.lean code (return value available for future logging)
+        _ = write_code_to_disk(
             date_time,
             sample_id,
             state.output.message.text,
@@ -658,7 +660,6 @@ async def write_to_disk(state: TaskState):
         )
 
         # Also copy Impl.lean from workspace if it exists
-        ret_str_impl = ""
         if workspace:
             workspace_impl = workspace / "Fvspec" / "Impl.lean"
             if workspace_impl.exists():
@@ -672,9 +673,10 @@ async def write_to_disk(state: TaskState):
                     start_idx=start_idx,
                     end_idx=end_idx,
                 )
-                ret_str_impl = utilio.writeit(impl_file, impl_code)
+                _ = utilio.writeit(impl_file, impl_code)
 
-        ret_str_tests = write_unit_tests_to_disk(
+        # Write extracted unit tests (return value available for future logging)
+        _ = write_unit_tests_to_disk(
             date_time,
             sample_id,
             state,
@@ -684,7 +686,9 @@ async def write_to_disk(state: TaskState):
             start_idx=start_idx,
             end_idx=end_idx,
         )
-        ret_str_qa = write_qa_to_disk(
+
+        # Write quality assessment report (return value available for future logging)
+        _ = write_qa_to_disk(
             date_time,
             sample_id,
             state,
@@ -701,21 +705,6 @@ async def write_to_disk(state: TaskState):
         # Log to wandb if enabled
         log_sample_to_wandb(state)
 
-        result = (
-            ret_str_dp
-            + "\n"
-            + ret_str_c
-            + ("\n" + ret_str_impl if ret_str_impl else "")
-            + "\n"
-            + ret_str_tests
-            + "\n"
-            + ret_str_qa
-        )
-    else:
-        result = (
-            ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
-        )
-
     # Clean up workspace if it exists
     workspace_path = state.metadata.get("workspace")
     if workspace_path:
@@ -729,5 +718,3 @@ async def write_to_disk(state: TaskState):
             db_session.close()
         except Exception:
             pass  # Ignore errors on safety net cleanup
-
-    return result
