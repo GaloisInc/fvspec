@@ -14,7 +14,7 @@ from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
-from inspect_ai.solver import Generate, Solver, TaskState, solver
+from inspect_ai.solver import Generate, Solver, TaskState, fork, solver
 from pydantic import ValidationError
 
 from generate.config import DATA_DIR, load_config
@@ -113,6 +113,68 @@ namespace Fvspec.Impl
 end Fvspec.Impl
 """
     return stub
+
+
+@solver
+def impl_agent_solver(payload: FunctionImplPayload, workspace: Path) -> Solver:
+    """Wrapper solver for implementation agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the impl agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Implementation generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs impl agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call existing function_impl_agent (writes to state.metadata)
+        impl_solver = function_impl_agent(payload, workspace)
+        state = await impl_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        impl_result = state.metadata.pop("impl_result", {})
+        state.store.set("impl_result", impl_result)
+
+        return state
+
+    return solve
+
+
+@solver
+def spec_agent_solver(payload: SpecPayload, workspace: Path) -> Solver:
+    """Wrapper solver for specification agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the spec agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Specification generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs spec agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call existing spec_generation_agent (writes to state.metadata)
+        spec_solver = spec_generation_agent(payload, workspace)
+        state = await spec_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        spec_result = state.metadata.pop("spec_result", {})
+        state.store.set("spec_result", spec_result)
+
+        return state
+
+    return solve
 
 
 @solver
@@ -226,34 +288,41 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 variant=impl_variant,
             )
 
-            # Call impl agent solver - it will store result in state.metadata["impl_result"]
-            impl_solver = function_impl_agent(impl_payload, workspace)
-            state = await impl_solver(state, generate_fn)
+            # Call impl agent solver with fork() for conversation isolation
+            impl_solver = impl_agent_solver(impl_payload, workspace)
+            impl_state = await fork(state, impl_solver)
 
-            # Extract result from metadata (agent stores it there)
-            impl_result_data = state.metadata.get("impl_result", {})
+            # Extract result from isolated state's store
+            impl_result_data = impl_state.store.get("impl_result", {})
             if isinstance(impl_result_data, dict):
                 impl_result = FunctionImplResult(**impl_result_data)
             else:
                 impl_result = impl_result_data
 
+            # Save isolated conversation to parent store for debugging/replay
+            state.store.set(
+                "impl_conversation",
+                [msg.model_dump() for msg in impl_state.messages],
+            )
+            state.store.set("impl_result", impl_result_data)
+
             # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
             if impl_result.lean_code:
                 impl_file.write_text(impl_result.lean_code)
                 # Track that we provided full implementation
-                state.metadata["implementation_level"] = "provided"
+                state.store.set("implementation_level", "provided")
             else:
                 # No impl code - write empty file to clear any validation artifacts
                 impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
                 # Track as absent (agent failed to generate)
-                state.metadata["implementation_level"] = "absent"
+                state.store.set("implementation_level", "absent")
         else:
             # No FUT source code - generate stub implementation
             # This allows the spec agent to have a signature to work with
             stub_impl = _generate_fut_stub(function_name, datapoint.code)
             impl_file.write_text(stub_impl)
             # Track that we provided only a signature
-            state.metadata["implementation_level"] = "signature"
+            state.store.set("implementation_level", "signature")
 
         # Phase 1b: Generate implementations for all dependencies
         # Get all payloads (FUT + dependencies)
@@ -275,16 +344,26 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 variant=impl_variant,
             )
 
-            # Run impl agent for this dependency
-            dep_impl_solver = function_impl_agent(dep_impl_payload, workspace)
-            state = await dep_impl_solver(state, generate_fn)
+            # Run impl agent for this dependency with fork() for isolation
+            dep_impl_solver = impl_agent_solver(dep_impl_payload, workspace)
+            dep_impl_state = await fork(state, dep_impl_solver)
 
-            # Extract result from metadata
-            dep_impl_result_data = state.metadata.get("impl_result", {})
+            # Extract result from isolated state's store
+            dep_impl_result_data = dep_impl_state.store.get("impl_result", {})
             if isinstance(dep_impl_result_data, dict):
                 dep_impl_result = FunctionImplResult(**dep_impl_result_data)
             else:
                 dep_impl_result = dep_impl_result_data
+
+            # Save isolated conversation for this dependency (append to list)
+            dep_conversations = state.store.get("dep_conversations", [])
+            dep_conversations.append(
+                {
+                    "dep_name": payload.dep_name,
+                    "messages": [msg.model_dump() for msg in dep_impl_state.messages],
+                }
+            )
+            state.store.set("dep_conversations", dep_conversations)
 
             # Store successful implementations
             if dep_impl_result.success and dep_impl_result.lean_code:
@@ -301,7 +380,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     impl_file.write_text(dep_impl_result.lean_code)
 
         # Store dependency count for metrics
-        state.metadata["num_fns_impl"] = len(all_payloads)
+        state.store.set("num_fns_impl", len(all_payloads))
 
         # Close database session after function discovery completes
         # This frees the connection and file descriptors
@@ -320,9 +399,10 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # when function discovery resolves them from the database.
         MAX_FUNCTIONS_IMPL = 50
         if len(all_payloads) > MAX_FUNCTIONS_IMPL:
-            state.metadata["skipped"] = True
-            state.metadata["skip_reason"] = (
-                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})"
+            state.store.set("skipped", True)
+            state.store.set(
+                "skip_reason",
+                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})",
             )
             # Set minimal output so write_to_disk knows this was intentionally skipped
             # Preserve model name from previous agent execution instead of hardcoding
@@ -351,8 +431,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             impl_signatures = extract_signatures(impl_code)
 
         # Store signatures and impl code for debugging and quality assessment
-        state.metadata["impl_signatures"] = impl_signatures
-        state.metadata["impl_code"] = impl_code  # For Unit stub detection
+        state.store.set("impl_signatures", impl_signatures)
+        state.store.set("impl_code", impl_code)  # For Unit stub detection
 
         # Phase 3: Generate theorem statements with signatures
         spec_payload = SpecPayload(
@@ -363,16 +443,25 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=spec_variant_name,
         )
 
-        # Call spec agent solver - it will store result in state.metadata["spec_result"]
-        spec_solver = spec_generation_agent(spec_payload, workspace)
-        state = await spec_solver(state, generate_fn)
+        # Call spec agent solver with fork() for conversation isolation
+        spec_solver = spec_agent_solver(spec_payload, workspace)
+        spec_state = await fork(state, spec_solver)
 
-        # Extract result from metadata (agent stores it there)
-        spec_result_data = state.metadata.get("spec_result", {})
+        # Extract result from isolated state's store
+        spec_result_data = spec_state.store.get("spec_result", {})
         if isinstance(spec_result_data, dict):
             spec_result = SpecResult(**spec_result_data)
         else:
             spec_result = spec_result_data
+
+        # Save isolated conversation to parent store for debugging/replay
+        state.store.set(
+            "spec_conversation", [msg.model_dump() for msg in spec_state.messages]
+        )
+        state.store.set("spec_result", spec_result_data)
+
+        # Preserve spec agent's output for final state
+        state.output = spec_state.output
 
         # Write Spec.lean - orchestration has authoritative version (clears validation artifacts)
         spec_file = workspace / "Fvspec" / "Spec.lean"
@@ -412,8 +501,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     errors=[f"Error running plausible: {e}"],
                 )
 
-        # Store plausibility results in metadata for quality assessment
-        state.metadata["plausibility"] = plausibility
+        # Store plausibility results in store for quality assessment
+        state.store.set("plausibility", plausibility)
 
         # Set state.output so write_to_disk can persist the files
         # If plausible ran, read back the modified Spec.lean (with plausible instead of sorry)

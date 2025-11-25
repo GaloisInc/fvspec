@@ -301,7 +301,7 @@ class QualityAssessment(BaseModel):
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
 
         # Check impl autoformalization status
-        impl_result_data = state.metadata.get("impl_result")
+        impl_result_data = state.store.get("impl_result")
         impl_autoform_success = False  # Default to False (no impl or failed)
         if impl_result_data:
             # impl_result may be dict or FunctionImplResult object
@@ -353,8 +353,8 @@ class QualityAssessment(BaseModel):
                 )
                 pass
 
-        # Extract unit test information from metadata
-        unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+        # Extract unit test information from store
+        unit_tests_lspec = state.store.get("unit_tests_lspec")
         has_unit_tests = unit_tests_lspec is not None
         num_unit_tests = 0
         if has_unit_tests and unit_tests_lspec:
@@ -362,8 +362,8 @@ class QualityAssessment(BaseModel):
             # Each test is a line containing 'test "'
             num_unit_tests = unit_tests_lspec.count('test "')
 
-        # Extract plausibility metrics from metadata
-        plausibility = state.metadata.get("plausibility", Plausibility())
+        # Extract plausibility metrics from store
+        plausibility = state.store.get("plausibility", Plausibility())
         # Ensure it's a Plausibility object (may be dict from JSON deserialization)
         if isinstance(plausibility, dict):
             plausibility = Plausibility(**plausibility)
@@ -376,8 +376,8 @@ class QualityAssessment(BaseModel):
             num_plausible = len(re.findall(r"by\s+plausible", code_snippet))
             percent_plausible = num_plausible / num_theorems
 
-        # Extract implementation level from metadata
-        implementation_level_str = state.metadata.get(
+        # Extract implementation level from store
+        implementation_level_str = state.store.get(
             "implementation_level", ImplementationLevel.ABSENT.value
         )
         # Convert string to enum
@@ -402,7 +402,7 @@ class QualityAssessment(BaseModel):
 
         # Detect Unit stubbing patterns (implementation discovery failure)
         # Check if impl has Unit stub
-        impl_code_str = state.metadata.get("impl_code", "")
+        impl_code_str = state.store.get("impl_code", "")
         has_unit_stub = detect_unit_stub_in_impl(impl_code_str)
 
         # Count trivial Unit theorems in spec
@@ -490,9 +490,7 @@ class QualityAssessment(BaseModel):
             num_sorries=num_sorries,
             num_theorems=num_theorems,
             lines_code=lines_code,
-            num_fns_impl=state.metadata.get(
-                "num_fns_impl", 1
-            ),  # Default to 1 (FUT only)
+            num_fns_impl=state.store.get("num_fns_impl", 1),  # Default to 1 (FUT only)
             percent_lines_added=percent_lines_added,
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,

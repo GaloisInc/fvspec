@@ -518,8 +518,8 @@ def write_unit_tests_to_disk(
     Returns:
         A message describing whether the write succeeded.
     """
-    # Extract unit tests from metadata
-    unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+    # Extract unit tests from store
+    unit_tests_lspec = state.store.get("unit_tests_lspec")
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
 
     # Generate Tests.lean content
