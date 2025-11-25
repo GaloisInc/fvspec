@@ -312,6 +312,20 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Get all payloads (FUT + dependencies) - requires db_session for discovery
         all_payloads = payloads_from_datapoint(datapoint, db_session)
 
+        # Check if unit tests exist for this datapoint (for units agent decision)
+        has_unit_tests = False
+        if db_session:
+            from generate.scaffold.dataset.queries import get_overlapping_unit_tests
+
+            overlaps = get_overlapping_unit_tests(db_session, datapoint.id)
+            has_unit_tests = bool(
+                overlaps and any(o.get("unit_tests") for o in overlaps)
+            )
+            logger.info(
+                f"Found {len(overlaps[0].get('unit_tests', [])) if overlaps else 0} "
+                f"unit tests for {function_name}"
+            )
+
         # Close database session before any fork() calls
         # This prevents "cannot pickle 'module' object" errors during deepcopy
         if db_session:
@@ -478,10 +492,15 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         state.store.set("impl_signatures", impl_signatures)
         state.store.set("impl_code", impl_code)  # For Unit stub detection
 
-        # Phase 3+4: Generate theorem statements and unit tests in parallel
-        logger.info("Phase 3+4: Running spec and units agents in parallel")
+        # Phase 3+4: Generate theorem statements and unit tests (parallel if unit tests exist)
+        # Spec agent uses PBT (datapoint.code), units agent uses concrete unit tests from DB
+        # Only invoke units agent if database has unit tests for this function
+        if has_unit_tests:
+            logger.info("Phase 3+4: Running spec and units agents in parallel")
+        else:
+            logger.info("Phase 3: Running spec agent only (no unit tests in DB)")
 
-        # Build payloads for both agents
+        # Build spec payload (always needed)
         spec_payload = SpecPayload(
             pbt_code=datapoint.code,
             pbt_name=datapoint.name,
@@ -490,20 +509,26 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=spec_variant_name,
         )
 
-        units_payload = UnitsPayload(
-            pbt_code=datapoint.code,
-            pbt_name=datapoint.name,
-            function_name=function_name,
-            impl_signatures=impl_signatures,
-        )
-
-        # Create solvers
+        # Create spec solver
         spec_solver = spec_agent_solver(spec_payload, workspace)
-        units_solver = units_agent_solver(units_payload, workspace)
 
-        # Run both agents in parallel with fork() for conversation isolation
-        # fork() natively supports parallel execution when passed a list of solvers
-        spec_state, units_state = await fork(state, [spec_solver, units_solver])
+        # Conditionally create and run units agent in parallel with spec
+        if has_unit_tests:
+            units_payload = UnitsPayload(
+                pbt_code=datapoint.code,
+                pbt_name=datapoint.name,
+                function_name=function_name,
+                impl_signatures=impl_signatures,
+            )
+            units_solver = units_agent_solver(units_payload, workspace)
+
+            # Run both agents in parallel with fork() for conversation isolation
+            # fork() natively supports parallel execution when passed a list of solvers
+            spec_state, units_state = await fork(state, [spec_solver, units_solver])
+        else:
+            # Only run spec agent
+            spec_state = await fork(state, spec_solver)
+            units_state = None
 
         # Extract spec result from isolated state's store
         spec_result_data = spec_state.store.get("spec_result", {})
@@ -532,24 +557,37 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
             )
 
-        # Extract units result from isolated state's store
-        units_result_data = units_state.store.get("units_result", {})
-        if isinstance(units_result_data, dict):
-            units_result = UnitsResult(**units_result_data)
-        else:
-            units_result = units_result_data
+        # Extract units result (from agent if ran, otherwise create skipped result)
+        if units_state is not None:
+            units_result_data = units_state.store.get("units_result", {})
+            if isinstance(units_result_data, dict):
+                units_result = UnitsResult(**units_result_data)
+            else:
+                units_result = units_result_data
 
-        # Save units isolated conversation to parent store for debugging/replay
-        state.store.set(
-            "units_conversation", [msg.model_dump() for msg in units_state.messages]
-        )
-        state.store.set("units_result", units_result_data)
+            # Save units isolated conversation to parent store for debugging/replay
+            state.store.set(
+                "units_conversation", [msg.model_dump() for msg in units_state.messages]
+            )
+            state.store.set("units_result", units_result_data)
 
-        # Log units generation result
-        if units_result.success:
-            logger.info(f"Units generation succeeded: {units_result.test_count} tests")
+            # Log units generation result
+            if units_result.success:
+                logger.info(
+                    f"Units generation succeeded: {units_result.test_count} tests"
+                )
+            else:
+                logger.warning(f"Units generation failed: {units_result.error}")
         else:
-            logger.warning(f"Units generation failed: {units_result.error}")
+            # No unit tests in DB - create skipped result
+            units_result = UnitsResult(
+                success=False,
+                error="No unit tests in database for this function",
+            )
+            units_result_data = units_result.model_dump()
+            state.store.set("units_conversation", [])
+            state.store.set("units_result", units_result_data)
+            logger.info("Units generation skipped: no unit tests in database")
 
         # Phase 5: Run plausible property testing (if enabled and spec compiled)
         plausibility = Plausibility()
