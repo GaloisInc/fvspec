@@ -325,8 +325,11 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})"
             )
             # Set minimal output so write_to_disk knows this was intentionally skipped
+            # Preserve model name from previous agent execution instead of hardcoding
+            model_name = state.output.model if state.output else "unknown"
+
             state.output = ModelOutput(
-                model="orchestrated",
+                model=model_name,
                 choices=[
                     ChatCompletionChoice(
                         message=ChatMessageAssistant(
@@ -426,8 +429,12 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Calculate total time for both agents
         total_time = time.time() - start_time
 
+        # Preserve model name from the last agent execution (spec agent)
+        # instead of hardcoding "orchestrated"
+        model_name = state.output.model if state.output else "unknown"
+
         state.output = ModelOutput(
-            model="orchestrated",
+            model=model_name,
             choices=[
                 ChatCompletionChoice(
                     message=ChatMessageAssistant(
