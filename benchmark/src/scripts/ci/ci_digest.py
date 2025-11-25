@@ -4,16 +4,20 @@ This script runs the fvspec evaluation on the CI dataset and generates
 markdown or JSONL reports for tracking nightly benchmark performance.
 """
 
-import argparse
 import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
+import typer
 from inspect_ai import eval as inspect_eval
 
 from generate.scaffold.orchestration import fvspec
+
+DOT_GITHUB = Path.cwd() / ".." / ".github"
+
+app = typer.Typer()
 
 
 def run_ci_eval(
@@ -272,99 +276,65 @@ def format_jsonl_output(
     return json.dumps(output)
 
 
-def main() -> None:
-    """CLI entry point."""
-    parser = argparse.ArgumentParser(
-        description="Run nightly CI benchmark and generate digest"
-    )
-    parser.add_argument(
-        "--datafile",
-        type=str,
-        default="pbts_ci.db",
-        help="Path to CI database (relative to benchmark/data/)",
-    )
-    parser.add_argument(
-        "--model",
-        type=str,
-        default="anthropic/claude-haiku-4-5-20251001",
-        help="Model identifier",
-    )
-    parser.add_argument(
-        "--variant",
-        type=str,
-        default="control-functional",
-        help="Prompt variant",
-    )
-    parser.add_argument(
-        "--sample-size",
-        type=int,
-        default=64,
-        help="Number of samples to evaluate",
-    )
-    parser.add_argument(
-        "--log-dir",
-        type=Path,
-        help="Parse existing log directory instead of running eval",
-    )
-    parser.add_argument(
-        "--output",
-        type=Path,
-        help="Output file path (stdout if not specified)",
-    )
-    parser.add_argument(
-        "--output-format",
-        choices=["markdown", "jsonl"],
-        default="markdown",
-        help="Output format",
-    )
-    parser.add_argument(
-        "--commit",
-        type=str,
-        required=True,
-        help="Git commit SHA",
-    )
-    parser.add_argument(
-        "--compare-previous",
-        action="store_true",
-        help="Load and compare with previous results",
-    )
-
-    args = parser.parse_args()
-
+@app.command()
+def main(
+    commit: str = typer.Option(..., help="Git commit SHA"),
+    datafile: str = typer.Option(
+        "pbts_ci.db", help="Path to CI database (relative to benchmark/data/)"
+    ),
+    model: str = typer.Option(
+        "anthropic/claude-haiku-4-5-20251001", help="Model identifier"
+    ),
+    variant: str = typer.Option("control-functional", help="Prompt variant"),
+    sample_size: int = typer.Option(64, help="Number of samples to evaluate"),
+    log_dir: Path | None = typer.Option(
+        None, help="Parse existing log directory instead of running eval"
+    ),
+    output: Path | None = typer.Option(
+        None, help="Output file path (stdout if not specified)"
+    ),
+    output_format: Literal["markdown", "jsonl"] = typer.Option(
+        "markdown", help="Output format"
+    ),
+    compare_previous: bool = typer.Option(
+        False, help="Load and compare with previous results"
+    ),
+) -> None:
+    """Run nightly CI benchmark and generate digest."""
     # Either run eval or use existing log directory
-    if args.log_dir:
-        log_dir = args.log_dir
-        print(f"Using existing log directory: {log_dir}")
+    if log_dir is not None:
+        eval_log_dir = log_dir
+        print(f"Using existing log directory: {eval_log_dir}")
     else:
         # Run the evaluation
-        log_dir = run_ci_eval(
-            args.datafile,
-            args.model,
-            args.variant,
-            args.sample_size,
+        eval_log_dir = run_ci_eval(
+            datafile,
+            model,
+            variant,
+            sample_size,
         )
 
     # Parse results from qa.json files
-    metrics = parse_qa_files(log_dir)
+    metrics = parse_qa_files(eval_log_dir)
 
     # Optionally load previous results
     previous = None
-    if args.compare_previous:
+    if compare_previous:
         previous = load_previous_results()
 
     # Generate output
-    if args.output_format == "markdown":
-        output = format_markdown_report(metrics, args.model, args.commit, previous)
+    if output_format == "markdown":
+        output_text = format_markdown_report(metrics, model, commit, previous)
     else:
-        output = format_jsonl_output(metrics, args.model, args.commit)
+        output_text = format_jsonl_output(metrics, model, commit)
 
     # Write output
-    if args.output:
-        args.output.parent.mkdir(parents=True, exist_ok=True)
-        args.output.write_text(output)
+    if output:
+        output.parent.mkdir(parents=True, exist_ok=True)
+        output.write_text(output_text)
     else:
-        print(output)
+        print(output_text)
 
 
 if __name__ == "__main__":
-    main()
+    app()
