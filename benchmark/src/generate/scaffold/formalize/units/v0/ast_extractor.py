@@ -13,7 +13,7 @@ import ast
 import warnings
 from typing import Any
 
-from generate.scaffold.units.models import TestCase
+from generate.scaffold.formalize.units.v0.models import TestCase
 
 
 class ASTExtractor(ast.NodeVisitor):

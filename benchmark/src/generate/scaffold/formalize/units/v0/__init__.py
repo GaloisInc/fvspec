@@ -9,7 +9,7 @@ Main entry points:
     - FloatTestValidator: Validate float tests during evaluation
 
 Example:
-    >>> from generate.scaffold.units import extract_unit_tests, generate_test_suite
+    >>> from generate.scaffold.formalize.units.v0 import extract_unit_tests, generate_test_suite
     >>>
     >>> pbt_code = '''
     ... X = [1, 2, 3]
@@ -22,10 +22,10 @@ Example:
     ...     print(lean_code)
 """
 
-from generate.scaffold.units.ast_extractor import ASTExtractor
-from generate.scaffold.units.float_validator import FloatTestValidator
-from generate.scaffold.units.lspec_generator import generate_test_suite
-from generate.scaffold.units.models import TestCase, TestSuite
+from generate.scaffold.formalize.units.v0.ast_extractor import ASTExtractor
+from generate.scaffold.formalize.units.v0.float_validator import FloatTestValidator
+from generate.scaffold.formalize.units.v0.lspec_generator import generate_test_suite
+from generate.scaffold.formalize.units.v0.models import TestCase, TestSuite
 
 
 def extract_unit_tests(pbt_code: str, func_name: str) -> TestSuite | None:

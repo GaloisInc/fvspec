@@ -1,6 +1,6 @@
 """Tests for AST-based unit test extraction."""
 
-from generate.scaffold.units.ast_extractor import ASTExtractor
+from generate.scaffold.formalize.units.v0.ast_extractor import ASTExtractor
 
 
 def test_extract_simple_literal():

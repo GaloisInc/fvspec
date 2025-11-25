@@ -1,11 +1,11 @@
 """Tests for LSpec code generation."""
 
-from generate.scaffold.units.lspec_generator import (
+from generate.scaffold.formalize.units.v0.lspec_generator import (
     generate_float_eval,
     generate_lean_test,
     generate_test_suite,
 )
-from generate.scaffold.units.models import TestCase, TestSuite
+from generate.scaffold.formalize.units.v0.models import TestCase, TestSuite
 
 
 def test_generate_lean_test_simple():

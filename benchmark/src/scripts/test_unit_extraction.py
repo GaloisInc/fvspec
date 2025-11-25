@@ -24,7 +24,7 @@ from generate.scaffold.dataset.queries import (
     get_overlapping_unit_tests,
     sample_datapoints,
 )
-from generate.scaffold.units import extract_unit_tests
+from generate.scaffold.formalize.units.v0 import extract_unit_tests
 
 DATADIR = Path(".") / "data"
 
