@@ -98,12 +98,13 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
           </Select>
           <Button
             variant="outline"
-            size="icon"
             onClick={handleRandomSample}
             disabled={loading || samples.length === 0}
             title="Random sample"
+            className="gap-2"
           >
             <Shuffle className="h-4 w-4" />
+            <span className="hidden sm:inline">Random</span>
           </Button>
         </CardContent>
       </Card>
