@@ -257,15 +257,26 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if function_name.startswith("test_"):
             function_name = function_name[5:]
 
-        # Try to discover function code from database
+        # Phase 0: Complete all database work before fork() calls
+        # (fork() uses deepcopy which cannot pickle database sessions)
         db_session = state.metadata.get("db_session")
+
+        # Try to discover function code from database
         function_code = None
         if db_session:
             result = lookup_function_exact(db_session, function_name, datapoint.repo_id)
             if result:
                 function_code = result.code
 
-        # Phase 1: Generate implementation for function under test
+        # Get all payloads (FUT + dependencies) - requires db_session for discovery
+        all_payloads = payloads_from_datapoint(datapoint, db_session)
+
+        # Close database session before any fork() calls
+        # This prevents "cannot pickle 'module' object" errors during deepcopy
+        if db_session:
+            db_session.close()
+            state.metadata.pop("db_session", None)
+
         # Map spec variant to impl variant style (control-functional → functional)
         spec_variant_name = variant or "control-functional"
         spec_registry = VariantRegistry()
@@ -275,6 +286,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         impl_file = workspace / "Fvspec" / "Impl.lean"
         impl_file.parent.mkdir(parents=True, exist_ok=True)
 
+        # Phase 1: Generate implementation for function under test
         # Only process FUT if we have source code for it
         # Skip if function_code is None - Phase 1b will handle dependencies
         # This prevents hallucination when agent has no code to work from
@@ -325,8 +337,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             state.store.set("implementation_level", "signature")
 
         # Phase 1b: Generate implementations for all dependencies
-        # Get all payloads (FUT + dependencies)
-        all_payloads = payloads_from_datapoint(datapoint, db_session)
         dependency_implementations: dict[str, str] = {}
 
         for payload in all_payloads:
@@ -381,13 +391,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
         # Store dependency count for metrics
         state.store.set("num_fns_impl", len(all_payloads))
-
-        # Close database session after function discovery completes
-        # This frees the connection and file descriptors
-        db_session = state.metadata.get("db_session")
-        if db_session:
-            db_session.close()
-            state.metadata.pop("db_session", None)
 
         # Skip samples with excessive function counts (>50)
         # Rationale: Samples with >50 functions are extreme outliers that:
