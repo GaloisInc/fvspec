@@ -1,0 +1,48 @@
+Generate LSpec unit tests for the following Python property-based test.
+
+## Function Name
+{{ function_name }}
+
+## Property-Based Test
+```python
+{{ pbt_code }}
+```
+
+{% if impl_signatures %}
+## Implementation Signatures (from Impl.lean)
+{% for name, sig in impl_signatures.items() %}
+- `{{ name }}`: `{{ sig }}`
+{% endfor %}
+{% endif %}
+
+## Your Task
+
+1. Analyze the Python test to identify concrete test cases or patterns
+2. Convert them to LSpec syntax
+3. Generate a test suite in Lean 4
+
+Output format:
+```
+<code>
+import LSpec
+import Fvspec.Spec
+
+def tests : TestSeq :=
+  test "test1" (expr1 = expected1) $
+  test "test2" (expr2 = expected2) $
+  test "test3" (expr3 = expected3)
+
+#lspec tests
+</code>
+```
+
+**Note:** If no concrete test cases exist in the Python code, create 3-5 reasonable test cases based on:
+- The function name (e.g., `sort` → test empty list, single element, multiple elements)
+- Any assertions you can infer from the test logic
+- Common edge cases (empty inputs, single elements, typical cases)
+
+Remember:
+- Include both imports: `import LSpec` and `import Fvspec.Spec`
+- Chain tests with `$` (no `$` after the last test)
+- Use descriptive test names
+- Wrap output in `<code>...</code>` tags

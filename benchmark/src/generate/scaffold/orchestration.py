@@ -1,12 +1,14 @@
-"""Two-agent orchestration for fvspec benchmark.
+"""Three-agent orchestration for fvspec benchmark.
 
 Architecture:
 1. Implementation Agent: Generates function implementations (zero sorry required)
 2. Specification Agent: Generates theorem statements (with sorry for proofs)
+3. Units Agent: Generates LSpec test suites from Python property-based tests
 
-The orchestration runs both agents sequentially, passing type signatures between them.
+The orchestration runs all agents sequentially with conversation isolation via fork().
 """
 
+import logging
 import time
 import tomllib
 from datetime import datetime
@@ -35,10 +37,17 @@ from generate.scaffold.formalize.spec import (
     spec_generation_agent,
 )
 from generate.scaffold.formalize.spec.validator import extract_signatures
+from generate.scaffold.formalize.units import (
+    UnitsPayload,
+    UnitsResult,
+    units_generation_agent,
+)
 from generate.scaffold.quality_assessment import count_lean_theorems
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _generate_fut_stub(function_name: str, pbt_code: str) -> str:
@@ -171,6 +180,37 @@ def spec_agent_solver(payload: SpecPayload, workspace: Path) -> Solver:
         # Migrate result from metadata to store (framework-recommended)
         spec_result = state.metadata.pop("spec_result", {})
         state.store.set("spec_result", spec_result)
+
+        return state
+
+    return solve
+
+
+@solver
+def units_agent_solver(payload: UnitsPayload, workspace: Path) -> Solver:
+    """Wrapper solver for units agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the units agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Units generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs units agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call units_generation_agent (writes to state.metadata)
+        units_solver = units_generation_agent(payload, workspace)
+        state = await units_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        units_result = state.metadata.pop("units_result", {})
+        state.store.set("units_result", units_result)
 
         return state
 
@@ -477,7 +517,39 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
             )
 
-        # Phase 4: Run plausible property testing (if enabled and spec compiled)
+        # Phase 4: Generate unit tests with units agent
+        logger.info("Phase 4: Generating unit tests with units agent")
+        units_payload = UnitsPayload(
+            pbt_code=datapoint.code,
+            pbt_name=datapoint.name,
+            function_name=function_name,
+            impl_signatures=impl_signatures,
+        )
+
+        # Call units agent solver with fork() for conversation isolation
+        units_solver = units_agent_solver(units_payload, workspace)
+        units_state = await fork(state, units_solver)
+
+        # Extract result from isolated state's store
+        units_result_data = units_state.store.get("units_result", {})
+        if isinstance(units_result_data, dict):
+            units_result = UnitsResult(**units_result_data)
+        else:
+            units_result = units_result_data
+
+        # Save isolated conversation to parent store for debugging/replay
+        state.store.set(
+            "units_conversation", [msg.model_dump() for msg in units_state.messages]
+        )
+        state.store.set("units_result", units_result_data)
+
+        # Log units generation result
+        if units_result.success:
+            logger.info(f"Units generation succeeded: {units_result.test_count} tests")
+        else:
+            logger.warning(f"Units generation failed: {units_result.error}")
+
+        # Phase 5: Run plausible property testing (if enabled and spec compiled)
         plausibility = Plausibility()
         if spec_result.success and spec_result.lean_code and spec_file.exists():
             try:
