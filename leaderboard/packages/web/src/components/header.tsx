@@ -12,14 +12,24 @@ export function Header() {
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
       <div className="container mx-auto px-4 flex h-16 items-center justify-between">
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
+          {/* Mobile menu button - on left side */}
+          <Button
+            variant="ghost"
+            size="icon"
+            className="md:hidden"
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            aria-label="Toggle menu"
+          >
+            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+          </Button>
           <Link href="/" className="flex items-center space-x-2">
             <span className="font-bold text-xl">fvspec</span>
             <Badge variant="outline" className="text-xs">
               PRE-ALPHA
             </Badge>
           </Link>
-          {/* Desktop navigation */}
+          {/* Desktop navigation - hidden on mobile */}
           <nav className="hidden md:flex gap-6">
             <Link
               href="/leaderboard"
@@ -47,22 +57,12 @@ export function Header() {
             </Link>
           </nav>
         </div>
-        <div className="flex items-center gap-2">
-          {/* Desktop GitHub button */}
+        {/* GitHub button on right - always visible on small+ screens */}
+        <div className="flex items-center">
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
             <a href="https://github.com/GaloisInc/fvspec" target="_blank" rel="noopener noreferrer">
               GitHub
             </a>
-          </Button>
-          {/* Mobile menu button */}
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden"
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </Button>
         </div>
       </div>
