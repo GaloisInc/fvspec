@@ -40,7 +40,7 @@ uv run ruff format && uv run ruff check && uv run pytest
 
 ## Architecture
 
-**Two-Agent Flow:**
+**Three-Agent Flow:**
 1. Sample from SQLite with filtering
 2. **Unit test extraction** - AST-based extraction to LSpec (Tests.lean), stored in metadata
 3. **Function discovery** - Tree-sitter lookup (92% coverage)
