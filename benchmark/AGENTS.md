@@ -47,7 +47,9 @@ uv run ruff format && uv run ruff check && uv run pytest
 3. **Function discovery** - Tree-sitter lookup (92% coverage)
 4. **Implementation Agent** - Generate FUT + dependencies → Impl.lean (zero sorry)
 5. **Signature extraction** - Parse types from Impl.lean
-6. **Specification Agent** - Generate theorems → Spec.lean (with sorry)
+6a. **Specification Agent** - Generate theorems → Spec.lean (with sorry)
+6b. **Units Agent** - Generate unit tests → Tests.lean
+    *(Steps 6a and 6b run in parallel according to orchestration.py)*
 7. Quality assessment, save artifacts
 
 **Artifacts:** `artifacts/<timestamp>__<variant>/<sample_id>__<pbt_name>/`
