@@ -8,6 +8,7 @@ from pathlib import Path
 
 import typer
 from inspect_ai import eval, eval_set
+from inspect_ai._eval.eval import DisplayType
 from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
@@ -61,7 +62,7 @@ def main_callback(
     list_variants: bool = Option(
         False, "--list-variants", help="List all available prompt variants and exit"
     ),
-    display: str = Option(
+    display: DisplayType | None = Option(
         None,
         help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
     ),
@@ -253,7 +254,7 @@ def compare_variants(
         "--parallelism",
         help="Number of samples to evaluate in parallel. Overrides config.toml.",
     ),
-    display: str = Option(
+    display: DisplayType | None = Option(
         None,
         help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
     ),
