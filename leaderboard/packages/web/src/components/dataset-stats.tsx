@@ -45,7 +45,7 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
         <AlertDescription>
           <strong>Early Development Dataset:</strong> This preview contains {stats.total} samples
           while we work out generation pipeline kinks. The final benchmark will be{' '}
-          <strong>2+ orders of magnitude larger</strong> with significantly improved specification
+          <strong>~2 orders of magnitude larger</strong> with significantly improved specification
           quality. Current samples are experimental and may contain imperfect translations.
         </AlertDescription>
       </Alert>
