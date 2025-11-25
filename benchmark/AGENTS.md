@@ -9,6 +9,7 @@ Benchmark generation system using the `inspect_ai` framework.
 - `dataset/` - Sample loading, unit test extraction, function discovery
 - `formalize/impl/` - Implementation agent
 - `formalize/spec/` - Specification agent
+- `formalize/units/` - Units agent
 - `quality_assessment.py` - Metrics extraction
 - `tools/declaration.py` - Lean LSP via MCP
 
