@@ -279,9 +279,7 @@ def format_jsonl_output(
 @app.command()
 def main(
     commit: str = typer.Option(..., help="Git commit SHA"),
-    datafile: str = typer.Option(
-        "pbts_ci.db", help="Path to CI database (relative to benchmark/data/)"
-    ),
+    datafile: str = typer.Option(DOT_GITHUB / "pbts_ci.db", help="Path to CI database"),
     model: str = typer.Option(
         "anthropic/claude-haiku-4-5-20251001", help="Model identifier"
     ),
