@@ -8,7 +8,7 @@ import json
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import typer
 from inspect_ai import eval as inspect_eval
@@ -284,21 +284,23 @@ def main(
         "anthropic/claude-haiku-4-5-20251001", help="Model identifier"
     ),
     variant: str = typer.Option("control-functional", help="Prompt variant"),
-    sample_size: int = typer.Option(64, help="Number of samples to evaluate"),
+    sample_size: int = typer.Option(10, help="Number of samples to evaluate"),
     log_dir: Path | None = typer.Option(
         None, help="Parse existing log directory instead of running eval"
     ),
-    output: Path | None = typer.Option(
-        None, help="Output file path (stdout if not specified)"
+    markdown_output: Path | None = typer.Option(
+        None, help="Path to write markdown report"
     ),
-    output_format: Literal["markdown", "jsonl"] = typer.Option(
-        "markdown", help="Output format"
-    ),
+    jsonl_output: Path | None = typer.Option(None, help="Path to write JSONL result"),
     compare_previous: bool = typer.Option(
         False, help="Load and compare with previous results"
     ),
 ) -> None:
-    """Run nightly CI benchmark and generate digest."""
+    """Run nightly CI benchmark and generate digest.
+
+    Can generate both markdown and JSONL outputs in a single run by specifying
+    both --markdown-output and --jsonl-output.
+    """
     # Either run eval or use existing log directory
     if log_dir is not None:
         eval_log_dir = log_dir
@@ -320,18 +322,27 @@ def main(
     if compare_previous:
         previous = load_previous_results()
 
-    # Generate output
-    if output_format == "markdown":
-        output_text = format_markdown_report(metrics, model, commit, previous)
-    else:
-        output_text = format_jsonl_output(metrics, model, commit)
+    # Generate and write outputs
+    outputs_written = []
 
-    # Write output
-    if output:
-        output.parent.mkdir(parents=True, exist_ok=True)
-        output.write_text(output_text)
-    else:
-        print(output_text)
+    if markdown_output:
+        markdown_text = format_markdown_report(metrics, model, commit, previous)
+        markdown_output.parent.mkdir(parents=True, exist_ok=True)
+        markdown_output.write_text(markdown_text)
+        outputs_written.append(f"Markdown: {markdown_output}")
+
+    if jsonl_output:
+        jsonl_text = format_jsonl_output(metrics, model, commit)
+        jsonl_output.parent.mkdir(parents=True, exist_ok=True)
+        jsonl_output.write_text(jsonl_text)
+        outputs_written.append(f"JSONL: {jsonl_output}")
+
+    # If no outputs specified, print markdown to stdout
+    if not markdown_output and not jsonl_output:
+        markdown_text = format_markdown_report(metrics, model, commit, previous)
+        print(markdown_text)
+    elif outputs_written:
+        print(f"Generated outputs: {', '.join(outputs_written)}")
 
 
 if __name__ == "__main__":

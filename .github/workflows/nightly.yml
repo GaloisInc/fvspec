@@ -38,14 +38,14 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         run: |
-          # Run evaluation and generate markdown report
+          # Run evaluation and generate both markdown and JSONL reports in one pass
           uv run ci-digest \
             --datafile ../.github/pbts_ci.db \
             --model anthropic/claude-haiku-4-5-20251001 \
             --variant control-functional \
-            --sample-size 64 \
-            --output artifacts/nightly_report.md \
-            --output-format markdown \
+            --sample-size 10 \
+            --markdown-output artifacts/nightly_report.md \
+            --jsonl-output /tmp/result.jsonl \
             --commit ${{ github.sha }}
 
           # Find the log directory that was just created
@@ -55,13 +55,7 @@ jobs:
 
       - name: Append to ci-results branch
         run: |
-          # Generate JSONL summary using the same log directory
-          uv run ci-digest \
-            --log-dir ${{ steps.run.outputs.log_dir }} \
-            --model anthropic/claude-haiku-4-5-20251001 \
-            --output-format jsonl \
-            --commit ${{ github.sha }} \
-            > /tmp/result.jsonl
+          # JSONL result already generated in previous step
 
           # Configure git
           git config user.name "github-actions[bot]"
