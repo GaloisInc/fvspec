@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shuffle } from 'lucide-react'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
+// Client component - use relative URL that goes through nginx proxy
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 interface DatasetExplorerProps {
   initialSample: DatasetSampleDetail

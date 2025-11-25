@@ -3,7 +3,9 @@ import type { Metadata } from 'next'
 import { DatasetExplorer } from '@/components/dataset-explorer'
 import type { DatasetSampleDetail } from '@fvspec/common'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3002'
+// This runs on the server during SSR, so we need a full URL (not relative /api)
+// Use internal localhost URL to bypass nginx
+const API_URL = process.env.API_INTERNAL_URL || 'http://localhost:3002'
 
 async function getSample(id: string): Promise<DatasetSampleDetail | null> {
   try {
