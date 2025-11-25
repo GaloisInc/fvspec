@@ -1,4 +1,4 @@
-Generate LSpec unit tests for the following Python property-based test.
+Generate LSpec unit tests for the following Python unit test.
 
 ## Function Name
 {{ function_name }}
@@ -36,10 +36,7 @@ def tests : TestSeq :=
 </code>
 ```
 
-**Note:** If no concrete test cases exist in the Python code, create 3-5 reasonable test cases based on:
-- The function name (e.g., `sort` → test empty list, single element, multiple elements)
-- Any assertions you can infer from the test logic
-- Common edge cases (empty inputs, single elements, typical cases)
+It's ok to skip unit tests for this sample if no unit tests exist. Just return code that is imports and nothing else
 
 Remember:
 - Include both imports: `import LSpec` and `import Fvspec.Spec`

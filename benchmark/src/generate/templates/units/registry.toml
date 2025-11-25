@@ -5,5 +5,5 @@
 
 [variants.default]
 description = "Default units generation variant"
-system_prompt = "variants/default/system.prompt.template"
+system_prompt = "variants/default/system.prompt"
 initial_prompt = "variants/default/initial.prompt.template"
