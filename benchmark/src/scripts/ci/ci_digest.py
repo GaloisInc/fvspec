@@ -159,7 +159,7 @@ def load_previous_results(branch: str = "ci-results") -> dict[str, Any] | None:
     Returns:
         Most recent result dict, or None if not available
     """
-    results_file = Path("results.jsonl")
+    results_file = Path("nightly-results.jsonl")
     if not results_file.exists():
         return None
 

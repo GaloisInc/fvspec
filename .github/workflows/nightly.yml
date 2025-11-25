@@ -65,8 +65,8 @@ jobs:
           git fetch origin ci-results:ci-results 2>/dev/null || {
             git checkout --orphan ci-results
             git rm -rf .
-            touch results.jsonl
-            git add results.jsonl
+            touch nightly-results.jsonl
+            git add nightly-results.jsonl
             git commit -m "Initialize ci-results branch"
             git push origin ci-results
           }
@@ -75,10 +75,10 @@ jobs:
           git checkout ci-results
 
           # Append new result
-          cat /tmp/result.jsonl >> results.jsonl
+          cat /tmp/result.jsonl >> nightly-results.jsonl
 
           # Commit and push
-          git add results.jsonl
+          git add nightly-results.jsonl
           git commit -m "Nightly results for $(date +%Y-%m-%d) (commit: ${{ github.sha }})"
           git push origin ci-results
 
