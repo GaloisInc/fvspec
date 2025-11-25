@@ -16,6 +16,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shuffle } from 'lucide-react'
+import { CodeBlock } from './code-block'
 
 // Client component - use relative URL that goes through nginx proxy
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
@@ -178,32 +179,16 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
               <TabsTrigger value="tests">Tests</TabsTrigger>
             </TabsList>
             <TabsContent value="python" className="mt-4">
-              <div className="rounded-lg bg-muted p-4">
-                <pre className="overflow-x-auto text-sm">
-                  <code>{initialSample.code}</code>
-                </pre>
-              </div>
+              <CodeBlock code={initialSample.code} language="python" />
             </TabsContent>
             <TabsContent value="spec" className="mt-4">
-              <div className="rounded-lg bg-muted p-4">
-                <pre className="overflow-x-auto text-sm">
-                  <code>{initialSample.spec}</code>
-                </pre>
-              </div>
+              <CodeBlock code={initialSample.spec} language="lean4" />
             </TabsContent>
             <TabsContent value="impl" className="mt-4">
-              <div className="rounded-lg bg-muted p-4">
-                <pre className="overflow-x-auto text-sm">
-                  <code>{initialSample.impl}</code>
-                </pre>
-              </div>
+              <CodeBlock code={initialSample.impl} language="lean4" />
             </TabsContent>
             <TabsContent value="tests" className="mt-4">
-              <div className="rounded-lg bg-muted p-4">
-                <pre className="overflow-x-auto text-sm">
-                  <code>{initialSample.tests}</code>
-                </pre>
-              </div>
+              <CodeBlock code={initialSample.tests} language="lean4" />
             </TabsContent>
           </Tabs>
         </CardContent>
