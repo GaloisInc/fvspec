@@ -97,6 +97,17 @@ def sample_datapoints(
     )
     datapoints = list(session.exec(datapoints_statement))
 
+    # Populate unit_tests attribute for each datapoint (not a DB field)
+    for dp in datapoints:
+        unit_tests = []  # Collect unit tests
+        overlaps = get_overlapping_unit_tests(session, dp.id)
+        # Extract all unit tests from overlaps
+        if overlaps:
+            for overlap in overlaps:
+                unit_tests.extend(overlap.get("unit_tests", []))
+        # Set directly on __dict__ to bypass Pydantic validation
+        dp.__dict__["unit_tests"] = unit_tests
+
     # Return in correct order
     # For sequential mode, preserve order from all_ids slice
     # For random mode, preserve shuffled order

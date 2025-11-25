@@ -312,18 +312,9 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Get all payloads (FUT + dependencies) - requires db_session for discovery
         all_payloads = payloads_from_datapoint(datapoint, db_session)
 
-        # Check if unit tests exist for this datapoint (for units agent decision)
-        unit_tests_data = []
-        if db_session:
-            from generate.scaffold.dataset.queries import get_overlapping_unit_tests
-
-            overlaps = get_overlapping_unit_tests(db_session, datapoint.id)
-            if overlaps:
-                # Extract all unit tests from overlaps
-                for overlap in overlaps:
-                    unit_tests_data.extend(overlap.get("unit_tests", []))
-
-            logger.info(f"Found {len(unit_tests_data)} unit tests for {function_name}")
+        # Get unit tests from datapoint (populated at load time)
+        unit_tests_data = datapoint.unit_tests
+        logger.info(f"Found {len(unit_tests_data)} unit tests for {function_name}")
 
         # Close database session before any fork() calls
         # This prevents "cannot pickle 'module' object" errors during deepcopy
