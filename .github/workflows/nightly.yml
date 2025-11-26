@@ -33,21 +33,13 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
-      - name: Verify database file exists
+      - name: Setup CI database symlink
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Listing parent directory:"
-          ls -la ..
-          echo "Listing .github in parent:"
-          ls -la ../.github/
-          echo "Checking if database file exists:"
-          if [ -f ../.github/pbts_ci.db ]; then
-            echo "✓ Database file exists"
-            ls -lh ../.github/pbts_ci.db
-          else
-            echo "✗ Database file NOT found"
-            exit 1
-          fi
+          # Create symlink from .github/pbts_ci.db to benchmark/data/
+          # This allows ci-digest to find it via DATA_DIR
+          ln -sf ../../.github/pbts_ci.db data/pbts_ci.db
+          echo "Created symlink: data/pbts_ci.db -> ../../.github/pbts_ci.db"
+          ls -lh data/pbts_ci.db
 
       - name: Run benchmark and generate reports
         id: run
@@ -56,7 +48,7 @@ jobs:
         run: |
           # Run evaluation and generate both markdown and JSONL reports in one pass
           uv run ci-digest \
-            --datafile ../.github/pbts_ci.db \
+            --datafile pbts_ci.db \
             --model anthropic/claude-haiku-4-5-20251001 \
             --variant control-functional \
             --sample-size 10 \
