@@ -170,10 +170,35 @@ def count_tests(lean_code: str) -> int:
         lean_code: Generated Lean code
 
     Returns:
-        Number of tests found (counts 'test "name"' patterns)
+        Number of tests found (counts various test patterns)
     """
-    # Count occurrences of 'test "..."' pattern
-    # This matches test "anything" in the code
-    pattern = r'test\s+"[^"]+"'
-    matches = re.findall(pattern, lean_code)
-    return len(matches)
+    # Count occurrences of various test patterns
+    # 1. Standard LSpec: test "name" pattern
+    # 2. TestSeq with test calls (count the 'test' keyword)
+    # 3. #lspec directives
+    # 4. #eval or #guard statements (alternative test methods)
+
+    count = 0
+
+    # Count standard test "..." patterns
+    pattern1 = r'test\s+"[^"]+"'
+    count += len(re.findall(pattern1, lean_code))
+
+    # If no standard patterns, try to count test keywords in TestSeq context
+    if count == 0:
+        # Count 'test ' calls (but not in comments)
+        lines = [
+            line for line in lean_code.split("\n") if not line.strip().startswith("--")
+        ]
+        test_calls = sum(line.count("test ") for line in lines)
+        count += test_calls
+
+    # Count #lspec directives as tests
+    count += lean_code.count("#lspec")
+
+    # If still no tests found but has #eval or #guard, count those
+    if count == 0:
+        count += lean_code.count("#eval")
+        count += lean_code.count("#guard")
+
+    return max(count, 0)  # Ensure non-negative

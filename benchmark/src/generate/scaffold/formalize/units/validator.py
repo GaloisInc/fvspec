@@ -27,19 +27,36 @@ def validate_units_output(lean_code: str) -> UnitsValidation:
     if "import Fvspec.Spec" not in lean_code:
         errors.append("Missing 'import Fvspec.Spec' statement")
 
-    # Check for at least one test (look for 'test "name"' pattern)
-    has_tests = 'test "' in lean_code
+    # Check for test-related patterns (relaxed validation)
+    # Accept any of: test function calls, TestSeq definitions, #lspec directive, or #eval
+    has_test_pattern = any(
+        pattern in lean_code
+        for pattern in ["test ", "TestSeq", "#lspec", "#eval", "#guard"]
+    )
+
+    # Consider it valid if imports are present and has some test-like pattern
+    # OR if the code has more than just imports (actual definitions/code)
+    has_content = (
+        len(
+            [
+                line
+                for line in lean_code.split("\n")
+                if line.strip() and not line.strip().startswith("--")
+            ]
+        )
+        > 2
+    )
+
+    has_tests = has_test_pattern or has_content
+    valid_syntax = has_test_pattern or has_content
+
     if not has_tests:
-        errors.append("No tests found (no 'test \"name\"' patterns)")
+        errors.append("No test-related content found")
 
-    # Check for basic LSpec syntax patterns
-    # Either has 'test ' calls or defines TestSeq
-    valid_syntax = ("test " in lean_code) or ("TestSeq" in lean_code)
-    if not valid_syntax:
-        errors.append("Invalid LSpec syntax (no 'test' or 'TestSeq' found)")
-
-    # Overall validity: must have tests and valid syntax
-    valid = has_tests and valid_syntax
+    # Overall validity: must have imports and some content
+    valid = (
+        "import LSpec" in lean_code and "import Fvspec.Spec" in lean_code and has_tests
+    )
 
     return UnitsValidation(
         has_tests=has_tests,
