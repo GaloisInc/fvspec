@@ -5,6 +5,7 @@ markdown or JSONL reports for tracking nightly benchmark performance.
 """
 
 import json
+import traceback
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -81,8 +82,6 @@ def run_ci_eval(
                         print(f"    Traceback: {result.error.traceback}")
     except Exception as e:
         print(f"ERROR during evaluation: {e}")
-        import traceback
-
         traceback.print_exc()
         raise
 
