@@ -25,7 +25,7 @@ Output format:
 ```
 <code>
 import LSpec
-import Fvspec.Spec
+import Fvspec.Impl
 
 def tests : TestSeq :=
   test "test1" (expr1 = expected1) $
@@ -39,7 +39,7 @@ def tests : TestSeq :=
 It's ok to skip unit tests for this sample if no unit tests exist. Just return code that is imports and nothing else
 
 Remember:
-- Include both imports: `import LSpec` and `import Fvspec.Spec`
+- Include both imports: `import LSpec` and `import Fvspec.Impl`
 - Chain tests with `$` (no `$` after the last test)
 - Use descriptive test names
 - Wrap output in `<code>...</code>` tags
