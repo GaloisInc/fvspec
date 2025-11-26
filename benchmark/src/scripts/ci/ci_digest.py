@@ -72,7 +72,13 @@ def run_ci_eval(
         print(f"Results: {len(results)} log(s) created")
         if results:
             for i, result in enumerate(results):
-                print(f"  Log {i + 1}: {result.status} - {result.eval.samples} samples")
+                print(
+                    f"  Log {i + 1}: {result.status} - {result.eval.dataset.samples} samples"
+                )
+                if result.status == "error":
+                    print(f"    Error: {result.error}")
+                    if result.error and hasattr(result.error, "traceback"):
+                        print(f"    Traceback: {result.error.traceback}")
     except Exception as e:
         print(f"ERROR during evaluation: {e}")
         import traceback
