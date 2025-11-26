@@ -15,6 +15,7 @@ from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.formalize.units.models import UnitsPayload, UnitsResult
 from generate.scaffold.formalize.units.validator import validate_units_output
+from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
 from generate.templates.units import get_variant_prompts
 
 logger = logging.getLogger(__name__)
@@ -68,12 +69,17 @@ def units_generation_agent(
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 
-        # Start without LSP tools for MVP - tests are simpler than specs
-        # Can add later if needed: state.tools = lean_lsp_mcp_tools()
+        # Get LSP tools from workspace
+        # Use same tools as spec agent - they're workspace-aware and work with any Lean file
+        tools = lean_lsp_mcp_tools()
 
-        # Run generation (single-shot for MVP)
-        # Future: Could add tool_calls="loop" for iterative refinement
-        state = await generate(state)
+        # Add tools to state
+        state.tools = tools
+
+        # Run iterative refinement loop using generate with tool_calls="loop"
+        # This enables the agent to compile Tests.lean and fix errors
+        # Loop terminates when model stops calling tools
+        state = await generate(state, tool_calls="loop")
 
         # Extract code from <code>...</code> tags in final response
         # Use state.output.message.text to get string content (not list of content blocks)
@@ -84,7 +90,12 @@ def units_generation_agent(
         else:
             lean_code = None
 
-        # Count assistant attempts (number of assistant responses)
+        # Count tool calls from message history
+        tool_calls_count = sum(
+            1 for msg in state.messages if hasattr(msg, "tool_calls") and msg.tool_calls
+        )
+
+        # Calculate number of iterations (assistant responses)
         attempts = sum(
             1
             for msg in state.messages
@@ -101,7 +112,7 @@ def units_generation_agent(
                     test_count=count_tests(lean_code),
                     has_tests=True,
                     attempts=attempts,
-                    tool_calls=0,  # No LSP tools in MVP
+                    tool_calls=tool_calls_count,
                 )
             else:
                 # Validation failed - include descriptive error message
@@ -117,14 +128,14 @@ def units_generation_agent(
                     has_tests=False,
                     error=error_msg,
                     attempts=attempts,
-                    tool_calls=0,
+                    tool_calls=tool_calls_count,
                 )
         else:
             result = UnitsResult(
                 success=False,
                 error="No code blocks found in response",
                 attempts=attempts,
-                tool_calls=0,
+                tool_calls=tool_calls_count,
             )
 
         # Store result in metadata (will be moved to store by orchestration)
