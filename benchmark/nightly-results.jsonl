@@ -1,0 +1,1 @@
+{"schema_version": "v1", "date": "2025-11-26T17:50:15.750523", "commit": "90d07e4ef43195bb464d73239a6c2b2a8998a65c", "model": "anthropic/claude-haiku-4-5-20251001", "total_samples": 0, "success_rate": 0, "functional_success": 0, "mvcgen_success": 0, "avg_quality": null, "error_types": {}, "extended_metrics": {"success_count": 0}}
