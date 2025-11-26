@@ -288,12 +288,59 @@ def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
+def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
+    """Write Lean implementation code to Impl.lean in the workspace for LSP analysis.
+
+    This tool allows the impl agent to iteratively develop implementation code by
+    writing it to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze it. The agent should:
+
+    1. Write initial Lean code using this tool
+    2. Use lean_diagnostic_messages to check for errors
+    3. Refine and rewrite the code as needed
+    4. Repeat until satisfied
+
+    The final code will be extracted from <code>...</code> tags during cleanup.
+    """
+
+    async def execute(code: str, view: ToolCallView) -> str:
+        """Write Lean implementation code to the workspace Impl.lean file.
+
+        Args:
+            code: The Lean code to write to Fvspec/Impl.lean
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Success message with file path and size
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+        impl_file = workspace / "Fvspec" / "Impl.lean"
+
+        # Ensure the directory exists
+        impl_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        impl_file.write_text(code)
+
+        return f"Wrote {len(code)} characters to {impl_file.relative_to(workspace)}"
+
+    return execute
+
+
 def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean code to Spec.lean in the workspace for LSP analysis.
 
-    This tool allows the agent to iteratively develop Lean code by writing it
-    to the workspace where MCP tools (lean_diagnostic_messages, lean_goal, etc.)
-    can analyze it. The agent should:
+    This tool allows the spec agent to iteratively develop theorem statements by
+    writing them to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze them. The agent should:
 
     1. Write initial Lean code using this tool
     2. Use lean_diagnostic_messages to check for errors
@@ -388,8 +435,14 @@ def workspace_utility_tools() -> list:
 
     These tools allow agents to write Lean files to the workspace for iterative
     development. They don't interact with LSP/MCP - they just write files.
+
+    Each agent gets all three tools, but should only use their designated file:
+    - Impl agent: write_lean_impl() -> Impl.lean
+    - Spec agent: write_lean_spec() -> Spec.lean
+    - Units agent: write_lean_tests() -> Tests.lean
     """
     return [
+        write_lean_impl(),
         write_lean_spec(),
         write_lean_tests(),
     ]

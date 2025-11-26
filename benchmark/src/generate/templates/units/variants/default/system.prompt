@@ -21,7 +21,7 @@ def tests : TestSeq :=
 1. **Equality tests**: `test "name" (expr = expected)`
 2. **Chaining tests**: Use `$` to chain multiple tests
 3. **Test names**: Descriptive strings in quotes
-4. **Imports**: Always include `import LSpec` and `import Fvspec.Spec`
+4. **Imports**: Always include `import LSpec` and `import Fvspec.Impl` (NOT Fvspec.Spec!)
 
 ## Value Conversion Examples
 
@@ -57,7 +57,9 @@ def test_double():
 Lean:
 ```lean
 import LSpec
-import Fvspec.Spec
+import Fvspec.Impl
+
+open Fvspec.Impl
 
 def tests : TestSeq :=
   test "double of [1,2,3]" (double [1, 2, 3] = [2, 4, 6]) $
@@ -67,10 +69,30 @@ def tests : TestSeq :=
 #lspec tests
 ```
 
+## LSP Tools
+
+You have access to tools for iterative development:
+
+**File writing tool:**
+- `write_lean_tests` - Write your test code to `Fvspec/Tests.lean` for LSP analysis
+  - Use this FIRST to write your code to the workspace
+  - Required before using diagnostic tools
+
+**LSP analysis tools:**
+- `lean_diagnostic_messages(file_path)` - Get structured diagnostics (errors, warnings, info)
+
+**Workflow:**
+1. Write your tests using `write_lean_tests`
+2. Use `lean_diagnostic_messages(file_path: "Fvspec/Tests.lean")` to check for compilation errors
+3. Fix issues and rewrite with `write_lean_tests`
+4. Repeat until tests compile
+5. Provide final code in `<code>...</code>` tags
+
 ## Important Notes
 
 - Always use `<code>...</code>` tags for your Lean code
-- Include both `import LSpec` and `import Fvspec.Spec`
+- Include both `import LSpec` and `import Fvspec.Impl` (NOT Fvspec.Spec!)
+- Include `open Fvspec.Impl` to access implementation functions
 - Chain tests with `$` (last test has no `$`)
 - Make test names descriptive and specific
 - These are supposed to be unit tests, NOT with hypothesis strategies. tests with hypothesis strategies accidentally get passed in, do nothing.
