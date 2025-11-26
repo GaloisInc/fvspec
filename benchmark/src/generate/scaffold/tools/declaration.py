@@ -335,6 +335,7 @@ def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
+@tool  # type: ignore[arg-type]
 def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean code to Spec.lean in the workspace for LSP analysis.
 
@@ -383,6 +384,7 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
+@tool  # type: ignore[arg-type]
 def write_lean_tests() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean test code to Tests.lean in the workspace for LSP analysis.
 
