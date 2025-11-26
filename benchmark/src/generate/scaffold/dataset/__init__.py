@@ -139,6 +139,7 @@ def mk_dataset(
     ranseed: int | None = 0,
     start_idx: int | None = None,
     end_idx: int | None = None,
+    require_unit_tests: bool = False,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from pbts_full.db.
 
@@ -150,6 +151,7 @@ def mk_dataset(
         ranseed: Random seed used for sampling datapoints (Note: SQLite RANDOM() limitations)
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
+        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
 
     Returns:
         MemoryDataset with randomly sampled datapoints (or sequential slice if indices provided)
@@ -166,6 +168,7 @@ def mk_dataset(
             ranseed=ranseed,
             start_idx=start_idx,
             end_idx=end_idx,
+            require_unit_tests=require_unit_tests,
         )
 
     console = Console()

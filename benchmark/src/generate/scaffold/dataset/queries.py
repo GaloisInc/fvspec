@@ -39,13 +39,15 @@ def sample_datapoints(
     ranseed: int | None = 0,
     start_idx: int | None = None,
     end_idx: int | None = None,
+    require_unit_tests: bool = False,
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
     Implements memory-efficient deterministic sampling by:
     1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
-    2. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
-    3. Taking first n IDs and fetching full datapoints
+    2. Optionally filtering to only datapoints with unit tests
+    3. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
+    4. Taking first n IDs and fetching full datapoints
 
     When start_idx and/or end_idx are provided, returns a sequential slice
     of datapoints instead of random sampling. This enables resumable large-scale
@@ -57,6 +59,7 @@ def sample_datapoints(
         ranseed: Random seed for reproducibility (default: 0, ignored if start_idx/end_idx provided)
         start_idx: Starting index in the ordered dataset (0-indexed, inclusive)
         end_idx: Ending index in the ordered dataset (0-indexed, exclusive)
+        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
 
     Returns:
         List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
@@ -67,6 +70,9 @@ def sample_datapoints(
 
         Sequential mode (start_idx/end_idx): Returns datapoints[start_idx:end_idx] from
         the ordered, filtered dataset. Useful for splitting large runs across multiple jobs.
+
+        When require_unit_tests=True, filters to PBTs that have at least one associated
+        unit test via the pbt_functions and unit_test_functions junction tables.
     """
     # Use json_array_length to filter by dependency count
     # Fetch only IDs (lightweight) instead of full datapoint objects
@@ -76,6 +82,20 @@ def sample_datapoints(
         .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
         .order_by(Datapoint.id)  # type: ignore[attr-defined]
     )
+
+    # Optionally filter to only datapoints with unit tests
+    if require_unit_tests:
+        # Join through pbt_functions to unit_test_functions to find PBTs with unit tests
+        # Use EXISTS subquery for efficient filtering
+        has_unit_tests_subquery = (
+            select(PBTFunction.pbt_id)
+            .join(
+                UnitTestFunction,
+                PBTFunction.function_name == UnitTestFunction.function_name,
+            )
+            .where(PBTFunction.pbt_id == Datapoint.id)
+        )
+        id_statement = id_statement.where(has_unit_tests_subquery.exists())
 
     # Fetch all eligible IDs (deterministic order guaranteed by ORDER BY)
     results = session.exec(id_statement)

@@ -668,6 +668,7 @@ def fvspec(
     timestamp: datetime | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
+    require_unit_tests: bool = False,
 ) -> Task:
     """Create fvspec benchmark task with two-agent architecture.
 
@@ -679,6 +680,7 @@ def fvspec(
         timestamp: Pre-created timestamp (defaults to now if None)
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
+        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
 
     Returns:
         Task configured with two-agent orchestration
@@ -699,6 +701,7 @@ def fvspec(
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
+        require_unit_tests=require_unit_tests,
     )
 
     # Two-agent architecture: impl → spec
