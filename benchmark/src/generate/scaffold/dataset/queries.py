@@ -3,6 +3,7 @@
 All data access should go through these functions for consistency and testability.
 """
 
+import logging
 import random
 from typing import Any
 
@@ -16,6 +17,8 @@ from generate.scaffold.dataset.models import (
     UnitTestFunction,
 )
 
+logger = logging.getLogger(__name__)
+
 # Maximum number of dependencies allowed per sample before filtering
 # Rationale: Samples with >100 dependencies are extreme outliers that:
 # 1. Generate excessively large prompts (degraded model performance)
@@ -23,6 +26,11 @@ from generate.scaffold.dataset.models import (
 # 3. Are often synthetic/generated code rather than real-world tests
 # 4. Exceed practical limits for meaningful specification generation
 MAX_DEPENDENCIES = 100
+
+# Maximum number of unit tests to sample per datapoint
+# Rationale: Too many unit tests create excessively large prompts
+# 10 unit tests provides sufficient coverage while keeping prompts manageable
+MAX_UNIT_TESTS = 10
 
 
 def sample_datapoints(
@@ -81,6 +89,8 @@ def sample_datapoints(
     if start_idx is not None or end_idx is not None:
         # Use Python's slice semantics (None = unbounded)
         selected_ids = all_ids[start_idx:end_idx]
+        # Create RNG for unit test sampling (sequential mode still needs reproducibility)
+        rng = random.Random(ranseed)
     else:
         # Random sampling mode: shuffle and take first n
         # Shuffle IDs using seeded RNG for deterministic sampling
@@ -105,6 +115,14 @@ def sample_datapoints(
         if overlaps:
             for overlap in overlaps:
                 unit_tests.extend(overlap.get("unit_tests", []))
+        # Sample up to MAX_UNIT_TESTS to keep prompts manageable
+        original_count = len(unit_tests)
+        if original_count > MAX_UNIT_TESTS:
+            # Use the same seeded RNG for reproducible unit test sampling
+            unit_tests = rng.sample(unit_tests, MAX_UNIT_TESTS)
+            logger.debug(
+                f"Sampled {MAX_UNIT_TESTS} of {original_count} unit tests for datapoint {dp.id}"
+            )
         # Set directly on __dict__ to bypass Pydantic validation
         dp.__dict__["unit_tests"] = unit_tests
 
