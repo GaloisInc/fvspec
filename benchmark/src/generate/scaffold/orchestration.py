@@ -673,7 +673,7 @@ def fvspec(
     """Create fvspec benchmark task with two-agent architecture.
 
     Args:
-        datafile: Path to pbts_full.db database file
+        datafile: Path to pbts_full.db database file (relative to `./benchmark/data/`)
         variant: Prompt variant name from registry.toml (functional/mvcgen style)
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
