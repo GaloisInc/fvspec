@@ -33,6 +33,16 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Setup CI database symlink
+        run: |
+          # Create data directory if it doesn't exist
+          mkdir -p data
+          # Create symlink from .github/pbts_ci.db to benchmark/data/
+          # This allows ci-digest to find it via DATA_DIR
+          ln -sf ../../.github/pbts_ci.db data/pbts_ci.db
+          echo "Created symlink: data/pbts_ci.db -> ../../.github/pbts_ci.db"
+          ls -lh data/pbts_ci.db
+
       - name: Run benchmark and generate reports
         id: run
         env:
@@ -40,7 +50,7 @@ jobs:
         run: |
           # Run evaluation and generate both markdown and JSONL reports in one pass
           uv run ci-digest \
-            --datafile ../.github/pbts_ci.db \
+            --datafile pbts_ci.db \
             --model anthropic/claude-haiku-4-5-20251001 \
             --variant control-functional \
             --sample-size 10 \
@@ -90,7 +100,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('benchmark/${{ steps.run.outputs.report_path }}', 'utf8');
+            // Actions run from repo root, not working-directory, so prepend benchmark/
+            const report = fs.readFileSync('benchmark/artifacts/nightly_report.md', 'utf8');
 
             // Post to issue #85 (Nightly Evidence)
             await github.rest.issues.createComment({
@@ -105,5 +116,6 @@ jobs:
         if: always()
         with:
           name: nightly-eval-${{ github.run_number }}
-          path: ${{ steps.run.outputs.log_dir }}
+          # Actions run from repo root, so prepend benchmark/ to the relative path
+          path: benchmark/${{ steps.run.outputs.log_dir }}
           retention-days: 90

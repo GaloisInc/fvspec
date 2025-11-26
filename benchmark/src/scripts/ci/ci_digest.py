@@ -5,6 +5,7 @@ markdown or JSONL reports for tracking nightly benchmark performance.
 """
 
 import json
+import traceback
 from collections import Counter
 from datetime import datetime
 from pathlib import Path
@@ -53,21 +54,37 @@ def run_ci_eval(
     print()
 
     # Run evaluation with hardcoded settings for CI
-    inspect_eval(
-        fvspec(
-            datafile,
-            variant=variant,
-            sample_size=sample_size,
-            ranseed=0,  # Fixed seed for reproducibility
-            timestamp=now,
-        ),
-        model=model,
-        log_dir=str(log_dir),
-        max_samples=4,  # Parallelism for CI
-        display="none",  # Quiet output for CI
-    )
+    try:
+        results = inspect_eval(
+            fvspec(
+                datafile,
+                variant=variant,
+                sample_size=sample_size,
+                ranseed=0,  # Fixed seed for reproducibility
+                timestamp=now,
+            ),
+            model=model,
+            log_dir=str(log_dir),
+            max_samples=4,  # Parallelism for CI
+            display="none",  # Quiet output for CI
+        )
 
-    print(f"\nEvaluation complete. Logs saved to {log_dir}")
+        print(f"\nEvaluation complete. Logs saved to {log_dir}")
+        print(f"Results: {len(results)} log(s) created")
+        if results:
+            for i, result in enumerate(results):
+                print(
+                    f"  Log {i + 1}: {result.status} - {result.eval.dataset.samples} samples"
+                )
+                if result.status == "error":
+                    print(f"    Error: {result.error}")
+                    if result.error and hasattr(result.error, "traceback"):
+                        print(f"    Traceback: {result.error.traceback}")
+    except Exception as e:
+        print(f"ERROR during evaluation: {e}")
+        traceback.print_exc()
+        raise
+
     return log_dir
 
 
