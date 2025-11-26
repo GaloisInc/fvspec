@@ -336,6 +336,53 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
+def write_lean_tests() -> Callable[[str, ToolCallView], Awaitable[str]]:
+    """Write Lean test code to Tests.lean in the workspace for LSP analysis.
+
+    This tool allows the units agent to iteratively develop LSpec test code by
+    writing it to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze it. The agent should:
+
+    1. Write initial test code using this tool
+    2. Use lean_diagnostic_messages to check for errors
+    3. Refine and rewrite the code as needed
+    4. Repeat until satisfied
+
+    The final code will be extracted from <code>...</code> tags during cleanup.
+    """
+
+    async def execute(code: str, view: ToolCallView) -> str:
+        """Write Lean test code to the workspace Tests.lean file.
+
+        Args:
+            code: The Lean test code to write to Fvspec/Tests.lean
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Success message with file path and size
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+        tests_file = workspace / "Fvspec" / "Tests.lean"
+
+        # Ensure the directory exists
+        tests_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        tests_file.write_text(code)
+
+        return f"Wrote {len(code)} characters to {tests_file.relative_to(workspace)}"
+
+    return execute
+
+
 def lean_lsp_mcp_tools() -> list:
     """Construct custom Lean LSP tools that work with per-sample workspaces.
 
@@ -345,6 +392,7 @@ def lean_lsp_mcp_tools() -> list:
     """
     return [
         write_lean_spec(),
+        write_lean_tests(),
         lean_diagnostic_messages(),
         lean_goal(),
         lean_multi_attempt(),
