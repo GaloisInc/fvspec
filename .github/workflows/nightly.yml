@@ -33,6 +33,22 @@ jobs:
       - name: Install dependencies
         run: uv sync
 
+      - name: Verify database file exists
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Listing parent directory:"
+          ls -la ..
+          echo "Listing .github in parent:"
+          ls -la ../.github/
+          echo "Checking if database file exists:"
+          if [ -f ../.github/pbts_ci.db ]; then
+            echo "✓ Database file exists"
+            ls -lh ../.github/pbts_ci.db
+          else
+            echo "✗ Database file NOT found"
+            exit 1
+          fi
+
       - name: Run benchmark and generate reports
         id: run
         env:
