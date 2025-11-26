@@ -35,6 +35,8 @@ jobs:
 
       - name: Setup CI database symlink
         run: |
+          # Create data directory if it doesn't exist
+          mkdir -p data
           # Create symlink from .github/pbts_ci.db to benchmark/data/
           # This allows ci-digest to find it via DATA_DIR
           ln -sf ../../.github/pbts_ci.db data/pbts_ci.db
