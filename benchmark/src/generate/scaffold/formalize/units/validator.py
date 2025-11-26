@@ -23,9 +23,9 @@ def validate_units_output(lean_code: str) -> UnitsValidation:
     if "import LSpec" not in lean_code:
         errors.append("Missing 'import LSpec' statement")
 
-    # Check for Fvspec.Spec import
-    if "import Fvspec.Spec" not in lean_code:
-        errors.append("Missing 'import Fvspec.Spec' statement")
+    # Check for Fvspec.Impl import
+    if "import Fvspec.Impl" not in lean_code:
+        errors.append("Missing 'import Fvspec.Impl' statement")
 
     # Check for test-related patterns (relaxed validation)
     # Accept any of: test function calls, TestSeq definitions, #lspec directive, or #eval
@@ -55,7 +55,7 @@ def validate_units_output(lean_code: str) -> UnitsValidation:
 
     # Overall validity: must have imports and some content
     valid = (
-        "import LSpec" in lean_code and "import Fvspec.Spec" in lean_code and has_tests
+        "import LSpec" in lean_code and "import Fvspec.Impl" in lean_code and has_tests
     )
 
     return UnitsValidation(
