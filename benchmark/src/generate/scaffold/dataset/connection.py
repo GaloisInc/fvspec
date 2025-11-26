@@ -12,8 +12,7 @@ _engine = None
 _engine_lock = threading.Lock()
 
 # Connection pool multiplier: provides buffer for parallelism spikes
-# 1.5x means 50% headroom (e.g., parallelism=128 → 192 total connections)
-POOL_SIZE_MULTIPLIER = 1.5
+POOL_SIZE_MULTIPLIER = 2
 
 
 def get_engine(db_path: Path | str):

@@ -15,7 +15,7 @@ from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
 from generate.scaffold.formalize.spec.validator import validate_spec_output
-from generate.scaffold.tools.declaration import call_lean_lsp_mcp, lean_lsp_mcp_tools
+from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
 from generate.templates.spec import get_variant_prompts
 
 logger = logging.getLogger(__name__)
@@ -75,10 +75,9 @@ def spec_generation_agent(
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 
-        # Get LSP tools from workspace
-        # We'll use the same LSP tools as the impl agent
-        # (they're workspace-aware and work with any Lean file)
-        tools = lean_lsp_mcp_tools()
+        # Get all Lean tools (file writing + LSP analysis)
+        # Workspace-aware tools that work with any Lean file
+        tools = all_lean_tools()
 
         # Add tools to state
         state.tools = tools

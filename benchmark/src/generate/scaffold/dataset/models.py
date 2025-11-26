@@ -7,7 +7,7 @@ type-safe access with Pydantic validation.
 import json
 from typing import Any
 
-from pydantic import field_validator
+from pydantic import ConfigDict, field_validator
 from sqlmodel import Field, SQLModel
 
 
@@ -33,7 +33,11 @@ class Datapoint(SQLModel, table=True):
 
     This is the primary model for PBT samples used in benchmark generation.
     Note: dep_names and deps are stored as JSON strings in SQLite.
+
+    Non-DB fields like `unit_tests` can be set dynamically at load time.
     """
+
+    model_config = ConfigDict(extra="allow")
 
     __tablename__ = "pbts"
 

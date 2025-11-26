@@ -288,12 +288,60 @@ def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
+def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
+    """Write Lean implementation code to Impl.lean in the workspace for LSP analysis.
+
+    This tool allows the impl agent to iteratively develop implementation code by
+    writing it to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze it. The agent should:
+
+    1. Write initial Lean code using this tool
+    2. Use lean_diagnostic_messages to check for errors
+    3. Refine and rewrite the code as needed
+    4. Repeat until satisfied
+
+    The final code will be extracted from <code>...</code> tags during cleanup.
+    """
+
+    async def execute(code: str, view: ToolCallView) -> str:
+        """Write Lean implementation code to the workspace Impl.lean file.
+
+        Args:
+            code: The Lean code to write to Fvspec/Impl.lean
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Success message with file path and size
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+        impl_file = workspace / "Fvspec" / "Impl.lean"
+
+        # Ensure the directory exists
+        impl_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        impl_file.write_text(code)
+
+        return f"Wrote {len(code)} characters to {impl_file.relative_to(workspace)}"
+
+    return execute
+
+
+@tool  # type: ignore[arg-type]
 def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean code to Spec.lean in the workspace for LSP analysis.
 
-    This tool allows the agent to iteratively develop Lean code by writing it
-    to the workspace where MCP tools (lean_diagnostic_messages, lean_goal, etc.)
-    can analyze it. The agent should:
+    This tool allows the spec agent to iteratively develop theorem statements by
+    writing them to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze them. The agent should:
 
     1. Write initial Lean code using this tool
     2. Use lean_diagnostic_messages to check for errors
@@ -336,20 +384,96 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
+@tool  # type: ignore[arg-type]
+def write_lean_tests() -> Callable[[str, ToolCallView], Awaitable[str]]:
+    """Write Lean test code to Tests.lean in the workspace for LSP analysis.
+
+    This tool allows the units agent to iteratively develop LSpec test code by
+    writing it to the workspace where MCP tools (lean_diagnostic_messages, etc.)
+    can analyze it. The agent should:
+
+    1. Write initial test code using this tool
+    2. Use lean_diagnostic_messages to check for errors
+    3. Refine and rewrite the code as needed
+    4. Repeat until satisfied
+
+    The final code will be extracted from <code>...</code> tags during cleanup.
+    """
+
+    async def execute(code: str, view: ToolCallView) -> str:
+        """Write Lean test code to the workspace Tests.lean file.
+
+        Args:
+            code: The Lean test code to write to Fvspec/Tests.lean
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Success message with file path and size
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+        tests_file = workspace / "Fvspec" / "Tests.lean"
+
+        # Ensure the directory exists
+        tests_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Write the code
+        tests_file.write_text(code)
+
+        return f"Wrote {len(code)} characters to {tests_file.relative_to(workspace)}"
+
+    return execute
+
+
+def workspace_utility_tools() -> list:
+    """Construct workspace utility tools for file writing.
+
+    These tools allow agents to write Lean files to the workspace for iterative
+    development. They don't interact with LSP/MCP - they just write files.
+
+    Each agent gets all three tools, but should only use their designated file:
+    - Impl agent: write_lean_impl() -> Impl.lean
+    - Spec agent: write_lean_spec() -> Spec.lean
+    - Units agent: write_lean_tests() -> Tests.lean
+    """
+    return [
+        write_lean_impl(),
+        write_lean_spec(),
+        write_lean_tests(),
+    ]
+
+
 def lean_lsp_mcp_tools() -> list:
-    """Construct custom Lean LSP tools that work with per-sample workspaces.
+    """Construct Lean LSP tools that wrap lean-lsp-mcp server.
 
     These tools spawn lean-lsp-mcp as a subprocess per call, setting the
     LEAN_PROJECT_PATH environment variable to the sample's workspace.
     This allows parallel execution while maintaining LSP functionality.
+
+    These are wrappers around the actual MCP server tools.
     """
     return [
-        write_lean_spec(),
         lean_diagnostic_messages(),
         lean_goal(),
         lean_multi_attempt(),
         lean_local_search(),
     ]
+
+
+def all_lean_tools() -> list:
+    """Get all tools for Lean development (utility + LSP).
+
+    Combines workspace utility tools (file writing) with LSP analysis tools.
+    This is the standard tool set for spec and units agents.
+    """
+    return workspace_utility_tools() + lean_lsp_mcp_tools()
 
 
 def write_datapoint_to_disk(
@@ -498,17 +622,17 @@ def write_unit_tests_to_disk(
     start_idx: int | None = None,
     end_idx: int | None = None,
 ) -> str:
-    """Write extracted unit tests to `Tests.lean` for the sample.
+    """Write generated unit tests to `Tests.lean` for the sample.
 
-    Unit tests are extracted from the PBT during dataset creation and stored
-    in metadata. This function writes them to disk for evaluation purposes.
+    Unit tests are generated by the LLM-based units agent from Python PBTs.
+    This replaces the deprecated AST extraction system.
 
     Always writes Tests.lean even if empty (lake-template expects it).
 
     Args:
         date_time: datetime string used in directory structure.
         sample_id: Identifier for the current sample.
-        state: The task state containing unit tests in metadata.
+        state: The task state containing units_result in store.
         variant: Prompt variant name.
         workspace: Optional workspace tmpdir path for MCP tools.
         ranseed: Random seed used for sampling (optional, included in path when provided).
@@ -518,39 +642,50 @@ def write_unit_tests_to_disk(
     Returns:
         A message describing whether the write succeeded.
     """
-    # Extract unit tests from metadata
-    unit_tests_lspec = state.metadata.get("unit_tests_lspec")
+    # Extract units result from store (generated by units agent)
+    units_result_data = state.store.get("units_result", {})
+    units_result_lean = (
+        units_result_data.get("lean_code")
+        if isinstance(units_result_data, dict)
+        else None
+    )
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
 
     # Generate Tests.lean content
     # Note: Imports are provided by lake-template/Fvspec/Tests.lean
-    if unit_tests_lspec:
-        # We have extracted tests - add metadata and test code
-        func_name = ""
-        pbt_functions = getattr(datapoint, "pbt_functions", [])
-        if pbt_functions:
-            func_name = pbt_functions[0]
-        else:
-            func_name = datapoint.name.removeprefix("test_")
+    if units_result_lean:
+        # We have generated tests from units agent - add metadata
+        func_name = datapoint.name.removeprefix("test_")
 
-        # Count exact and float tests
-        num_exact = unit_tests_lspec.count('test "')
-        num_float = unit_tests_lspec.count("-- Float tests")
+        # Count tests in generated code
+        num_tests = (
+            units_result_data.get("test_count", 0)
+            if isinstance(units_result_data, dict)
+            else 0
+        )
 
-        tests_content = f"""-- Unit tests extracted from property-based test
+        tests_content = f"""-- Unit tests generated by LLM from property-based test
 -- Function: {func_name}
--- Extraction method: AST analysis with pytest.mark.parametrize support
--- Tests: {num_exact} exact, {num_float} float
+-- Generation method: LLM-based units agent
+-- Tests: {num_tests}
 
-{unit_tests_lspec}
+{units_result_lean}
 """
     else:
-        # No tests extracted - write explanation
-        tests_content = """-- No unit tests could be extracted from the property-based test
+        # No tests generated - write explanation
+        error_msg = (
+            units_result_data.get("error", "Unknown error")
+            if isinstance(units_result_data, dict)
+            else "No units result"
+        )
+        tests_content = f"""-- No unit tests could be generated from the property-based test
+-- Reason: {error_msg}
+--
+-- The units agent was unable to extract or generate meaningful test cases.
 -- This may be because:
 --   - The test uses only Hypothesis strategies (no concrete examples)
---   - The test logic is too complex for static analysis
---   - The function name could not be determined
+--   - The test logic is too complex to translate
+--   - The LLM was unable to infer appropriate test cases
 """
 
     # Write to artifacts directory (permanent storage)
@@ -601,7 +736,7 @@ def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
     return qa.to_inspect_scores()
 
 
-async def write_to_disk(state: TaskState):
+async def write_to_disk(state: TaskState) -> None:
     """Persist sample outputs and register quality metrics for inspect_ai.
 
     Writes the datapoint metadata, extracted Lean code, and QA report to disk
@@ -634,7 +769,8 @@ async def write_to_disk(state: TaskState):
     workspace_path = state.metadata.get("workspace")
     workspace = Path(workspace_path) if workspace_path else None
 
-    ret_str_dp = write_datapoint_to_disk(
+    # Write datapoint metadata (return value available for future logging)
+    _ = write_datapoint_to_disk(
         date_time,
         sample_id,
         datapoint,
@@ -646,7 +782,8 @@ async def write_to_disk(state: TaskState):
 
     # Only write code and QA if we have output
     if state.output and state.output.choices:
-        ret_str_c = write_code_to_disk(
+        # Write generated Spec.lean code (return value available for future logging)
+        _ = write_code_to_disk(
             date_time,
             sample_id,
             state.output.message.text,
@@ -658,7 +795,6 @@ async def write_to_disk(state: TaskState):
         )
 
         # Also copy Impl.lean from workspace if it exists
-        ret_str_impl = ""
         if workspace:
             workspace_impl = workspace / "Fvspec" / "Impl.lean"
             if workspace_impl.exists():
@@ -672,9 +808,10 @@ async def write_to_disk(state: TaskState):
                     start_idx=start_idx,
                     end_idx=end_idx,
                 )
-                ret_str_impl = utilio.writeit(impl_file, impl_code)
+                _ = utilio.writeit(impl_file, impl_code)
 
-        ret_str_tests = write_unit_tests_to_disk(
+        # Write extracted unit tests (return value available for future logging)
+        _ = write_unit_tests_to_disk(
             date_time,
             sample_id,
             state,
@@ -684,7 +821,9 @@ async def write_to_disk(state: TaskState):
             start_idx=start_idx,
             end_idx=end_idx,
         )
-        ret_str_qa = write_qa_to_disk(
+
+        # Write quality assessment report (return value available for future logging)
+        _ = write_qa_to_disk(
             date_time,
             sample_id,
             state,
@@ -701,21 +840,6 @@ async def write_to_disk(state: TaskState):
         # Log to wandb if enabled
         log_sample_to_wandb(state)
 
-        result = (
-            ret_str_dp
-            + "\n"
-            + ret_str_c
-            + ("\n" + ret_str_impl if ret_str_impl else "")
-            + "\n"
-            + ret_str_tests
-            + "\n"
-            + ret_str_qa
-        )
-    else:
-        result = (
-            ret_str_dp + "\n" + "No output generated (task may have been interrupted)"
-        )
-
     # Clean up workspace if it exists
     workspace_path = state.metadata.get("workspace")
     if workspace_path:
@@ -729,5 +853,3 @@ async def write_to_disk(state: TaskState):
             db_session.close()
         except Exception:
             pass  # Ignore errors on safety net cleanup
-
-    return result

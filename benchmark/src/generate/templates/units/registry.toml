@@ -1,0 +1,9 @@
+# Units generation variants registry
+#
+# This registry defines the available prompt variants for the units generation agent.
+# Currently only "default" variant exists - functional/mvcgen variants can be added later.
+
+[variants.default]
+description = "Default units generation variant"
+system_prompt = "variants/default/system.prompt"
+initial_prompt = "variants/default/initial.prompt.template"

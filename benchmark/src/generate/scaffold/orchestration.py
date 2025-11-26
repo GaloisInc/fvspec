@@ -1,12 +1,15 @@
-"""Two-agent orchestration for fvspec benchmark.
+"""Three-agent orchestration for fvspec benchmark.
 
 Architecture:
 1. Implementation Agent: Generates function implementations (zero sorry required)
 2. Specification Agent: Generates theorem statements (with sorry for proofs)
+3. Units Agent: Generates LSpec test suites from Python property-based tests
 
-The orchestration runs both agents sequentially, passing type signatures between them.
+The orchestration runs agents with conversation isolation via fork(). Spec and units
+agents run in parallel since they both depend on impl agent but not on each other.
 """
 
+import logging
 import time
 import tomllib
 from datetime import datetime
@@ -14,7 +17,7 @@ from pathlib import Path
 
 from inspect_ai import Task, task
 from inspect_ai.model import ChatCompletionChoice, ChatMessageAssistant, ModelOutput
-from inspect_ai.solver import Generate, Solver, TaskState, solver
+from inspect_ai.solver import Generate, Solver, TaskState, fork, solver
 from pydantic import ValidationError
 
 from generate.config import DATA_DIR, load_config
@@ -35,10 +38,17 @@ from generate.scaffold.formalize.spec import (
     spec_generation_agent,
 )
 from generate.scaffold.formalize.spec.validator import extract_signatures
+from generate.scaffold.formalize.units import (
+    UnitsPayload,
+    UnitsResult,
+    units_generation_agent,
+)
 from generate.scaffold.quality_assessment import count_lean_theorems
 from generate.scaffold.tools import utilio
 from generate.scaffold.tools.declaration import write_to_disk
 from generate.templates.spec import VariantRegistry
+
+logger = logging.getLogger(__name__)
 
 
 def _generate_fut_stub(function_name: str, pbt_code: str) -> str:
@@ -113,6 +123,99 @@ namespace Fvspec.Impl
 end Fvspec.Impl
 """
     return stub
+
+
+@solver
+def impl_agent_solver(payload: FunctionImplPayload, workspace: Path) -> Solver:
+    """Wrapper solver for implementation agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the impl agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Implementation generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs impl agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call existing function_impl_agent (writes to state.metadata)
+        impl_solver = function_impl_agent(payload, workspace)
+        state = await impl_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        impl_result = state.metadata.pop("impl_result", {})
+        state.store.set("impl_result", impl_result)
+
+        return state
+
+    return solve
+
+
+@solver
+def spec_agent_solver(payload: SpecPayload, workspace: Path) -> Solver:
+    """Wrapper solver for specification agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the spec agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Specification generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs spec agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call existing spec_generation_agent (writes to state.metadata)
+        spec_solver = spec_generation_agent(payload, workspace)
+        state = await spec_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        spec_result = state.metadata.pop("spec_result", {})
+        state.store.set("spec_result", spec_result)
+
+        return state
+
+    return solve
+
+
+@solver
+def units_agent_solver(payload: UnitsPayload, workspace: Path) -> Solver:
+    """Wrapper solver for units agent to use with fork().
+
+    This wrapper enables conversation isolation by:
+    1. Running the units agent with its own TaskState copy (via fork())
+    2. Moving results from metadata to store (framework-recommended pattern)
+    3. Preserving isolated conversation history in store
+
+    Args:
+        payload: Units generation parameters
+        workspace: Per-sample tmpdir for Lean files
+
+    Returns:
+        Solver that runs units agent and stores results in state.store
+    """
+
+    async def solve(state: TaskState, generate: Generate) -> TaskState:
+        # Call units_generation_agent (writes to state.metadata)
+        units_solver = units_generation_agent(payload, workspace)
+        state = await units_solver(state, generate)
+
+        # Migrate result from metadata to store (framework-recommended)
+        units_result = state.metadata.pop("units_result", {})
+        state.store.set("units_result", units_result)
+
+        return state
+
+    return solve
 
 
 @solver
@@ -195,15 +298,30 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if function_name.startswith("test_"):
             function_name = function_name[5:]
 
-        # Try to discover function code from database
+        # Phase 0: Complete all database work before fork() calls
+        # (fork() uses deepcopy which cannot pickle database sessions)
         db_session = state.metadata.get("db_session")
+
+        # Try to discover function code from database
         function_code = None
         if db_session:
             result = lookup_function_exact(db_session, function_name, datapoint.repo_id)
             if result:
                 function_code = result.code
 
-        # Phase 1: Generate implementation for function under test
+        # Get all payloads (FUT + dependencies) - requires db_session for discovery
+        all_payloads = payloads_from_datapoint(datapoint, db_session)
+
+        # Get unit tests from datapoint (populated at load time)
+        unit_tests_data = datapoint.unit_tests
+        logger.info(f"Found {len(unit_tests_data)} unit tests for {function_name}")
+
+        # Close database session before any fork() calls
+        # This prevents "cannot pickle 'module' object" errors during deepcopy
+        if db_session:
+            db_session.close()
+            state.metadata.pop("db_session", None)
+
         # Map spec variant to impl variant style (control-functional → functional)
         spec_variant_name = variant or "control-functional"
         spec_registry = VariantRegistry()
@@ -213,6 +331,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         impl_file = workspace / "Fvspec" / "Impl.lean"
         impl_file.parent.mkdir(parents=True, exist_ok=True)
 
+        # Phase 1: Generate implementation for function under test
         # Only process FUT if we have source code for it
         # Skip if function_code is None - Phase 1b will handle dependencies
         # This prevents hallucination when agent has no code to work from
@@ -226,38 +345,43 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 variant=impl_variant,
             )
 
-            # Call impl agent solver - it will store result in state.metadata["impl_result"]
-            impl_solver = function_impl_agent(impl_payload, workspace)
-            state = await impl_solver(state, generate_fn)
+            # Call impl agent solver with fork() for conversation isolation
+            impl_solver = impl_agent_solver(impl_payload, workspace)
+            impl_state = await fork(state, impl_solver)
 
-            # Extract result from metadata (agent stores it there)
-            impl_result_data = state.metadata.get("impl_result", {})
+            # Extract result from isolated state's store
+            impl_result_data = impl_state.store.get("impl_result", {})
             if isinstance(impl_result_data, dict):
                 impl_result = FunctionImplResult(**impl_result_data)
             else:
                 impl_result = impl_result_data
 
+            # Save isolated conversation to parent store for debugging/replay
+            state.store.set(
+                "impl_conversation",
+                [msg.model_dump() for msg in impl_state.messages],
+            )
+            state.store.set("impl_result", impl_result_data)
+
             # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
             if impl_result.lean_code:
                 impl_file.write_text(impl_result.lean_code)
                 # Track that we provided full implementation
-                state.metadata["implementation_level"] = "provided"
+                state.store.set("implementation_level", "provided")
             else:
                 # No impl code - write empty file to clear any validation artifacts
                 impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
                 # Track as absent (agent failed to generate)
-                state.metadata["implementation_level"] = "absent"
+                state.store.set("implementation_level", "absent")
         else:
             # No FUT source code - generate stub implementation
             # This allows the spec agent to have a signature to work with
             stub_impl = _generate_fut_stub(function_name, datapoint.code)
             impl_file.write_text(stub_impl)
             # Track that we provided only a signature
-            state.metadata["implementation_level"] = "signature"
+            state.store.set("implementation_level", "signature")
 
         # Phase 1b: Generate implementations for all dependencies
-        # Get all payloads (FUT + dependencies)
-        all_payloads = payloads_from_datapoint(datapoint, db_session)
         dependency_implementations: dict[str, str] = {}
 
         for payload in all_payloads:
@@ -275,16 +399,26 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 variant=impl_variant,
             )
 
-            # Run impl agent for this dependency
-            dep_impl_solver = function_impl_agent(dep_impl_payload, workspace)
-            state = await dep_impl_solver(state, generate_fn)
+            # Run impl agent for this dependency with fork() for isolation
+            dep_impl_solver = impl_agent_solver(dep_impl_payload, workspace)
+            dep_impl_state = await fork(state, dep_impl_solver)
 
-            # Extract result from metadata
-            dep_impl_result_data = state.metadata.get("impl_result", {})
+            # Extract result from isolated state's store
+            dep_impl_result_data = dep_impl_state.store.get("impl_result", {})
             if isinstance(dep_impl_result_data, dict):
                 dep_impl_result = FunctionImplResult(**dep_impl_result_data)
             else:
                 dep_impl_result = dep_impl_result_data
+
+            # Save isolated conversation for this dependency (append to list)
+            dep_conversations = state.store.get("dep_conversations", [])
+            dep_conversations.append(
+                {
+                    "dep_name": payload.dep_name,
+                    "messages": [msg.model_dump() for msg in dep_impl_state.messages],
+                }
+            )
+            state.store.set("dep_conversations", dep_conversations)
 
             # Store successful implementations
             if dep_impl_result.success and dep_impl_result.lean_code:
@@ -301,14 +435,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     impl_file.write_text(dep_impl_result.lean_code)
 
         # Store dependency count for metrics
-        state.metadata["num_fns_impl"] = len(all_payloads)
-
-        # Close database session after function discovery completes
-        # This frees the connection and file descriptors
-        db_session = state.metadata.get("db_session")
-        if db_session:
-            db_session.close()
-            state.metadata.pop("db_session", None)
+        state.store.set("num_fns_impl", len(all_payloads))
 
         # Skip samples with excessive function counts (>50)
         # Rationale: Samples with >50 functions are extreme outliers that:
@@ -320,13 +447,17 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # when function discovery resolves them from the database.
         MAX_FUNCTIONS_IMPL = 50
         if len(all_payloads) > MAX_FUNCTIONS_IMPL:
-            state.metadata["skipped"] = True
-            state.metadata["skip_reason"] = (
-                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})"
+            state.store.set("skipped", True)
+            state.store.set(
+                "skip_reason",
+                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})",
             )
             # Set minimal output so write_to_disk knows this was intentionally skipped
+            # Preserve model name from previous agent execution instead of hardcoding
+            model_name = state.output.model if state.output else "unknown"
+
             state.output = ModelOutput(
-                model="orchestrated",
+                model=model_name,
                 choices=[
                     ChatCompletionChoice(
                         message=ChatMessageAssistant(
@@ -348,10 +479,20 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             impl_signatures = extract_signatures(impl_code)
 
         # Store signatures and impl code for debugging and quality assessment
-        state.metadata["impl_signatures"] = impl_signatures
-        state.metadata["impl_code"] = impl_code  # For Unit stub detection
+        state.store.set("impl_signatures", impl_signatures)
+        state.store.set("impl_code", impl_code)  # For Unit stub detection
 
-        # Phase 3: Generate theorem statements with signatures
+        # Phase 3+4: Generate theorem statements and unit tests (parallel if unit tests exist)
+        # Spec agent uses PBT (datapoint.code), units agent uses concrete unit tests from DB
+        # Only invoke units agent if database has unit tests for this function
+        has_unit_tests = len(unit_tests_data) > 0
+
+        if has_unit_tests:
+            logger.info("Phase 3+4: Running spec and units agents in parallel")
+        else:
+            logger.info("Phase 3: Running spec agent only (no unit tests in DB)")
+
+        # Build spec payload (always needed)
         spec_payload = SpecPayload(
             pbt_code=datapoint.code,
             pbt_name=datapoint.name,
@@ -360,16 +501,53 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             variant=spec_variant_name,
         )
 
-        # Call spec agent solver - it will store result in state.metadata["spec_result"]
-        spec_solver = spec_generation_agent(spec_payload, workspace)
-        state = await spec_solver(state, generate_fn)
+        # Create spec solver
+        spec_solver = spec_agent_solver(spec_payload, workspace)
 
-        # Extract result from metadata (agent stores it there)
-        spec_result_data = state.metadata.get("spec_result", {})
+        # Conditionally create and run units agent in parallel with spec
+        if has_unit_tests:
+            # Concatenate all unit test code
+            unit_test_code = "\n\n".join(
+                ut["code"] for ut in unit_tests_data if ut.get("code")
+            )
+            # Use first test name as representative (or create descriptive name)
+            unit_test_name = (
+                unit_tests_data[0]["name"]
+                if unit_tests_data
+                else f"test_{function_name}"
+            )
+
+            units_payload = UnitsPayload(
+                unit_test_code=unit_test_code,
+                unit_test_name=unit_test_name,
+                function_name=function_name,
+                impl_signatures=impl_signatures,
+            )
+            units_solver = units_agent_solver(units_payload, workspace)
+
+            # Run both agents in parallel with fork() for conversation isolation
+            # fork() natively supports parallel execution when passed a list of solvers
+            spec_state, units_state = await fork(state, [spec_solver, units_solver])
+        else:
+            # Only run spec agent
+            spec_state = await fork(state, spec_solver)
+            units_state = None
+
+        # Extract spec result from isolated state's store
+        spec_result_data = spec_state.store.get("spec_result", {})
         if isinstance(spec_result_data, dict):
             spec_result = SpecResult(**spec_result_data)
         else:
             spec_result = spec_result_data
+
+        # Save spec isolated conversation to parent store for debugging/replay
+        state.store.set(
+            "spec_conversation", [msg.model_dump() for msg in spec_state.messages]
+        )
+        state.store.set("spec_result", spec_result_data)
+
+        # Preserve spec agent's output for final state
+        state.output = spec_state.output
 
         # Write Spec.lean - orchestration has authoritative version (clears validation artifacts)
         spec_file = workspace / "Fvspec" / "Spec.lean"
@@ -382,7 +560,39 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "import Fvspec.Impl\n\nnamespace Fvspec.Spec\n\nend Fvspec.Spec\n"
             )
 
-        # Phase 4: Run plausible property testing (if enabled and spec compiled)
+        # Extract units result (from agent if ran, otherwise create skipped result)
+        if units_state is not None:
+            units_result_data = units_state.store.get("units_result", {})
+            if isinstance(units_result_data, dict):
+                units_result = UnitsResult(**units_result_data)
+            else:
+                units_result = units_result_data
+
+            # Save units isolated conversation to parent store for debugging/replay
+            state.store.set(
+                "units_conversation", [msg.model_dump() for msg in units_state.messages]
+            )
+            state.store.set("units_result", units_result_data)
+
+            # Log units generation result
+            if units_result.success:
+                logger.info(
+                    f"Units generation succeeded: {units_result.test_count} tests"
+                )
+            else:
+                logger.warning(f"Units generation failed: {units_result.error}")
+        else:
+            # No unit tests in DB - create skipped result
+            units_result = UnitsResult(
+                success=False,
+                error="No unit tests in database for this function",
+            )
+            units_result_data = units_result.model_dump()
+            state.store.set("units_conversation", [])
+            state.store.set("units_result", units_result_data)
+            logger.info("Units generation skipped: no unit tests in database")
+
+        # Phase 5: Run plausible property testing (if enabled and spec compiled)
         plausibility = Plausibility()
         if spec_result.success and spec_result.lean_code and spec_file.exists():
             try:
@@ -409,8 +619,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     errors=[f"Error running plausible: {e}"],
                 )
 
-        # Store plausibility results in metadata for quality assessment
-        state.metadata["plausibility"] = plausibility
+        # Store plausibility results in store for quality assessment
+        state.store.set("plausibility", plausibility)
 
         # Set state.output so write_to_disk can persist the files
         # If plausible ran, read back the modified Spec.lean (with plausible instead of sorry)
@@ -426,8 +636,12 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Calculate total time for both agents
         total_time = time.time() - start_time
 
+        # Preserve model name from the last agent execution (spec agent)
+        # instead of hardcoding "orchestrated"
+        model_name = state.output.model if state.output else "unknown"
+
         state.output = ModelOutput(
-            model="orchestrated",
+            model=model_name,
             choices=[
                 ChatCompletionChoice(
                     message=ChatMessageAssistant(
@@ -454,6 +668,7 @@ def fvspec(
     timestamp: datetime | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
+    require_unit_tests: bool = False,
 ) -> Task:
     """Create fvspec benchmark task with two-agent architecture.
 
@@ -465,6 +680,7 @@ def fvspec(
         timestamp: Pre-created timestamp (defaults to now if None)
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
+        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
 
     Returns:
         Task configured with two-agent orchestration
@@ -485,9 +701,10 @@ def fvspec(
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
+        require_unit_tests=require_unit_tests,
     )
 
-    # Two-agent architecture: impl → spec
+    # Three-agent architecture: impl → spec & units
     return Task(
         dataset=dataset,
         setup=[

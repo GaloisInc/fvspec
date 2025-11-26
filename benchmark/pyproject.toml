@@ -17,7 +17,7 @@ dependencies = [
     "mcp>=1.18.0",
     "pandas>=2.3.3",
     "panel>=1.8.2",
-    "pydantic>=2.12.3",
+    "pydantic>=2.12.4",
     "pydantic-ai>=1.7.0",
     "python-dotenv>=1.1.1",
     "radon>=6.0.1",
@@ -67,8 +67,8 @@ build-backend = "uv_build"
 [dependency-groups]
 dev = [
     "hypothesis>=6.140.3",
-    "pytest>=8.4.2",
+    "pytest>=9.0.1",
     "pytest-mock>=3.15.1",
-    "ruff>=0.14.2",
-    "ty>=0.0.1a25",
+    "ruff>=0.14.6",
+    "ty>=0.0.1a27",
 ]

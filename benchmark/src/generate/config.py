@@ -3,6 +3,7 @@
 import tomllib
 from pathlib import Path
 
+from inspect_ai._eval.eval import DisplayType
 from pydantic import BaseModel
 
 # Project structure paths (relative to benchmark/ directory)
@@ -36,7 +37,7 @@ class MetaConfig(BaseModel):
         parallelism: Number of samples to evaluate in parallel
     """
 
-    display: str = "plain"
+    display: DisplayType = "plain"
     parallelism: int = 25
 
 

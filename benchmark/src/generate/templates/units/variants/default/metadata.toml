@@ -1,0 +1,5 @@
+# Metadata for default units generation variant
+
+name = "default"
+description = "Default LSpec test generation from Python unit tests"
+style = "lspec"  # Test framework style

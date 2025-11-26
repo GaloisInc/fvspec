@@ -1,0 +1,45 @@
+Generate LSpec unit tests for the following Python unit tests.
+
+## Function Name
+{{ function_name }}
+
+## Unit Tests (Concrete Examples)
+```python
+{{ unit_test_code }}
+```
+
+{% if impl_signatures %}
+## Implementation Signatures (from Impl.lean)
+{% for name, sig in impl_signatures.items() %}
+- `{{ name }}`: `{{ sig }}`
+{% endfor %}
+{% endif %}
+
+## Your Task
+
+1. Analyze the Python unit tests to extract concrete test cases
+2. Convert them to LSpec syntax
+3. Generate a test suite in Lean 4
+
+Output format:
+```
+<code>
+import LSpec
+import Fvspec.Impl
+
+def tests : TestSeq :=
+  test "test1" (expr1 = expected1) $
+  test "test2" (expr2 = expected2) $
+  test "test3" (expr3 = expected3)
+
+#lspec tests
+</code>
+```
+
+It's ok to skip unit tests for this sample if no unit tests exist. Just return code that is imports and nothing else
+
+Remember:
+- Include both imports: `import LSpec` and `import Fvspec.Impl`
+- Chain tests with `$` (no `$` after the last test)
+- Use descriptive test names
+- Wrap output in `<code>...</code>` tags

@@ -19,7 +19,7 @@ from generate.scaffold.formalize.impl.filters import (
     strip_spec_namespace,
     validate_impl_only,
 )
-from generate.scaffold.tools.declaration import call_lean_lsp_mcp, lean_lsp_mcp_tools
+from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
 from generate.templates.impl import get_impl_function_prompts
 
 logger = logging.getLogger(__name__)
@@ -111,8 +111,8 @@ def function_impl_agent(
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(context)))
 
-        # Get LSP tools from workspace
-        tools = lean_lsp_mcp_tools()
+        # Get all Lean tools (file writing + LSP analysis)
+        tools = all_lean_tools()
 
         # Add tools to state
         state.tools = tools

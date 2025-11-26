@@ -1,19 +1,24 @@
 ## Lean LSP Tools
 
-You have access to executable LSP tools for interactive Lean development. These are real tools you can call - do NOT write them as text in angle brackets.
+You have access to executable tools for interactive Lean development. These are real tools you can call - do NOT write them as text in angle brackets.
 
-Available tools:
+**File writing tool:**
+- `write_lean_impl` - Write your implementation code to `Fvspec/Impl.lean` for LSP analysis
+  - Use this FIRST to write your code to the workspace
+  - Required before using diagnostic tools
+
+**LSP analysis tools:**
 - `lean_diagnostic_messages` - Get structured diagnostics (errors, warnings, info)
 - `lean_goal` - View proof state at a specific location
 - `lean_multi_attempt` - Try multiple tactics in parallel
 - `lean_local_search` - Search for definitions/theorems in local project and stdlib
 
-**How to use these tools:**
-1. Call them as actual tool calls (your framework will execute them)
-2. Wait for the tool result before proceeding
-3. Use the feedback to refine your code
-4. Do NOT write `<lean_diagnostic_messages>` or similar as text - use the actual tool call mechanism
+**Workflow:**
+1. Write your code using `write_lean_impl` to put it in the workspace
+2. Use `lean_diagnostic_messages` to check for errors
+3. Read the diagnostics and fix issues
+4. Rewrite with `write_lean_impl` to update the file
+5. Repeat until compilation succeeds
+6. Provide final code in `<code>...</code>` tags
 
-**Important**: Your Lean code will be written to a temporary file in your workspace. Use the file path provided in error messages when calling these tools.
-
-Use these tools iteratively to check and refine your implementation before providing the final `<code>...</code>` response.
+**Important**: Do NOT write `<lean_diagnostic_messages>` or similar as text - use the actual tool call mechanism.

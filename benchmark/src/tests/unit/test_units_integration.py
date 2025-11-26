@@ -1,6 +1,6 @@
 """Integration tests for the units module."""
 
-from generate.scaffold.units import extract_unit_tests, generate_test_suite
+from generate.scaffold.formalize.units.v0 import extract_unit_tests, generate_test_suite
 
 
 def test_end_to_end_simple():
