@@ -1,0 +1,81 @@
+.DS_Store
+.idea
+*.log
+tmp/
+.nvimlog
+
+*.py[cod]
+*.egg
+build
+htmlcov
+.venv
+.pytest_cache/
+.ruff_cache/
+.uv_cache/
+.uv-cache/
+
+.direnv
+.lake
+data/
+logs/
+
+.env
+
+# Benchmark artifacts (runs and wandb cache)
+artifacts/
+
+.claude/settings.local.json
+
+# LEADERBOARD
+.turbo
+# dependencies
+node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+.next/
+out/
+
+# production
+/build
+
+# Build outputs
+dist/
+build/
+out/
+# lib/
+.esbuild/
+tsbuildinfo/
+*.tsbuildinfo
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# misc
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts

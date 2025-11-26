@@ -1,0 +1,35 @@
+pre-commit:
+  parallel: true
+  commands:
+    format-benchmark:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    lint-benchmark:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    typecheck-benchmark:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run ty check
+    test-benchmark:
+      root: "benchmark/"
+      glob: "*.py"
+      run: uv run pytest
+    format-leaderboard:
+      root: "leaderboard"
+      glob: "*.{ts,json,md,yaml,yml}"
+      run: pnpm run format
+      stage_fixed: true
+    lint-leaderboard:
+      root: "leaderboard"
+      glob: "*.{ts,tsx}"
+      run: pnpm run lint:fix
+      stage_fixed: true
+    typecheck-leaderboard:
+      root: "leaderboard"
+      glob: "*.{ts,tsx}"
+      run: pnpm run typecheck
