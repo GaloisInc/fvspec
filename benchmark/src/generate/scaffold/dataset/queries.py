@@ -34,8 +34,8 @@ MAX_UNIT_TESTS = 10
 
 # SQLite parameter limit for query batching
 # SQLite has a hard limit of 32766 parameters per query
-# We use 30000 to stay safely under the limit
-SQLITE_PARAM_BATCH_SIZE = 30000
+# We use 32700 to stay safely under the limit
+SQLITE_PARAM_BATCH_SIZE = 32700
 
 
 def _batch_items(items: list, batch_size: int = SQLITE_PARAM_BATCH_SIZE):
