@@ -32,6 +32,25 @@ MAX_DEPENDENCIES = 100
 # 10 unit tests provides sufficient coverage while keeping prompts manageable
 MAX_UNIT_TESTS = 10
 
+# SQLite parameter limit for query batching
+# SQLite has a hard limit of 32766 parameters per query
+# We use 30000 to stay safely under the limit
+SQLITE_PARAM_BATCH_SIZE = 30000
+
+
+def _batch_items(items: list, batch_size: int = SQLITE_PARAM_BATCH_SIZE):
+    """Yield batches of items to avoid SQLite parameter limit.
+
+    Args:
+        items: List of items to batch
+        batch_size: Size of each batch (default: SQLITE_PARAM_BATCH_SIZE)
+
+    Yields:
+        Batches of items
+    """
+    for i in range(0, len(items), batch_size):
+        yield items[i : i + batch_size]
+
 
 def sample_datapoints(
     session: Session,
@@ -229,19 +248,30 @@ def get_overlapping_unit_tests(
         return []
 
     # Get all unit test IDs that use these functions
-    unit_test_ids_stmt = select(UnitTestFunction.unit_test_id).where(
-        UnitTestFunction.function_name.in_(shared_functions)  # type: ignore[attr-defined]
-    )
-    unit_test_ids = list(set(session.exec(unit_test_ids_stmt)))
+    # Batch the query if there are many shared functions to avoid SQLite parameter limit
+    unit_test_ids = []
+    for func_batch in _batch_items(shared_functions):
+        unit_test_ids_stmt = select(UnitTestFunction.unit_test_id).where(
+            UnitTestFunction.function_name.in_(func_batch)  # type: ignore[attr-defined]
+        )
+        batch_ids = list(session.exec(unit_test_ids_stmt))
+        unit_test_ids.extend(batch_ids)
+
+    # Deduplicate IDs
+    unit_test_ids = list(set(unit_test_ids))
 
     if not unit_test_ids:
         return []
 
     # Fetch the actual unit tests
-    unit_tests_stmt = select(UnitTest).where(
-        UnitTest.id.in_(unit_test_ids)  # type: ignore[attr-defined]
-    )
-    unit_tests = list(session.exec(unit_tests_stmt))
+    # Batch the query if there are many unit test IDs to avoid SQLite parameter limit
+    unit_tests = []
+    for id_batch in _batch_items(unit_test_ids):
+        unit_tests_stmt = select(UnitTest).where(
+            UnitTest.id.in_(id_batch)  # type: ignore[attr-defined]
+        )
+        batch_tests = list(session.exec(unit_tests_stmt))
+        unit_tests.extend(batch_tests)
 
     # Format as expected by existing code
     # Group by shared functions (simplified - just one group for now)
