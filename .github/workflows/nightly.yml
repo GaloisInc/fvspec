@@ -100,7 +100,8 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const report = fs.readFileSync('benchmark/${{ steps.run.outputs.report_path }}', 'utf8');
+            // Actions run from repo root, not working-directory, so prepend benchmark/
+            const report = fs.readFileSync('benchmark/artifacts/nightly_report.md', 'utf8');
 
             // Post to issue #85 (Nightly Evidence)
             await github.rest.issues.createComment({
@@ -115,5 +116,6 @@ jobs:
         if: always()
         with:
           name: nightly-eval-${{ github.run_number }}
-          path: ${{ steps.run.outputs.log_dir }}
+          # Actions run from repo root, so prepend benchmark/ to the relative path
+          path: benchmark/${{ steps.run.outputs.log_dir }}
           retention-days: 90
