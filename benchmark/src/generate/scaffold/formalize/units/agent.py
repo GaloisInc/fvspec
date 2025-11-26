@@ -15,7 +15,7 @@ from inspect_ai.solver import Generate, Solver, TaskState, solver
 
 from generate.scaffold.formalize.units.models import UnitsPayload, UnitsResult
 from generate.scaffold.formalize.units.validator import validate_units_output
-from generate.scaffold.tools.declaration import lean_lsp_mcp_tools
+from generate.scaffold.tools.declaration import all_lean_tools
 from generate.templates.units import get_variant_prompts
 
 logger = logging.getLogger(__name__)
@@ -69,9 +69,9 @@ def units_generation_agent(
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 
-        # Get LSP tools from workspace
-        # Use same tools as spec agent - they're workspace-aware and work with any Lean file
-        tools = lean_lsp_mcp_tools()
+        # Get all Lean tools (file writing + LSP analysis)
+        # Same tools as spec agent - workspace-aware and work with any Lean file
+        tools = all_lean_tools()
 
         # Add tools to state
         state.tools = tools

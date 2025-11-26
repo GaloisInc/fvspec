@@ -704,7 +704,7 @@ def fvspec(
         require_unit_tests=require_unit_tests,
     )
 
-    # Two-agent architecture: impl → spec
+    # Three-agent architecture: impl → spec & units
     return Task(
         dataset=dataset,
         setup=[

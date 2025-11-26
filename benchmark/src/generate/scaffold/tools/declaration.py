@@ -383,21 +383,42 @@ def write_lean_tests() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
-def lean_lsp_mcp_tools() -> list:
-    """Construct custom Lean LSP tools that work with per-sample workspaces.
+def workspace_utility_tools() -> list:
+    """Construct workspace utility tools for file writing.
 
-    These tools spawn lean-lsp-mcp as a subprocess per call, setting the
-    LEAN_PROJECT_PATH environment variable to the sample's workspace.
-    This allows parallel execution while maintaining LSP functionality.
+    These tools allow agents to write Lean files to the workspace for iterative
+    development. They don't interact with LSP/MCP - they just write files.
     """
     return [
         write_lean_spec(),
         write_lean_tests(),
+    ]
+
+
+def lean_lsp_mcp_tools() -> list:
+    """Construct Lean LSP tools that wrap lean-lsp-mcp server.
+
+    These tools spawn lean-lsp-mcp as a subprocess per call, setting the
+    LEAN_PROJECT_PATH environment variable to the sample's workspace.
+    This allows parallel execution while maintaining LSP functionality.
+
+    These are wrappers around the actual MCP server tools.
+    """
+    return [
         lean_diagnostic_messages(),
         lean_goal(),
         lean_multi_attempt(),
         lean_local_search(),
     ]
+
+
+def all_lean_tools() -> list:
+    """Get all tools for Lean development (utility + LSP).
+
+    Combines workspace utility tools (file writing) with LSP analysis tools.
+    This is the standard tool set for spec and units agents.
+    """
+    return workspace_utility_tools() + lean_lsp_mcp_tools()
 
 
 def write_datapoint_to_disk(
