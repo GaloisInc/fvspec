@@ -337,8 +337,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # This prevents hallucination when agent has no code to work from
         if function_code is not None:
             impl_payload = FunctionImplPayload(
-                context_code=datapoint.code,
-                context_name=datapoint.name,
                 function_name=function_name,
                 function_code=function_code,
                 dependencies={},  # Dependencies handled separately if needed
@@ -391,8 +389,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
             # Create impl payload for this dependency
             dep_impl_payload = FunctionImplPayload(
-                context_code="",  # No test context for dependencies
-                context_name=payload.dep_name,
                 function_name=payload.dep_name,
                 function_code=payload.python_source,
                 dependencies={},  # Will be accumulated as we process

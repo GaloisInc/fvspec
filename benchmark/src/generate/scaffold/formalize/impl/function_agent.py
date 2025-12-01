@@ -29,12 +29,6 @@ logger = logging.getLogger(__name__)
 class FunctionImplPayload(BaseModel):
     """Payload for function implementation generation."""
 
-    context_code: str = Field(
-        description="Context code (PBT for FUT, empty for dependencies)"
-    )
-    context_name: str = Field(
-        description="Context name (test name for FUT, dep name for dependencies)"
-    )
     function_name: str = Field(description="Function to implement")
     function_code: str | None = Field(
         default=None, description="Discovered function code (if available)"
@@ -109,8 +103,6 @@ def function_impl_agent(
 
         # Prepare template context
         context = {
-            "context_code": payload.context_code,
-            "context_name": payload.context_name,
             "function_name": payload.function_name,
             "function_code": payload.function_code,
             "dependencies": payload.dependencies,

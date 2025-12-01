@@ -74,13 +74,6 @@ def get_impl_function_prompts(variant: str | None = None) -> tuple[str, Template
     # Simple user template for function implementation
     user_template_text = """You are translating a Python function into a complete Lean 4 implementation.
 
-{% if context_code %}
-## Context Code
-```python
-{{ context_code }}
-```
-{% endif %}
-
 ## Function to Implement
 Function name: `{{ function_name }}`
 
@@ -102,7 +95,7 @@ The following dependencies are already implemented:
 ## Task
 Generate a complete Lean 4 implementation of `{{ function_name }}`:
 1. Must be fully implemented (ZERO sorry - we need computable code!)
-2. Must match the semantics shown in the test
+2. Must match the semantics of the Python code above
 3. Use `Fvspec.Impl` namespace
 4. Can use available dependencies if needed
 
