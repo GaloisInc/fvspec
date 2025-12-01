@@ -270,6 +270,15 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of trivial theorems asserting Unit functions equal ()",
     )
+    has_eval_violations: bool = Field(
+        default=False,
+        description="Whether #eval statements were detected in Impl.lean (bad practice)",
+    )
+    num_eval_statements: int = Field(
+        default=0,
+        ge=0,
+        description="Number of #eval statements found in Impl.lean",
+    )
     # Radon code complexity metrics for the Python PBT
     radon: Radon | None = Field(None, description="Code complexity metrics")
 
@@ -472,6 +481,11 @@ class QualityAssessment(BaseModel):
         if radon_metrics:
             radon_obj = Radon(**radon_metrics)
 
+        # Extract #eval violation metrics from metadata
+        eval_violations = state.metadata.get("impl_eval_violations", [])
+        has_eval_violations = len(eval_violations) > 0
+        num_eval_statements = len(eval_violations)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -506,6 +520,8 @@ class QualityAssessment(BaseModel):
             actually_invokes_given=actually_invokes_given,
             has_unit_stub=has_unit_stub,
             num_trivial_unit_theorems=num_trivial_unit_theorems,
+            has_eval_violations=has_eval_violations,
+            num_eval_statements=num_eval_statements,
             # Radon metrics (None if not found in database)
             radon=radon_obj,
         )
@@ -693,6 +709,20 @@ class QualityAssessment(BaseModel):
             scores["num_trivial_unit_theorems"] = Score(
                 value=self.num_trivial_unit_theorems,
                 explanation=f"Trivial Unit theorems detected: {self.num_trivial_unit_theorems}/{self.num_theorems} (inflates plausibility without verification value)",
+            )
+
+        # #eval violation metrics
+        scores["has_eval_violations"] = Score(
+            value=1.0 if self.has_eval_violations else 0.0,
+            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s)"
+            if self.has_eval_violations
+            else "No #eval statements in implementation (correct)",
+        )
+
+        if self.num_eval_statements > 0:
+            scores["num_eval_statements"] = Score(
+                value=self.num_eval_statements,
+                explanation=f"#eval statements found: {self.num_eval_statements} (should be 0 - indicates testing rather than defining)",
             )
 
         return scores
