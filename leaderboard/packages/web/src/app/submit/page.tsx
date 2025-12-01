@@ -184,8 +184,8 @@ theorem solution_correct (input : List Nat) :
                   <div>
                     <strong className="block mb-1">Execution Record</strong>
                     <p className="text-muted-foreground">
-                      An execution record is created including hashes of all
-                      artifacts, toolchain information, and execution metadata.
+                      An execution record is created including hashes of all artifacts, toolchain
+                      information, and execution metadata.
                     </p>
                   </div>
                 </li>

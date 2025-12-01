@@ -49,28 +49,16 @@ export function Header() {
           </Link>
           {/* Desktop navigation - hidden on mobile */}
           <nav className="hidden md:flex gap-6">
-            <Link
-              href="/dataset"
-              className={getLinkClassName('/dataset')}
-            >
+            <Link href="/dataset" className={getLinkClassName('/dataset')}>
               Dataset
             </Link>
-            <Link
-              href="/paper"
-              className={getLinkClassName('/paper')}
-            >
+            <Link href="/paper" className={getLinkClassName('/paper')}>
               Paper
             </Link>
-            <Link
-              href="/leaderboard"
-              className={getLinkClassName('/leaderboard')}
-            >
+            <Link href="/leaderboard" className={getLinkClassName('/leaderboard')}>
               Leaderboard
             </Link>
-            <Link
-              href="/submit"
-              className={getLinkClassName('/submit')}
-            >
+            <Link href="/submit" className={getLinkClassName('/submit')}>
               Submit
             </Link>
           </nav>

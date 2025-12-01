@@ -221,8 +221,8 @@ export default function PaperPage() {
             <h3>3.3 Reproducible Evaluation</h3>
             <p>
               Each evaluation produces a detailed execution record including artifact hashes,
-              toolchain information, execution metadata, and runner configuration. This
-              ensures full reproducibility and enables independent verification of results.
+              toolchain information, execution metadata, and runner configuration. This ensures full
+              reproducibility and enables independent verification of results.
             </p>
           </section>
 
