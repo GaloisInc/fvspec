@@ -145,7 +145,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Cryptographically-attested results (leaderboard data is currently mockup)
+                    Verified results (leaderboard data is currently mockup)
                   </p>
                 </CardContent>
               </Card>
@@ -241,7 +241,6 @@ export default function Home() {
                     <li>
                       Solutions must build with <code className="font-mono">lake build</code>
                     </li>
-                    <li>Cryptographic attestations will be generated</li>
                   </ul>
                 </div>
                 <Button asChild>
@@ -298,7 +297,7 @@ export default function Home() {
                     demonstrate significant variation in specification quality, with models showing
                     different strengths across verification paradigms. The benchmark is designed to
                     track progress in AI-assisted formal verification while maintaining rigorous
-                    reproducibility through cryptographic attestations.
+                    reproducibility.
                   </p>
                 </CardContent>
               </Card>

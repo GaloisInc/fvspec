@@ -182,9 +182,9 @@ theorem solution_correct (input : List Nat) :
                 <li className="flex gap-3">
                   <Badge className="shrink-0">4</Badge>
                   <div>
-                    <strong className="block mb-1">Attestation Generation</strong>
+                    <strong className="block mb-1">Execution Record</strong>
                     <p className="text-muted-foreground">
-                      A cryptographic attestation is created including SHA-256 hashes of all
+                      An execution record is created including hashes of all
                       artifacts, toolchain information, and execution metadata.
                     </p>
                   </div>
