@@ -50,28 +50,28 @@ export function Header() {
           {/* Desktop navigation - hidden on mobile */}
           <nav className="hidden md:flex gap-6">
             <Link
-              href="/leaderboard"
-              className={getLinkClassName('/leaderboard')}
-            >
-              Leaderboard
-            </Link>
-            <Link
               href="/dataset"
               className={getLinkClassName('/dataset')}
             >
               Dataset
             </Link>
             <Link
-              href="/submit"
-              className={getLinkClassName('/submit')}
-            >
-              Submit
-            </Link>
-            <Link
               href="/paper"
               className={getLinkClassName('/paper')}
             >
               Paper
+            </Link>
+            <Link
+              href="/leaderboard"
+              className={getLinkClassName('/leaderboard')}
+            >
+              Leaderboard
+            </Link>
+            <Link
+              href="/submit"
+              className={getLinkClassName('/submit')}
+            >
+              Submit
             </Link>
           </nav>
         </div>
@@ -89,13 +89,6 @@ export function Header() {
         <div className="md:hidden border-t">
           <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
             <Link
-              href="/leaderboard"
-              className={getLinkClassName('/leaderboard')}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Leaderboard
-            </Link>
-            <Link
               href="/dataset"
               className={getLinkClassName('/dataset')}
               onClick={() => setMobileMenuOpen(false)}
@@ -103,18 +96,25 @@ export function Header() {
               Dataset
             </Link>
             <Link
-              href="/submit"
-              className={getLinkClassName('/submit')}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Submit
-            </Link>
-            <Link
               href="/paper"
               className={getLinkClassName('/paper')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Paper
+            </Link>
+            <Link
+              href="/leaderboard"
+              className={getLinkClassName('/leaderboard')}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Leaderboard
+            </Link>
+            <Link
+              href="/submit"
+              className={getLinkClassName('/submit')}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Submit
             </Link>
             <a
               href="https://github.com/GaloisInc/fvspec"
