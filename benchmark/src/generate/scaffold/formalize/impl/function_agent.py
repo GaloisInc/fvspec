@@ -108,7 +108,11 @@ def function_impl_agent(
             "dependencies": payload.dependencies,
         }
 
-        # Build initial messages - append to state.messages
+        # Clear inherited messages from parent state (e.g., Sample input with PBT code)
+        # Impl agent should only see function-specific prompts, not orchestration context
+        state.messages = []
+
+        # Build initial messages for impl agent
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(context)))
 
