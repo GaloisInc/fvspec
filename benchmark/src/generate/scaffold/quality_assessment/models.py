@@ -280,6 +280,10 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of #eval statements found in Impl.lean",
     )
+    impl_eval_stripped: bool = Field(
+        default=False,
+        description="Whether #eval was stripped from Impl.lean due to build failures (uncomputable)",
+    )
     # Radon code complexity metrics for the Python PBT
     radon: Radon | None = Field(None, description="Code complexity metrics")
 
@@ -313,6 +317,7 @@ class QualityAssessment(BaseModel):
         # Check impl autoformalization status
         impl_result_data = state.store.get("impl_result")
         impl_autoform_success = False  # Default to False (no impl or failed)
+        impl_eval_stripped = False  # Default to False (no stripping needed)
         if impl_result_data:
             # impl_result may be dict or FunctionImplResult object
             if isinstance(impl_result_data, dict):
@@ -320,11 +325,14 @@ class QualityAssessment(BaseModel):
                 impl_autoform_success = impl_result_data.get(
                     "success", False
                 ) and impl_result_data.get("compiles", False)
+                # Extract whether #eval was stripped
+                impl_eval_stripped = impl_result_data.get("has_eval_stripped", False)
             else:
                 # FunctionImplResult object
                 impl_autoform_success = (
                     impl_result_data.success and impl_result_data.compiles
                 )
+                impl_eval_stripped = impl_result_data.has_eval_stripped
 
         # Overall success: spec succeeded (backward compatible for spec-only tasks)
         # For tasks with impl, both spec and impl must succeed
@@ -526,6 +534,7 @@ class QualityAssessment(BaseModel):
             num_trivial_unit_theorems=num_trivial_unit_theorems,
             has_eval_violations=has_eval_violations,
             num_eval_statements=num_eval_statements,
+            impl_eval_stripped=impl_eval_stripped,
             # Radon metrics (None if not found in database)
             radon=radon_obj,
         )
@@ -726,6 +735,14 @@ class QualityAssessment(BaseModel):
                 value=self.num_eval_statements,
                 explanation=f"#eval statements found: {self.num_eval_statements} (should be 0 - indicates testing rather than defining)",
             )
+
+        # #eval stripping metric (indicates uncomputable implementation)
+        scores["impl_eval_stripped"] = Score(
+            value=1.0 if self.impl_eval_stripped else 0.0,
+            explanation="#eval statements were stripped due to build failures (uncomputable)"
+            if self.impl_eval_stripped
+            else "Implementation is computable (no #eval stripping needed)",
+        )
 
         return scores
 

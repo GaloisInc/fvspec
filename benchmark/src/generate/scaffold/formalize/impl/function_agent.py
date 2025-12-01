@@ -19,6 +19,7 @@ from generate.scaffold.formalize.impl.filters import (
     strip_spec_namespace,
     validate_impl_only,
 )
+from generate.scaffold.quality_assessment.lean_parsing import detect_eval_statements
 from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
 from generate.templates.impl import get_impl_function_prompts
 
@@ -59,6 +60,10 @@ class FunctionImplResult(BaseModel):
     attempts: int = Field(default=0, description="Number of refinement attempts")
     tool_calls: int = Field(default=0, description="Total tool calls made")
     error: str | None = Field(default=None, description="Error message if failed")
+    has_eval_stripped: bool = Field(
+        default=False,
+        description="Whether #eval statements were stripped due to build failures",
+    )
 
 
 @solver
@@ -238,6 +243,53 @@ def function_impl_agent(
             # Success if: compiles AND zero sorry
             success = not has_errors and not has_sorry
 
+            # Post-agent #eval validation: strip failing #eval statements
+            has_eval_stripped = False
+
+            if not has_errors and "#eval" in lean_code:
+                # Code compiles with #eval present - check if #eval causes issues
+                eval_statements = detect_eval_statements(lean_code)
+
+                if eval_statements:
+                    # Check diagnostics for #eval-related errors
+                    # Common patterns: "failed to synthesize instance", errors mentioning #eval
+                    has_eval_errors = bool(
+                        re.search(
+                            r"#eval.*error|error.*#eval|failed to synthesize.*instance",
+                            diagnostics,
+                            re.IGNORECASE,
+                        )
+                    )
+
+                    if has_eval_errors:
+                        # Strip all #eval statements
+                        lean_code = re.sub(
+                            r"^#eval\s+[^\n]+\n?", "", lean_code, flags=re.MULTILINE
+                        )
+
+                        # Rewrite file without #eval
+                        impl_file.write_text(lean_code)
+                        has_eval_stripped = True
+
+                        # Validate stripped version compiles
+                        stripped_result = call_lean_lsp_mcp(
+                            workspace=workspace,
+                            tool_name="lean_diagnostic_messages",
+                            arguments={"file_path": str(impl_file)},
+                        )
+
+                        # Update diagnostics with stripped version
+                        stripped_content = stripped_result.get("content", [])
+                        if (
+                            stripped_content
+                            and isinstance(stripped_content, list)
+                            and len(stripped_content) > 0
+                        ):
+                            diagnostics = stripped_content[0].get("text", "")
+                            has_errors = bool(
+                                re.search(r"\berror:", diagnostics, re.IGNORECASE)
+                            )
+
             result = FunctionImplResult(
                 success=success,
                 lean_code=lean_code,
@@ -246,6 +298,7 @@ def function_impl_agent(
                 attempts=attempts,
                 tool_calls=tool_calls_count,
                 error=None if success else "Has errors or sorry",
+                has_eval_stripped=has_eval_stripped,
             )
 
         except Exception as e:
