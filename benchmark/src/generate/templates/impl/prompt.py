@@ -74,10 +74,12 @@ def get_impl_function_prompts(variant: str | None = None) -> tuple[str, Template
     # Simple user template for function implementation
     user_template_text = """You are translating a Python function into a complete Lean 4 implementation.
 
-## Python Test
+{% if context_code %}
+## Context Code
 ```python
-{{ pbt_code }}
+{{ context_code }}
 ```
+{% endif %}
 
 ## Function to Implement
 Function name: `{{ function_name }}`
