@@ -1,1 +1,7 @@
 Keep every definition transparent and computable so downstream provers can reduce it; avoid axioms or opaque wrappers.
+
+**Testing computability:** After implementing each function, add 2-3 `#eval` statements to verify computability:
+- Test with representative inputs that exercise the function logic
+- `#eval` will immediately catch if your implementation uses `sorry` or is uncomputable
+- Example: `#eval myFunction 5 10  -- Expected: 50`
+- This helps ensure your implementation is fully computable, not just type-correct
