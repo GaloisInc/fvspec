@@ -167,9 +167,14 @@ def function_impl_agent(
             state.metadata["impl_result"] = result.model_dump()
             return state
 
-        # Extract code from final response
-        final_text = final_message.text
-        lean_code = _extract_code_block(final_text)
+        # Extract code from most recent <code> block in message history
+        # This captures the agent's last validated implementation without
+        # requiring redundant final output
+        lean_code = _extract_code_from_history(state.messages)
+
+        # Fallback to final message if no <code> blocks found in history
+        if not lean_code and final_message.text:
+            lean_code = _extract_code_block(final_message.text)
 
         # Filter out any hallucinated spec namespaces and keywords
         # Model occasionally generates specs alongside impls despite prompts
@@ -327,3 +332,35 @@ def _extract_code_block(content: str) -> str:
     """
     match = re.search(r"<code>(.*?)</code>", content, re.DOTALL)
     return match.group(1).strip() if match else content.strip()
+
+
+def _extract_code_from_history(messages: list) -> str | None:
+    """Extract Lean code by walking backwards through message history.
+
+    Searches assistant messages in reverse chronological order for the most
+    recent message containing <code>...</code> tags. This captures the agent's
+    last validated implementation without requiring redundant final output.
+
+    Args:
+        messages: Full conversation history (list of ChatMessage objects)
+
+    Returns:
+        Extracted code from most recent <code> block, or None if not found
+    """
+    # Walk backwards through messages
+    for msg in reversed(messages):
+        # Only check assistant messages
+        if not hasattr(msg, "role") or msg.role != "assistant":
+            continue
+
+        # Skip if no text content
+        if not hasattr(msg, "text") or not msg.text:
+            continue
+
+        # Try to extract code from this message
+        match = re.search(r"<code>(.*?)</code>", msg.text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+
+    # No <code> blocks found in any assistant message
+    return None
