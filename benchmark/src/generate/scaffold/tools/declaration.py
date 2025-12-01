@@ -406,10 +406,38 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
         # Ensure the directory exists
         spec_file.parent.mkdir(parents=True, exist_ok=True)
 
+        # Check for #eval statements before writing
+        eval_statements = detect_eval_statements(code)
+
         # Write the code
         spec_file.write_text(code)
 
-        return f"Wrote {len(code)} characters to {spec_file.relative_to(workspace)}"
+        # Build response message
+        base_msg = f"Wrote {len(code)} characters to {spec_file.relative_to(workspace)}"
+
+        if eval_statements:
+            # Store eval violations in metadata for QA
+            # Use separate key to distinguish spec vs impl violations
+            if "spec_eval_violations" not in state.metadata:
+                state.metadata["spec_eval_violations"] = []
+            state.metadata["spec_eval_violations"].extend(eval_statements)
+
+            warning = (
+                f"\n\n⚠️ WARNING: Detected {len(eval_statements)} #eval statement(s) in specification code.\n"
+                f"#eval statements should NOT be included in Spec.lean because:\n"
+                f"1. Spec.lean should only contain theorem declarations (with sorry), not executable code\n"
+                f"2. If you're including Impl definitions here, they belong in Impl.lean instead\n"
+                f"3. #eval indicates testing behavior which belongs in Tests.lean\n\n"
+                f"Found:\n"
+            )
+            for stmt in eval_statements:
+                warning += f"  - {stmt}\n"
+
+            warning += "\nPlease remove these #eval statements. Specifications should only declare theorems, not execute code."
+
+            return base_msg + warning
+
+        return base_msg
 
     return execute
 

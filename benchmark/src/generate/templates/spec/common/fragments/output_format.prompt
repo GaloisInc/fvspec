@@ -15,6 +15,15 @@ And end with:
 end Fvspec.Spec
 ```
 
+**IMPORTANT:** Do NOT include `#eval` statements in your specification code. Spec.lean should only contain:
+- Theorem declarations (with `sorry` placeholders for proofs)
+- Helper definitions needed for theorems (if any)
+
+Do NOT include:
+- `#eval` statements (these belong in Tests.lean)
+- Implementation code with `#eval` tests (implementations belong in Impl.lean)
+- Executable test code (use Tests.lean for that)
+
 Example:
 ```
 <code>
