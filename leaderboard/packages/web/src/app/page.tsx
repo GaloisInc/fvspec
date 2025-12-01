@@ -85,7 +85,7 @@ export default function Home() {
               fvspec Leaderboard
             </h1>
             <p className="text-xl md:text-2xl text-muted-foreground mb-8">
-              Evaluating AI models on formal verification tasks in Lean 4
+              Real world SWE tasks in Lean
             </p>
             <div className="flex flex-wrap gap-4">
               <Button size="lg" asChild>
@@ -109,8 +109,8 @@ export default function Home() {
             <h2 className="text-3xl font-bold mb-4">About fvspec</h2>
             <p className="text-lg text-muted-foreground mb-8">
               fvspec is a benchmark for evaluating AI models on formal verification tasks. Models
-              translate Python property-based tests into Lean 4 specifications, focusing on
-              specification quality and structural faithfulness.
+              translate Python property-based tests into Lean 4 specifications that must
+              successfully type-check and build, ensuring syntactic and semantic validity.
             </p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
               <Card>
@@ -145,7 +145,7 @@ export default function Home() {
                 </CardHeader>
                 <CardContent>
                   <p className="text-sm text-muted-foreground">
-                    Cryptographically-attested results (leaderboard data is currently mockup)
+                    Verified results (leaderboard data is currently mockup)
                   </p>
                 </CardContent>
               </Card>
@@ -241,7 +241,6 @@ export default function Home() {
                     <li>
                       Solutions must build with <code className="font-mono">lake build</code>
                     </li>
-                    <li>Cryptographic attestations will be generated</li>
                   </ul>
                 </div>
                 <Button asChild>
@@ -298,7 +297,7 @@ export default function Home() {
                     demonstrate significant variation in specification quality, with models showing
                     different strengths across verification paradigms. The benchmark is designed to
                     track progress in AI-assisted formal verification while maintaining rigorous
-                    reproducibility through cryptographic attestations.
+                    reproducibility.
                   </p>
                 </CardContent>
               </Card>

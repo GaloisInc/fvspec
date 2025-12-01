@@ -224,7 +224,7 @@ export default function LeaderboardPage() {
               </p>
               <p>
                 <strong className="text-foreground">Status:</strong> Verified submissions have
-                cryptographic attestations proving reproducibility.
+                passed reproducibility checks.
               </p>
             </CardContent>
           </Card>

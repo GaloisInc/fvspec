@@ -20,6 +20,7 @@ data/
 logs/
 
 .env
+.env*.local
 
 # Benchmark artifacts (runs and wandb cache)
 artifacts/

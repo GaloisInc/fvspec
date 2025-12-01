@@ -96,7 +96,7 @@ export default function PaperPage() {
                 demonstrate significant variation in specification quality, with models showing
                 different strengths across verification paradigms. The benchmark is designed to
                 track progress in AI-assisted formal verification while maintaining rigorous
-                reproducibility through cryptographic attestations.
+                reproducibility.
               </p>
             </CardContent>
           </Card>
@@ -133,8 +133,7 @@ export default function PaperPage() {
             <p>
               fvspec addresses these challenges through three key design decisions: (1) using
               real-world property-based tests from GitHub, (2) evaluating specification quality
-              independently of proof completion, and (3) providing cryptographic attestations for
-              all evaluation results.
+              independently of proof completion, and (3) providing reproducible evaluation results.
             </p>
           </section>
 
@@ -219,11 +218,11 @@ export default function PaperPage() {
               <li>Deterministic dependency resolution</li>
             </ul>
 
-            <h3>3.3 Cryptographic Attestations</h3>
+            <h3>3.3 Reproducible Evaluation</h3>
             <p>
-              Each evaluation produces a signed attestation including SHA-256 hashes of all
-              artifacts, toolchain information, execution metadata, and runner trust level. This
-              ensures full reproducibility and enables independent verification of results.
+              Each evaluation produces a detailed execution record including artifact hashes,
+              toolchain information, execution metadata, and runner configuration. This ensures full
+              reproducibility and enables independent verification of results.
             </p>
           </section>
 
