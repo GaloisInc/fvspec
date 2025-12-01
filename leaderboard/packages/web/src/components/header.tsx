@@ -2,12 +2,30 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Menu, X } from 'lucide-react'
 
 export function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const pathname = usePathname()
+
+  const isActive = (path: string) => {
+    if (path === '/') return pathname === '/'
+    return pathname?.startsWith(path)
+  }
+
+  const getLinkClassName = (path: string) => {
+    const baseClasses = 'text-sm font-medium transition-colors'
+    const isLinkActive = isActive(path)
+
+    return `${baseClasses} ${
+      isLinkActive
+        ? 'text-foreground border-b-2 border-primary'
+        : 'text-muted-foreground hover:text-foreground'
+    }`
+  }
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -33,25 +51,25 @@ export function Header() {
           <nav className="hidden md:flex gap-6">
             <Link
               href="/leaderboard"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/leaderboard')}
             >
               Leaderboard
             </Link>
             <Link
               href="/dataset"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/dataset')}
             >
               Dataset
             </Link>
             <Link
               href="/submit"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/submit')}
             >
               Submit
             </Link>
             <Link
               href="/paper"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/paper')}
             >
               Paper
             </Link>
@@ -72,28 +90,28 @@ export function Header() {
           <nav className="container mx-auto px-4 py-4 flex flex-col gap-4">
             <Link
               href="/leaderboard"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/leaderboard')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Leaderboard
             </Link>
             <Link
               href="/dataset"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/dataset')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Dataset
             </Link>
             <Link
               href="/submit"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/submit')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Submit
             </Link>
             <Link
               href="/paper"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className={getLinkClassName('/paper')}
               onClick={() => setMobileMenuOpen(false)}
             >
               Paper
