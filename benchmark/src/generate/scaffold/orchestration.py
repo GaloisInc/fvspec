@@ -361,22 +361,17 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
             state.store.set("impl_result", impl_result_data)
 
-            # Agent's tool-written code is authoritative - don't overwrite it
-            # Only write if file doesn't exist (agent didn't write anything via tools)
-            if not impl_file.exists() or impl_file.stat().st_size == 0:
-                if impl_result.lean_code:
-                    impl_file.write_text(impl_result.lean_code)
-                    # Track that we provided full implementation
-                    state.store.set("implementation_level", "provided")
-                else:
-                    # No impl code - write empty file to clear any validation artifacts
-                    impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
-                    # Track as absent (agent failed to generate)
-                    state.store.set("implementation_level", "absent")
-            else:
-                # Agent wrote code via tools - that's the authoritative version
-                # Track as provided since agent successfully wrote to file
+            # Write Impl.lean - use extracted code from final message (orchestration is authoritative)
+            # Agent uses tools for validation, but final message contains the canonical version
+            if impl_result.lean_code:
+                impl_file.write_text(impl_result.lean_code)
+                # Track that we provided full implementation
                 state.store.set("implementation_level", "provided")
+            else:
+                # No impl code - write empty file to clear any validation artifacts
+                impl_file.write_text("namespace Fvspec.Impl\n\nend Fvspec.Impl\n")
+                # Track as absent (agent failed to generate)
+                state.store.set("implementation_level", "absent")
         else:
             # No FUT source code - generate stub implementation
             # This allows the spec agent to have a signature to work with
