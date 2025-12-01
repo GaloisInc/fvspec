@@ -15,7 +15,7 @@ parallelism = 64
 
 [dataset]
 # Number of samples to draw from the dataset
-sample_size = 10
+sample_size = 4
 # Random seed for dataset sampling
 ranseed = 0
 
