@@ -15,6 +15,9 @@ from inspect_ai.tool import ToolCallView, ToolError, tool
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.quality_assessment import QualityAssessment
+from generate.scaffold.quality_assessment.lean_parsing import (
+    detect_eval_statements,
+)
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import log_sample_to_wandb
 
@@ -313,10 +316,6 @@ def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
         Returns:
             Success message with file path and size, plus warnings if #eval detected
         """
-        from generate.scaffold.quality_assessment.lean_parsing import (
-            detect_eval_statements,
-        )
-
         state = sample_state()
         if not state:
             raise ToolError("No task state available")

@@ -6,6 +6,7 @@ from enum import Enum
 from importlib import import_module
 from typing import TYPE_CHECKING, cast
 
+from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 from sqlmodel import Session, create_engine, select
@@ -532,8 +533,6 @@ class QualityAssessment(BaseModel):
         Returns:
             Dictionary mapping score names to Score objects
         """
-        from inspect_ai.scorer import Score
-
         scores = {
             "token_usage": Score(
                 value=self.token_usage,
