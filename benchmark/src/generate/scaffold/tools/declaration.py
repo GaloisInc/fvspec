@@ -314,7 +314,7 @@ def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
             view: Tool call context (provided by inspect_ai)
 
         Returns:
-            Success message with file path and size, plus warnings if #eval detected
+            Success message with file path and size
         """
         state = sample_state()
         if not state:
