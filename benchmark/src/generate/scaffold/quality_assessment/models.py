@@ -90,6 +90,10 @@ class StructuralFaithfulness(BaseModel):
         le=1.0,
         description="Fraction of dependency names found in Lean code",
     )
+    assertion_theorem_difference: int = Field(
+        default=0,
+        description="Difference between number of Lean theorems and Python asserts (positive = more theorems, negative = fewer theorems, zero = perfect match)",
+    )
     overall: float = Field(
         default=0.0,
         ge=0.0,
@@ -123,6 +127,7 @@ class StructuralFaithfulness(BaseModel):
         lean_types = extract_lean_types(lean_code)
         lean_bounds = extract_lean_bounds(lean_code)
         lean_properties = count_lean_properties(lean_code)
+        lean_theorems = count_lean_theorems(lean_code)
 
         # Compute metrics
         param_cov = compute_parameter_coverage(py_params, lean_params)
@@ -130,6 +135,7 @@ class StructuralFaithfulness(BaseModel):
         strat_cov = compute_strategy_coverage(py_strategies, lean_bounds)
         assert_cov = compute_assertion_coverage(py_assertions, lean_properties)
         dep_cov = compute_dependency_coverage(py_dep_names, lean_code)
+        assert_thm_diff = lean_theorems - py_assertions
 
         # Weighted average (can tune these weights)
         overall = (
@@ -146,6 +152,7 @@ class StructuralFaithfulness(BaseModel):
             strategy_coverage=strat_cov,
             assertion_coverage=assert_cov,
             dependency_coverage=dep_cov,
+            assertion_theorem_difference=assert_thm_diff,
             overall=overall,
         )
 
@@ -641,6 +648,10 @@ class QualityAssessment(BaseModel):
             scores["dependency_coverage"] = Score(
                 value=sf.dependency_coverage,
                 explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
+            )
+            scores["assertion_theorem_difference"] = Score(
+                value=sf.assertion_theorem_difference,
+                explanation=f"Difference between Lean theorems and Python asserts: {sf.assertion_theorem_difference} (zero is perfect, positive = more theorems, negative = fewer theorems)",
             )
 
         # Unit test metrics
