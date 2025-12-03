@@ -278,9 +278,9 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of trivial theorems asserting Unit functions equal ()",
     )
-    has_eval_violations: bool = Field(
+    has_eval_statements: bool = Field(
         default=False,
-        description="Whether #eval statements were detected in Impl.lean (bad practice)",
+        description="Whether any #eval statements were detected in Impl.lean",
     )
     num_eval_statements: int = Field(
         default=0,
@@ -498,12 +498,10 @@ class QualityAssessment(BaseModel):
             radon_obj = Radon(**radon_metrics)
 
         # Extract #eval violation metrics from metadata
-        # Check both impl and spec violations
-        impl_eval_violations = state.metadata.get("impl_eval_violations", [])
+        # Only spec violations are tracked (impl #eval usage is now encouraged)
         spec_eval_violations = state.metadata.get("spec_eval_violations", [])
-        all_eval_violations = impl_eval_violations + spec_eval_violations
-        has_eval_violations = len(all_eval_violations) > 0
-        num_eval_statements = len(all_eval_violations)
+        has_eval_statements = len(spec_eval_violations) > 0
+        num_eval_statements = len(spec_eval_violations)
 
         return cls(
             sample_id=datapoint.id,
@@ -539,7 +537,7 @@ class QualityAssessment(BaseModel):
             actually_invokes_given=actually_invokes_given,
             has_unit_stub=has_unit_stub,
             num_trivial_unit_theorems=num_trivial_unit_theorems,
-            has_eval_violations=has_eval_violations,
+            has_eval_statements=has_eval_statements,
             num_eval_statements=num_eval_statements,
             impl_eval_stripped=impl_eval_stripped,
             # Radon metrics (None if not found in database)
@@ -734,17 +732,17 @@ class QualityAssessment(BaseModel):
             )
 
         # #eval violation metrics
-        scores["has_eval_violations"] = Score(
-            value=1.0 if self.has_eval_violations else 0.0,
-            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s)"
-            if self.has_eval_violations
-            else "No #eval statements in implementation (correct)",
+        scores["has_eval_statements"] = Score(
+            value=1.0 if self.has_eval_statements else 0.0,
+            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s) (expected for computability testing)"
+            if self.has_eval_statements
+            else "No #eval statements in implementation (unusual; #eval is expected for computability testing)",
         )
 
         if self.num_eval_statements > 0:
             scores["num_eval_statements"] = Score(
                 value=self.num_eval_statements,
-                explanation=f"#eval statements found: {self.num_eval_statements} (should be 0 - indicates testing rather than defining)",
+                explanation=f"#eval statements found: {self.num_eval_statements} (expected for computability testing)",
             )
 
         # #eval stripping metric (indicates uncomputable implementation)
