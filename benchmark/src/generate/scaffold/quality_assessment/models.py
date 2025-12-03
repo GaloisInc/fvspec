@@ -498,12 +498,10 @@ class QualityAssessment(BaseModel):
             radon_obj = Radon(**radon_metrics)
 
         # Extract #eval violation metrics from metadata
-        # Check both impl and spec violations
-        impl_eval_violations = state.metadata.get("impl_eval_violations", [])
+        # Only spec violations are tracked (impl #eval usage is now encouraged)
         spec_eval_violations = state.metadata.get("spec_eval_violations", [])
-        all_eval_violations = impl_eval_violations + spec_eval_violations
-        has_eval_violations = len(all_eval_violations) > 0
-        num_eval_statements = len(all_eval_violations)
+        has_eval_violations = len(spec_eval_violations) > 0
+        num_eval_statements = len(spec_eval_violations)
 
         return cls(
             sample_id=datapoint.id,
