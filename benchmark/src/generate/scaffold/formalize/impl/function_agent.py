@@ -19,6 +19,7 @@ from generate.scaffold.formalize.impl.filters import (
     strip_spec_namespace,
     validate_impl_only,
 )
+from generate.scaffold.quality_assessment.lean_parsing import detect_eval_statements
 from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
 from generate.templates.impl import get_impl_function_prompts
 
@@ -28,9 +29,7 @@ logger = logging.getLogger(__name__)
 class FunctionImplPayload(BaseModel):
     """Payload for function implementation generation."""
 
-    pbt_code: str = Field(description="Property-based test code")
-    pbt_name: str = Field(description="Test function name")
-    function_name: str = Field(description="Function under test name")
+    function_name: str = Field(description="Function to implement")
     function_code: str | None = Field(
         default=None, description="Discovered function code (if available)"
     )
@@ -55,6 +54,10 @@ class FunctionImplResult(BaseModel):
     attempts: int = Field(default=0, description="Number of refinement attempts")
     tool_calls: int = Field(default=0, description="Total tool calls made")
     error: str | None = Field(default=None, description="Error message if failed")
+    has_eval_stripped: bool = Field(
+        default=False,
+        description="Whether #eval statements were stripped due to build failures",
+    )
 
 
 @solver
@@ -100,14 +103,16 @@ def function_impl_agent(
 
         # Prepare template context
         context = {
-            "pbt_code": payload.pbt_code,
-            "pbt_name": payload.pbt_name,
             "function_name": payload.function_name,
             "function_code": payload.function_code,
             "dependencies": payload.dependencies,
         }
 
-        # Build initial messages - append to state.messages
+        # Clear inherited messages from parent state (e.g., Sample input with PBT code)
+        # Impl agent should only see function-specific prompts, not orchestration context
+        state.messages = []
+
+        # Build initial messages for impl agent
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(context)))
 
@@ -162,9 +167,14 @@ def function_impl_agent(
             state.metadata["impl_result"] = result.model_dump()
             return state
 
-        # Extract code from final response
-        final_text = final_message.text
-        lean_code = _extract_code_block(final_text)
+        # Extract code from most recent <code> block in message history
+        # This captures the agent's last validated implementation without
+        # requiring redundant final output
+        lean_code = _extract_code_from_history(state.messages)
+
+        # Fallback to final message if no <code> blocks found in history
+        if not lean_code and final_message.text:
+            lean_code = _extract_code_block(final_message.text)
 
         # Filter out any hallucinated spec namespaces and keywords
         # Model occasionally generates specs alongside impls despite prompts
@@ -234,6 +244,55 @@ def function_impl_agent(
             # Success if: compiles AND zero sorry
             success = not has_errors and not has_sorry
 
+            # Post-agent #eval validation: strip failing #eval statements
+            has_eval_stripped = False
+
+            if has_errors and "#eval" in lean_code:
+                # Code has errors with #eval present - check if errors are #eval-related
+                eval_statements = detect_eval_statements(lean_code)
+
+                if eval_statements:
+                    # Check diagnostics for #eval-related errors
+                    # Common patterns: "failed to synthesize instance", errors mentioning #eval
+                    has_eval_errors = bool(
+                        re.search(
+                            r"#eval.*error|error.*#eval|failed to synthesize.*instance",
+                            diagnostics,
+                            re.IGNORECASE,
+                        )
+                    )
+
+                    if has_eval_errors:
+                        # Strip all #eval statements
+                        lean_code = re.sub(
+                            r"^#eval\s+[^\n]+\n?", "", lean_code, flags=re.MULTILINE
+                        )
+
+                        # Rewrite file without #eval
+                        impl_file.write_text(lean_code)
+                        has_eval_stripped = True
+
+                        # Validate stripped version compiles
+                        stripped_result = call_lean_lsp_mcp(
+                            workspace=workspace,
+                            tool_name="lean_diagnostic_messages",
+                            arguments={"file_path": str(impl_file)},
+                        )
+
+                        # Update diagnostics with stripped version
+                        stripped_content = stripped_result.get("content", [])
+                        if (
+                            stripped_content
+                            and isinstance(stripped_content, list)
+                            and len(stripped_content) > 0
+                        ):
+                            diagnostics = stripped_content[0].get("text", "")
+                            has_errors = bool(
+                                re.search(r"\berror:", diagnostics, re.IGNORECASE)
+                            )
+                            # Recalculate success after stripping #eval
+                            success = not has_errors and not has_sorry
+
             result = FunctionImplResult(
                 success=success,
                 lean_code=lean_code,
@@ -242,6 +301,7 @@ def function_impl_agent(
                 attempts=attempts,
                 tool_calls=tool_calls_count,
                 error=None if success else "Has errors or sorry",
+                has_eval_stripped=has_eval_stripped,
             )
 
         except Exception as e:
@@ -274,3 +334,35 @@ def _extract_code_block(content: str) -> str:
     """
     match = re.search(r"<code>(.*?)</code>", content, re.DOTALL)
     return match.group(1).strip() if match else content.strip()
+
+
+def _extract_code_from_history(messages: list) -> str | None:
+    """Extract Lean code by walking backwards through message history.
+
+    Searches assistant messages in reverse chronological order for the most
+    recent message containing <code>...</code> tags. This captures the agent's
+    last validated implementation without requiring redundant final output.
+
+    Args:
+        messages: Full conversation history (list of ChatMessage objects)
+
+    Returns:
+        Extracted code from most recent <code> block, or None if not found
+    """
+    # Walk backwards through messages
+    for msg in reversed(messages):
+        # Only check assistant messages
+        if not hasattr(msg, "role") or msg.role != "assistant":
+            continue
+
+        # Skip if no text content
+        if not hasattr(msg, "text") or not msg.text:
+            continue
+
+        # Try to extract code from this message
+        match = re.search(r"<code>(.*?)</code>", msg.text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+
+    # No <code> blocks found in any assistant message
+    return None

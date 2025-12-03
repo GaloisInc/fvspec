@@ -65,7 +65,11 @@ def units_generation_agent(
             "impl_signatures": payload.impl_signatures,
         }
 
-        # Build initial messages - append to state.messages
+        # Clear inherited messages from parent state (e.g., Sample input)
+        # Units agent should use its own prompts, not orchestration context
+        state.messages = []
+
+        # Build initial messages for units agent
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 

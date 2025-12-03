@@ -71,41 +71,16 @@ def get_impl_function_prompts(variant: str | None = None) -> tuple[str, Template
 
     system_prompt = _env.from_string(function_system_prompt_path.read_text()).render()
 
-    # Simple user template for function implementation
-    user_template_text = """You are translating a Python function into a complete Lean 4 implementation.
+    # Load user template from fragment file
+    user_template_path = (
+        _templates_dir / "common" / "fragments" / "function_user.prompt.template"
+    )
 
-## Python Test
-```python
-{{ pbt_code }}
-```
+    if not user_template_path.exists():
+        raise FileNotFoundError(
+            f"Function user prompt not found at {user_template_path}"
+        )
 
-## Function to Implement
-Function name: `{{ function_name }}`
-
-{% if function_code %}
-## Original Python Code
-```python
-{{ function_code }}
-```
-{% endif %}
-
-{% if dependencies %}
-## Available Dependencies
-The following dependencies are already implemented:
-{% for name, sig in dependencies.items() %}
-- {{ sig }}
-{% endfor %}
-{% endif %}
-
-## Task
-Generate a complete Lean 4 implementation of `{{ function_name }}`:
-1. Must be fully implemented (ZERO sorry - we need computable code!)
-2. Must match the semantics shown in the test
-3. Use `Fvspec.Impl` namespace
-4. Can use available dependencies if needed
-
-Output your implementation in <code>...</code> tags."""
-
-    user_template = _env.from_string(user_template_text)
+    user_template = _env.from_string(user_template_path.read_text())
 
     return system_prompt, user_template

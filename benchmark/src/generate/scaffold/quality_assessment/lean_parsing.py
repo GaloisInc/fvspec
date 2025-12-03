@@ -152,6 +152,31 @@ def detect_unit_stub_in_impl(impl_code: str) -> bool:
     return bool(re.search(pattern, impl_code))
 
 
+def detect_eval_statements(lean_code: str) -> list[str]:
+    r"""Detect #eval statements in Lean code.
+
+    #eval statements are encouraged during the agent loop to verify computability
+    of implementations. Post-agent, they may be stripped if they cause build
+    failures (e.g., if the function still contains `sorry` or has other issues).
+
+    Args:
+        lean_code: Lean code to check for #eval statements
+
+    Returns:
+        List of #eval statements found (each as a string)
+
+    Examples:
+        >>> code = "#eval fibonacci 0\n#eval fibonacci 5"
+        >>> detect_eval_statements(code)
+        ['#eval fibonacci 0', '#eval fibonacci 5']
+    """
+    # Match: #eval <expression> (up to newline or end of string)
+    # This captures the full #eval statement including the expression
+    pattern = r"^#eval\s+[^\n]+"
+    matches = re.findall(pattern, lean_code, re.MULTILINE)
+    return matches
+
+
 def extract_hypothesis_strategies(
     code: str,
 ) -> dict[str, list[tuple[str, int | float]]]:

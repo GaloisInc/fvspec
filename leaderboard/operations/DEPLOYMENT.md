@@ -6,10 +6,10 @@ This guide covers deploying the fvspec leaderboard to a production server using 
 
 - [x] EC2 server: `ec2-35-95-72-128.us-west-2.compute.amazonaws.com`
 - [x] Existing monorepo at `/home/quinnd/fvspec/`
-- [ ] Server with nginx installed (Ubuntu/Debian recommended)
+- [x] Server with nginx installed (Ubuntu/Debian recommended)
 - [ ] PostgreSQL and Redis running
-- [ ] Node.js 20+ and pnpm installed
-- [ ] SSL certificate (via certbot, optional for prototype)
+- [x] Node.js 20+ and pnpm installed
+- [x] SSL certificate (via certbot, optional for prototype)
 - [ ] GitHub Actions secrets configured (for automated deployment)
 
 ## Deployment Architecture

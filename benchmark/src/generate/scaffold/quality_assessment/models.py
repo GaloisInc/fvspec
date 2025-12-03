@@ -6,6 +6,7 @@ from enum import Enum
 from importlib import import_module
 from typing import TYPE_CHECKING, cast
 
+from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
 from sqlmodel import Session, create_engine, select
@@ -89,6 +90,10 @@ class StructuralFaithfulness(BaseModel):
         le=1.0,
         description="Fraction of dependency names found in Lean code",
     )
+    assertion_theorem_difference: int = Field(
+        default=0,
+        description="Difference between number of Lean theorems and Python asserts (positive = more theorems, negative = fewer theorems, zero = perfect match)",
+    )
     overall: float = Field(
         default=0.0,
         ge=0.0,
@@ -122,6 +127,7 @@ class StructuralFaithfulness(BaseModel):
         lean_types = extract_lean_types(lean_code)
         lean_bounds = extract_lean_bounds(lean_code)
         lean_properties = count_lean_properties(lean_code)
+        lean_theorems = count_lean_theorems(lean_code)
 
         # Compute metrics
         param_cov = compute_parameter_coverage(py_params, lean_params)
@@ -129,6 +135,7 @@ class StructuralFaithfulness(BaseModel):
         strat_cov = compute_strategy_coverage(py_strategies, lean_bounds)
         assert_cov = compute_assertion_coverage(py_assertions, lean_properties)
         dep_cov = compute_dependency_coverage(py_dep_names, lean_code)
+        assert_thm_diff = lean_theorems - py_assertions
 
         # Weighted average (can tune these weights)
         overall = (
@@ -145,6 +152,7 @@ class StructuralFaithfulness(BaseModel):
             strategy_coverage=strat_cov,
             assertion_coverage=assert_cov,
             dependency_coverage=dep_cov,
+            assertion_theorem_difference=assert_thm_diff,
             overall=overall,
         )
 
@@ -270,6 +278,19 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of trivial theorems asserting Unit functions equal ()",
     )
+    has_eval_statements: bool = Field(
+        default=False,
+        description="Whether any #eval statements were detected in Impl.lean",
+    )
+    num_eval_statements: int = Field(
+        default=0,
+        ge=0,
+        description="Number of #eval statements found in Impl.lean",
+    )
+    impl_eval_stripped: bool = Field(
+        default=False,
+        description="Whether #eval was stripped from Impl.lean due to build failures (uncomputable)",
+    )
     # Radon code complexity metrics for the Python PBT
     radon: Radon | None = Field(None, description="Code complexity metrics")
 
@@ -303,6 +324,7 @@ class QualityAssessment(BaseModel):
         # Check impl autoformalization status
         impl_result_data = state.store.get("impl_result")
         impl_autoform_success = False  # Default to False (no impl or failed)
+        impl_eval_stripped = False  # Default to False (no stripping needed)
         if impl_result_data:
             # impl_result may be dict or FunctionImplResult object
             if isinstance(impl_result_data, dict):
@@ -310,11 +332,14 @@ class QualityAssessment(BaseModel):
                 impl_autoform_success = impl_result_data.get(
                     "success", False
                 ) and impl_result_data.get("compiles", False)
+                # Extract whether #eval was stripped
+                impl_eval_stripped = impl_result_data.get("has_eval_stripped", False)
             else:
                 # FunctionImplResult object
                 impl_autoform_success = (
                     impl_result_data.success and impl_result_data.compiles
                 )
+                impl_eval_stripped = impl_result_data.has_eval_stripped
 
         # Overall success: spec succeeded (backward compatible for spec-only tasks)
         # For tasks with impl, both spec and impl must succeed
@@ -472,6 +497,12 @@ class QualityAssessment(BaseModel):
         if radon_metrics:
             radon_obj = Radon(**radon_metrics)
 
+        # Extract #eval violation metrics from metadata
+        # Only spec violations are tracked (impl #eval usage is now encouraged)
+        spec_eval_violations = state.metadata.get("spec_eval_violations", [])
+        has_eval_statements = len(spec_eval_violations) > 0
+        num_eval_statements = len(spec_eval_violations)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -506,6 +537,9 @@ class QualityAssessment(BaseModel):
             actually_invokes_given=actually_invokes_given,
             has_unit_stub=has_unit_stub,
             num_trivial_unit_theorems=num_trivial_unit_theorems,
+            has_eval_statements=has_eval_statements,
+            num_eval_statements=num_eval_statements,
+            impl_eval_stripped=impl_eval_stripped,
             # Radon metrics (None if not found in database)
             radon=radon_obj,
         )
@@ -516,8 +550,6 @@ class QualityAssessment(BaseModel):
         Returns:
             Dictionary mapping score names to Score objects
         """
-        from inspect_ai.scorer import Score
-
         scores = {
             "token_usage": Score(
                 value=self.token_usage,
@@ -615,6 +647,10 @@ class QualityAssessment(BaseModel):
                 value=sf.dependency_coverage,
                 explanation=f"Fraction of dependency names found in Lean: {sf.dependency_coverage:.2%}",
             )
+            scores["assertion_theorem_difference"] = Score(
+                value=sf.assertion_theorem_difference,
+                explanation=f"Difference between Lean theorems and Python asserts: {sf.assertion_theorem_difference} (zero is perfect, positive = more theorems, negative = fewer theorems)",
+            )
 
         # Unit test metrics
         if self.has_unit_tests:
@@ -694,6 +730,28 @@ class QualityAssessment(BaseModel):
                 value=self.num_trivial_unit_theorems,
                 explanation=f"Trivial Unit theorems detected: {self.num_trivial_unit_theorems}/{self.num_theorems} (inflates plausibility without verification value)",
             )
+
+        # #eval violation metrics
+        scores["has_eval_statements"] = Score(
+            value=1.0 if self.has_eval_statements else 0.0,
+            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s) (expected for computability testing)"
+            if self.has_eval_statements
+            else "No #eval statements in implementation (unusual; #eval is expected for computability testing)",
+        )
+
+        if self.num_eval_statements > 0:
+            scores["num_eval_statements"] = Score(
+                value=self.num_eval_statements,
+                explanation=f"#eval statements found: {self.num_eval_statements} (expected for computability testing)",
+            )
+
+        # #eval stripping metric (indicates uncomputable implementation)
+        scores["impl_eval_stripped"] = Score(
+            value=1.0 if self.impl_eval_stripped else 0.0,
+            explanation="#eval statements were stripped due to build failures (uncomputable)"
+            if self.impl_eval_stripped
+            else "Implementation is computable (no #eval stripping needed)",
+        )
 
         return scores
 

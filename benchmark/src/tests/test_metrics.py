@@ -340,6 +340,7 @@ def test_structural_faithfulness_serialization():
         strategy_coverage=0.7,
         assertion_coverage=0.85,
         dependency_coverage=1.0,
+        assertion_theorem_difference=2,
         overall=0.85,
     )
 
@@ -347,8 +348,137 @@ def test_structural_faithfulness_serialization():
     json_str = metrics.model_dump_json()
     assert "parameter_coverage" in json_str
     assert "0.8" in json_str
+    assert "assertion_theorem_difference" in json_str
 
     # Should be able to parse back
     parsed = StructuralFaithfulness.model_validate_json(json_str)
     assert parsed.parameter_coverage == 0.8
     assert parsed.overall == 0.85
+    assert parsed.assertion_theorem_difference == 2
+
+
+def test_assertion_theorem_difference_perfect_match():
+    """Test that difference is zero when theorem count matches assert count."""
+    python_code = """
+def test_function(x: int, y: int):
+    assert x >= 0
+    assert y >= 0
+    assert x + y >= 0
+"""
+
+    lean_code = """
+theorem test_one (x y : Int) : x ≥ 0 := by sorry
+theorem test_two (x y : Int) : y ≥ 0 := by sorry
+theorem test_three (x y : Int) : x + y ≥ 0 := by sorry
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # Should have exactly 3 asserts and 3 theorems → difference = 0
+    assert metrics.assertion_theorem_difference == 0
+
+
+def test_assertion_theorem_difference_more_theorems():
+    """Test positive difference when more theorems than asserts."""
+    python_code = """
+def test_function(x: int):
+    assert x >= 0
+"""
+
+    lean_code = """
+theorem test_one (x : Int) : x ≥ 0 := by sorry
+theorem test_two (x : Int) : x ≤ 100 := by sorry
+lemma helper (x : Int) : x + 1 > x := by sorry
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # 3 theorems/lemmas - 1 assert = +2
+    assert metrics.assertion_theorem_difference == 2
+
+
+def test_assertion_theorem_difference_fewer_theorems():
+    """Test negative difference when fewer theorems than asserts."""
+    python_code = """
+def test_function(x: int, y: int, z: int):
+    assert x >= 0
+    assert y >= 0
+    assert z >= 0
+    assert x + y + z >= 0
+"""
+
+    lean_code = """
+theorem test_combined (x y z : Int) : x ≥ 0 ∧ y ≥ 0 ∧ z ≥ 0 := by sorry
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # 1 theorem - 4 asserts = -3
+    assert metrics.assertion_theorem_difference == -3
+
+
+def test_assertion_theorem_difference_no_asserts():
+    """Test difference when Python code has no asserts."""
+    python_code = """
+def test_function(x: int):
+    pass
+"""
+
+    lean_code = """
+theorem test_one (x : Int) : x = x := by sorry
+theorem test_two (x : Int) : True := by sorry
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # 2 theorems - 0 asserts = +2
+    assert metrics.assertion_theorem_difference == 2
+
+
+def test_assertion_theorem_difference_no_theorems():
+    """Test difference when Lean code has no theorems."""
+    python_code = """
+def test_function(x: int):
+    assert x >= 0
+    assert x <= 100
+"""
+
+    lean_code = """
+def some_function (x : Int) : Int := x + 1
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # 0 theorems - 2 asserts = -2
+    assert metrics.assertion_theorem_difference == -2
+
+
+def test_assertion_theorem_difference_lemmas_counted():
+    """Test that both theorem and lemma keywords are counted."""
+    python_code = """
+def test_function(x: int):
+    assert x >= 0
+    assert x <= 100
+"""
+
+    lean_code = """
+theorem main_property (x : Int) : x ≥ 0 := by sorry
+lemma helper_property (x : Int) : x ≤ 100 := by sorry
+"""
+
+    metrics = StructuralFaithfulness.from_codes(
+        python_pbt=python_code, python_deps=[], lean_code=lean_code
+    )
+
+    # 2 theorems/lemmas - 2 asserts = 0
+    assert metrics.assertion_theorem_difference == 0

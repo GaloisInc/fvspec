@@ -337,8 +337,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # This prevents hallucination when agent has no code to work from
         if function_code is not None:
             impl_payload = FunctionImplPayload(
-                pbt_code=datapoint.code,
-                pbt_name=datapoint.name,
                 function_name=function_name,
                 function_code=function_code,
                 dependencies={},  # Dependencies handled separately if needed
@@ -363,7 +361,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
             state.store.set("impl_result", impl_result_data)
 
-            # Write Impl.lean - orchestration has authoritative version (clears validation artifacts)
+            # Write Impl.lean - use extracted code from final message (orchestration is authoritative)
+            # Agent uses tools for validation, but final message contains the canonical version
             if impl_result.lean_code:
                 impl_file.write_text(impl_result.lean_code)
                 # Track that we provided full implementation
@@ -391,8 +390,6 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
             # Create impl payload for this dependency
             dep_impl_payload = FunctionImplPayload(
-                pbt_code="",  # Not needed for dependencies
-                pbt_name=payload.dep_name,
                 function_name=payload.dep_name,
                 function_code=payload.python_source,
                 dependencies={},  # Will be accumulated as we process

@@ -71,7 +71,11 @@ def spec_generation_agent(
             "impl_signatures": payload.impl_signatures,
         }
 
-        # Build initial messages - append to state.messages
+        # Clear inherited messages from parent state (e.g., Sample input)
+        # Spec agent should use its own prompts, not duplicate the Sample input
+        state.messages = []
+
+        # Build initial messages for spec agent
         state.messages.append(ChatMessageSystem(content=system_prompt))
         state.messages.append(ChatMessageUser(content=user_template.render(**context)))
 

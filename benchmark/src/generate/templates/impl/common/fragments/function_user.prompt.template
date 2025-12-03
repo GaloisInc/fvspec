@@ -1,0 +1,28 @@
+You are translating a Python function into a complete Lean 4 implementation.
+
+## Function to Implement
+Function name: `{{ function_name }}`
+
+{% if function_code %}
+## Original Python Code
+```python
+{{ function_code }}
+```
+{% endif %}
+
+{% if dependencies %}
+## Available Dependencies
+The following dependencies are already implemented:
+{% for name, sig in dependencies.items() %}
+- {{ sig }}
+{% endfor %}
+{% endif %}
+
+## Task
+Generate a complete Lean 4 implementation of `{{ function_name }}`:
+1. Must be fully implemented (ZERO sorry - we need computable code!)
+2. Must match the semantics of the Python code above
+3. Use `Fvspec.Impl` namespace
+4. Can use available dependencies if needed
+
+Output your implementation in <code>...</code> tags.
