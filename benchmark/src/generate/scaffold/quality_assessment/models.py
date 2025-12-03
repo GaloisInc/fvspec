@@ -278,9 +278,9 @@ class QualityAssessment(BaseModel):
         ge=0,
         description="Number of trivial theorems asserting Unit functions equal ()",
     )
-    has_eval_violations: bool = Field(
+    has_eval_statements: bool = Field(
         default=False,
-        description="Whether #eval statements were detected in Impl.lean (bad practice)",
+        description="Whether any #eval statements were detected in Impl.lean",
     )
     num_eval_statements: int = Field(
         default=0,
