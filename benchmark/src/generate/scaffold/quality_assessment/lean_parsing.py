@@ -155,9 +155,9 @@ def detect_unit_stub_in_impl(impl_code: str) -> bool:
 def detect_eval_statements(lean_code: str) -> list[str]:
     r"""Detect #eval statements in Lean code.
 
-    #eval statements should not appear in implementation files (Impl.lean)
-    as they indicate the agent is trying to test rather than define.
-    If the function has `sorry`, #eval will fail to build.
+    #eval statements are encouraged during the agent loop to verify computability
+    of implementations. Post-agent, they may be stripped if they cause build
+    failures (e.g., if the function still contains `sorry` or has other issues).
 
     Args:
         lean_code: Lean code to check for #eval statements
