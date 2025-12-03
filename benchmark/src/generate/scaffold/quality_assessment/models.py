@@ -500,7 +500,7 @@ class QualityAssessment(BaseModel):
         # Extract #eval violation metrics from metadata
         # Only spec violations are tracked (impl #eval usage is now encouraged)
         spec_eval_violations = state.metadata.get("spec_eval_violations", [])
-        has_eval_violations = len(spec_eval_violations) > 0
+        has_eval_statements = len(spec_eval_violations) > 0
         num_eval_statements = len(spec_eval_violations)
 
         return cls(
@@ -537,7 +537,7 @@ class QualityAssessment(BaseModel):
             actually_invokes_given=actually_invokes_given,
             has_unit_stub=has_unit_stub,
             num_trivial_unit_theorems=num_trivial_unit_theorems,
-            has_eval_violations=has_eval_violations,
+            has_eval_statements=has_eval_statements,
             num_eval_statements=num_eval_statements,
             impl_eval_stripped=impl_eval_stripped,
             # Radon metrics (None if not found in database)
@@ -732,10 +732,10 @@ class QualityAssessment(BaseModel):
             )
 
         # #eval violation metrics
-        scores["has_eval_violations"] = Score(
-            value=1.0 if self.has_eval_violations else 0.0,
+        scores["has_eval_statements"] = Score(
+            value=1.0 if self.has_eval_statements else 0.0,
             explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s) (expected for computability testing)"
-            if self.has_eval_violations
+            if self.has_eval_statements
             else "No #eval statements in implementation (unusual; #eval is expected for computability testing)",
         )
 
