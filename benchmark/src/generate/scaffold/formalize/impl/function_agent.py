@@ -247,8 +247,8 @@ def function_impl_agent(
             # Post-agent #eval validation: strip failing #eval statements
             has_eval_stripped = False
 
-            if not has_errors and "#eval" in lean_code:
-                # Code compiles with #eval present - check if #eval causes issues
+            if has_errors and "#eval" in lean_code:
+                # Code has errors with #eval present - check if errors are #eval-related
                 eval_statements = detect_eval_statements(lean_code)
 
                 if eval_statements:
@@ -290,6 +290,8 @@ def function_impl_agent(
                             has_errors = bool(
                                 re.search(r"\berror:", diagnostics, re.IGNORECASE)
                             )
+                            # Recalculate success after stripping #eval
+                            success = not has_errors and not has_sorry
 
             result = FunctionImplResult(
                 success=success,
