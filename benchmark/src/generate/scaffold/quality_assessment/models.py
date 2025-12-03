@@ -736,15 +736,15 @@ class QualityAssessment(BaseModel):
         # #eval violation metrics
         scores["has_eval_violations"] = Score(
             value=1.0 if self.has_eval_violations else 0.0,
-            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s)"
+            explanation=f"#eval statements detected in Impl.lean: {self.num_eval_statements} statement(s) (expected for computability testing)"
             if self.has_eval_violations
-            else "No #eval statements in implementation (correct)",
+            else "No #eval statements in implementation (unusual; #eval is expected for computability testing)",
         )
 
         if self.num_eval_statements > 0:
             scores["num_eval_statements"] = Score(
                 value=self.num_eval_statements,
-                explanation=f"#eval statements found: {self.num_eval_statements} (should be 0 - indicates testing rather than defining)",
+                explanation=f"#eval statements found: {self.num_eval_statements} (expected for computability testing)",
             )
 
         # #eval stripping metric (indicates uncomputable implementation)
