@@ -34,7 +34,11 @@ class Datapoint(SQLModel, table=True):
     This is the primary model for PBT samples used in benchmark generation.
     Note: dep_names and deps are stored as JSON strings in SQLite.
 
-    Non-DB fields like `unit_tests` can be set dynamically at load time.
+    Non-DB fields like `unit_tests` are populated dynamically at load time.
+
+    Attributes:
+        unit_tests: Non-DB field populated at load time. List of unit test dicts.
+                    Accessed via property to maintain type safety.
     """
 
     model_config = ConfigDict(extra="allow")
@@ -60,6 +64,16 @@ class Datapoint(SQLModel, table=True):
     mode: str | None = None
     summaryversion: int | None = None
     summaryconfidence: float | None = None
+
+    @property
+    def unit_tests(self) -> list[dict[str, Any]]:
+        """Non-DB field: unit tests populated by sample_datapoints()."""
+        return self.__dict__.get("unit_tests", [])
+
+    @unit_tests.setter
+    def unit_tests(self, value: list[dict[str, Any]]) -> None:
+        """Set unit tests (stored in __dict__ to avoid DB persistence)."""
+        self.__dict__["unit_tests"] = value
 
     @field_validator("dep_names", mode="before")
     @classmethod

@@ -88,24 +88,29 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
 def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
     """Extract unit tests from a datapoint's overlapping unit tests.
 
-    Attempts to extract concrete unit tests from the actual unit test code
-    (not the PBT code) using AST analysis.
-    If successful, generates LSpec test suite code that can be used for evaluation.
+    Checks if the datapoint has associated unit tests from the database.
+    Returns a placeholder string indicating unit tests are available.
 
     Args:
         dp: The datapoint containing the overlapping unit tests
 
     Returns:
-        Generated LSpec code string if tests were extracted, None otherwise
+        Placeholder string if unit tests are available, None otherwise
 
     Note:
         Unit tests are for EVALUATION only - they should NOT be shown to the model.
-        They validate model implementations after spec generation.
+        The actual unit test code is passed to the units agent via orchestration,
+        which accesses dp.unit_tests directly.
 
-    TODO: Implement unit test extraction from DB by querying get_overlapping_unit_tests()
+        This function's return value is only used by the QA system to determine
+        if unit tests were available for this sample.
     """
-    # For now, return None - we'll implement this when we need it
-    # Should call get_overlapping_unit_tests(session, dp.id) and process results
+    # Check if unit_tests field is non-empty
+    # This field is populated by sample_datapoints() in queries.py
+    if dp.unit_tests and len(dp.unit_tests) > 0:
+        # Return a placeholder indicating unit tests are available
+        # The count is used by QA metrics
+        return f"-- {len(dp.unit_tests)} unit tests available from database"
     return None
 
 
