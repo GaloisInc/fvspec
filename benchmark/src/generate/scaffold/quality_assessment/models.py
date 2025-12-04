@@ -4,7 +4,7 @@ import logging
 import re
 from enum import Enum
 from importlib import import_module
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState
@@ -205,7 +205,13 @@ class QualityAssessment(BaseModel):
     datetime: str
     variant: str = Field(description="Prompt variant name")
     model: str
-    token_usage: int
+    token_usage: int = Field(
+        description="Total tokens used (aggregate for backward compatibility)"
+    )
+    token_usage_breakdown: list[dict[str, Any]] | None = Field(
+        default=None,
+        description="Per-subagent token usage breakdown with function names. Each entry contains: subagent, function_name (for impl agents), tokens_spent, num_toolcalls",
+    )
     time: float = Field(description="Generation time in seconds")
     num_messages: int
     num_generate_messages: int
@@ -503,6 +509,28 @@ class QualityAssessment(BaseModel):
         has_eval_statements = len(spec_eval_violations) > 0
         num_eval_statements = len(spec_eval_violations)
 
+        # Build token_usage_breakdown from store
+        token_breakdown = []
+
+        # Add FUT impl token usage
+        impl_fut_usage = state.store.get("impl_fut_token_usage")
+        if impl_fut_usage:
+            token_breakdown.append(impl_fut_usage)
+
+        # Add all dependency impl token usages
+        dep_usages = state.store.get("dep_token_usages", [])
+        token_breakdown.extend(dep_usages)
+
+        # Add spec token usage
+        spec_usage = state.store.get("spec_token_usage")
+        if spec_usage:
+            token_breakdown.append(spec_usage)
+
+        # Add units token usage (if units agent ran)
+        units_usage = state.store.get("units_token_usage")
+        if units_usage:
+            token_breakdown.append(units_usage)
+
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -510,7 +538,8 @@ class QualityAssessment(BaseModel):
             variant=variant,
             model=state.output.model,
             token_usage=state.token_usage,
-            time=state.output.time,
+            token_usage_breakdown=token_breakdown if token_breakdown else None,
+            time=state.output.time if state.output.time is not None else 0.0,
             num_messages=len(state.messages),
             num_generate_messages=sum(
                 1 for sm in state.messages if sm.source == "generate"
@@ -762,11 +791,54 @@ class QualityAssessment(BaseModel):
         Nested keys are joined with underscores (e.g., plausibility.ran -> plausibility_ran).
         Booleans are converted to integers (0/1) for wandb compatibility.
 
+        Special handling for token_usage_breakdown to log per-agent metrics.
+
         Returns:
             Dictionary of metric names to values for wandb logging
         """
         # Get the full model as a dictionary
         data = self.model_dump()
 
+        # Extract token_usage_breakdown before flattening for custom handling
+        token_breakdown = data.pop("token_usage_breakdown", None)
+
         # Flatten nested dictionaries
-        return flatten_dict(data)
+        metrics = flatten_dict(data)
+
+        # Add per-agent token usage metrics if available
+        if token_breakdown:
+            for agent_usage in token_breakdown:
+                subagent = agent_usage["subagent"]
+
+                # For impl agents, include function name in key for per-function tracking
+                if subagent.startswith("impl"):
+                    func_name = agent_usage.get("function_name", "unknown")
+                    key_prefix = f"{subagent}/{func_name}"
+                else:
+                    key_prefix = subagent
+
+                # Log individual agent metrics with nested keys
+                metrics[f"token_usage/{key_prefix}"] = agent_usage["tokens_spent"]
+                metrics[f"toolcalls/{key_prefix}"] = agent_usage["num_toolcalls"]
+
+            # Also log aggregate counts by agent type for easier analysis
+            impl_total = sum(
+                a["tokens_spent"]
+                for a in token_breakdown
+                if a["subagent"].startswith("impl")
+            )
+            spec_total = sum(
+                a["tokens_spent"] for a in token_breakdown if a["subagent"] == "spec"
+            )
+            units_total = sum(
+                a["tokens_spent"] for a in token_breakdown if a["subagent"] == "units"
+            )
+
+            if impl_total > 0:
+                metrics["token_usage/impl_total"] = impl_total
+            if spec_total > 0:
+                metrics["token_usage/spec"] = spec_total
+            if units_total > 0:
+                metrics["token_usage/units"] = units_total
+
+        return metrics

@@ -344,8 +344,31 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
 
             # Call impl agent solver with fork() for conversation isolation
+            # Track token usage before fork
+            tokens_before_fut = state.token_usage
             impl_solver = impl_agent_solver(impl_payload, workspace)
             impl_state = await fork(state, impl_solver)
+
+            # Track token usage after fork and count tool calls
+            impl_fut_tokens = state.token_usage - tokens_before_fut
+            impl_fut_toolcalls = sum(
+                1
+                for msg in impl_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store FUT token usage metrics
+            state.store.set(
+                "impl_fut_token_usage",
+                {
+                    "subagent": "impl_fut",
+                    "function_name": function_name,
+                    "tokens_spent": impl_fut_tokens,
+                    "num_toolcalls": impl_fut_toolcalls,
+                },
+            )
 
             # Extract result from isolated state's store
             impl_result_data = impl_state.store.get("impl_result", {})
@@ -397,8 +420,32 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
 
             # Run impl agent for this dependency with fork() for isolation
+            # Track token usage before fork
+            tokens_before_dep = state.token_usage
             dep_impl_solver = impl_agent_solver(dep_impl_payload, workspace)
             dep_impl_state = await fork(state, dep_impl_solver)
+
+            # Track token usage after fork and count tool calls
+            dep_tokens = state.token_usage - tokens_before_dep
+            dep_toolcalls = sum(
+                1
+                for msg in dep_impl_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store dependency token usage metrics (append to list)
+            dep_token_usages = state.store.get("dep_token_usages", [])
+            dep_token_usages.append(
+                {
+                    "subagent": "impl_dep",
+                    "function_name": payload.dep_name,
+                    "tokens_spent": dep_tokens,
+                    "num_toolcalls": dep_toolcalls,
+                }
+            )
+            state.store.set("dep_token_usages", dep_token_usages)
 
             # Extract result from isolated state's store
             dep_impl_result_data = dep_impl_state.store.get("impl_result", {})
@@ -525,10 +572,73 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             # Run both agents in parallel with fork() for conversation isolation
             # fork() natively supports parallel execution when passed a list of solvers
             spec_state, units_state = await fork(state, [spec_solver, units_solver])
+
+            # Track token usage after parallel fork
+            # Note: parallel fork accumulates all tokens, so we calculate per-agent from individual states
+            spec_tokens = spec_state.token_usage  # Spec state has its own token count
+            units_tokens = (
+                units_state.token_usage
+            )  # Units state has its own token count
+
+            # Count tool calls for each agent
+            spec_toolcalls = sum(
+                1
+                for msg in spec_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+            units_toolcalls = sum(
+                1
+                for msg in units_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store token usage metrics for both agents
+            state.store.set(
+                "spec_token_usage",
+                {
+                    "subagent": "spec",
+                    "tokens_spent": spec_tokens,
+                    "num_toolcalls": spec_toolcalls,
+                },
+            )
+            state.store.set(
+                "units_token_usage",
+                {
+                    "subagent": "units",
+                    "tokens_spent": units_tokens,
+                    "num_toolcalls": units_toolcalls,
+                },
+            )
         else:
             # Only run spec agent
+            # Track token usage before fork
+            tokens_before_spec = state.token_usage
             spec_state = await fork(state, spec_solver)
             units_state = None
+
+            # Track token usage after fork and count tool calls
+            spec_tokens = state.token_usage - tokens_before_spec
+            spec_toolcalls = sum(
+                1
+                for msg in spec_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store spec token usage metrics
+            state.store.set(
+                "spec_token_usage",
+                {
+                    "subagent": "spec",
+                    "tokens_spent": spec_tokens,
+                    "num_toolcalls": spec_toolcalls,
+                },
+            )
 
         # Extract spec result from isolated state's store
         spec_result_data = spec_state.store.get("spec_result", {})
