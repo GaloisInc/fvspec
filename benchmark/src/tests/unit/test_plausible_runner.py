@@ -1,6 +1,5 @@
 """Tests for plausible_runner module."""
 
-
 from generate.scaffold.formalize.plausible_runner import _check_testability
 
 
