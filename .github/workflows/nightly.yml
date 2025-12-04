@@ -1,9 +1,9 @@
 name: Nightly Benchmark
 
 on:
-  schedule:
-    # Run at 6 AM UTC every day
-    - cron: "0 6 * * *"
+  # schedule:
+  #   # Run at 6 AM UTC every day
+  #   - cron: "0 6 * * *"
   workflow_dispatch: # Allow manual triggering
 
 jobs:
