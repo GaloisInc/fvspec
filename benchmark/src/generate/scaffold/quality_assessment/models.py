@@ -299,6 +299,11 @@ class QualityAssessment(BaseModel):
     )
     # Radon code complexity metrics for the Python PBT
     radon: Radon | None = Field(None, description="Code complexity metrics")
+    # Function discovery metadata
+    function_discovery: dict[str, Any] | None = Field(
+        default=None,
+        description="Function discovery metadata: method, confidence, name resolution",
+    )
 
     @classmethod
     def from_task_state(cls, state: TaskState) -> "QualityAssessment":
@@ -441,6 +446,9 @@ class QualityAssessment(BaseModel):
         if code_snippet:
             num_trivial_unit_theorems = detect_trivial_unit_theorems(code_snippet)
 
+        # Extract function discovery metadata from store
+        function_discovery = state.store.get("function_discovery")
+
         # Query radon code complexity metrics from database
         radon_metrics = {}
         try:
@@ -571,6 +579,8 @@ class QualityAssessment(BaseModel):
             impl_eval_stripped=impl_eval_stripped,
             # Radon metrics (None if not found in database)
             radon=radon_obj,
+            # Function discovery metadata
+            function_discovery=function_discovery,
         )
 
     def to_inspect_scores(self) -> dict[str, "Score"]:

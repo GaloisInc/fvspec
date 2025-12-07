@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
-from generate.scaffold.dataset.function_discovery import lookup_function_exact
+from generate.scaffold.dataset.function_discovery import discover_function_code
 from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
     FunctionImplResult,
@@ -292,7 +292,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if not isinstance(datapoint, Datapoint):
             return state
 
-        # Determine function name from PBT name
+        # Determine function name from PBT name (fallback)
         # Heuristic: test_foo → foo, test_bar_baz → bar_baz
         function_name = datapoint.name
         if function_name.startswith("test_"):
@@ -302,12 +302,42 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # (fork() uses deepcopy which cannot pickle database sessions)
         db_session = state.metadata.get("db_session")
 
-        # Try to discover function code from database
+        # Try to discover function code using multi-strategy discovery
         function_code = None
+        function_info = None
         if db_session:
-            result = lookup_function_exact(db_session, function_name, datapoint.repo_id)
-            if result:
-                function_code = result.code
+            function_info = discover_function_code(datapoint, db_session)
+            if function_info and function_info.confidence >= 0.7:
+                # High confidence discovery - use discovered function
+                function_name = function_info.name
+                function_code = function_info.code
+                # Store discovery metadata for qa.json
+                state.store.set(
+                    "function_discovery",
+                    {
+                        "discovered": True,
+                        "method": function_info.discovery_method.value,
+                        "confidence": function_info.confidence,
+                        "original_name": datapoint.name,
+                        "resolved_name": function_info.name,
+                    },
+                )
+            else:
+                # Low confidence or no discovery - track failure
+                state.store.set(
+                    "function_discovery",
+                    {
+                        "discovered": False,
+                        "method": function_info.discovery_method.value
+                        if function_info
+                        else "failed",
+                        "confidence": function_info.confidence
+                        if function_info
+                        else 0.0,
+                        "original_name": datapoint.name,
+                        "resolved_name": function_name,  # Fallback name
+                    },
+                )
 
         # Get all payloads (FUT + dependencies) - requires db_session for discovery
         all_payloads = payloads_from_datapoint(datapoint, db_session)
