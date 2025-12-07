@@ -307,8 +307,8 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         function_info = None
         if db_session:
             function_info = discover_function_code(datapoint, db_session)
-            if function_info and function_info.confidence >= 0.7:
-                # High confidence discovery - use discovered function
+            if function_info and function_info.confidence >= 0.5:
+                # Accept discovery - use discovered function (threshold 0.5 includes name matches)
                 function_name = function_info.name
                 function_code = function_info.code
                 # Store discovery metadata for qa.json
