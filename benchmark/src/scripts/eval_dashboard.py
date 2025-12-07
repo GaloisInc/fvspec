@@ -127,26 +127,6 @@ def safe_json_load(zip_file: zipfile.ZipFile, path: str) -> dict | None:
     try:
         content = zip_file.read(path).decode("utf-8")
         data = json.loads(content)
-
-        # Debug: Log message count for sample files
-        if path.startswith("samples/"):
-            messages = data.get("messages", [])
-            msg_count = len(messages)
-            if msg_count < 5:
-                st.warning(
-                    f"🐛 safe_json_load: {path} loaded with {msg_count} messages (content size: {len(content)} bytes)"
-                )
-                # Show first message structure
-                if messages:
-                    first_msg = messages[0]
-                    st.code(
-                        f"""First message keys: {list(first_msg.keys()) if isinstance(first_msg, dict) else "not a dict"}
-First message content type: {type(first_msg.get("content") if isinstance(first_msg, dict) else None)}
-First message (truncated): {str(first_msg)[:500]}
-                    """.strip(),
-                        language="text",
-                    )
-
         return data
     except Exception as e:
         st.warning(f"Error loading {path}: {e}")
@@ -634,6 +614,7 @@ def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     """Extract conversations from the store object.
 
     The three-agent orchestration stores conversations separately for each agent.
+    The impl-agent may fork into multiple copies, each with its own conversation.
 
     Args:
         sample: Sample dict containing store object
@@ -641,7 +622,8 @@ def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     Returns:
         Dict mapping agent name to list of messages:
         {
-            "impl": [...],
+            "impl_0": [...],
+            "impl_1": [...],
             "spec": [...],
             "units": [...]
         }
@@ -649,10 +631,20 @@ def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     store = sample.get("store", {})
     conversations = {}
 
-    # Extract implementation agent conversation
-    impl_conv = store.get("impl_conversation", [])
-    if impl_conv:
-        conversations["impl"] = impl_conv
+    # Extract implementation agent conversations (may be multiple due to forking)
+    # Check for both single conversation and indexed conversations
+    if "impl_conversation" in store:
+        impl_conv = store.get("impl_conversation", [])
+        if impl_conv:
+            conversations["impl"] = impl_conv
+
+    # Check for numbered impl conversations (impl_conversation_0, impl_conversation_1, etc.)
+    impl_idx = 0
+    while f"impl_conversation_{impl_idx}" in store:
+        impl_conv = store.get(f"impl_conversation_{impl_idx}", [])
+        if impl_conv:
+            conversations[f"impl_{impl_idx}"] = impl_conv
+        impl_idx += 1
 
     # Extract specification agent conversation
     spec_conv = store.get("spec_conversation", [])
@@ -1098,23 +1090,33 @@ def main():
         if agent_conversations:
             # Display conversations in tabs for each agent
             agent_names = list(agent_conversations.keys())
-            agent_tabs = st.tabs([f"🤖 {name.upper()}" for name in agent_names])
+
+            # Format tab labels with better styling for impl forks
+            tab_labels = []
+            for name in agent_names:
+                if name.startswith("impl_"):
+                    # Extract fork number for impl agents
+                    fork_num = name.split("_")[-1]
+                    if fork_num.isdigit():
+                        tab_labels.append(f"🔧 IMPL (Fork {fork_num})")
+                    else:
+                        tab_labels.append(f"🔧 {name.upper()}")
+                elif name == "spec":
+                    tab_labels.append("📋 SPEC")
+                elif name == "units":
+                    tab_labels.append("🧪 UNITS")
+                else:
+                    tab_labels.append(f"🤖 {name.upper()}")
+
+            agent_tabs = st.tabs(tab_labels)
 
             for i, agent_name in enumerate(agent_names):
                 with agent_tabs[i]:
                     messages = agent_conversations[agent_name]
-                    st.markdown(f"**{agent_name.capitalize()} Agent Conversation**")
                     render_conversation_history(messages)
         else:
             # Fallback to top-level messages if no store conversations found
             messages = sample.get("messages", [])
-
-            if len(messages) < 5:
-                st.warning(
-                    f"⚠️ Only {len(messages)} message(s) found. "
-                    "Note: Three-agent orchestration stores conversations in store fields."
-                )
-
             render_conversation_history(messages)
 
 
