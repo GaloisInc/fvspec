@@ -130,11 +130,22 @@ def safe_json_load(zip_file: zipfile.ZipFile, path: str) -> dict | None:
 
         # Debug: Log message count for sample files
         if path.startswith("samples/"):
-            msg_count = len(data.get("messages", []))
+            messages = data.get("messages", [])
+            msg_count = len(messages)
             if msg_count < 5:
                 st.warning(
                     f"🐛 safe_json_load: {path} loaded with {msg_count} messages (content size: {len(content)} bytes)"
                 )
+                # Show first message structure
+                if messages:
+                    first_msg = messages[0]
+                    st.code(
+                        f"""First message keys: {list(first_msg.keys()) if isinstance(first_msg, dict) else "not a dict"}
+First message content type: {type(first_msg.get("content") if isinstance(first_msg, dict) else None)}
+First message (truncated): {str(first_msg)[:500]}
+                    """.strip(),
+                        language="text",
+                    )
 
         return data
     except Exception as e:
@@ -619,6 +630,43 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
             st.info("No scores available")
 
 
+def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
+    """Extract conversations from the store object.
+
+    The three-agent orchestration stores conversations separately for each agent.
+
+    Args:
+        sample: Sample dict containing store object
+
+    Returns:
+        Dict mapping agent name to list of messages:
+        {
+            "impl": [...],
+            "spec": [...],
+            "units": [...]
+        }
+    """
+    store = sample.get("store", {})
+    conversations = {}
+
+    # Extract implementation agent conversation
+    impl_conv = store.get("impl_conversation", [])
+    if impl_conv:
+        conversations["impl"] = impl_conv
+
+    # Extract specification agent conversation
+    spec_conv = store.get("spec_conversation", [])
+    if spec_conv:
+        conversations["spec"] = spec_conv
+
+    # Extract units agent conversation
+    units_conv = store.get("units_conversation", [])
+    if units_conv:
+        conversations["units"] = units_conv
+
+    return conversations
+
+
 def render_conversation_history(messages: list[dict]):
     """Render conversation with collapsible messages, role badges, code highlighting.
 
@@ -1044,23 +1092,30 @@ def main():
         render_metadata_panel(metadata, compilation_status, scores)
 
     with tab3:
-        messages = sample.get("messages", [])
+        # Extract conversations from store (three-agent orchestration)
+        agent_conversations = extract_conversations_from_store(sample)
 
-        # Debug info
-        if len(messages) < 5:
-            st.warning(f"⚠️ Only {len(messages)} message(s) found")
-            st.json(
-                {
-                    "sample_keys": list(sample.keys()),
-                    "sample_id": sample.get("id"),
-                    "sample_id_type": str(type(sample.get("id"))),
-                    "messages_type": str(type(messages)),
-                    "messages_length": len(messages),
-                    "messages_full_content": messages,
-                }
-            )
+        if agent_conversations:
+            # Display conversations in tabs for each agent
+            agent_names = list(agent_conversations.keys())
+            agent_tabs = st.tabs([f"🤖 {name.upper()}" for name in agent_names])
 
-        render_conversation_history(messages)
+            for i, agent_name in enumerate(agent_names):
+                with agent_tabs[i]:
+                    messages = agent_conversations[agent_name]
+                    st.markdown(f"**{agent_name.capitalize()} Agent Conversation**")
+                    render_conversation_history(messages)
+        else:
+            # Fallback to top-level messages if no store conversations found
+            messages = sample.get("messages", [])
+
+            if len(messages) < 5:
+                st.warning(
+                    f"⚠️ Only {len(messages)} message(s) found. "
+                    "Note: Three-agent orchestration stores conversations in store fields."
+                )
+
+            render_conversation_history(messages)
 
 
 def cli():
