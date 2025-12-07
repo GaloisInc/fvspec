@@ -105,8 +105,7 @@ def discover_eval_files(artifacts_dir: Path) -> list[dict]:
                     "num_samples": num_samples,
                 }
             )
-        except Exception as e:
-            st.warning(f"Error reading {eval_path.name}: {e}")
+        except Exception:
             continue
 
     # Sort by timestamp (newest first)
@@ -128,8 +127,7 @@ def safe_json_load(zip_file: zipfile.ZipFile, path: str) -> dict | None:
         content = zip_file.read(path).decode("utf-8")
         data = json.loads(content)
         return data
-    except Exception as e:
-        st.warning(f"Error loading {path}: {e}")
+    except Exception:
         return None
 
 
@@ -175,12 +173,6 @@ def load_eval_file(eval_path: Path) -> dict[str, dict | list | None]:
                             sample_id = int(sample_id_match.group(1))
 
                     if sample_id:
-                        # Debug: Check message count immediately after loading
-                        msg_count = len(sample_data.get("messages", []))
-                        if msg_count < 5:
-                            st.warning(
-                                f"⚠️ Sample {sample_id} has only {msg_count} messages at load time!"
-                            )
                         samples_dict = cast(dict, result["samples"])
                         samples_dict[sample_id] = sample_data
 
@@ -359,9 +351,8 @@ def apply_filters(samples: dict, filters: dict) -> dict:
                     continue
 
             filtered[sample_id] = sample
-        except Exception as e:
+        except Exception:
             # Skip samples that cause errors during filtering
-            st.warning(f"Error filtering sample {sample_id}: {e}")
             continue
 
     return filtered
@@ -503,24 +494,18 @@ def render_code_comparison(
                     st.caption(" | ".join(status_parts))
 
                 st.code(lean_files["spec_code"], language="lean", line_numbers=True)
-            else:
-                st.info("Spec.lean not generated")
 
         with lean_tabs[1]:
             if lean_files["impl_code"]:
                 if compilation_status["impl_compiles"]:
                     st.caption("✓ Compiles")
                 st.code(lean_files["impl_code"], language="lean", line_numbers=True)
-            else:
-                st.info("Impl.lean not generated")
 
         with lean_tabs[2]:
             if lean_files["tests_code"]:
                 if compilation_status["units_has_tests"]:
                     st.caption(f"✓ {compilation_status['units_test_count']} tests")
                 st.code(lean_files["tests_code"], language="lean", line_numbers=True)
-            else:
-                st.info("Tests.lean not generated")
 
 
 def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict):
@@ -606,8 +591,6 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
                 if explanation:
                     st.caption(explanation)
                 st.divider()
-        else:
-            st.info("No scores available")
 
 
 def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
@@ -666,7 +649,6 @@ def render_conversation_history(messages: list[dict]):
         messages: List of message dicts from sample
     """
     if not messages:
-        st.info("No conversation messages recorded")
         return
 
     st.subheader(f"Conversation ({len(messages)} messages)")
@@ -893,10 +875,6 @@ def main():
         st.caption(f"Searching: {artifacts_dir}")
 
         if not artifacts_dir.exists():
-            st.error("Artifacts directory not found")
-            st.info(
-                "Set FVSPEC_ARTIFACTS_DIR environment variable or ensure benchmark/artifacts/runs exists"
-            )
             return
 
         # Discover and select eval files
@@ -973,8 +951,6 @@ def main():
                     st.session_state.current_eval_path = Path(eval_path_str)
                     st.session_state.current_sample_id = sample_id
                     st.rerun()
-        else:
-            st.info("No bookmarks yet")
 
         st.divider()
 
@@ -990,8 +966,6 @@ def main():
                     st.session_state.current_eval_path = Path(eval_path_str)
                     st.session_state.current_sample_id = sample_id
                     st.rerun()
-        else:
-            st.info("No history yet")
 
         st.divider()
 
@@ -1002,32 +976,21 @@ def main():
             help="Clear cached eval files and reload",
         ):
             st.cache_data.clear()
-            st.success("Cache cleared! Reloading...")
             st.rerun()
 
     # Main content area
     if not st.session_state.current_eval_path:
-        st.info("👈 Select an .eval file from the sidebar to begin")
         return
 
     if not st.session_state.current_sample_id:
-        st.info("👈 Select a sample from the sidebar to view details")
         return
 
     # Load sample data
     eval_data = load_eval_file(st.session_state.current_eval_path)
 
-    # Debug: Show what we're looking for and what's available
-    st.sidebar.caption(f"🔍 Looking for sample: {st.session_state.current_sample_id}")
-    st.sidebar.caption(
-        f"Available sample IDs: {list(eval_data['samples'].keys())[:3]}..."
-    )
-
     sample = eval_data["samples"].get(st.session_state.current_sample_id)
 
     if not sample:
-        st.error(f"Sample {st.session_state.current_sample_id} not found in eval data")
-        st.error(f"Available keys: {list(eval_data['samples'].keys())}")
         return
 
     # Extract data for rendering
