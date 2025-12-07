@@ -396,7 +396,7 @@ def _parse_plausible_output(
     """Parse the output from lake build to extract plausible results.
 
     Plausible output patterns:
-    - Success: "Success" or no errors (returncode 0)
+    - Success: "Unable to find a counter-example"
     - Counterexample: "Found a counter-example!" with details
     - Instance error: "Failed to create a `testable` instance" or similar synthesis errors
 
@@ -417,6 +417,10 @@ def _parse_plausible_output(
         r"Found a counter-example!", combined_output, re.IGNORECASE
     )
     num_counterexamples = len(counterexample_matches)
+
+    # Count explicit successes (plausibility checks that passed)
+    success_matches = re.findall(r"Unable to find a counter-example", combined_output)
+    num_successes = len(success_matches)
 
     # Check for instance synthesis errors
     instance_errors = []
@@ -441,14 +445,14 @@ def _parse_plausible_output(
 
     all_errors = instance_errors + compilation_errors
 
-    # Determine success rate
-    if returncode != 0 or all_errors or num_theorems == 0:
-        # Compilation failed, other errors, or no theorems to test - treat as 0% success
+    # Determine success rate based on explicit success counts
+    if num_theorems == 0:
+        # No theorems to test
         success_rate = 0.0
     else:
-        # Compute success rate: (theorems passed) / (total theorems)
-        # theorems passed = num_theorems - num_counterexamples
-        success_rate = (num_theorems - num_counterexamples) / num_theorems
+        # Success rate = (theorems that passed plausibility) / (total theorems)
+        # Only count explicit "Unable to find a counter-example" as success
+        success_rate = num_successes / num_theorems
 
     return Plausibility(
         ran=True,
