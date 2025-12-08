@@ -93,6 +93,7 @@ def discover_eval_files(artifacts_dir: Path) -> list[dict]:
                     sample_files = [n for n in z.namelist() if n.startswith("samples/")]
                     num_samples = len(sample_files)
             except Exception:
+                # If the zip file is corrupt or unreadable, skip sample counting and continue.
                 pass
 
             eval_files.append(
