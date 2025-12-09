@@ -15,7 +15,7 @@ def payloads_from_datapoint(
     """Convert a dataset datapoint into dependency payloads.
 
     Creates payloads for:
-    1. Discovered function under test (if session provided and confidence > 0.7)
+    1. Discovered function under test (if session provided and confidence >= 0.5)
     2. All explicit dependencies in datapoint.deps (with source code)
 
     Args:
@@ -32,7 +32,7 @@ def payloads_from_datapoint(
     # Priority 1: Discover function under test
     if session is not None:
         function_info = discover_function_code(datapoint, session)
-        if function_info and function_info.code and function_info.confidence > 0.7:
+        if function_info and function_info.code and function_info.confidence >= 0.5:
             payloads.append(
                 DependencyPayload(
                     dep_name=function_info.name,

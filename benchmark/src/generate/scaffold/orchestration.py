@@ -23,7 +23,7 @@ from pydantic import ValidationError
 from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
 from generate.scaffold.dataset.connection import get_session
-from generate.scaffold.dataset.function_discovery import lookup_function_exact
+from generate.scaffold.dataset.function_discovery import discover_function_code
 from generate.scaffold.formalize.impl import (
     FunctionImplPayload,
     FunctionImplResult,
@@ -292,7 +292,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if not isinstance(datapoint, Datapoint):
             return state
 
-        # Determine function name from PBT name
+        # Determine function name from PBT name (fallback)
         # Heuristic: test_foo → foo, test_bar_baz → bar_baz
         function_name = datapoint.name
         if function_name.startswith("test_"):
@@ -302,12 +302,42 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # (fork() uses deepcopy which cannot pickle database sessions)
         db_session = state.metadata.get("db_session")
 
-        # Try to discover function code from database
+        # Try to discover function code using multi-strategy discovery
         function_code = None
+        function_info = None
         if db_session:
-            result = lookup_function_exact(db_session, function_name, datapoint.repo_id)
-            if result:
-                function_code = result.code
+            function_info = discover_function_code(datapoint, db_session)
+            if function_info and function_info.confidence >= 0.5:
+                # Accept discovery - use discovered function (threshold 0.5 includes name matches)
+                function_name = function_info.name
+                function_code = function_info.code
+                # Store discovery metadata for qa.json
+                state.store.set(
+                    "function_discovery",
+                    {
+                        "discovered": True,
+                        "method": function_info.discovery_method.value,
+                        "confidence": function_info.confidence,
+                        "original_name": datapoint.name,
+                        "resolved_name": function_info.name,
+                    },
+                )
+            else:
+                # Low confidence or no discovery - track failure
+                state.store.set(
+                    "function_discovery",
+                    {
+                        "discovered": False,
+                        "method": function_info.discovery_method.value
+                        if function_info
+                        else "failed",
+                        "confidence": function_info.confidence
+                        if function_info
+                        else 0.0,
+                        "original_name": datapoint.name,
+                        "resolved_name": function_name,  # Fallback name
+                    },
+                )
 
         # Get all payloads (FUT + dependencies) - requires db_session for discovery
         all_payloads = payloads_from_datapoint(datapoint, db_session)
@@ -344,8 +374,31 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
 
             # Call impl agent solver with fork() for conversation isolation
+            # Track token usage before fork
+            tokens_before_fut = state.token_usage
             impl_solver = impl_agent_solver(impl_payload, workspace)
             impl_state = await fork(state, impl_solver)
+
+            # Track token usage after fork and count tool calls
+            impl_fut_tokens = state.token_usage - tokens_before_fut
+            impl_fut_toolcalls = sum(
+                1
+                for msg in impl_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store FUT token usage metrics
+            state.store.set(
+                "impl_fut_token_usage",
+                {
+                    "subagent": "impl_fut",
+                    "function_name": function_name,
+                    "tokens_spent": impl_fut_tokens,
+                    "num_toolcalls": impl_fut_toolcalls,
+                },
+            )
 
             # Extract result from isolated state's store
             impl_result_data = impl_state.store.get("impl_result", {})
@@ -397,8 +450,32 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             )
 
             # Run impl agent for this dependency with fork() for isolation
+            # Track token usage before fork
+            tokens_before_dep = state.token_usage
             dep_impl_solver = impl_agent_solver(dep_impl_payload, workspace)
             dep_impl_state = await fork(state, dep_impl_solver)
+
+            # Track token usage after fork and count tool calls
+            dep_tokens = state.token_usage - tokens_before_dep
+            dep_toolcalls = sum(
+                1
+                for msg in dep_impl_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store dependency token usage metrics (append to list)
+            dep_token_usages = state.store.get("dep_token_usages", [])
+            dep_token_usages.append(
+                {
+                    "subagent": "impl_dep",
+                    "function_name": payload.dep_name,
+                    "tokens_spent": dep_tokens,
+                    "num_toolcalls": dep_toolcalls,
+                }
+            )
+            state.store.set("dep_token_usages", dep_token_usages)
 
             # Extract result from isolated state's store
             dep_impl_result_data = dep_impl_state.store.get("impl_result", {})
@@ -525,10 +602,73 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             # Run both agents in parallel with fork() for conversation isolation
             # fork() natively supports parallel execution when passed a list of solvers
             spec_state, units_state = await fork(state, [spec_solver, units_solver])
+
+            # Track token usage after parallel fork
+            # Note: parallel fork accumulates all tokens, so we calculate per-agent from individual states
+            spec_tokens = spec_state.token_usage  # Spec state has its own token count
+            units_tokens = (
+                units_state.token_usage
+            )  # Units state has its own token count
+
+            # Count tool calls for each agent
+            spec_toolcalls = sum(
+                1
+                for msg in spec_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+            units_toolcalls = sum(
+                1
+                for msg in units_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store token usage metrics for both agents
+            state.store.set(
+                "spec_token_usage",
+                {
+                    "subagent": "spec",
+                    "tokens_spent": spec_tokens,
+                    "num_toolcalls": spec_toolcalls,
+                },
+            )
+            state.store.set(
+                "units_token_usage",
+                {
+                    "subagent": "units",
+                    "tokens_spent": units_tokens,
+                    "num_toolcalls": units_toolcalls,
+                },
+            )
         else:
             # Only run spec agent
+            # Track token usage before fork
+            tokens_before_spec = state.token_usage
             spec_state = await fork(state, spec_solver)
             units_state = None
+
+            # Track token usage after fork and count tool calls
+            spec_tokens = state.token_usage - tokens_before_spec
+            spec_toolcalls = sum(
+                1
+                for msg in spec_state.messages
+                if msg.role == "assistant"
+                and hasattr(msg, "tool_calls")
+                and msg.tool_calls
+            )
+
+            # Store spec token usage metrics
+            state.store.set(
+                "spec_token_usage",
+                {
+                    "subagent": "spec",
+                    "tokens_spent": spec_tokens,
+                    "num_toolcalls": spec_toolcalls,
+                },
+            )
 
         # Extract spec result from isolated state's store
         spec_result_data = spec_state.store.get("spec_result", {})

@@ -146,7 +146,7 @@ def sample_datapoints(
     )
     datapoints = list(session.exec(datapoints_statement))
 
-    # Populate unit_tests attribute for each datapoint (not a DB field)
+    # Populate unit_tests field for each datapoint (non-DB field)
     for dp in datapoints:
         unit_tests = []  # Collect unit tests
         overlaps = get_overlapping_unit_tests(session, dp.id)
@@ -162,8 +162,8 @@ def sample_datapoints(
             logger.debug(
                 f"Sampled {MAX_UNIT_TESTS} of {original_count} unit tests for datapoint {dp.id}"
             )
-        # Set directly on __dict__ to bypass Pydantic validation
-        dp.__dict__["unit_tests"] = unit_tests
+        # Set the unit_tests field directly (now a proper field on the model)
+        dp.unit_tests = unit_tests
 
     # Return in correct order
     # For sequential mode, preserve order from all_ids slice

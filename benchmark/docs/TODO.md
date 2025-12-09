@@ -1,8 +1,8 @@
 # TODOs
 
-## fix unit test extraction
-
 ## append unit tests when you run plausible.
+
+This is super problematic, cuz there are like no unit tests ever being found! 
 
 ## Synthesizing `Testable` instances for existentials
 
@@ -22,4 +22,3 @@ The test_acos case suggests we need to either:
 - Guide the spec agent away from vacuous existence theorems
 - Detect when Python tests have no meaningful property to formalize
 - Accept that some samples cannot produce interesting specifications
-- [ ] 
