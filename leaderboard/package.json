@@ -8,26 +8,28 @@
   "engines": {
     "node": ">=20.0.0"
   },
-  "packageManager": "pnpm@10.19.0",
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
-    "dev": "pnpm -r --parallel run dev",
-    "dev:web": "pnpm --filter ./packages/web run dev",
-    "dev:api": "pnpm --filter ./packages/api run dev",
-    "dev:worker": "pnpm --filter ./packages/worker run dev",
-    "build": "pnpm -r run build",
-    "build:web": "pnpm --filter ./packages/web run build",
-    "build:api": "pnpm --filter ./packages/api run build",
-    "build:worker": "pnpm --filter ./packages/worker run build",
-    "start": "pnpm --filter ./packages/web run start",
-    "start:api": "pnpm --filter ./packages/api run start",
-    "start:web": "pnpm --filter ./packages/web run start",
-    "start:worker": "pnpm --filter ./packages/worker run start",
-    "lint": "pnpm -r exec eslint .",
-    "lint:fix": "pnpm -r exec eslint . --fix",
-    "typecheck": "pnpm -r run typecheck",
-    "test": "pnpm -r run test",
-    "clean": "pnpm -r run clean || true",
-    "format": "pnpm exec prettier --write --ignore-path ./../.gitignore ."
+    "dev": "npm run dev --workspaces --if-present",
+    "dev:web": "npm run dev --workspace=packages/web",
+    "dev:api": "npm run dev --workspace=packages/api",
+    "dev:worker": "npm run dev --workspace=packages/worker",
+    "build": "npm run build --workspaces --if-present",
+    "build:web": "npm run build --workspace=packages/web",
+    "build:api": "npm run build --workspace=packages/api",
+    "build:worker": "npm run build --workspace=packages/worker",
+    "start": "npm run start --workspace=packages/web",
+    "start:api": "npm run start --workspace=packages/api",
+    "start:web": "npm run start --workspace=packages/web",
+    "start:worker": "npm run start --workspace=packages/worker",
+    "lint": "npm exec --workspaces -- eslint .",
+    "lint:fix": "npm exec --workspaces -- eslint . --fix",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "clean": "npm run clean --workspaces --if-present || true",
+    "format": "npx prettier --write --ignore-path ./../.gitignore ."
   },
   "prettier": {
     "semi": false,

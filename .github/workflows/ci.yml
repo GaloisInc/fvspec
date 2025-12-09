@@ -61,22 +61,19 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10
       - name: Install Node.js
         uses: actions/setup-node@v4
         with:
           node-version: "24"
-        # TODO: Have cache
+          cache: "npm"
+          cache-dependency-path: "leaderboard/package-lock.json"
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: npm ci
       - name: Format check
-        run: pnpm exec prettier --check --ignore-path ./../.gitignore .
+        run: npx prettier --check --ignore-path ./../.gitignore .
       - name: Lint
-        run: pnpm run lint
+        run: npm run lint
       - name: Type check
-        run: pnpm run typecheck
+        run: npm run typecheck
       - name: Build all packages
-        run: pnpm run build
+        run: npm run build

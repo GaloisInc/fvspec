@@ -11,7 +11,7 @@ WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/web
 Environment="PORT=3000"
 Environment="HOSTNAME=localhost"
 Environment="NEXT_PUBLIC_API_URL=/api"
-ExecStart=/home/quinnd/.local/share/pnpm/pnpm start
+ExecStart=/usr/bin/npm start
 Restart=always
 RestartSec=10
 StandardOutput=journal

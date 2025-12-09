@@ -28,7 +28,7 @@ Next.js 16, Tailwind v4, shadcn/ui. Static export.
 
 **Routes:** `/` (landing), `/leaderboard`, `/submit`, `/paper`, `/dataset/[id]` (322 samples)
 
-**Development:** `pnpm dev:web` (port 3000)
+**Development:** `npm run dev:web` (port 3000)
 
 ### `packages/api` — REST API
 
@@ -38,7 +38,7 @@ Hono, Drizzle ORM, PostgreSQL, BullMQ, Zod.
 
 **Dataset:** Loads `fvspec.jsonl` (322 samples, 4.1MB) at startup, in-memory Map for O(1) lookups
 
-**Development:** `pnpm dev:api` (port 3002)
+**Development:** `npm run dev:api` (port 3002)
 
 **Environment:** `DATABASE_URL`, `REDIS_URL`, `API_TOKEN`, `PORT`, `DATASET_PATH`
 
@@ -50,7 +50,7 @@ BullMQ, execa, Docker SDK.
 
 **Modes:** Docker (production, `--network none`) vs Host (dev, faster)
 
-**Development:** `pnpm dev:worker`
+**Development:** `npm run dev:worker`
 
 **Environment:** `REDIS_URL`, `API_BASE_URL`, `API_TOKEN`, `TOOLCHAIN_IMAGE`, `TIME_LIMIT_SEC`, `MEMORY_MB`
 
@@ -60,12 +60,12 @@ BullMQ, execa, Docker SDK.
 # Quick start
 docker compose up -d
 cp .env.example .env
-pnpm install
-pnpm dev  # Runs all services
+npm install
+npm run dev  # Runs all services
 
 # Individual services
-pnpm dev:web / dev:api / dev:worker
-pnpm build / lint / typecheck
+npm run dev:web / dev:api / dev:worker
+npm run build / lint / typecheck
 ```
 
 ## Deployment
@@ -76,7 +76,7 @@ pnpm build / lint / typecheck
 
 **Config files:** `operations/` (nginx/systemd, symlinked to system)
 
-**Update:** `git pull && pnpm install && pnpm build && sudo systemctl restart fvspec-{api,worker} && sudo nginx -t && sudo systemctl reload nginx`
+**Update:** `git pull && npm install && npm run build && sudo systemctl restart fvspec-{api,worker} && sudo nginx -t && sudo systemctl reload nginx`
 
 **Infrastructure:** PostgreSQL, Redis, nginx, Node.js 20+, Docker
 

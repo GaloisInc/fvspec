@@ -8,7 +8,7 @@ This guide covers deploying the fvspec leaderboard to a production server using 
 - [x] Existing monorepo at `/home/quinnd/fvspec/`
 - [x] Server with nginx installed (Ubuntu/Debian recommended)
 - [ ] PostgreSQL and Redis running
-- [x] Node.js 20+ and pnpm installed
+- [x] Node.js 20+ installed
 - [x] SSL certificate (via certbot, optional for prototype)
 - [ ] GitHub Actions secrets configured (for automated deployment)
 
@@ -61,9 +61,6 @@ sudo apt install nginx -y
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
 sudo apt install -y nodejs
 
-# Install pnpm
-npm install -g pnpm
-
 # Install PostgreSQL
 sudo apt install postgresql postgresql-contrib -y
 
@@ -111,7 +108,7 @@ git pull
 #### Install Dependencies
 
 ```bash
-pnpm install
+npm install
 ```
 
 #### Configure Environment
@@ -157,7 +154,7 @@ chmod 600 .env
 cd packages/web
 
 # Build (creates .next directory with optimized production build)
-pnpm build
+npm run build
 
 # Verify build output
 ls -la .next/
@@ -170,7 +167,7 @@ The build creates a `.next` directory that requires `next start` to serve.
 
 ```bash
 cd ../api
-pnpm exec drizzle-kit push
+npx drizzle-kit push
 ```
 
 ### 4. Nginx Configuration
@@ -309,7 +306,7 @@ sudo journalctl -u fvspec-worker -f
 
 This means:
 
-- `pnpm build` creates `.next/` directory (not `out/`)
+- `npm run build` creates `.next/` directory (not `out/`)
 - Requires `next start` to serve (via systemd service)
 - Supports server-side rendering, API routes, dynamic features
 - Runs on port 3000 by default
@@ -368,25 +365,21 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
-          cache-dependency-path: 'leaderboard/pnpm-lock.yaml'
+          cache: 'npm'
+          cache-dependency-path: 'leaderboard/package-lock.json'
 
       - name: Install dependencies
         run: |
           cd leaderboard
-          pnpm install
+          npm ci
 
       - name: Build frontend
         run: |
           cd leaderboard/packages/web
-          pnpm build
+          npm run build
 
       - name: Deploy to server
         env:
@@ -415,8 +408,8 @@ jobs:
 ```bash
 cd /home/quinnd/fvspec/leaderboard/packages/web
 git pull
-pnpm install
-pnpm build
+npm install
+npm run build
 # Nginx will automatically serve new files
 ```
 
@@ -425,7 +418,7 @@ pnpm build
 ```bash
 cd /home/quinnd/fvspec/leaderboard/packages/api
 git pull
-pnpm install
+npm install
 sudo systemctl restart fvspec-api
 ```
 
@@ -434,7 +427,7 @@ sudo systemctl restart fvspec-api
 ```bash
 cd /home/quinnd/fvspec/leaderboard/packages/worker
 git pull
-pnpm install
+npm install
 sudo systemctl restart fvspec-worker
 ```
 
@@ -442,7 +435,7 @@ sudo systemctl restart fvspec-worker
 
 ```bash
 cd /home/quinnd/fvspec/leaderboard/packages/api
-pnpm exec drizzle-kit push
+npx drizzle-kit push
 sudo systemctl restart fvspec-api
 ```
 

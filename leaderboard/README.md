@@ -7,7 +7,6 @@ Public-facing leaderboard website for the fvspec formal verification benchmark.
 ### Prerequisites
 
 - Node.js >= 20
-- pnpm (installed globally or via `corepack enable`)
 - Docker & Docker Compose
 - (Optional) Lean 4 toolchain if running worker without Docker
 
@@ -33,7 +32,7 @@ cp .env.example .env
 ### 3. Install Dependencies
 
 ```bash
-pnpm install
+npm install
 ```
 
 ### 4. Run Services
@@ -41,20 +40,20 @@ pnpm install
 **Option A: All services in parallel**
 
 ```bash
-pnpm dev
+npm run dev
 ```
 
 **Option B: Individual services**
 
 ```bash
 # Terminal 1: Web frontend (http://localhost:3000)
-pnpm dev:web
+npm run dev:web
 
 # Terminal 2: API server (http://localhost:3001)
-pnpm dev:api
+npm run dev:api
 
 # Terminal 3: Worker (processes jobs from Redis queue)
-pnpm dev:worker
+npm run dev:worker
 ```
 
 ### 5. View the Site
@@ -77,27 +76,27 @@ See `AGENTS.md` for detailed documentation.
 
 ```bash
 # Development
-pnpm dev              # Run all services in parallel
-pnpm dev:web          # Next.js dev server
-pnpm dev:api          # API dev server (tsx watch)
-pnpm dev:worker       # Worker dev mode (tsx watch)
+npm run dev              # Run all services in parallel
+npm run dev:web          # Next.js dev server
+npm run dev:api          # API dev server (tsx watch)
+npm run dev:worker       # Worker dev mode (tsx watch)
 
 # Build
-pnpm build            # Build all packages
-pnpm build:web        # Build frontend
-pnpm build:api        # Build API
-pnpm build:worker     # Build worker
+npm run build            # Build all packages
+npm run build:web        # Build frontend
+npm run build:api        # Build API
+npm run build:worker     # Build worker
 
 # Quality
-pnpm typecheck        # Type-check all packages
-pnpm lint             # Lint all packages
-pnpm test             # Run tests (stubs currently)
-pnpm clean            # Clean build artifacts
+npm run typecheck        # Type-check all packages
+npm run lint             # Lint all packages
+npm run test             # Run tests (stubs currently)
+npm run clean            # Clean build artifacts
 
 # Production
-pnpm start:web        # Start production Next.js server
-pnpm start:api        # Start production API server
-pnpm start:worker     # Start production worker
+npm run start:web        # Start production Next.js server
+npm run start:api        # Start production API server
+npm run start:worker     # Start production worker
 ```
 
 ## Project Structure

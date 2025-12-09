@@ -18,9 +18,8 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "packageManager": "pnpm@10.19.0",
   "dependencies": {
-    "@fvspec/common": "workspace:*",
+    "@fvspec/common": "*",
     "bullmq": "^5.61.2",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",

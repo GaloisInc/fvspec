@@ -45,8 +45,8 @@ On your local machine or CI:
 
 ```bash
 cd leaderboard/packages/web
-pnpm build  # Generates .next/ directory for SSR, or:
-pnpm run build && pnpm run export  # For static export to out/
+npm run build  # Generates .next/ directory for SSR, or:
+npm run build && npm run export  # For static export to out/
 ```
 
 **Note**: For static export, you may need to add to `next.config.ts`:
@@ -69,7 +69,7 @@ scp -r leaderboard/packages/web/out/ quinnd@ec2-35-95-72-128.us-west-2.compute.a
 # Or if already on the server, just rebuild in place:
 cd /home/quinnd/fvspec/leaderboard/packages/web
 git pull
-pnpm build
+npm run build
 ```
 
 **Option B: GitHub Actions** (see Deployment Methods below)
@@ -135,24 +135,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: 'pnpm'
+          cache: 'npm'
 
       - name: Install dependencies
         run: |
           cd leaderboard/packages/web
-          pnpm install
+          npm ci
 
       - name: Build site
         run: |
           cd leaderboard/packages/web
-          pnpm build
+          npm run build
 
       - name: Deploy to server
         env:
@@ -179,7 +175,7 @@ jobs:
 ```bash
 # 1. Build locally
 cd leaderboard/packages/web
-pnpm build
+npm run build
 
 # 2. Copy to server
 scp -r out/ quinnd@ec2-35-95-72-128.us-west-2.compute.amazonaws.com:/home/quinnd/fvspec/leaderboard/packages/web/
@@ -196,8 +192,8 @@ ssh quinnd@ec2-35-95-72-128.us-west-2.compute.amazonaws.com
 # Navigate and rebuild
 cd /home/quinnd/fvspec/leaderboard/packages/web
 git pull
-pnpm install
-pnpm build
+npm install
+npm run build
 
 # Nginx automatically serves new files
 ```
@@ -211,7 +207,7 @@ The nginx configuration includes a reverse proxy for the API backend. On the ser
 ```bash
 # Navigate to the leaderboard directory
 cd /home/quinnd/fvspec/leaderboard
-pnpm install
+npm install
 
 # Set environment variables
 cat > .env <<EOF
@@ -227,7 +223,7 @@ chmod 600 .env
 
 # Run API (use systemd service or PM2 for production)
 cd packages/api
-pnpm start
+npm start
 ```
 
 ### Systemd Service for API

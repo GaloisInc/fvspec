@@ -13,7 +13,7 @@
     "clean": "rm -rf .next dist"
   },
   "dependencies": {
-    "@fvspec/common": "workspace:*",
+    "@fvspec/common": "*",
     "@radix-ui/react-label": "^2.1.7",
     "@radix-ui/react-progress": "^1.1.7",
     "@radix-ui/react-select": "^2.2.6",

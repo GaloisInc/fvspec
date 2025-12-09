@@ -22,14 +22,14 @@ pre-commit:
     format-leaderboard:
       root: "leaderboard"
       glob: "*.{ts,json,md,yaml,yml}"
-      run: pnpm run format
+      run: npm run format
       stage_fixed: true
     lint-leaderboard:
       root: "leaderboard"
       glob: "*.{ts,tsx}"
-      run: pnpm run lint:fix
+      run: npm run lint:fix
       stage_fixed: true
     typecheck-leaderboard:
       root: "leaderboard"
       glob: "*.{ts,tsx}"
-      run: pnpm run typecheck
+      run: npm run typecheck
