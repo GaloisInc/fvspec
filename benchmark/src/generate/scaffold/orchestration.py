@@ -773,7 +773,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     )
                     if spec_result_dict
                     else 0,
-                    "tokens": spec_tokens,
+                    "tokens_spent": spec_tokens,
                     "toolcalls": spec_toolcalls,
                 },
             )
