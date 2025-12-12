@@ -365,6 +365,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Only process FUT if we have source code for it
         # Skip if function_code is None - Phase 1b will handle dependencies
         # This prevents hallucination when agent has no code to work from
+        phase1_start = time.time()
         if function_code is not None:
             impl_payload = FunctionImplPayload(
                 function_name=function_name,
@@ -432,9 +433,22 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             impl_file.write_text(stub_impl)
             # Track that we provided only a signature
             state.store.set("implementation_level", "signature")
+            # Log stub generation details
+            state.store.set(
+                "stub_generated",
+                {
+                    "reason": "no_function_code",
+                    "function_name": function_name,
+                },
+            )
+
+        # Log Phase 1 duration
+        state.store.set("phase1_fut_duration", time.time() - phase1_start)
 
         # Phase 1b: Generate implementations for all dependencies
         dependency_implementations: dict[str, str] = {}
+        dep_processing_details = []
+        phase1b_start = time.time()
 
         for payload in all_payloads:
             # Skip FUT - already processed in Phase 1
@@ -484,6 +498,18 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             else:
                 dep_impl_result = dep_impl_result_data
 
+            # Collect dependency processing details for logging
+            dep_processing_details.append(
+                {
+                    "function_name": payload.dep_name,
+                    "order": len(dep_processing_details) + 1,
+                    "success": dep_impl_result.success if dep_impl_result else False,
+                    "compiles": dep_impl_result.compiles if dep_impl_result else False,
+                    "tokens": dep_tokens,
+                    "toolcalls": dep_toolcalls,
+                }
+            )
+
             # Save isolated conversation for this dependency (append to list)
             dep_conversations = state.store.get("dep_conversations", [])
             dep_conversations.append(
@@ -511,6 +537,11 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Store dependency count for metrics
         state.store.set("num_fns_impl", len(all_payloads))
 
+        # Log Phase 1b duration and dependency processing details
+        state.store.set("phase1b_deps_duration", time.time() - phase1b_start)
+        state.store.set("phase1b_num_deps", len(dep_processing_details))
+        state.store.set("dependency_processing", dep_processing_details)
+
         # Skip samples with excessive function counts (>50)
         # Rationale: Samples with >50 functions are extreme outliers that:
         # 1. Generate excessively large prompts and specs (degraded quality)
@@ -524,7 +555,12 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             state.store.set("skipped", True)
             state.store.set(
                 "skip_reason",
-                f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})",
+                {
+                    "cause": "excessive_functions",
+                    "num_functions": len(all_payloads),
+                    "limit": MAX_FUNCTIONS_IMPL,
+                    "message": f"Too many functions to implement ({len(all_payloads)} > {MAX_FUNCTIONS_IMPL})",
+                },
             )
             # Set minimal output so write_to_disk knows this was intentionally skipped
             # Preserve model name from previous agent execution instead of hardcoding
@@ -560,6 +596,19 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Spec agent uses PBT (datapoint.code), units agent uses concrete unit tests from DB
         # Only invoke units agent if database has unit tests for this function
         has_unit_tests = len(unit_tests_data) > 0
+
+        # Log parallel execution decision
+        state.store.set(
+            "parallel_execution_decision",
+            {
+                "has_unit_tests": has_unit_tests,
+                "unit_test_count": len(unit_tests_data),
+                "execution_mode": "parallel" if has_unit_tests else "spec_only",
+                "reason": "Unit tests available in database"
+                if has_unit_tests
+                else "No unit tests available",
+            },
+        )
 
         if has_unit_tests:
             logger.info("Phase 3+4: Running spec and units agents in parallel")
@@ -601,6 +650,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
 
             # Run both agents in parallel with fork() for conversation isolation
             # fork() natively supports parallel execution when passed a list of solvers
+            phase34_start = time.time()
             spec_state, units_state = await fork(state, [spec_solver, units_solver])
 
             # Track token usage after parallel fork
@@ -643,10 +693,47 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     "num_toolcalls": units_toolcalls,
                 },
             )
+
+            # Log phase 3+4 duration
+            state.store.set("phase34_parallel_duration", time.time() - phase34_start)
+
+            # Log agent execution summaries
+            spec_result_dict = spec_state.store.get("spec_result")
+            state.store.set(
+                "spec_agent_summary",
+                {
+                    "success": spec_result_dict.get("success", False)
+                    if spec_result_dict
+                    else False,
+                    "lean_code_lines": len(
+                        spec_result_dict.get("lean_code", "").splitlines()
+                    )
+                    if spec_result_dict
+                    else 0,
+                    "tokens": spec_tokens,
+                    "toolcalls": spec_toolcalls,
+                },
+            )
+
+            units_result_dict = units_state.store.get("units_result")
+            state.store.set(
+                "units_agent_summary",
+                {
+                    "success": units_result_dict.get("success", False)
+                    if units_result_dict
+                    else False,
+                    "test_count": units_result_dict.get("test_count", 0)
+                    if units_result_dict
+                    else 0,
+                    "tokens": units_tokens,
+                    "toolcalls": units_toolcalls,
+                },
+            )
         else:
             # Only run spec agent
             # Track token usage before fork
             tokens_before_spec = state.token_usage
+            phase3_start = time.time()
             spec_state = await fork(state, spec_solver)
             units_state = None
 
@@ -667,6 +754,27 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     "subagent": "spec",
                     "tokens_spent": spec_tokens,
                     "num_toolcalls": spec_toolcalls,
+                },
+            )
+
+            # Log phase 3 duration (spec-only)
+            state.store.set("phase3_spec_only_duration", time.time() - phase3_start)
+
+            # Log spec agent summary
+            spec_result_dict = spec_state.store.get("spec_result")
+            state.store.set(
+                "spec_agent_summary",
+                {
+                    "success": spec_result_dict.get("success", False)
+                    if spec_result_dict
+                    else False,
+                    "lean_code_lines": len(
+                        spec_result_dict.get("lean_code", "").splitlines()
+                    )
+                    if spec_result_dict
+                    else 0,
+                    "tokens": spec_tokens,
+                    "toolcalls": spec_toolcalls,
                 },
             )
 
@@ -736,12 +844,33 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 config = load_config()
                 if config.plausible.enabled:
                     theorem_count = count_lean_theorems(spec_result.lean_code)
+                    phase5_start = time.time()
 
                     plausibility = run_plausible(
                         spec_path=spec_file,
                         workspace_path=workspace,
                         timeout=config.plausible.timeout,
                         num_theorems=theorem_count,
+                    )
+
+                    # Log phase 5 duration and plausibility summary
+                    state.store.set(
+                        "phase5_plausibility_duration", time.time() - phase5_start
+                    )
+                    # Calculate plausible count (theorems without counterexamples)
+                    num_plausible = (
+                        plausibility.num_theorems - plausibility.counterexamples
+                    )
+                    state.store.set(
+                        "plausibility_summary",
+                        {
+                            "total_theorems": theorem_count,
+                            "num_plausible": num_plausible,
+                            "plausibility_rate": plausibility.success,
+                            "counterexamples": plausibility.counterexamples,
+                            "errors": len(plausibility.errors),
+                            "time": plausibility.time,
+                        },
                     )
             except (
                 FileNotFoundError,
@@ -789,6 +918,48 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 )
             ],
             time=total_time,
+        )
+
+        # Calculate total tokens across all agents
+        total_tokens = impl_fut_tokens
+        dep_token_usages_list = state.store.get("dep_token_usages", [])
+        for dep_usage in dep_token_usages_list:
+            total_tokens += dep_usage["tokens_spent"]
+        if has_unit_tests:
+            total_tokens += spec_tokens + units_tokens
+        else:
+            total_tokens += spec_tokens
+
+        # Calculate total duration across all phases
+        total_duration = sum(
+            [
+                state.store.get("phase1_fut_duration", 0),
+                state.store.get("phase1b_deps_duration", 0),
+                state.store.get("phase34_parallel_duration", 0)
+                or state.store.get("phase3_spec_only_duration", 0),
+                state.store.get("phase5_plausibility_duration", 0),
+            ]
+        )
+
+        # Store orchestration summary
+        config = load_config()
+        state.store.set(
+            "orchestration_summary",
+            {
+                "total_tokens": total_tokens,
+                "total_duration_seconds": total_duration,
+                "phases_completed": [
+                    "phase1_fut",
+                    "phase1b_deps",
+                    "phase2_signatures",
+                    "phase34_parallel" if has_unit_tests else "phase3_spec_only",
+                    "phase5_plausibility"
+                    if config.plausible.enabled and plausibility.ran
+                    else None,
+                ],
+                "num_functions_implemented": len(all_payloads) if all_payloads else 1,
+                "execution_mode": "parallel" if has_unit_tests else "spec_only",
+            },
         )
 
         return state
