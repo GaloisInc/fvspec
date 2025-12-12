@@ -505,7 +505,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     "order": len(dep_processing_details) + 1,
                     "success": dep_impl_result.success if dep_impl_result else False,
                     "compiles": dep_impl_result.compiles if dep_impl_result else False,
-                    "tokens": dep_tokens,
+                    "tokens_spent": dep_tokens,
                     "toolcalls": dep_toolcalls,
                 }
             )
