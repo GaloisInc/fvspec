@@ -935,8 +935,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
             [
                 state.store.get("phase1_fut_duration", 0),
                 state.store.get("phase1b_deps_duration", 0),
-                state.store.get("phase34_parallel_duration", 0)
-                or state.store.get("phase3_spec_only_duration", 0),
+                state.store.get("phase34_parallel_duration", 0) if has_unit_tests else state.store.get("phase3_spec_only_duration", 0),
                 state.store.get("phase5_plausibility_duration", 0),
             ]
         )
