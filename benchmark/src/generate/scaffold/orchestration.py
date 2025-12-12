@@ -948,13 +948,17 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                 "total_tokens": total_tokens,
                 "total_duration_seconds": total_duration,
                 "phases_completed": [
-                    "phase1_fut",
-                    "phase1b_deps",
-                    "phase2_signatures",
-                    "phase34_parallel" if has_unit_tests else "phase3_spec_only",
-                    "phase5_plausibility"
-                    if config.plausible.enabled and plausibility.ran
-                    else None,
+                    p
+                    for p in [
+                        "phase1_fut",
+                        "phase1b_deps",
+                        "phase2_signatures",
+                        "phase34_parallel" if has_unit_tests else "phase3_spec_only",
+                        "phase5_plausibility"
+                        if config.plausible.enabled and plausibility.ran
+                        else None,
+                    ]
+                    if p is not None
                 ],
                 "num_functions_implemented": len(all_payloads) if all_payloads else 1,
                 "execution_mode": "parallel" if has_unit_tests else "spec_only",
