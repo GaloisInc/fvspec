@@ -366,6 +366,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         # Skip if function_code is None - Phase 1b will handle dependencies
         # This prevents hallucination when agent has no code to work from
         phase1_start = time.time()
+        impl_fut_tokens = 0  # Initialize to 0, will be updated if function_code exists
         if function_code is not None:
             impl_payload = FunctionImplPayload(
                 function_name=function_name,
