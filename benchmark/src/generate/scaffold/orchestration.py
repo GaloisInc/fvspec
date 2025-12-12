@@ -710,7 +710,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     )
                     if spec_result_dict
                     else 0,
-                    "tokens": spec_tokens,
+                    "tokens_spent": spec_tokens,
                     "toolcalls": spec_toolcalls,
                 },
             )
@@ -725,7 +725,7 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
                     "test_count": units_result_dict.get("test_count", 0)
                     if units_result_dict
                     else 0,
-                    "tokens": units_tokens,
+                    "tokens_spent": units_tokens,
                     "toolcalls": units_toolcalls,
                 },
             )
