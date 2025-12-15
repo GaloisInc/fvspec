@@ -22,7 +22,7 @@
     "zod": "^4.2.0"
   },
   "devDependencies": {
-    "@types/node": "^24",
+    "@types/node": "^25",
     "typescript": "^5"
   }
 }
