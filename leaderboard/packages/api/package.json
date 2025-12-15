@@ -27,7 +27,7 @@
     "bullmq": "^5.61.2",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
-    "drizzle-orm": "^0.45.0",
+    "drizzle-orm": "^0.45.1",
     "hono": "^4.10.3",
     "ioredis": "^5.8.2",
     "pg": "^8.16.3",
