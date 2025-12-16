@@ -8,17 +8,17 @@ name = "Fvspec"
 [[require]]
 name = "batteries"
 scope = "leanprover-community"
-rev = "v4.25.0-rc2"
+rev = "v4.26.0"
 
 [[require]]
 name = "aesop"
 scope = "leanprover-community"
-rev = "v4.25.0-rc2"
+rev = "v4.26.0"
 
 [[require]]
 name = "plausible"
 scope = "leanprover-community"
-rev = "v4.25.0-rc2"
+rev = "v4.26.0"
 
 [[require]]
 name = "LSpec"
