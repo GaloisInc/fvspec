@@ -86,11 +86,12 @@ echo "" | tee -a "$CHUNK_LOG"
 cd "$BENCHMARK_DIR"
 
 # Run the benchmark with error handling
+# Use nice and ionice to reduce system priority (prevents system slowdown)
 EXIT_CODE=0
-echo "Running: uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM" | tee -a "$CHUNK_LOG"
+echo "Running: nice -n 19 ionice -c 3 uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM" | tee -a "$CHUNK_LOG"
 echo "" | tee -a "$CHUNK_LOG"
 
-if uv run fvspec \
+if nice -n 19 ionice -c 3 uv run fvspec \
     --variant "$VARIANT" \
     --start-idx "$START_IDX" \
     --end-idx "$END_IDX" \
@@ -132,7 +133,7 @@ else
     echo "---------------------------------------------------" | tee -a "$CHUNK_LOG"
     echo "TO RESUME THIS CHUNK, RUN:" | tee -a "$CHUNK_LOG"
     echo "" | tee -a "$CHUNK_LOG"
-    echo "  uv run fvspec \\" | tee -a "$CHUNK_LOG"
+    echo "  nice -n 19 ionice -c 3 uv run fvspec \\" | tee -a "$CHUNK_LOG"
     echo "    --variant $VARIANT \\" | tee -a "$CHUNK_LOG"
     echo "    --start-idx $START_IDX \\" | tee -a "$CHUNK_LOG"
     echo "    --end-idx $END_IDX \\" | tee -a "$CHUNK_LOG"
@@ -148,7 +149,7 @@ finished=$(date -Iseconds)
 exit_code=$EXIT_CODE
 crash_start_idx=$START_IDX
 crash_end_idx=$END_IDX
-resume_command=uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM
+resume_command=nice -n 19 ionice -c 3 uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM
 EOF
 
     # Create a prominent crash marker file
