@@ -11,8 +11,9 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 # Default values
 VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
-CHUNK_SIZE=250
+CHUNK_SIZE=500
 PARALLELISM=10
+LAUNCH_DELAY=2  # Seconds to wait between launching tmux sessions
 DRY_RUN=false
 
 # Parse arguments
@@ -34,13 +35,17 @@ while [[ $# -gt 0 ]]; do
             PARALLELISM="$2"
             shift 2
             ;;
+        --launch-delay)
+            LAUNCH_DELAY="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 --variant <variant> --total <n> [--chunk-size <n>] [--parallelism <n>] [--dry-run]"
+            echo "Usage: $0 --variant <variant> --total <n> [--chunk-size <n>] [--parallelism <n>] [--launch-delay <seconds>] [--dry-run]"
             exit 1
             ;;
     esac
@@ -58,12 +63,13 @@ NUM_CHUNKS=$(( (TOTAL_SAMPLES + CHUNK_SIZE - 1) / CHUNK_SIZE ))
 echo "================================================"
 echo "Batch Run Configuration"
 echo "================================================"
-echo "Variant:      $VARIANT"
-echo "Total:        $TOTAL_SAMPLES samples"
-echo "Chunk size:   $CHUNK_SIZE samples"
-echo "Chunks:       $NUM_CHUNKS"
-echo "Parallelism:  $PARALLELISM per chunk"
-echo "Dry run:      $DRY_RUN"
+echo "Variant:       $VARIANT"
+echo "Total:         $TOTAL_SAMPLES samples"
+echo "Chunk size:    $CHUNK_SIZE samples"
+echo "Chunks:        $NUM_CHUNKS"
+echo "Parallelism:   $PARALLELISM per chunk"
+echo "Launch delay:  ${LAUNCH_DELAY}s between sessions"
+echo "Dry run:       $DRY_RUN"
 echo "================================================"
 echo ""
 
@@ -81,6 +87,7 @@ Variant: $VARIANT
 Total Samples: $TOTAL_SAMPLES
 Chunk Size: $CHUNK_SIZE
 Parallelism: $PARALLELISM
+Launch Delay: ${LAUNCH_DELAY}s
 Num Chunks: $NUM_CHUNKS
 EOF
 
@@ -124,6 +131,11 @@ for (( i=0; i<NUM_CHUNKS; i++ )); do
             --batch-id '$BATCH_ID'"
 
     echo "  ✓ Session created: $SESSION_NAME"
+
+    # Rate limit: wait before launching next session (except for last chunk)
+    if [[ $((i+1)) -lt $NUM_CHUNKS ]] && [[ $LAUNCH_DELAY -gt 0 ]]; then
+        sleep "$LAUNCH_DELAY"
+    fi
 done
 
 echo ""
@@ -132,10 +144,11 @@ echo "All chunks launched!"
 echo "================================================"
 echo ""
 echo "Commands:"
-echo "  Monitor:  ./operations/monitor.sh --batch-id $BATCH_ID"
-echo "  List:     tmux ls | grep fvspec_${VARIANT}"
-echo "  Attach:   tmux attach -t <session-name>"
-echo "  Kill all: ./operations/kill-all.sh --variant $VARIANT"
+echo "  Monitor:       ./operations/monitor.sh --batch-id $BATCH_ID --watch"
+echo "  Find crashes:  ./operations/find-crashes.sh --batch-id $BATCH_ID"
+echo "  List sessions: tmux ls | grep fvspec_${VARIANT}"
+echo "  Attach:        tmux attach -t <session-name>"
+echo "  Kill all:      ./operations/kill-all.sh --variant $VARIANT"
 echo ""
 echo "Logs stored in: $LOGS_DIR/"
 echo "Batch log:      $BATCH_LOG"

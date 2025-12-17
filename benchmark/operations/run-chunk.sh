@@ -14,6 +14,7 @@ START_IDX=""
 END_IDX=""
 PARALLELISM=10
 BATCH_ID=""
+NO_WAIT=false  # If true, exit immediately on failure (for queued runner)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -36,6 +37,10 @@ while [[ $# -gt 0 ]]; do
         --batch-id)
             BATCH_ID="$2"
             shift 2
+            ;;
+        --no-wait)
+            NO_WAIT=true
+            shift
             ;;
         *)
             echo "Unknown option: $1"
@@ -110,16 +115,30 @@ else
     # Failure
     EXIT_CODE=$?
     echo "" | tee -a "$CHUNK_LOG"
-    echo "================================================" | tee -a "$CHUNK_LOG"
-    echo "✗ Chunk FAILED with exit code $EXIT_CODE" | tee -a "$CHUNK_LOG"
-    echo "================================================" | tee -a "$CHUNK_LOG"
+    echo "###################################################" | tee -a "$CHUNK_LOG"
+    echo "###                                             ###" | tee -a "$CHUNK_LOG"
+    echo "###        ✗✗✗ CHUNK CRASHED ✗✗✗              ###" | tee -a "$CHUNK_LOG"
+    echo "###                                             ###" | tee -a "$CHUNK_LOG"
+    echo "###################################################" | tee -a "$CHUNK_LOG"
     echo "" | tee -a "$CHUNK_LOG"
-    echo "CRASH DETAILS:" | tee -a "$CHUNK_LOG"
+    echo "CRASH SUMMARY:" | tee -a "$CHUNK_LOG"
     echo "  Variant:      $VARIANT" | tee -a "$CHUNK_LOG"
     echo "  Start Index:  $START_IDX" | tee -a "$CHUNK_LOG"
     echo "  End Index:    $END_IDX" | tee -a "$CHUNK_LOG"
+    echo "  Samples:      [$START_IDX, $END_IDX)" | tee -a "$CHUNK_LOG"
     echo "  Exit Code:    $EXIT_CODE" | tee -a "$CHUNK_LOG"
-    echo "  Time:         $(date)" | tee -a "$CHUNK_LOG"
+    echo "  Crashed at:   $(date)" | tee -a "$CHUNK_LOG"
+    echo "" | tee -a "$CHUNK_LOG"
+    echo "---------------------------------------------------" | tee -a "$CHUNK_LOG"
+    echo "TO RESUME THIS CHUNK, RUN:" | tee -a "$CHUNK_LOG"
+    echo "" | tee -a "$CHUNK_LOG"
+    echo "  uv run fvspec \\" | tee -a "$CHUNK_LOG"
+    echo "    --variant $VARIANT \\" | tee -a "$CHUNK_LOG"
+    echo "    --start-idx $START_IDX \\" | tee -a "$CHUNK_LOG"
+    echo "    --end-idx $END_IDX \\" | tee -a "$CHUNK_LOG"
+    echo "    --parallelism $PARALLELISM" | tee -a "$CHUNK_LOG"
+    echo "" | tee -a "$CHUNK_LOG"
+    echo "---------------------------------------------------" | tee -a "$CHUNK_LOG"
     echo "" | tee -a "$CHUNK_LOG"
 
     # Update status file with failure info
@@ -129,12 +148,17 @@ finished=$(date -Iseconds)
 exit_code=$EXIT_CODE
 crash_start_idx=$START_IDX
 crash_end_idx=$END_IDX
+resume_command=uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM
 EOF
 
     # Create a prominent crash marker file
     CRASH_LOG="$LOGS_DIR/CRASH__${BATCH_ID}__${START_IDX}-${END_IDX}.log"
     cp "$CHUNK_LOG" "$CRASH_LOG"
-    echo "Crash log saved to: $CRASH_LOG" | tee -a "$CHUNK_LOG"
+    echo "" | tee -a "$CHUNK_LOG"
+    echo "###################################################" | tee -a "$CHUNK_LOG"
+    echo "CRASH LOG SAVED TO:" | tee -a "$CHUNK_LOG"
+    echo "  $CRASH_LOG" | tee -a "$CHUNK_LOG"
+    echo "###################################################" | tee -a "$CHUNK_LOG"
 fi
 
 echo "" | tee -a "$CHUNK_LOG"
@@ -142,8 +166,8 @@ echo "Chunk log: $CHUNK_LOG" | tee -a "$CHUNK_LOG"
 echo "Status:    $CHUNK_STATUS" | tee -a "$CHUNK_LOG"
 echo "" | tee -a "$CHUNK_LOG"
 
-# Keep tmux session open for inspection
-if [[ $EXIT_CODE -ne 0 ]]; then
+# Keep tmux session open for inspection (unless --no-wait)
+if [[ $EXIT_CODE -ne 0 ]] && [[ "$NO_WAIT" != "true" ]]; then
     echo "Press Enter to close this tmux session..."
     read
 fi

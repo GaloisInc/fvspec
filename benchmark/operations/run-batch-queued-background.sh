@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Wrapper to run run-batch.sh in the background with nohup
+# Wrapper to run run-batch-queued.sh in the background with nohup
 # Safe to disconnect SSH after running this
+# RAM-friendly: Only runs N chunks at a time
 
 set -euo pipefail
 
@@ -12,20 +13,21 @@ mkdir -p "$LOGS_DIR"
 
 # Generate timestamp for log file
 TIMESTAMP=$(date +%Y-%m-%dT%H-%M-%S)
-LOG_FILE="$LOGS_DIR/run-batch-background__${TIMESTAMP}.log"
+LOG_FILE="$LOGS_DIR/run-batch-queued-background__${TIMESTAMP}.log"
 
 echo "================================================"
-echo "Background Batch Run"
+echo "Background Queued Batch Run (RAM-Friendly)"
 echo "================================================"
-echo "Starting batch orchestration in background..."
+echo "Starting queued batch orchestration in background..."
 echo "Log file: $LOG_FILE"
 echo ""
-echo "This will create all tmux sessions and then exit."
+echo "This will run a limited number of chunks at once,"
+echo "launching new chunks as old ones complete."
 echo "You can safely close your SSH session."
 echo ""
 
-# Run run-batch.sh with nohup, passing all arguments
-nohup "$SCRIPT_DIR/run-batch.sh" "$@" > "$LOG_FILE" 2>&1 &
+# Run run-batch-queued.sh with nohup, passing all arguments
+nohup "$SCRIPT_DIR/run-batch-queued.sh" "$@" > "$LOG_FILE" 2>&1 &
 
 BATCH_PID=$!
 
@@ -37,9 +39,9 @@ echo "  Check PID:     ps -p $BATCH_PID"
 echo "  Monitor:       ./operations/monitor.sh --watch"
 echo "  Find crashes:  ./operations/find-crashes.sh"
 echo ""
-echo "Once tmux sessions are created (~7 min for full batch), you can:"
-echo "  - Close your SSH session"
-echo "  - Sessions will continue running"
-echo "  - Reconnect later and use: ./operations/monitor.sh --watch"
-echo "  - Check for crashes with: ./operations/find-crashes.sh"
+echo "The orchestrator will:"
+echo "  - Launch chunks gradually as resources become available"
+echo "  - Keep RAM usage bounded"
+echo "  - Continue running until all chunks complete"
+echo "  - You can disconnect and reconnect anytime"
 echo ""

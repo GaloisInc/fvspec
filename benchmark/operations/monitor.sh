@@ -138,20 +138,40 @@ show_status() {
 
     # Show crash logs if any
     if [[ $FAILED -gt 0 ]]; then
-        echo "Failed Chunks (see logs for details):"
+        echo "###################################################"
+        echo "###  ⚠️  FAILED CHUNKS DETECTED  ⚠️             ###"
+        echo "###################################################"
+        echo ""
+        echo "Failed chunks:"
         for status_file in "${STATUS_FILES[@]}"; do
             if [[ ! -f "$status_file" ]]; then
                 continue
             fi
             source "$status_file"
             if [[ "$status" == "FAILED" ]]; then
-                echo "  ✗ [$start_idx, $end_idx) - Exit code: ${exit_code:-unknown}"
-                echo "    Log: ${status_file%.status}.log"
+                echo ""
+                echo "  ✗ Range: [$start_idx, $end_idx)"
+                echo "    Exit code: ${exit_code:-unknown}"
                 if [[ -n "${crash_start_idx:-}" ]]; then
-                    echo "    Crashed processing index range: [$crash_start_idx, $crash_end_idx)"
+                    echo "    Crashed at: [$crash_start_idx, $crash_end_idx)"
                 fi
+                if [[ -n "${resume_command:-}" ]]; then
+                    echo ""
+                    echo "    TO RESUME, RUN:"
+                    echo "      $resume_command"
+                fi
+                echo ""
+                echo "    Full log: ${status_file%.status}.log"
             fi
         done
+        echo ""
+        echo "---------------------------------------------------"
+        echo "To see all crashes with resume commands, run:"
+        echo "  ./operations/find-crashes.sh"
+        if [[ -n "$BATCH_ID" ]]; then
+            echo "  ./operations/find-crashes.sh --batch-id $BATCH_ID"
+        fi
+        echo "---------------------------------------------------"
         echo ""
     fi
 
