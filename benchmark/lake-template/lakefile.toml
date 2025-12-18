@@ -23,4 +23,4 @@ rev = "v4.26.0"
 [[require]]
 name = "LSpec"
 scope = "argumentcomputer"
-rev = "d2bbbfa61a82ac199a5e852aa375acffd9a3b3f1"
+rev = "fdf848d6cda9f080a09e49e760e2d6f70878800b"
