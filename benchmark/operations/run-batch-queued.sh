@@ -12,9 +12,9 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 # Default values
 VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
-CHUNK_SIZE=500
+CHUNK_SIZE=1000
 PARALLELISM=10
-MAX_CONCURRENT=50  # Maximum number of chunks running at once
+MAX_CONCURRENT=5  # Maximum number of chunks running at once
 POLL_INTERVAL=60  # Seconds between checking for completed chunks
 DRY_RUN=false
 
