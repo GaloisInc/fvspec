@@ -6,7 +6,7 @@ max_tokens = -1
 # Display mode for inspect_ai eval TUI: full, conversation, rich, plain, log, none
 display = "plain"
 # Number of samples to evaluate in parallel
-parallelism = 64
+parallelism = 16
 
 [prompt]
 # Prompt variant from registry.toml

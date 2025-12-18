@@ -11,7 +11,7 @@ LOGS_DIR="$SCRIPT_DIR/logs"
 # Default values
 VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
-CHUNK_SIZE=500
+CHUNK_SIZE=10000
 PARALLELISM=10
 LAUNCH_DELAY=2  # Seconds to wait between launching tmux sessions
 DRY_RUN=false
