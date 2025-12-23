@@ -179,11 +179,11 @@ Instead, copy the file and manually sync changes after git updates:
 
 ```bash
 # Copy nginx config from repository to sites-available
-sudo cp /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
-  /etc/nginx/sites-available/fvspec-leaderboard
+sudo ln -sf /home/quinnd/fvspec/leaderboard/operations/nginx-leaderboard.conf \
+  /etc/nginx/sites-available/fvspec-web
 
 # Enable the site by symlinking to sites-enabled
-sudo ln -sf /etc/nginx/sites-available/fvspec-leaderboard \
+sudo ln -sf /etc/nginx/sites-available/fvspec-web \
   /etc/nginx/sites-enabled/
 
 # Remove default site (optional)
