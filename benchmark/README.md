@@ -1,8 +1,6 @@
 # Benchmark
 
-**You need to download `pbts_full.db` and put it in `./benchmark/data/`**
-
-The full PBTs dataset can be found [here](https://beneficialaif-jlt4758.slack.com/archives/C08D6BQNJJV/p1763819016388669)
+**You need to [download `pbts_full.db`](https://www.dropbox.com/scl/fi/n8245no2aao5rjkk46bw7/pbts_full.db?rlkey=teccs61td980bmdsvr5empcib&e=1&st=ec2beuz2&dl=0) and put it in `./benchmark/data/`**
 
 This data was scraped by Benchify (www.benchify.com) from permissively-licensed repos on Github. For more information about the data please contact max@benchify.com or maxvh@hey.com.
 
