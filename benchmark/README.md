@@ -2,7 +2,7 @@
 
 **You need to download `pbts_full.db` and put it in `./benchmark/data/`**
 
-The full PBTs dataset can be found here: **todo: insert url to dataset**
+The full PBTs dataset can be found [here](https://beneficialaif-jlt4758.slack.com/archives/C08D6BQNJJV/p1763819016388669)
 
 This data was scraped by Benchify (www.benchify.com) from permissively-licensed repos on Github. For more information about the data please contact max@benchify.com or maxvh@hey.com.
 
