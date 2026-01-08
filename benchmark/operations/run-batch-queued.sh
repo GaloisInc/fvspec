@@ -186,6 +186,12 @@ UNFILTERED_CHUNK_COUNT=${#CHUNK_QUEUE[@]}
 echo "Built queue with $UNFILTERED_CHUNK_COUNT chunks"
 echo ""
 
+# Track running chunks: session_name -> start_idx:end_idx
+declare -A RUNNING_CHUNKS=()
+NEXT_CHUNK_IDX=0
+COMPLETED_COUNT=0
+FAILED_COUNT=0
+
 # Filter against done.txt
 if [[ -n "$DONE_FILE" ]] && [[ -f "$DONE_FILE" ]]; then
     echo "Filtering completed chunks from done.txt..."
@@ -202,11 +208,6 @@ if [[ -n "$DONE_FILE" ]] && [[ -f "$DONE_FILE" ]]; then
     echo "Remaining chunks to process: $NUM_CHUNKS"
     echo ""
 fi
-
-# Track running chunks: session_name -> start_idx:end_idx
-declare -A RUNNING_CHUNKS=()
-NEXT_CHUNK_IDX=0
-FAILED_COUNT=0
 
 # Function to launch a chunk
 launch_chunk() {
