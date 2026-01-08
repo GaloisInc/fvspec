@@ -7,11 +7,18 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
-from inspect_ai import eval, eval_set
+from dotenv import load_dotenv
+from inspect_ai import eval, eval_retry, eval_set
 from inspect_ai._eval.eval import DisplayType
 from typer import Option, Typer
 
 from generate.config import WandbConfig, load_config
+
+# Load .env from parent directory (monorepo root)
+# This allows running `uv run fvspec` from ./benchmark while .env is at ./
+_env_path = Path(__file__).parent.parent.parent.parent / ".env"
+if _env_path.exists():
+    load_dotenv(_env_path)
 from generate.scaffold.orchestration import fvspec
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import init_wandb_logger
@@ -413,6 +420,64 @@ def compare_variants(
     except (KeyboardInterrupt, Exception):
         # Re-raise to propagate the error
         raise
+
+
+@app.command(name="retry-all")
+def retry_all(
+    artifacts_dir: str = Option(
+        "artifacts",
+        help="Directory to search for .eval files (default: artifacts/)",
+    ),
+    parallelism: int = Option(
+        None,
+        "-p",
+        "--parallelism",
+        help="Number of samples to evaluate in parallel. Overrides config.toml.",
+    ),
+    display: DisplayType | None = Option(
+        None,
+        help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
+    ),
+) -> None:
+    """Retry all .eval files found in artifacts directory.
+
+    This command finds all .eval files and retries them using inspect eval-retry,
+    automatically using the model and settings from config.toml.
+
+    Args:
+        artifacts_dir: Directory to search for .eval files.
+        parallelism: Number of samples to evaluate in parallel (overrides config.toml).
+        display: Display mode for eval logs (overrides config.toml).
+    """
+    # Find all .eval files
+    artifacts_path = Path(artifacts_dir)
+    if not artifacts_path.exists():
+        print(f"Error: Directory {artifacts_dir} does not exist")
+        return
+
+    eval_files = sorted(artifacts_path.rglob("*.eval"))
+
+    if not eval_files:
+        print(f"No .eval files found in {artifacts_dir}")
+        return
+
+    print(f"Found {len(eval_files)} .eval files")
+    print("Note: Will use the model stored in each .eval file")
+
+    # Use config settings
+    use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
+    use_display = display if display is not None else cfg.meta.display
+
+    print(f"Parallelism: {use_parallelism}")
+    print(f"Display: {use_display}")
+    print()
+
+    # Retry all files (model comes from .eval files, not config)
+    eval_retry(
+        [str(f) for f in eval_files],
+        max_samples=use_parallelism,
+        display=use_display,
+    )
 
 
 def main() -> None:
