@@ -15,6 +15,7 @@ END_IDX=""
 PARALLELISM=10
 BATCH_ID=""
 NO_WAIT=false  # If true, exit immediately on failure (for queued runner)
+DONE_FILE="${DONE_FILE:-}"  # Optional done.txt path from environment
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -111,6 +112,21 @@ status=SUCCESS
 finished=$(date -Iseconds)
 exit_code=$EXIT_CODE
 EOF
+
+    # Append to done.txt manifest if provided
+    if [[ -n "$DONE_FILE" ]]; then
+        # Ensure directory exists
+        DONE_DIR="$(dirname "$DONE_FILE")"
+        mkdir -p "$DONE_DIR"
+
+        # Atomic append with flock to prevent concurrent write issues
+        (
+            flock -x 200
+            echo "$START_IDX $END_IDX $VARIANT" >> "$DONE_FILE"
+        ) 200>"${DONE_FILE}.lock"
+
+        echo "Recorded completion in done.txt: [$START_IDX, $END_IDX) for $VARIANT" | tee -a "$CHUNK_LOG"
+    fi
 
 else
     # Failure

@@ -9,16 +9,20 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCHMARK_DIR="$(dirname "$SCRIPT_DIR")"
 LOGS_DIR="$SCRIPT_DIR/logs"
 
+# Source done.txt filtering library
+source "$SCRIPT_DIR/lib/done-filter.sh"
+
 # Default values
 VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
-CHUNK_SIZE=1000
+CHUNK_SIZE=500
 PARALLELISM=10
 MAX_CONCURRENT=3  # Maximum number of chunks running at once
 POLL_INTERVAL=60  # Seconds between checking for completed chunks
 DRY_RUN=false
 START_IDX=""  # Optional: starting index (0-indexed, inclusive)
 END_IDX=""    # Optional: ending index (0-indexed, exclusive)
+DONE_FILE="./operations/done.txt"  # Manifest of completed ranges
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -59,9 +63,17 @@ while [[ $# -gt 0 ]]; do
             DRY_RUN=true
             shift
             ;;
+        --done-file)
+            DONE_FILE="$2"
+            shift 2
+            ;;
+        --skip-done-check)
+            DONE_FILE=""
+            shift
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 --variant <variant> [--total <n>] [--start-idx <n>] [--end-idx <n>] [--chunk-size <n>] [--parallelism <n>] [--max-concurrent <n>] [--poll-interval <seconds>] [--dry-run]"
+            echo "Usage: $0 --variant <variant> [--total <n>] [--start-idx <n>] [--end-idx <n>] [--chunk-size <n>] [--parallelism <n>] [--max-concurrent <n>] [--poll-interval <seconds>] [--dry-run] [--done-file <path>] [--skip-done-check]"
             exit 1
             ;;
     esac
@@ -149,6 +161,7 @@ Parallelism: $PARALLELISM
 Max Concurrent: $MAX_CONCURRENT
 Num Chunks: $NUM_CHUNKS
 Poll Interval: ${POLL_INTERVAL}s
+Done File: ${DONE_FILE:-none}
 EOF
 
 echo "Batch log: $BATCH_LOG"
@@ -169,13 +182,30 @@ for (( i=0; i<NUM_CHUNKS; i++ )); do
     CHUNK_QUEUE+=("$chunk_start:$chunk_end")
 done
 
-echo "Built queue with ${#CHUNK_QUEUE[@]} chunks"
+UNFILTERED_CHUNK_COUNT=${#CHUNK_QUEUE[@]}
+echo "Built queue with $UNFILTERED_CHUNK_COUNT chunks"
 echo ""
+
+# Filter against done.txt
+if [[ -n "$DONE_FILE" ]] && [[ -f "$DONE_FILE" ]]; then
+    echo "Filtering completed chunks from done.txt..."
+    load_and_filter_done_ranges "$DONE_FILE" "$VARIANT" CHUNK_QUEUE COMPLETED_COUNT
+
+    # Update NUM_CHUNKS after filtering
+    NUM_CHUNKS=${#CHUNK_QUEUE[@]}
+
+    if [[ $NUM_CHUNKS -eq 0 ]]; then
+        echo "All chunks already completed! Nothing to do."
+        exit 0
+    fi
+
+    echo "Remaining chunks to process: $NUM_CHUNKS"
+    echo ""
+fi
 
 # Track running chunks: session_name -> start_idx:end_idx
 declare -A RUNNING_CHUNKS=()
 NEXT_CHUNK_IDX=0
-COMPLETED_COUNT=0
 FAILED_COUNT=0
 
 # Function to launch a chunk
@@ -195,7 +225,7 @@ launch_chunk() {
     # Create new tmux session running the chunk worker script
     # Use --no-wait so failed chunks exit immediately (no interactive prompt)
     tmux new-session -d -s "$SESSION_NAME" \
-        "bash '$SCRIPT_DIR/run-chunk.sh' \
+        "DONE_FILE='$DONE_FILE' bash '$SCRIPT_DIR/run-chunk.sh' \
             --variant '$VARIANT' \
             --start-idx $start_idx \
             --end-idx $end_idx \

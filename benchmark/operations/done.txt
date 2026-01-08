@@ -1,0 +1,10 @@
+# Completed ranges manifest for fvspec benchmark
+# Format: START_IDX END_IDX VARIANT
+# Range is [START_IDX, END_IDX) - end-exclusive
+# Generated: 2026-01-08 (initial manual entry)
+#
+# Recovered from 2025-12-18 batch run that crashed due to RAM exhaustion
+# These ranges successfully completed before the crash:
+
+3000 4000 control-functional
+43000 45000 control-functional
