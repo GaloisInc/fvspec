@@ -15,6 +15,8 @@ CHUNK_SIZE=10000
 PARALLELISM=10
 LAUNCH_DELAY=2  # Seconds to wait between launching tmux sessions
 DRY_RUN=false
+START_IDX=""  # Optional: starting index (0-indexed, inclusive)
+END_IDX=""    # Optional: ending index (0-indexed, exclusive)
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -39,13 +41,21 @@ while [[ $# -gt 0 ]]; do
             LAUNCH_DELAY="$2"
             shift 2
             ;;
+        --start-idx)
+            START_IDX="$2"
+            shift 2
+            ;;
+        --end-idx)
+            END_IDX="$2"
+            shift 2
+            ;;
         --dry-run)
             DRY_RUN=true
             shift
             ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 --variant <variant> --total <n> [--chunk-size <n>] [--parallelism <n>] [--launch-delay <seconds>] [--dry-run]"
+            echo "Usage: $0 --variant <variant> [--total <n>] [--start-idx <n>] [--end-idx <n>] [--chunk-size <n>] [--parallelism <n>] [--launch-delay <seconds>] [--dry-run]"
             exit 1
             ;;
     esac
@@ -57,14 +67,36 @@ if [[ $CHUNK_SIZE -le 0 ]]; then
     exit 1
 fi
 
-# Calculate number of chunks
-NUM_CHUNKS=$(( (TOTAL_SAMPLES + CHUNK_SIZE - 1) / CHUNK_SIZE ))
+# Handle start/end indices
+# If START_IDX is provided, use it; otherwise default to 0
+# If END_IDX is provided, use it; otherwise use TOTAL_SAMPLES
+RANGE_START=${START_IDX:-0}
+RANGE_END=${END_IDX:-$TOTAL_SAMPLES}
+
+# Validate range
+if [[ $RANGE_START -lt 0 ]]; then
+    echo "Error: --start-idx must be non-negative"
+    exit 1
+fi
+
+if [[ $RANGE_END -le $RANGE_START ]]; then
+    echo "Error: --end-idx must be greater than --start-idx"
+    exit 1
+fi
+
+# Calculate range size and number of chunks
+RANGE_SIZE=$((RANGE_END - RANGE_START))
+NUM_CHUNKS=$(( (RANGE_SIZE + CHUNK_SIZE - 1) / CHUNK_SIZE ))
 
 echo "================================================"
 echo "Batch Run Configuration"
 echo "================================================"
 echo "Variant:       $VARIANT"
-echo "Total:         $TOTAL_SAMPLES samples"
+if [[ -n "$START_IDX" ]] || [[ -n "$END_IDX" ]]; then
+    echo "Index range:   [$RANGE_START, $RANGE_END) ($RANGE_SIZE samples)"
+else
+    echo "Total:         $TOTAL_SAMPLES samples"
+fi
 echo "Chunk size:    $CHUNK_SIZE samples"
 echo "Chunks:        $NUM_CHUNKS"
 echo "Parallelism:   $PARALLELISM per chunk"
@@ -78,13 +110,18 @@ mkdir -p "$LOGS_DIR"
 
 # Create batch metadata file
 TIMESTAMP=$(date +%Y-%m-%dT%H-%M-%S)
-BATCH_ID="${TIMESTAMP}__${VARIANT}__total-${TOTAL_SAMPLES}"
+if [[ -n "$START_IDX" ]] || [[ -n "$END_IDX" ]]; then
+    BATCH_ID="${TIMESTAMP}__${VARIANT}__range-${RANGE_START}-${RANGE_END}"
+else
+    BATCH_ID="${TIMESTAMP}__${VARIANT}__total-${TOTAL_SAMPLES}"
+fi
 BATCH_LOG="$LOGS_DIR/batch__${BATCH_ID}.log"
 
 cat > "$BATCH_LOG" <<EOF
 Batch Run Started: $(date)
 Variant: $VARIANT
-Total Samples: $TOTAL_SAMPLES
+Range: [$RANGE_START, $RANGE_END)
+Range Size: $RANGE_SIZE
 Chunk Size: $CHUNK_SIZE
 Parallelism: $PARALLELISM
 Launch Delay: ${LAUNCH_DELAY}s
@@ -96,20 +133,20 @@ echo ""
 
 # Launch tmux sessions for each chunk
 for (( i=0; i<NUM_CHUNKS; i++ )); do
-    START_IDX=$((i * CHUNK_SIZE))
-    END_IDX=$(( START_IDX + CHUNK_SIZE ))
+    chunk_start=$((RANGE_START + i * CHUNK_SIZE))
+    chunk_end=$(( chunk_start + CHUNK_SIZE ))
 
-    # Don't exceed total samples
-    if [[ $END_IDX -gt $TOTAL_SAMPLES ]]; then
-        END_IDX=$TOTAL_SAMPLES
+    # Don't exceed range end
+    if [[ $chunk_end -gt $RANGE_END ]]; then
+        chunk_end=$RANGE_END
     fi
 
     # Create unique session name
-    SESSION_NAME="fvspec_${VARIANT}_${START_IDX}-${END_IDX}"
+    SESSION_NAME="fvspec_${VARIANT}_${chunk_start}-${chunk_end}"
 
     # Log chunk info
-    echo "Chunk $((i+1))/$NUM_CHUNKS: samples [$START_IDX, $END_IDX) -> tmux session: $SESSION_NAME"
-    echo "Chunk $((i+1))/$NUM_CHUNKS: [$START_IDX, $END_IDX) -> $SESSION_NAME" >> "$BATCH_LOG"
+    echo "Chunk $((i+1))/$NUM_CHUNKS: samples [$chunk_start, $chunk_end) -> tmux session: $SESSION_NAME"
+    echo "Chunk $((i+1))/$NUM_CHUNKS: [$chunk_start, $chunk_end) -> $SESSION_NAME" >> "$BATCH_LOG"
 
     if [[ "$DRY_RUN" == "true" ]]; then
         continue
@@ -125,8 +162,8 @@ for (( i=0; i<NUM_CHUNKS; i++ )); do
     tmux new-session -d -s "$SESSION_NAME" \
         "bash '$SCRIPT_DIR/run-chunk.sh' \
             --variant '$VARIANT' \
-            --start-idx $START_IDX \
-            --end-idx $END_IDX \
+            --start-idx $chunk_start \
+            --end-idx $chunk_end \
             --parallelism $PARALLELISM \
             --batch-id '$BATCH_ID'"
 
