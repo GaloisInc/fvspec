@@ -49,6 +49,7 @@ ci-digest = "scripts.ci.ci_digest:app"
 create-ci-db = "scripts.ci.create_ci_db:app"
 accumulate = "scripts.postproduction.accumulate:app"
 merge = "scripts.postproduction.merge:app"
+fix-eval-status = "scripts.ops.fix_eval_status:main"
 
 [tool.pytest.ini_options]
 filterwarnings = [
