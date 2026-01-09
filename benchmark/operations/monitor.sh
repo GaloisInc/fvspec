@@ -86,9 +86,9 @@ show_status() {
         esac
 
         # Calculate duration
-        STARTED_EPOCH=$(date -d "$started" +%s 2>/dev/null || echo "0")
+        STARTED_EPOCH=$(date -d "${started:-}" +%s 2>/dev/null || echo "0")
         if [[ -n "${finished:-}" ]]; then
-            FINISHED_EPOCH=$(date -d "$finished" +%s 2>/dev/null || echo "0")
+            FINISHED_EPOCH=$(date -d "${finished:-}" +%s 2>/dev/null || echo "0")
             DURATION=$((FINISHED_EPOCH - STARTED_EPOCH))
         else
             NOW_EPOCH=$(date +%s)
@@ -120,8 +120,8 @@ show_status() {
                 ;;
         esac
 
-        RANGE="[${start_idx}, ${end_idx})"
-        STARTED_SHORT=$(date -d "$started" +"%m-%d %H:%M" 2>/dev/null || echo "$started")
+        RANGE="[${start_idx:-?}, ${end_idx:-?})"
+        STARTED_SHORT=$(date -d "${started:-}" +"%m-%d %H:%M" 2>/dev/null || echo "${started:-N/A}")
 
         printf "%-20s %-24b %-20s %s\n" "$RANGE" "$STATUS_COLOR" "$STARTED_SHORT" "$DURATION_STR"
     done
@@ -150,10 +150,10 @@ show_status() {
             source "$status_file"
             if [[ "$status" == "FAILED" ]]; then
                 echo ""
-                echo "  ✗ Range: [$start_idx, $end_idx)"
+                echo "  ✗ Range: [${start_idx:-?}, ${end_idx:-?})"
                 echo "    Exit code: ${exit_code:-unknown}"
                 if [[ -n "${crash_start_idx:-}" ]]; then
-                    echo "    Crashed at: [$crash_start_idx, $crash_end_idx)"
+                    echo "    Crashed at: [${crash_start_idx:-?}, ${crash_end_idx:-?})"
                 fi
                 if [[ -n "${resume_command:-}" ]]; then
                     echo ""
