@@ -15,7 +15,7 @@ source "$SCRIPT_DIR/lib/done-filter.sh"
 # Default values
 VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
-CHUNK_SIZE=250
+CHUNK_SIZE=100
 PARALLELISM=10
 MAX_CONCURRENT=4  # Maximum number of chunks running at once
 POLL_INTERVAL=60  # Seconds between checking for completed chunks
