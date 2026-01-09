@@ -12,8 +12,9 @@ load_and_filter_done_ranges() {
         return 0
     fi
 
-    # Load done ranges into associative array
-    declare -A done_map=()
+    # Load done ranges into arrays
+    declare -a done_starts=()
+    declare -a done_ends=()
     while read -r start end range_variant rest; do
         # Skip comments and empty lines
         [[ "$start" =~ ^# ]] && continue
@@ -21,18 +22,35 @@ load_and_filter_done_ranges() {
 
         # Only include ranges for this variant
         if [[ "$range_variant" == "$variant" ]]; then
-            done_map["$start:$end"]=1
+            done_starts+=("$start")
+            done_ends+=("$end")
         fi
     done < "$done_file"
 
-    # Filter queue, removing done ranges
+    # Filter queue, removing chunks that are fully covered by done ranges
     local filtered=()
     local skipped_count=0
     for chunk_spec in "${queue_ref[@]}"; do
-        if [[ -z "${done_map[$chunk_spec]:-}" ]]; then
+        local chunk_start="${chunk_spec%:*}"
+        local chunk_end="${chunk_spec#*:}"
+        local is_covered=false
+
+        # Check if this chunk is fully covered by any done range
+        for i in "${!done_starts[@]}"; do
+            local done_start="${done_starts[$i]}"
+            local done_end="${done_ends[$i]}"
+
+            # Chunk is covered if: done_start <= chunk_start AND chunk_end <= done_end
+            if [[ $done_start -le $chunk_start ]] && [[ $chunk_end -le $done_end ]]; then
+                is_covered=true
+                echo "  Skipping completed range: $chunk_spec (covered by [$done_start, $done_end) in done.txt)"
+                break
+            fi
+        done
+
+        if [[ "$is_covered" == "false" ]]; then
             filtered+=("$chunk_spec")
         else
-            echo "  Skipping completed range: $chunk_spec (in done.txt)"
             ((skipped_count++))
             ((completed_ref++))
         fi
