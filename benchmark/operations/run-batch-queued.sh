@@ -277,7 +277,7 @@ check_completed() {
 
     # Remove completed sessions from tracking
     for session_name in "${completed_sessions[@]}"; do
-        unset RUNNING_CHUNKS["$session_name"]
+        unset 'RUNNING_CHUNKS[$session_name]'
     done
 
     return ${#completed_sessions[@]}
