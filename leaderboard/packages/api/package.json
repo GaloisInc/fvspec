@@ -24,7 +24,7 @@
   "dependencies": {
     "@fvspec/common": "*",
     "@hono/node-server": "^1.19.8",
-    "bullmq": "^5.66.4",
+    "bullmq": "^5.66.5",
     "dotenv": "^17.2.3",
     "drizzle-kit": "^0.31.8",
     "drizzle-orm": "^0.45.1",
