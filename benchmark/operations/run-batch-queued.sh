@@ -280,7 +280,8 @@ check_completed() {
         unset 'RUNNING_CHUNKS[$session_name]'
     done
 
-    return ${#completed_sessions[@]}
+    # Always return success (set -euo pipefail would exit on non-zero)
+    return 0
 }
 
 # Function to save queue state
