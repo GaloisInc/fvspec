@@ -23,6 +23,7 @@ DRY_RUN=false
 START_IDX=""  # Optional: starting index (0-indexed, inclusive)
 END_IDX=""    # Optional: ending index (0-indexed, exclusive)
 DONE_FILE="./operations/done.txt"  # Manifest of completed ranges
+MEMORY_LIMIT=""  # Optional memory limit per chunk (e.g., "8G", "4096M")
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
@@ -71,9 +72,13 @@ while [[ $# -gt 0 ]]; do
             DONE_FILE=""
             shift
             ;;
+        --memory-limit)
+            MEMORY_LIMIT="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: $0 --variant <variant> [--total <n>] [--start-idx <n>] [--end-idx <n>] [--chunk-size <n>] [--parallelism <n>] [--max-concurrent <n>] [--poll-interval <seconds>] [--dry-run] [--done-file <path>] [--skip-done-check]"
+            echo "Usage: $0 --variant <variant> [--total <n>] [--start-idx <n>] [--end-idx <n>] [--chunk-size <n>] [--parallelism <n>] [--max-concurrent <n>] [--poll-interval <seconds>] [--memory-limit <size>] [--dry-run] [--done-file <path>] [--skip-done-check]"
             exit 1
             ;;
     esac
@@ -124,6 +129,7 @@ echo "Chunk size:      $CHUNK_SIZE samples"
 echo "Total chunks:    $NUM_CHUNKS"
 echo "Max concurrent:  $MAX_CONCURRENT chunks"
 echo "Parallelism:     $PARALLELISM per chunk"
+echo "Memory limit:    ${MEMORY_LIMIT:-unlimited}"
 echo "Poll interval:   ${POLL_INTERVAL}s"
 echo "Dry run:         $DRY_RUN"
 echo "================================================"
@@ -159,6 +165,7 @@ Range Size: $RANGE_SIZE
 Chunk Size: $CHUNK_SIZE
 Parallelism: $PARALLELISM
 Max Concurrent: $MAX_CONCURRENT
+Memory Limit: ${MEMORY_LIMIT:-unlimited}
 Num Chunks: $NUM_CHUNKS
 Poll Interval: ${POLL_INTERVAL}s
 Done File: ${DONE_FILE:-none}
@@ -232,6 +239,7 @@ launch_chunk() {
             --end-idx $end_idx \
             --parallelism $PARALLELISM \
             --batch-id '$BATCH_ID' \
+            ${MEMORY_LIMIT:+--memory-limit '$MEMORY_LIMIT'} \
             --no-wait"
 
     RUNNING_CHUNKS["$SESSION_NAME"]="$chunk_spec"

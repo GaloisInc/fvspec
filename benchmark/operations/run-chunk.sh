@@ -16,6 +16,7 @@ PARALLELISM=10
 BATCH_ID=""
 NO_WAIT=false  # If true, exit immediately on failure (for queued runner)
 DONE_FILE="${DONE_FILE:-}"  # Optional done.txt path from environment
+MEMORY_LIMIT=""  # Optional memory limit (e.g., "8G", "4096M")
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -42,6 +43,10 @@ while [[ $# -gt 0 ]]; do
         --no-wait)
             NO_WAIT=true
             shift
+            ;;
+        --memory-limit)
+            MEMORY_LIMIT="$2"
+            shift 2
             ;;
         *)
             echo "Unknown option: $1"
@@ -78,6 +83,7 @@ echo "Start Index:  $START_IDX" | tee -a "$CHUNK_LOG"
 echo "End Index:    $END_IDX" | tee -a "$CHUNK_LOG"
 echo "Parallelism:  $PARALLELISM" | tee -a "$CHUNK_LOG"
 echo "Batch ID:     $BATCH_ID" | tee -a "$CHUNK_LOG"
+echo "Memory Limit: ${MEMORY_LIMIT:-unlimited}" | tee -a "$CHUNK_LOG"
 echo "Log:          $CHUNK_LOG" | tee -a "$CHUNK_LOG"
 echo "Started:      $(date)" | tee -a "$CHUNK_LOG"
 echo "================================================" | tee -a "$CHUNK_LOG"
@@ -86,13 +92,19 @@ echo "" | tee -a "$CHUNK_LOG"
 # Change to benchmark directory
 cd "$BENCHMARK_DIR"
 
+# Source memory limiting library and build command prefix
+source "$SCRIPT_DIR/lib/memory-limit.sh"
+MEMORY_CMD=$(build_memory_cmd "$MEMORY_LIMIT")
+
 # Run the benchmark with error handling
 # Use nice and ionice to reduce system priority (prevents system slowdown)
+# Optional memory limiting via systemd-run or prlimit
 EXIT_CODE=0
-echo "Running: nice -n 19 ionice -c 3 uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM" | tee -a "$CHUNK_LOG"
+echo "Running: ${MEMORY_CMD:+$MEMORY_CMD }nice -n 19 ionice -c 3 uv run fvspec --variant $VARIANT --start-idx $START_IDX --end-idx $END_IDX --parallelism $PARALLELISM" | tee -a "$CHUNK_LOG"
 echo "" | tee -a "$CHUNK_LOG"
 
-if nice -n 19 ionice -c 3 uv run fvspec \
+# shellcheck disable=SC2086  # Word splitting is intentional for MEMORY_CMD
+if $MEMORY_CMD nice -n 19 ionice -c 3 uv run fvspec \
     --variant "$VARIANT" \
     --start-idx "$START_IDX" \
     --end-idx "$END_IDX" \
@@ -144,7 +156,16 @@ else
     echo "  End Index:    $END_IDX" | tee -a "$CHUNK_LOG"
     echo "  Samples:      [$START_IDX, $END_IDX)" | tee -a "$CHUNK_LOG"
     echo "  Exit Code:    $EXIT_CODE" | tee -a "$CHUNK_LOG"
+    echo "  Memory Limit: ${MEMORY_LIMIT:-unlimited}" | tee -a "$CHUNK_LOG"
     echo "  Crashed at:   $(date)" | tee -a "$CHUNK_LOG"
+
+    # Check for likely OOM kill (exit 137 = SIGKILL)
+    if is_oom_exit "$EXIT_CODE"; then
+        echo "" | tee -a "$CHUNK_LOG"
+        echo "  ⚠️  LIKELY OOM KILL (exit $EXIT_CODE)" | tee -a "$CHUNK_LOG"
+        echo "  Try: --memory-limit <larger> or --parallelism <lower>" | tee -a "$CHUNK_LOG"
+    fi
+
     echo "" | tee -a "$CHUNK_LOG"
     echo "---------------------------------------------------" | tee -a "$CHUNK_LOG"
     echo "TO RESUME THIS CHUNK, RUN:" | tee -a "$CHUNK_LOG"
