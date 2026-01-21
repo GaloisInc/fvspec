@@ -23,7 +23,7 @@ DRY_RUN=false
 START_IDX=""  # Optional: starting index (0-indexed, inclusive)
 END_IDX=""    # Optional: ending index (0-indexed, exclusive)
 DONE_FILE="./operations/done.txt"  # Manifest of completed ranges
-MEMORY_LIMIT=""  # Optional memory limit per chunk (e.g., "8G", "4096M")
+MEMORY_LIMIT="3G"  # Default memory limit per chunk (override with --memory-limit)
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do

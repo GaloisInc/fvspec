@@ -16,7 +16,7 @@ PARALLELISM=10
 BATCH_ID=""
 NO_WAIT=false  # If true, exit immediately on failure (for queued runner)
 DONE_FILE="${DONE_FILE:-}"  # Optional done.txt path from environment
-MEMORY_LIMIT=""  # Optional memory limit (e.g., "8G", "4096M")
+MEMORY_LIMIT="3G"  # Default memory limit per chunk (override with --memory-limit)
 
 while [[ $# -gt 0 ]]; do
     case $1 in
