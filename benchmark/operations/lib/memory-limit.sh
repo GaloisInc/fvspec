@@ -20,6 +20,10 @@ parse_size_to_bytes() {
 # Returns a command prefix string or empty if no limit specified
 # Usage: MEMORY_CMD=$(build_memory_cmd "8G")
 #        $MEMORY_CMD nice -n 19 my_command
+#
+# Uses two-tier memory limiting:
+# - MemoryHigh=4G: soft limit, process gets throttled (slower but continues)
+# - MemoryMax=7G: hard limit, process gets killed (safety backstop)
 build_memory_cmd() {
     local limit="$1"
     [[ -z "$limit" ]] && return 0
@@ -28,10 +32,10 @@ build_memory_cmd() {
     # Test with a simple scope to check availability
     if systemd-run --user --scope true 2>/dev/null; then
         # systemd-run with user scope works
-        echo "systemd-run --user --scope -p MemoryMax=$limit -p MemorySwapMax=0 --"
+        echo "systemd-run --user --scope -p MemoryHigh=4G -p MemoryMax=7G -p MemorySwapMax=0 --"
     elif systemd-run --scope true 2>/dev/null; then
         # System-level scope works (may need root)
-        echo "systemd-run --scope -p MemoryMax=$limit -p MemorySwapMax=0 --"
+        echo "systemd-run --scope -p MemoryHigh=4G -p MemoryMax=7G -p MemorySwapMax=0 --"
     elif command -v prlimit &>/dev/null; then
         # Fall back to prlimit (virtual memory limit, less precise but portable)
         local bytes
