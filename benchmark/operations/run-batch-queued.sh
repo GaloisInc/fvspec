@@ -17,13 +17,13 @@ VARIANT="control-functional"
 TOTAL_SAMPLES=53408  # Full eligible dataset (54,345 total - 937 filtered)
 CHUNK_SIZE=100
 PARALLELISM=10
-MAX_CONCURRENT=8  # Maximum number of chunks running at once
+MAX_CONCURRENT=6  # Maximum number of chunks running at once
 POLL_INTERVAL=60  # Seconds between checking for completed chunks
 DRY_RUN=false
 START_IDX=""  # Optional: starting index (0-indexed, inclusive)
 END_IDX=""    # Optional: ending index (0-indexed, exclusive)
 DONE_FILE="./operations/done.txt"  # Manifest of completed ranges
-MEMORY_LIMIT="3G"  # Default memory limit per chunk (override with --memory-limit)
+MEMORY_LIMIT="4G"  # Default memory limit per chunk (override with --memory-limit)
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
