@@ -1,0 +1,62 @@
+Estimate the difficulty of formalizing this Python property-based test in Lean 4.
+
+## Python Property-Based Test
+
+**Summary**: {{ pbt_summary }}
+
+**Code**:
+```python
+{{ pbt_code }}
+```
+
+## Context
+
+- **Variant**: {{ variant }}
+- **Dependencies**: {{ dep_names | join(", ") if dep_names else "None" }}
+- **Radon Complexity Metrics**: {{ radon }}
+- **Generated Theorems**: {{ num_theorems }}
+- **Implementation Level**: {{ implementation_level }}
+
+## Your Task
+
+Estimate the difficulty of creating this formalization across five dimensions:
+
+1. **Mathematical Complexity** (0-10): How much abstract mathematical reasoning is required?
+   - Abstract concepts (groups, rings, graphs, etc.)
+   - Mathematical properties (associativity, commutativity, etc.)
+   - Logical reasoning depth
+   - Algorithm complexity
+
+2. **Type Challenges** (0-10): How complex is the type system usage?
+   - Dependent types, indexed types, type classes
+   - Type conversions and coercions
+   - Polymorphism and generics
+   - Type-level constraints
+
+3. **Proof Difficulty** (0-10): How difficult would the proofs be?
+   - Proof length and sophistication
+   - Induction/recursion complexity
+   - Number of lemmas needed
+   - Non-obvious proof steps
+
+4. **Domain Knowledge** (0-10): What specialized knowledge is required?
+   - Domain-specific concepts (crypto, networking, parsing, etc.)
+   - Library-specific idioms
+   - Background knowledge assumptions
+   - Problem domain complexity
+
+5. **Lean Expertise** (0-10): What level of Lean proficiency is needed?
+   - Lean-specific features (tactics, macros, notation)
+   - Standard library familiarity
+   - Lean 4 idioms and patterns
+   - Metaprogramming or advanced features
+
+Provide an **overall difficulty score** (0-10) that reflects the combined challenge, and a **confidence** level (0-1) indicating your certainty.
+
+**Important**:
+- Consider both the Python code complexity AND the Lean formalization challenge
+- Be calibrated: 5 is moderate difficulty, 8+ is very challenging
+- A simple Python function may still be difficult to formalize and vice versa
+- Consider whether functional vs mvcgen approach affects difficulty
+
+Provide a clear **explanation** (2-4 sentences) justifying your scores and highlighting the main difficulty factors.
