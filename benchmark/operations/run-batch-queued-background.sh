@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Wrapper to run run-batch-queued.sh in the background with nohup
+# Wrapper to run run-batch-queued.sh in the background using tmux
 # Safe to disconnect SSH after running this
 # RAM-friendly: Only runs N chunks at a time
 
@@ -18,7 +18,7 @@ LOG_FILE="$LOGS_DIR/run-batch-queued-background__${TIMESTAMP}.log"
 echo "================================================"
 echo "Background Queued Batch Run (RAM-Friendly)"
 echo "================================================"
-echo "Starting queued batch orchestration in background..."
+echo "Starting queued batch orchestration in tmux..."
 echo "Log file: $LOG_FILE"
 echo ""
 echo "This will run a limited number of chunks at once,"
@@ -26,18 +26,28 @@ echo "launching new chunks as old ones complete."
 echo "You can safely close your SSH session."
 echo ""
 
-# Run run-batch-queued.sh with nohup, passing all arguments
-nohup "$SCRIPT_DIR/run-batch-queued.sh" "$@" > "$LOG_FILE" 2>&1 &
+# Create tmux session name with timestamp
+SESSION_NAME="fvspec_queued_orchestrator_${TIMESTAMP}"
 
-BATCH_PID=$!
+# Check if session already exists
+if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
+    echo "ERROR: Session $SESSION_NAME already exists"
+    echo "Attach with: tmux attach -t $SESSION_NAME"
+    exit 1
+fi
 
-echo "Background process started: PID $BATCH_PID"
+# Run run-batch-queued.sh in a tmux session with logging
+tmux new-session -d -s "$SESSION_NAME" \
+    "bash '$SCRIPT_DIR/run-batch-queued.sh' $* 2>&1 | tee '$LOG_FILE'"
+
+echo "✓ Orchestrator started in tmux session: $SESSION_NAME"
 echo ""
 echo "Commands:"
+echo "  Attach:        tmux attach -t $SESSION_NAME"
 echo "  Watch log:     tail -f $LOG_FILE"
-echo "  Check PID:     ps -p $BATCH_PID"
 echo "  Monitor:       ./operations/monitor.sh --watch"
 echo "  Find crashes:  ./operations/find-crashes.sh"
+echo "  Kill session:  tmux kill-session -t $SESSION_NAME"
 echo ""
 echo "The orchestrator will:"
 echo "  - Launch chunks gradually as resources become available"
