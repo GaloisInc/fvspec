@@ -14,7 +14,7 @@ echo "------------------------------------------------"
 
 while true; do
     # Only find the PIDs of the actual Python scripts, ignoring the internal Lean workers
-    PIDS=($(pgrep -a -f "python.*fvspec" | grep -v "grep" | awk '{print $1}'))
+    PIDS=($(pgrep "fvspec"))
     COUNT=${#PIDS[@]}
 
     if [ $COUNT -eq 0 ]; then
