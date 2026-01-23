@@ -35,8 +35,9 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 # Start the sequential runner in a tmux session with logging
+# Use "$@" to properly preserve argument quoting
 tmux new-session -d -s "$SESSION_NAME" \
-    "bash '$SCRIPT_DIR/run-batch-sequential.sh' $* 2>&1 | tee '$LOG_FILE'"
+    bash "$SCRIPT_DIR/run-batch-sequential.sh" "$@" \; pipe-pane "tee '$LOG_FILE'"
 
 echo "✓ Orchestrator started in tmux session: $SESSION_NAME"
 echo ""

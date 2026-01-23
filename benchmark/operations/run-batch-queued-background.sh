@@ -37,8 +37,9 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 # Run run-batch-queued.sh in a tmux session with logging
+# Use "$@" to properly preserve argument quoting
 tmux new-session -d -s "$SESSION_NAME" \
-    "bash '$SCRIPT_DIR/run-batch-queued.sh' $* 2>&1 | tee '$LOG_FILE'"
+    bash "$SCRIPT_DIR/run-batch-queued.sh" "$@" \; pipe-pane "tee '$LOG_FILE'"
 
 echo "✓ Orchestrator started in tmux session: $SESSION_NAME"
 echo ""

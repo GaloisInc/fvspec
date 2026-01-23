@@ -327,9 +327,9 @@ CMDEOF
     # Check status file to determine success/failure
     CHUNK_STATUS="$LOGS_DIR/chunk__${BATCH_ID}__${chunk_start}-${chunk_end}.status"
     if [[ -f "$CHUNK_STATUS" ]]; then
-        # Parse status from file
-        STATUS=$(grep "^status=" "$CHUNK_STATUS" | cut -d= -f2)
-        EXIT_CODE=$(grep "^exit_code=" "$CHUNK_STATUS" | cut -d= -f2 || echo "unknown")
+        # Parse status from file (use tail -1 to get final status, not initial RUNNING)
+        STATUS=$(grep "^status=" "$CHUNK_STATUS" | tail -1 | cut -d= -f2)
+        EXIT_CODE=$(grep "^exit_code=" "$CHUNK_STATUS" | tail -1 | cut -d= -f2 || echo "unknown")
 
         if [[ "$STATUS" == "SUCCESS" ]]; then
             ((SUCCESS_COUNT++))
