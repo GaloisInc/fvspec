@@ -13,8 +13,8 @@ echo "Mode: Single-Process Throughput"
 echo "------------------------------------------------"
 
 while true; do
-    # Get current list of fvspec PIDs
-    PIDS=($(pgrep -f fvspec | grep -v "$$"))
+    # Only find the PIDs of the actual Python scripts, ignoring the internal Lean workers
+    PIDS=($(pgrep -a -f "python.*fvspec" | grep -v "grep" | awk '{print $1}'))
     COUNT=${#PIDS[@]}
 
     if [ $COUNT -eq 0 ]; then
