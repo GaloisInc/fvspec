@@ -8,8 +8,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCHMARK_DIR="$(dirname "$SCRIPT_DIR")"
 LOGS_DIR="$SCRIPT_DIR/logs"
 
-# Error trap to debug unexpected exits
-trap 'echo "ERROR: Script exited unexpectedly at line $LINENO with exit code $?" >&2' ERR EXIT
+# Error trap to debug unexpected exits (ERR only, not EXIT to avoid false positives)
+trap 'echo "ERROR: Command failed at line $LINENO with exit code $?" >&2' ERR
 
 # Source library functions
 source "$SCRIPT_DIR/lib/done-filter.sh"
@@ -338,15 +338,18 @@ CMDEOF
     echo "Checking status file: $CHUNK_STATUS" | tee -a "$BATCH_LOG"
     if [[ -f "$CHUNK_STATUS" ]]; then
         # Parse status from file (use tail -1 to get final status, not initial RUNNING)
-        STATUS=$(grep "^status=" "$CHUNK_STATUS" | tail -1 | cut -d= -f2)
-        EXIT_CODE=$(grep "^exit_code=" "$CHUNK_STATUS" | tail -1 | cut -d= -f2 || echo "unknown")
+        # Use || true to prevent grep failure from exiting with set -e
+        STATUS=$(grep "^status=" "$CHUNK_STATUS" 2>/dev/null | tail -1 | cut -d= -f2 || echo "UNKNOWN")
+        EXIT_CODE=$(grep "^exit_code=" "$CHUNK_STATUS" 2>/dev/null | tail -1 | cut -d= -f2 || echo "unknown")
+
+        echo "  Status: $STATUS, Exit code: $EXIT_CODE" | tee -a "$BATCH_LOG"
 
         if [[ "$STATUS" == "SUCCESS" ]]; then
             ((SUCCESS_COUNT++))
             echo "✓ Chunk [$chunk_start, $chunk_end) completed successfully" | tee -a "$BATCH_LOG"
         else
             ((FAILURE_COUNT++))
-            echo "✗ Chunk [$chunk_start, $chunk_end) FAILED (exit code: $EXIT_CODE)" | tee -a "$BATCH_LOG"
+            echo "✗ Chunk [$chunk_start, $chunk_end) FAILED (status: $STATUS, exit code: $EXIT_CODE)" | tee -a "$BATCH_LOG"
         fi
     else
         # Status file doesn't exist - assume failure
