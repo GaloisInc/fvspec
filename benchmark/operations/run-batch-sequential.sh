@@ -8,6 +8,9 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BENCHMARK_DIR="$(dirname "$SCRIPT_DIR")"
 LOGS_DIR="$SCRIPT_DIR/logs"
 
+# Error trap to debug unexpected exits
+trap 'echo "ERROR: Script exited unexpectedly at line $LINENO with exit code $?" >&2' ERR EXIT
+
 # Source library functions
 source "$SCRIPT_DIR/lib/done-filter.sh"
 source "$SCRIPT_DIR/lib/memory-limit.sh"
@@ -319,13 +322,20 @@ CMDEOF
     echo "✓ Session launched: $SESSION_NAME" | tee -a "$BATCH_LOG"
 
     # Wait for session to complete (poll until session no longer exists)
-    echo "Waiting for chunk to complete..." | tee -a "$BATCH_LOG"
+    echo "Waiting for chunk to complete (polling every ${POLL_INTERVAL}s)..." | tee -a "$BATCH_LOG"
+    POLL_COUNT=0
     while tmux has-session -t "$SESSION_NAME" 2>/dev/null; do
         sleep "$POLL_INTERVAL"
+        ((POLL_COUNT++))
+        if (( POLL_COUNT % 12 == 0 )); then
+            echo "Still waiting... ($(( POLL_COUNT * POLL_INTERVAL ))s elapsed)" | tee -a "$BATCH_LOG"
+        fi
     done
+    echo "Chunk session completed after $(( POLL_COUNT * POLL_INTERVAL ))s" | tee -a "$BATCH_LOG"
 
     # Check status file to determine success/failure
     CHUNK_STATUS="$LOGS_DIR/chunk__${BATCH_ID}__${chunk_start}-${chunk_end}.status"
+    echo "Checking status file: $CHUNK_STATUS" | tee -a "$BATCH_LOG"
     if [[ -f "$CHUNK_STATUS" ]]; then
         # Parse status from file (use tail -1 to get final status, not initial RUNNING)
         STATUS=$(grep "^status=" "$CHUNK_STATUS" | tail -1 | cut -d= -f2)

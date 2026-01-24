@@ -35,9 +35,23 @@ if tmux has-session -t "$SESSION_NAME" 2>/dev/null; then
 fi
 
 # Start the sequential runner in a tmux session with logging
-# Use "$@" to properly preserve argument quoting
-tmux new-session -d -s "$SESSION_NAME" \
-    bash "$SCRIPT_DIR/run-batch-sequential.sh" "$@" \; pipe-pane "tee '$LOG_FILE'"
+# Create a temporary wrapper script to avoid quoting issues
+WRAPPER_SCRIPT="$LOGS_DIR/.wrapper__${TIMESTAMP}.sh"
+cat > "$WRAPPER_SCRIPT" <<'WRAPPER_EOF'
+#!/usr/bin/env bash
+set -euo pipefail
+WRAPPER_EOF
+
+echo "exec '$SCRIPT_DIR/run-batch-sequential.sh' \\" >> "$WRAPPER_SCRIPT"
+for arg in "$@"; do
+    printf '  %q \\\n' "$arg" >> "$WRAPPER_SCRIPT"
+done
+echo "  2>&1 | tee '$LOG_FILE'" >> "$WRAPPER_SCRIPT"
+
+chmod +x "$WRAPPER_SCRIPT"
+
+# Run the wrapper in tmux
+tmux new-session -d -s "$SESSION_NAME" "$WRAPPER_SCRIPT"
 
 echo "✓ Orchestrator started in tmux session: $SESSION_NAME"
 echo ""
