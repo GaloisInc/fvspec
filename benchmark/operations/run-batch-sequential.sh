@@ -336,26 +336,32 @@ CMDEOF
     # Check status file to determine success/failure
     CHUNK_STATUS="$LOGS_DIR/chunk__${BATCH_ID}__${chunk_start}-${chunk_end}.status"
     echo "Checking status file: $CHUNK_STATUS" | tee -a "$BATCH_LOG"
+
+    # Temporarily disable pipefail for status parsing to prevent grep failures from exiting
+    set +o pipefail
+
     if [[ -f "$CHUNK_STATUS" ]]; then
         # Parse status from file (use tail -1 to get final status, not initial RUNNING)
-        # Use || true to prevent grep failure from exiting with set -e
         STATUS=$(grep "^status=" "$CHUNK_STATUS" 2>/dev/null | tail -1 | cut -d= -f2 || echo "UNKNOWN")
         EXIT_CODE=$(grep "^exit_code=" "$CHUNK_STATUS" 2>/dev/null | tail -1 | cut -d= -f2 || echo "unknown")
 
         echo "  Status: $STATUS, Exit code: $EXIT_CODE" | tee -a "$BATCH_LOG"
 
         if [[ "$STATUS" == "SUCCESS" ]]; then
-            ((SUCCESS_COUNT++))
+            SUCCESS_COUNT=$((SUCCESS_COUNT + 1))
             echo "✓ Chunk [$chunk_start, $chunk_end) completed successfully" | tee -a "$BATCH_LOG"
         else
-            ((FAILURE_COUNT++))
+            FAILURE_COUNT=$((FAILURE_COUNT + 1))
             echo "✗ Chunk [$chunk_start, $chunk_end) FAILED (status: $STATUS, exit code: $EXIT_CODE)" | tee -a "$BATCH_LOG"
         fi
     else
         # Status file doesn't exist - assume failure
-        ((FAILURE_COUNT++))
+        FAILURE_COUNT=$((FAILURE_COUNT + 1))
         echo "✗ Chunk [$chunk_start, $chunk_end) FAILED (no status file found)" | tee -a "$BATCH_LOG"
     fi
+
+    # Re-enable pipefail
+    set -o pipefail
 
     echo "Chunk $chunk_num/$NUM_CHUNKS done" | tee -a "$BATCH_LOG"
     ((chunk_num++))
