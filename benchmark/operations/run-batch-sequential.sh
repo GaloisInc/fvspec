@@ -326,7 +326,7 @@ CMDEOF
     POLL_COUNT=0
     while tmux has-session -t "$SESSION_NAME" 2>/dev/null; do
         sleep "$POLL_INTERVAL"
-        ((POLL_COUNT++))
+        POLL_COUNT=$((POLL_COUNT + 1))
         if (( POLL_COUNT % 12 == 0 )); then
             echo "Still waiting... ($(( POLL_COUNT * POLL_INTERVAL ))s elapsed)" | tee -a "$BATCH_LOG"
         fi
