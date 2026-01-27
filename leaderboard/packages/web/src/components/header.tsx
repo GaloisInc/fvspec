@@ -55,12 +55,6 @@ export function Header() {
             <Link href="/paper" className={getLinkClassName('/paper')}>
               Paper
             </Link>
-            <Link href="/leaderboard" className={getLinkClassName('/leaderboard')}>
-              Leaderboard
-            </Link>
-            <Link href="/submit" className={getLinkClassName('/submit')}>
-              Submit
-            </Link>
           </nav>
         </div>
         {/* GitHub button on right - always visible on small+ screens */}
@@ -89,20 +83,6 @@ export function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Paper
-            </Link>
-            <Link
-              href="/leaderboard"
-              className={getLinkClassName('/leaderboard')}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Leaderboard
-            </Link>
-            <Link
-              href="/submit"
-              className={getLinkClassName('/submit')}
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Submit
             </Link>
             <a
               href="https://github.com/GaloisInc/fvspec"

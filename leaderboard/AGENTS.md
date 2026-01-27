@@ -2,23 +2,22 @@
 
 > **Note**: Symlinked from `CLAUDE.md` and `KNOWLEDGE.md`.
 
-Public leaderboard for Lean 4 formal verification benchmarks (like SWEBench for FV).
+Public dataset explorer for Lean 4 formal verification benchmarks (like SWEBench for FV).
 
-**Features:** Secure sandboxed `lake build` execution, cryptographic attestations, multiple tracks (functional/mvcgen), dataset explorer (322 samples)
+**Features:** Dataset explorer (322 samples), JSON API for dataset access
 
 **Deployment:** https://fvspec-benchmark.galois.com
 
 ## Architecture
 
-Three services via BullMQ (Redis):
+Two services:
 
-| App        | Stack                     | Deployment |
-| ---------- | ------------------------- | ---------- |
-| **web**    | Next.js 16, static export | nginx/EC2  |
-| **api**    | Hono, Drizzle, PostgreSQL | systemd    |
-| **worker** | BullMQ, Docker sandbox    | systemd    |
+| App     | Stack                     | Deployment |
+| ------- | ------------------------- | ---------- |
+| **web** | Next.js 16, static export | nginx/EC2  |
+| **api** | Hono, in-memory dataset   | systemd    |
 
-**Flow:** Submit → API validates/enqueues → Worker builds/attests → API stores → Frontend displays
+**Flow:** Frontend fetches dataset samples from API → API loads JSONL file at startup → serves via REST endpoints
 
 ## Apps
 
@@ -26,45 +25,32 @@ Three services via BullMQ (Redis):
 
 Next.js 16, Tailwind v4, shadcn/ui. Static export.
 
-**Routes:** `/` (landing), `/leaderboard`, `/submit`, `/paper`, `/dataset/[id]` (322 samples)
+**Routes:** `/` (landing), `/paper`, `/dataset` (explorer), `/dataset/[id]` (322 samples)
 
 **Development:** `npm run dev:web` (port 3000)
 
 ### `packages/api` — REST API
 
-Hono, Drizzle ORM, PostgreSQL, BullMQ, Zod.
+Hono, Zod. No database required.
 
-**Endpoints:** `/submit`, `/runs/:id`, `/leaderboard`, `/dataset/list`, `/dataset/:id`, `/results`
+**Endpoints:** `/dataset/list`, `/dataset/stats`, `/dataset/:id`
 
 **Dataset:** Loads `fvspec.jsonl` (322 samples, 4.1MB) at startup, in-memory Map for O(1) lookups
 
-**Development:** `npm run dev:api` (port 3002)
+**Development:** `npm run dev:api` (port 3001)
 
-**Environment:** `DATABASE_URL`, `REDIS_URL`, `API_TOKEN`, `PORT`, `DATASET_PATH`
-
-### `packages/worker` — Job Executor
-
-BullMQ, execa, Docker SDK.
-
-**Flow:** Pull job → clone repo → `lake build` in sandbox → generate attestation → POST to API
-
-**Modes:** Docker (production, `--network none`) vs Host (dev, faster)
-
-**Development:** `npm run dev:worker`
-
-**Environment:** `REDIS_URL`, `API_BASE_URL`, `API_TOKEN`, `TOOLCHAIN_IMAGE`, `TIME_LIMIT_SEC`, `MEMORY_MB`
+**Environment:** `PORT`, `DATASET_PATH`, `NEXT_PUBLIC_API_URL`
 
 ## Development
 
 ```bash
 # Quick start
-docker compose up -d
 cp .env.example .env
 npm install
-npm run dev  # Runs all services
+npm run dev  # Runs web + api services
 
 # Individual services
-npm run dev:web / dev:api / dev:worker
+npm run dev:web / dev:api
 npm run build / lint / typecheck
 ```
 
@@ -72,15 +58,15 @@ npm run build / lint / typecheck
 
 **Production:** https://fvspec-benchmark.galois.com (EC2, `/home/quinnd/fvspec/`)
 
-**Architecture:** nginx (:80) → static files + API proxy (:3002) + worker (via Redis)
+**Architecture:** nginx (:80) → static files + API proxy (:3001)
 
 **Config files:** `operations/` (nginx/systemd, symlinked to system)
 
-**Update:** `git pull && npm install && npm run build && sudo systemctl restart fvspec-{api,worker} && sudo nginx -t && sudo systemctl reload nginx`
+**Update:** `git pull && npm install && npm run build && sudo systemctl restart fvspec-{api,web} && sudo nginx -t && sudo systemctl reload nginx`
 
-**Infrastructure:** PostgreSQL, Redis, nginx, Node.js 20+, Docker
+**Infrastructure:** nginx, Node.js 20+
 
-See `operations/DEPLOYMENT.md` for details.
+See `operations/DEPLOYMENT.md` for details (if exists).
 
 ## Code Style
 
@@ -90,13 +76,11 @@ See `operations/DEPLOYMENT.md` for details.
 
 ## Key Concepts
 
-**Tracks:** Benchmark categories (functional, mvcgen) with separate scoring
-**Attestations:** Cryptographically-signed build execution proof
-**Job states:** Pending → Running → Succeeded/Failed/Cancelled
+**Tracks:** Benchmark categories (functional, mvcgen) for future evaluation
 **Dataset:** 322 PBT samples (Python → Lean), future scale 30K+
 
 ## Status
 
-**Completed:** Frontend, dataset explorer/API, worker attestations, operations configs
-**In progress:** DB schema, real leaderboard API, SSL
-**Missing:** OAuth, submission form, real-time tracking, S3 storage, monitoring
+**Completed:** Frontend, dataset explorer/API
+**Removed:** Submission system, worker infrastructure, PostgreSQL, Redis, BullMQ
+**Future:** Full leaderboard with submission system will be implemented as separate service
