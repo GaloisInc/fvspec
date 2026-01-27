@@ -15,7 +15,7 @@
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "npm run dev --workspace=packages/web",
     "dev:api": "npm run dev --workspace=packages/api",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=packages/common && npm run build --workspace=packages/api && npm run build --workspace=packages/web",
     "build:web": "npm run build --workspace=packages/web",
     "build:api": "npm run build --workspace=packages/api",
     "start": "npm run start --workspace=packages/web",
