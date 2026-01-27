@@ -3,7 +3,7 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Workspace for packages/api, packages/web, and packages/worker",
+  "description": "Workspace for packages/api and packages/web",
   "license": "MIT-Apache",
   "engines": {
     "node": ">=20.0.0"
@@ -12,18 +12,15 @@
     "packages/*"
   ],
   "scripts": {
-    "dev": "npm run dev --workspaces --if-present",
+    "dev": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "npm run dev --workspace=packages/web",
     "dev:api": "npm run dev --workspace=packages/api",
-    "dev:worker": "npm run dev --workspace=packages/worker",
-    "build": "npm run build --workspaces --if-present",
+    "build": "npm run build --workspace=packages/common && npm run build --workspace=packages/api && npm run build --workspace=packages/web",
     "build:web": "npm run build --workspace=packages/web",
     "build:api": "npm run build --workspace=packages/api",
-    "build:worker": "npm run build --workspace=packages/worker",
     "start": "npm run start --workspace=packages/web",
     "start:api": "npm run start --workspace=packages/api",
     "start:web": "npm run start --workspace=packages/web",
-    "start:worker": "npm run start --workspace=packages/worker",
     "lint": "npm exec --workspaces -- eslint .",
     "lint:fix": "npm exec --workspaces -- eslint . --fix",
     "typecheck": "npm run typecheck --workspaces --if-present",
@@ -42,6 +39,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",
+    "concurrently": "^9.1.2",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.0",
     "prettier": "^3.8.0",

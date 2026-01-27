@@ -42,17 +42,23 @@ export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> 
 
     for (let i = 0; i < lines.length; i++) {
       try {
-        const sample = JSON.parse(lines[i]) as unknown
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+        const sample = JSON.parse(lines[i])
 
         // Validate using Zod schema
+
         const parseResult = DatasetSampleDetailSchema.safeParse(sample)
+
         if (!parseResult.success) {
           console.warn(`[dataset] Line ${i + 1}: Invalid sample data:`, parseResult.error)
           continue
         }
 
-        // Store in cache
-        cache.set(parseResult.data.sample_id, parseResult.data)
+        // Store in cache (parseResult.data is properly typed after success check)
+
+        const validatedSample: DatasetSampleDetail = parseResult.data
+
+        cache.set(validatedSample.sample_id, validatedSample)
       } catch (parseError) {
         console.warn(`[dataset] Line ${i + 1}: Failed to parse JSON:`, parseError)
       }
@@ -65,9 +71,11 @@ export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> 
     for (const [sampleId, sample] of cache.entries()) {
       samples.push({
         sample_id: sampleId,
+
         sample_name: sample.sample_name,
       })
     }
+
     samples.sort((a, b) => a.sample_id - b.sample_id)
     sampleListCache = samples
 
@@ -102,9 +110,11 @@ export function getAllSamples(): DatasetSampleListItem[] {
   for (const [sampleId, sample] of datasetCache.entries()) {
     samples.push({
       sample_id: sampleId,
+
       sample_name: sample.sample_name,
     })
   }
+
   samples.sort((a, b) => a.sample_id - b.sample_id)
   sampleListCache = samples
 
@@ -146,28 +156,35 @@ export function getDatasetStats(): DatasetStats {
     throw new Error('Dataset not loaded. Call loadDataset() first.')
   }
 
-  const samples = Array.from(datasetCache.values())
+  const samples: DatasetSampleDetail[] = Array.from(datasetCache.values())
 
   // Extract faithfulness scores (overall score from structural_faithfulness)
-  const faithfulnessScores = samples.map(
+  const faithfulnessScores: (number | null | undefined)[] = samples.map(
     s => s.structural_faithfulness?.overall as number | undefined
   )
 
   // Extract metrics
-  const theorems = samples.map(s => s.num_theorems)
-  const linesPbt = samples.map(s => s.lines_pbt)
-  const linesCode = samples.map(s => s.lines_code)
+
+  const theorems: (number | null | undefined)[] = samples.map(s => s.num_theorems)
+
+  const linesPbt: (number | null | undefined)[] = samples.map(s => s.lines_pbt)
+
+  const linesCode: (number | null | undefined)[] = samples.map(s => s.lines_code)
 
   // Count by variant
-  const variants = samples.map(s => s.variant)
+
+  const variants: (string | null | undefined)[] = samples.map(s => s.variant)
   const byVariant = countByValue(variants)
 
   // Count by model
-  const models = samples.map(s => s.model)
+
+  const models: (string | null | undefined)[] = samples.map(s => s.model)
   const byModel = countByValue(models)
 
   // Count by repo (top 10)
-  const repoIds = samples.map(s => s.repo_id)
+  const repoIds: (string | null | undefined)[] = samples.map(s =>
+    s.repo_id !== undefined ? String(s.repo_id) : undefined
+  )
   const repoIdCounts = countByValue(repoIds)
   const byRepo = getTopEntries(repoIdCounts, 10)
 
