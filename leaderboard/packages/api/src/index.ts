@@ -68,7 +68,6 @@ app.get('/dataset/list', c => {
  */
 app.get('/dataset/stats', c => {
   try {
-     
     const stats: ReturnType<typeof getDatasetStats> = getDatasetStats()
     return c.json(stats)
   } catch (error) {
@@ -93,7 +92,6 @@ app.get('/dataset/:id', c => {
       return c.json({ error: 'Invalid sample ID' }, 400)
     }
 
-     
     const sample: ReturnType<typeof getSampleById> = getSampleById(id)
 
     if (!sample) {
