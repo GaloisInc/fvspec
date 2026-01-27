@@ -20,7 +20,7 @@
   "license": "ISC",
   "dependencies": {
     "@fvspec/common": "*",
-    "bullmq": "^5.66.5",
+    "bullmq": "^5.67.1",
     "dotenv": "^17.2.3",
     "execa": "^9.6.0",
     "ioredis": "^5.8.2",
