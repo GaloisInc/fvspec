@@ -47,12 +47,20 @@ Hono, Zod. No database required.
 # Quick start
 cp .env.example .env
 npm install
-npm run dev  # Runs web + api services
+npm run dev  # Runs both web (port 3000) + api (port 3001) in parallel
 
-# Individual services
-npm run dev:web / dev:api
+# Individual services (run in separate terminals)
+npm run dev:api  # API server on port 3001
+npm run dev:web  # Next.js dev server on port 3000
+
+# Other commands
 npm run build / lint / typecheck
 ```
+
+**Ports:**
+
+- API: http://localhost:3001
+- Web: http://localhost:3000 (connects to API at 3001)
 
 ## Deployment
 
