@@ -21,61 +21,129 @@ Examples:
         FIELD_ORDER = ["sample_id", "name", "code", ...]
 """
 
+import re
 from typing import Any
 
 # Fields to remove from the final output
 FIELDS_TO_REMOVE = {
-    # Add field names here that should be removed from the output
-    # Example: "internal_id", "debug_info", etc.
+    # Tests.lean field - mostly vacuous (94.8% have no real tests)
+    # Only 5.2% have actual test code, 21.5% are LLM hallucinations with .done stubs
+    "tests",
+    "run_provenance",
+    # not informative
+    "has_unit_tests",
+    "id",  # redundant with sample_id
+    "success",
+    # Realpbt metadata fields - not needed for benchmark
+    "hash",
+    "summary_vector",
+    "summaryversion",
+    "summaryconfidence",
+    "mode",
+    "start_line",
+    "end_line",
+    "source",
 }
 
 # Field renames: old_name -> new_name
+# Fields from realpbt dataset (https://huggingface.co/datasets/Benchify/realpbt)
+# are prefixed with "realpbt_" for clarity
 FIELD_RENAMES = {
-    # Add field renames here
-    # Example: "old_field_name": "new_field_name"
+    # Core realpbt fields from Datapoint model
+    # Note: 'id' is removed (redundant with sample_id)
+    # 'original_id' becomes 'realpbt_id' (FK to HuggingFace realpbt dataset)
+    "original_id": "realpbt_id",
+    "repo_id": "realpbt_repo_id",
+    "name": "realpbt_name",
+    "code": "realpbt_code",
+    "source_file": "realpbt_source_file",
+    "start_line": "realpbt_start_line",
+    "end_line": "realpbt_end_line",
+    "dep_names": "realpbt_dep_names",
+    "deps": "realpbt_deps",
+    "source": "realpbt_source",
+    "summary": "realpbt_summary",
+    "mode": "realpbt_mode",
+    # Note: id, hash, summary_vector, summaryversion, summaryconfidence are removed (see FIELDS_TO_REMOVE)
 }
 
 # Desired field order (fields not listed will appear after these in alphabetical order)
 FIELD_ORDER = [
+    # Benchmark-generated identifiers
     "sample_id",
-    "id",
-    "name",
-    "repo_id",
-    "run_provenance",
-    # Core content
-    "code",
-    "spec",
+    "sample_name",
+    # Generated Lean code
     "impl",
-    "tests",
+    "spec",
+    # RealPBT source data
+    "realpbt_id",
+    "realpbt_name",
+    "realpbt_repo_id",
+    "realpbt_code",
+    "realpbt_summary",
     # Results
     "success",
     "num_theorems",
-    "has_unit_tests",
-    # Metadata fields follow
+    # Metadata fields follow alphabetically
 ]
 
 
-def prune_sample(sample: dict[str, Any]) -> dict[str, Any]:
+def prune_sample(sample: dict[str, Any]) -> dict[str, Any] | None:
     """Apply pruning transformations to a sample.
 
     Args:
         sample: Sample dictionary to transform
 
     Returns:
-        Transformed sample dictionary with:
+        Transformed sample dictionary, or None if sample should be filtered out.
+        Transformations applied:
         - Removed fields excluded
         - Fields renamed according to FIELD_RENAMES
         - Fields reordered according to FIELD_ORDER
+        - impl_autoform_success transformed from bool to 0/0.5/1 scale
+        - num_theorems recomputed from spec field (fixes buggy original count)
+        - Filters out samples with success=False (pipeline failures)
     """
+    # Step 0: Filter out failed samples (success=False indicates pipeline failure)
+    if not sample.get("success", True):
+        return None
+
     # Step 1: Remove fields
     pruned = {k: v for k, v in sample.items() if k not in FIELDS_TO_REMOVE}
 
-    # Step 2: Rename fields
+    # Step 2: Transform impl_autoform_success from bool to 0/0.5/1 scale
+    # - 1.0: impl_autoform_success=True AND no sorry in impl (fully implemented)
+    # - 0.5: impl_autoform_success=True BUT has sorry in impl (structured but stubbed)
+    # - 0.0: impl_autoform_success=False (failed to generate valid structure)
+    if "impl_autoform_success" in pruned:
+        impl_success = pruned["impl_autoform_success"]
+        impl_code = pruned.get("impl", "")
+        has_sorry = "sorry" in impl_code if impl_code else False
+
+        if impl_success is True:
+            pruned["impl_autoform_success"] = 0.5 if has_sorry else 1.0
+        else:
+            pruned["impl_autoform_success"] = 0.0
+
+    # Step 3: Recompute num_theorems from spec field
+    # The original num_theorems field was buggy (always 0), so recompute it
+    # by counting 'theorem' and 'lemma' keywords in the spec
+    if "num_theorems" in pruned:
+        spec = pruned.get("spec", "")
+        if spec:
+            # Count theorem and lemma declarations
+            theorem_count = len(re.findall(r"\btheorem\b", spec))
+            lemma_count = len(re.findall(r"\blemma\b", spec))
+            pruned["num_theorems"] = theorem_count + lemma_count
+        else:
+            pruned["num_theorems"] = 0
+
+    # Step 4: Rename fields
     for old_name, new_name in FIELD_RENAMES.items():
         if old_name in pruned:
             pruned[new_name] = pruned.pop(old_name)
 
-    # Step 3: Reorder fields
+    # Step 5: Reorder fields
     ordered = {}
 
     # Add fields in specified order first
@@ -98,6 +166,11 @@ def prune_samples(samples: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any
         samples: Dictionary mapping sample_id to sample data
 
     Returns:
-        Dictionary with all samples pruned
+        Dictionary with all samples pruned (excludes samples that return None)
     """
-    return {sample_id: prune_sample(sample) for sample_id, sample in samples.items()}
+    pruned = {}
+    for sample_id, sample in samples.items():
+        result = prune_sample(sample)
+        if result is not None:
+            pruned[sample_id] = result
+    return pruned
