@@ -24,32 +24,11 @@ import typer
 from rich.console import Console
 from rich.progress import track
 
+from scripts.postproduction.merge.deduplicate import deduplicate_samples
+from scripts.postproduction.merge.prune import prune_samples
+
 app = typer.Typer(help="Merge multiple benchmark runs into a unified JSONL dataset")
 console = Console()
-
-
-def quality_score(sample: dict[str, Any]) -> tuple:
-    """Calculate quality score tuple for sorting (higher is better).
-
-    Returns tuple of:
-    1. success (true > false)
-    2. structural_faithfulness.overall (higher better)
-    3. num_theorems (higher better)
-    4. has_unit_tests (true > false)
-    5. impl_autoform_success (true > false)
-    6. spec_sig_success (true > false)
-    """
-    structural = sample.get("structural_faithfulness")
-    structural_overall = structural.get("overall", 0.0) if structural else 0.0
-
-    return (
-        sample.get("success", False),
-        structural_overall,
-        sample.get("num_theorems", 0),
-        sample.get("has_unit_tests", False),
-        sample.get("impl_autoform_success", False),
-        sample.get("spec_sig_success", False),
-    )
 
 
 def load_runs_file(runs_file: Path) -> list[str]:
@@ -134,11 +113,10 @@ def merge_runs_to_jsonl(
         "total_samples_processed": 0,
         "skipped": 0,
         "runs_processed": 0,
-        "duplicates_replaced": 0,
     }
 
-    # Collect samples deduplicated by sample_id
-    best_by_id: dict[int, dict[str, Any]] = {}
+    # Collect all samples from all runs
+    all_samples: list[dict[str, Any]] = []
 
     for run_name in track(run_names, description="Processing runs", console=console):
         run_dir = artifacts_dir / "runs" / run_name
@@ -160,43 +138,27 @@ def merge_runs_to_jsonl(
             combined = process_sample(sample_dir, run_name)
             if combined:
                 stats["total_samples_processed"] += 1
-
-                # Deduplicate by sample_id
-                sample_id = combined.get("sample_id")
-                if sample_id is None:
-                    console.print(
-                        f"[yellow]Warning: Sample missing sample_id in {sample_dir}[/yellow]"
-                    )
-                    # Still include samples without sample_id (shouldn't happen)
-                    continue
-
-                if sample_id not in best_by_id:
-                    best_by_id[sample_id] = combined
-                else:
-                    # Compare quality and keep better one
-                    current_score = quality_score(best_by_id[sample_id])
-                    new_score = quality_score(combined)
-
-                    if new_score > current_score:
-                        old_prov = best_by_id[sample_id].get(
-                            "run_provenance", "unknown"
-                        )
-                        new_prov = combined.get("run_provenance", "unknown")
-                        console.print(
-                            f"[dim]Sample {sample_id}: replacing {old_prov} with {new_prov}[/dim]"
-                        )
-                        best_by_id[sample_id] = combined
-                        stats["duplicates_replaced"] += 1
+                all_samples.append(combined)
             else:
                 stats["skipped"] += 1
 
-    # Write deduplicated samples to file
-    console.print(f"\n[bold]Writing {len(best_by_id)} deduplicated samples...[/bold]")
-    with open(output_file, "w") as outfile:
-        for sample_id in sorted(best_by_id.keys()):
-            outfile.write(json.dumps(best_by_id[sample_id]) + "\n")
+    # Deduplicate samples by sample_id
+    best_by_id = deduplicate_samples(all_samples, console)
 
-    stats["unique_samples"] = len(best_by_id)
+    # Apply schema pruning transformations
+    console.print("\n[bold]Applying schema transformations...[/bold]")
+    pruned_samples = prune_samples(best_by_id)
+
+    # Write deduplicated and pruned samples to file
+    console.print(f"[bold]Writing {len(pruned_samples)} samples...[/bold]")
+    with open(output_file, "w") as outfile:
+        for sample_id in sorted(pruned_samples.keys()):
+            outfile.write(json.dumps(pruned_samples[sample_id]) + "\n")
+
+    stats["unique_samples"] = len(pruned_samples)
+    stats["duplicates_replaced"] = (
+        stats["total_samples_processed"] - stats["unique_samples"]
+    )
     return stats
 
 

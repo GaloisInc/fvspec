@@ -17,6 +17,11 @@ Scraping `hypothesis` tests from the real world and transpiling them into Lean c
 
 THIS IS A ROUGH DRAFT SNEAK PEAK PLEASE DO NOT POST ANYWHERE. MORE SAMPLES AND MORE METRICS TO COME. 
 
+## TODO: Usage
+
+1. paste `lean-toolchain`, `lakefile.toml`, `lake-manifest.json` in here.
+2. show the `datasets.load_dataset` call that appends `Spec.lean` to `Impl.lean`
+
 ## Acknowledgements
 
 This project is funded by the Advanced Research + Invention Agency (ARIA).
