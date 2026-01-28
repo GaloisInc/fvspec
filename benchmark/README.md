@@ -387,6 +387,59 @@ cat artifacts/<run>/12345_test_foo/qa.json | jq '.radon__avg_complexity'
 
 Due to wandb API limitations, you **cannot retroactively add metrics to finished runs**. To get radon metrics for existing variants, re-run the benchmarks after setting up the radon_metrics table.
 
+## Postproduction Pipeline
+
+After running benchmarks, use postproduction scripts to process and analyze results:
+
+### Merge Runs
+
+Combine multiple benchmark runs into a unified deduplicated JSONL dataset:
+
+```bash
+# Edit runs.txt to list run directories
+vim src/scripts/postproduction/merge/runs.txt
+
+# Merge with automatic quality-based deduplication
+uv run merge src/scripts/postproduction/merge/runs.txt
+
+# Creates: artifacts/dataset-out/fvspec.jsonl
+```
+
+See `src/scripts/postproduction/merge/README.md` for details on deduplication algorithm, schema pruning, and workflow integration.
+
+### Grade Difficulty
+
+Use Claude Haiku 4.5 to estimate proof difficulty for merged samples:
+
+```bash
+# Grade all samples
+uv run grader artifacts/dataset-out/fvspec.jsonl
+
+# Creates: artifacts/dataset-out/fvspec.graded.jsonl
+
+# Retry failed samples
+uv run grader artifacts/dataset-out/fvspec.graded.jsonl --retry-failed -o artifacts/dataset-out/fvspec.graded.jsonl
+```
+
+See `src/scripts/postproduction/grader/README.md` for cost estimation, retry workflow, and customization.
+
+### Accumulate W&B Runs
+
+Download and analyze W&B runs offline:
+
+```bash
+# Configure runs in manifest.toml
+vim src/scripts/postproduction/accumulate_wandb/manifest.toml
+
+# Download all runs
+uv run python -m scripts.postproduction.accumulate sync
+
+# Launch dashboard
+uv run streamlit run src/scripts/postproduction/accumulate_wandb/dashboard.py
+```
+
+See `src/scripts/postproduction/accumulate_wandb/README.md` for manifest configuration and dashboard usage.
+
 ## Other utilities
 
 Preview prompt templates:
