@@ -7,6 +7,9 @@ into a single JSONL file where each line contains all data for one sample:
 - Lean code (spec, impl, tests)
 - Run provenance
 
+The output is automatically deduplicated by sample_id, keeping the highest
+quality sample when duplicates are found across runs.
+
 Usage (from benchmark/ directory):
     uv run merge runs.txt
     uv run merge --runs-file src/scripts/postproduction/merge/runs.txt
@@ -23,6 +26,30 @@ from rich.progress import track
 
 app = typer.Typer(help="Merge multiple benchmark runs into a unified JSONL dataset")
 console = Console()
+
+
+def quality_score(sample: dict[str, Any]) -> tuple:
+    """Calculate quality score tuple for sorting (higher is better).
+
+    Returns tuple of:
+    1. success (true > false)
+    2. structural_faithfulness.overall (higher better)
+    3. num_theorems (higher better)
+    4. has_unit_tests (true > false)
+    5. impl_autoform_success (true > false)
+    6. spec_sig_success (true > false)
+    """
+    structural = sample.get("structural_faithfulness")
+    structural_overall = structural.get("overall", 0.0) if structural else 0.0
+
+    return (
+        sample.get("success", False),
+        structural_overall,
+        sample.get("num_theorems", 0),
+        sample.get("has_unit_tests", False),
+        sample.get("impl_autoform_success", False),
+        sample.get("spec_sig_success", False),
+    )
 
 
 def load_runs_file(runs_file: Path) -> list[str]:
@@ -90,7 +117,10 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
 def merge_runs_to_jsonl(
     artifacts_dir: Path, run_names: list[str], output_file: Path
 ) -> dict[str, int]:
-    """Merge all samples from all runs into a single JSONL file.
+    """Merge all samples from all runs into a single deduplicated JSONL file.
+
+    Automatically deduplicates by sample_id, keeping the highest quality sample
+    when duplicates are found across runs.
 
     Args:
         artifacts_dir: Path to artifacts/ directory
@@ -100,36 +130,73 @@ def merge_runs_to_jsonl(
     Returns:
         Statistics about the merge operation
     """
-    stats = {"total_samples": 0, "skipped": 0, "runs_processed": 0}
+    stats = {
+        "total_samples_processed": 0,
+        "skipped": 0,
+        "runs_processed": 0,
+        "duplicates_replaced": 0,
+    }
 
-    with open(output_file, "w") as outfile:
-        for run_name in track(
-            run_names, description="Processing runs", console=console
-        ):
-            run_dir = artifacts_dir / "runs" / run_name
+    # Collect samples deduplicated by sample_id
+    best_by_id: dict[int, dict[str, Any]] = {}
 
-            if not run_dir.exists():
-                console.print(
-                    f"[yellow]Warning: Run directory not found: {run_dir}[/yellow]"
-                )
+    for run_name in track(run_names, description="Processing runs", console=console):
+        run_dir = artifacts_dir / "runs" / run_name
+
+        if not run_dir.exists():
+            console.print(
+                f"[yellow]Warning: Run directory not found: {run_dir}[/yellow]"
+            )
+            continue
+
+        stats["runs_processed"] += 1
+
+        # Process each sample directory in the run
+        for sample_dir in sorted(run_dir.iterdir()):
+            # Skip .eval files and other non-sample items
+            if not sample_dir.is_dir() or sample_dir.name.startswith("."):
                 continue
 
-            stats["runs_processed"] += 1
+            combined = process_sample(sample_dir, run_name)
+            if combined:
+                stats["total_samples_processed"] += 1
 
-            # Process each sample directory in the run
-            for sample_dir in sorted(run_dir.iterdir()):
-                # Skip .eval files and other non-sample items
-                if not sample_dir.is_dir() or sample_dir.name.startswith("."):
+                # Deduplicate by sample_id
+                sample_id = combined.get("sample_id")
+                if sample_id is None:
+                    console.print(
+                        f"[yellow]Warning: Sample missing sample_id in {sample_dir}[/yellow]"
+                    )
+                    # Still include samples without sample_id (shouldn't happen)
                     continue
 
-                combined = process_sample(sample_dir, run_name)
-                if combined:
-                    # Write as single-line JSON
-                    outfile.write(json.dumps(combined) + "\n")
-                    stats["total_samples"] += 1
+                if sample_id not in best_by_id:
+                    best_by_id[sample_id] = combined
                 else:
-                    stats["skipped"] += 1
+                    # Compare quality and keep better one
+                    current_score = quality_score(best_by_id[sample_id])
+                    new_score = quality_score(combined)
 
+                    if new_score > current_score:
+                        old_prov = best_by_id[sample_id].get(
+                            "run_provenance", "unknown"
+                        )
+                        new_prov = combined.get("run_provenance", "unknown")
+                        console.print(
+                            f"[dim]Sample {sample_id}: replacing {old_prov} with {new_prov}[/dim]"
+                        )
+                        best_by_id[sample_id] = combined
+                        stats["duplicates_replaced"] += 1
+            else:
+                stats["skipped"] += 1
+
+    # Write deduplicated samples to file
+    console.print(f"\n[bold]Writing {len(best_by_id)} deduplicated samples...[/bold]")
+    with open(output_file, "w") as outfile:
+        for sample_id in sorted(best_by_id.keys()):
+            outfile.write(json.dumps(best_by_id[sample_id]) + "\n")
+
+    stats["unique_samples"] = len(best_by_id)
     return stats
 
 
@@ -146,7 +213,7 @@ def main(
         help="Output JSONL file path (relative to benchmark/)",
     ),
 ) -> None:
-    """Merge multiple benchmark runs into a unified JSONL dataset.
+    """Merge multiple benchmark runs into a unified deduplicated JSONL dataset.
 
     Reads run directory names from runs_file (e.g., runs.txt) and creates
     a JSONL file where each line contains all data for one sample:
@@ -154,6 +221,10 @@ def main(
     - All fields from qa.json
     - Lean code (spec, impl, tests) as string fields
     - run_provenance field indicating which run it came from
+
+    When duplicate sample_ids are found across runs, automatically keeps
+    the highest quality sample based on success, structural faithfulness,
+    theorem count, and other metrics.
 
     Examples (from benchmark/ directory):
         uv run merge src/scripts/postproduction/merge/runs.txt
@@ -193,16 +264,20 @@ def main(
 
     console.print(f"\nOutput file: {output_path}")
 
-    # Merge runs to JSONL
+    # Merge runs to JSONL with deduplication
     stats = merge_runs_to_jsonl(artifacts_dir, run_names, output_path)
 
     # Display summary
     console.print("\n[bold]Merge Summary:[/bold]\n")
     console.print(f"  Runs processed: {stats['runs_processed']}")
-    console.print(f"  Total samples: {stats['total_samples']}")
+    console.print(f"  Total samples processed: {stats['total_samples_processed']}")
+    console.print(f"  Unique samples written: {stats['unique_samples']}")
+    console.print(f"  Duplicates replaced: {stats['duplicates_replaced']}")
     console.print(f"  Skipped: {stats['skipped']}")
 
-    console.print(f"\n[green]✓[/green] Merge complete! Data saved to: {output_path}")
+    console.print(
+        f"\n[green]✓[/green] Merge complete! Deduplicated data saved to: {output_path}"
+    )
     console.print(
         f"[dim]File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB[/dim]"
     )

@@ -18,26 +18,37 @@ parse_size_to_bytes() {
 
 # Build command prefix for memory limiting
 # Returns a command prefix string or empty if no limit specified
-# Usage: MEMORY_CMD=$(build_memory_cmd "8G")
+# Usage: MEMORY_CMD=$(build_memory_cmd "25G")           # MemoryHigh only
+#        MEMORY_CMD=$(build_memory_cmd "25G" "30G")     # MemoryHigh + MemoryMax
 #        $MEMORY_CMD nice -n 19 my_command
 #
-# Uses two-tier memory limiting:
-# - MemoryHigh=4G: soft limit, process gets throttled (slower but continues)
-# - MemoryMax=7G: hard limit, process gets killed (safety backstop)
+# Parameters:
+#   $1 - memory_high: Soft limit (throttling), e.g. "25G"
+#   $2 - memory_max: Optional hard limit (OOM kill), e.g. "30G" (omit for no hard limit)
 build_memory_cmd() {
-    local limit="$1"
-    [[ -z "$limit" ]] && return 0
+    local memory_high="$1"
+    local memory_max="${2:-}"  # Optional
+
+    [[ -z "$memory_high" ]] && return 0
+
+    # Build systemd-run parameters
+    local systemd_params="-p MemoryHigh=$memory_high -p MemorySwapMax=0"
+    if [[ -n "$memory_max" ]]; then
+        systemd_params="$systemd_params -p MemoryMax=$memory_max"
+    fi
 
     # Try systemd-run first (cgroups v2 - most reliable)
     # Test with a simple scope to check availability
     if systemd-run --user --scope true 2>/dev/null; then
         # systemd-run with user scope works
-        echo "systemd-run --user --scope -p MemoryHigh=4G -p MemoryMax=7G -p MemorySwapMax=0 --"
+        echo "systemd-run --user --scope $systemd_params --"
     elif systemd-run --scope true 2>/dev/null; then
         # System-level scope works (may need root)
-        echo "systemd-run --scope -p MemoryHigh=4G -p MemoryMax=7G -p MemorySwapMax=0 --"
+        echo "systemd-run --scope $systemd_params --"
     elif command -v prlimit &>/dev/null; then
         # Fall back to prlimit (virtual memory limit, less precise but portable)
+        # Use memory_max if provided, otherwise memory_high
+        local limit="${memory_max:-$memory_high}"
         local bytes
         bytes=$(parse_size_to_bytes "$limit")
         echo "prlimit --as=$bytes --"

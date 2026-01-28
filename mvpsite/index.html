@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>fvspec</title>
+    <style>
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        max-width: 800px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        line-height: 1.6;
+      }
+      h1 {
+        font-size: 2rem;
+      }
+      a {
+        color: #0066cc;
+        text-decoration: none;
+      }
+      a:hover {
+        text-decoration: underline;
+      }
+      .dataset-link {
+        font-size: 1.2rem;
+        font-weight: bold;
+        display: inline-block;
+        margin: 1.5rem 0;
+      }
+      .acknowledgments {
+        margin-top: 2rem;
+        padding-top: 1.5rem;
+        border-top: 1px solid #ccc;
+        font-size: 0.95rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>fvspec</h1>
+    <p>Lean benchmark for real-world SWE tasks.</p>
+
+    <div class="dataset-link">
+      <a href="https://huggingface.co/datasets/quinn-dougherty/fvspec"
+        >Dataset on HuggingFace</a
+      >
+    </div>
+
+    <p>
+      <code>fvspec</code> scrapes GitHub for property-based tests in Hypothesis
+      and transpiles them to Lean specifications, autoformalizing each function
+      under test and presenting language models of the future with almost 12k
+      hard proof engineering challenges.
+    </p>
+
+    <div class="acknowledgments">
+      <h2>Acknowledgments</h2>
+      <p>
+        <strong>Authors:</strong> Quinn Dougherty, Mike Dodds, Max von Hippel,
+        Hazel Shackleton
+      </p>
+      <p><strong>Additional acknowledgments:</strong> Ledah Casburn</p>
+      <p>
+        We thank <a href="https://boehs.org/">Evan Boehs</a> and
+        <a href="https://jakegines.in/about">Jake Ginesin</a> for working on the
+        scraper,
+        <a href="https://www.linkedin.com/in/jfcastano">Juan Castaño</a> for
+        setting up the database and AWS instances used for scraping.
+      </p>
+      <p>
+        This project is funded by the Advanced Research + Invention Agency
+        (ARIA).
+      </p>
+      <p>Dual licensed under MIT or Apache 2.0 at your choice.</p>
+    </div>
+  </body>
+</html>
