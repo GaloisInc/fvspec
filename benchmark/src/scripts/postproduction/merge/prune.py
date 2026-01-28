@@ -43,6 +43,30 @@ FIELDS_TO_REMOVE = {
     "start_line",
     "end_line",
     "source",
+    "source_file",
+    # No variation fields (single value across all samples)
+    "has_eval_statements",  # bool, 1 class
+    "has_unit_stub",  # bool, 1 class
+    "impl_eval_stripped",  # bool, 1 class
+    "lines_code",  # int64, 0-0
+    "num_eval_statements",  # int64, 0-0
+    "num_generate_messages",  # int64, 0-0
+    "num_input_messages",  # int64, 1-1
+    "num_messages",  # int64, 1-1
+    "num_sorries",  # int64, 0-0
+    "num_trivial_unit_theorems",  # int64, 0-0
+    "num_unit_tests",  # int64, 0-0
+    "percent_lines_added",  # float64, -1--1
+    "spec_sig_success",  # bool, 1 class
+    "unit_tests_available",  # bool, 1 class
+    "model",  # all sonnet 4.5
+    "variant",  # all `control-functional`
+    # Null/empty fields (no data)
+    "faithfulness_subjective",  # null
+    "interest_subjective",  # null
+    "percent_plausible",  # null
+    # Noise
+    "datetime",  # temporal metadata, not useful
 }
 
 # Field renames: old_name -> new_name
