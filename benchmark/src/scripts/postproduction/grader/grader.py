@@ -1,4 +1,4 @@
-"""Core grading logic with Jinja2 template rendering."""
+"""Core grading logic."""
 
 import json
 import time
@@ -6,150 +6,50 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-from jinja2 import Environment, FileSystemLoader
 from rich.console import Console
 
-from .client import AnthropicGraderClient
-from .models import DifficultyGrade, GraderMetadata, QualityGrade
+from scripts.postproduction.grader.client import AnthropicGraderClient
+from scripts.postproduction.grader.models import DifficultyGrade, GraderMetadata
+from scripts.postproduction.grader.prompts import (
+    load_system_prompt,
+    render_difficulty_prompt,
+)
 
 console = Console()
-
-# Template loading
-TEMPLATES_DIR = Path(__file__).parent / "prompts"
-jinja_env = Environment(loader=FileSystemLoader(TEMPLATES_DIR))
-
-
-def load_system_prompt() -> str:
-    """Load the shared system prompt.
-
-    Returns:
-        System prompt text
-    """
-    system_template = jinja_env.get_template("system.prompt")
-    return system_template.render()
-
-
-def render_quality_prompt(sample: dict[str, Any]) -> str:
-    """Render the quality assessment prompt with sample data.
-
-    Args:
-        sample: Sample dictionary from merged JSONL
-
-    Returns:
-        Rendered quality prompt
-    """
-    template = jinja_env.get_template("quality.prompt.template")
-
-    # Extract context for quality assessment
-    context = {
-        "pbt_code": sample.get("code", ""),
-        "pbt_summary": sample.get("summary", ""),
-        "spec_code": sample.get("spec"),  # May be None
-        "impl_code": sample.get("impl"),  # May be None
-        "success": sample.get("success", False),
-        "num_theorems": sample.get("num_theorems", 0),
-        "num_sorries": sample.get("num_sorries", 0),
-        "structural_faithfulness": sample.get("structural_faithfulness", {}),
-        "plausibility": sample.get("plausibility", {}),
-    }
-
-    return template.render(**context)
-
-
-def render_difficulty_prompt(sample: dict[str, Any]) -> str:
-    """Render the difficulty estimation prompt with sample data.
-
-    Args:
-        sample: Sample dictionary from merged JSONL
-
-    Returns:
-        Rendered difficulty prompt
-    """
-    template = jinja_env.get_template("difficulty.prompt.template")
-
-    # Extract context for difficulty assessment
-    context = {
-        "pbt_code": sample.get("code", ""),
-        "pbt_summary": sample.get("summary", ""),
-        "radon": sample.get("radon", {}),
-        "deps": sample.get("deps", []),
-        "dep_names": sample.get("dep_names", []),
-        "num_theorems": sample.get("num_theorems", 0),
-        "implementation_level": sample.get("implementation_level", ""),
-        "variant": sample.get("variant", ""),
-    }
-
-    return template.render(**context)
 
 
 def grade_sample(
     sample: dict[str, Any],
     client: AnthropicGraderClient,
-    skip_quality: bool = False,
-    skip_difficulty: bool = False,
 ) -> dict[str, Any]:
-    """Grade a single sample for quality and difficulty.
+    """Grade a single sample for difficulty.
 
     Args:
         sample: Sample dictionary from merged JSONL
         client: Anthropic client for API calls
-        skip_quality: Skip quality assessment
-        skip_difficulty: Skip difficulty assessment
 
     Returns:
         Sample dictionary augmented with grading fields
     """
     start_time = time.time()
-    total_tokens = 0
-    quality_tokens = 0
-    difficulty_tokens = 0
-
-    quality_grade: QualityGrade | None = None
     difficulty_grade: DifficultyGrade | None = None
     grader_error: str | None = None
 
     system_prompt = load_system_prompt()
 
-    # Grade quality
-    if not skip_quality:
-        try:
-            quality_prompt = render_quality_prompt(sample)
-            quality_grade, tokens, _ = client.grade_quality(
-                system_prompt, quality_prompt
-            )
-            quality_tokens = tokens
-            total_tokens += tokens
-
-            if quality_grade is None:
-                grader_error = "Quality grading failed (API error or no response)"
-        except Exception as e:
-            grader_error = f"Quality grading error: {str(e)}"
-            console.print(f"[red]{grader_error}[/red]")
-
     # Grade difficulty
-    if not skip_difficulty:
-        try:
-            difficulty_prompt = render_difficulty_prompt(sample)
-            difficulty_grade, tokens, _ = client.grade_difficulty(
-                system_prompt, difficulty_prompt
-            )
-            difficulty_tokens = tokens
-            total_tokens += tokens
+    try:
+        difficulty_prompt = render_difficulty_prompt(sample)
+        difficulty_grade, tokens, _ = client.grade_difficulty(
+            system_prompt, difficulty_prompt
+        )
 
-            if difficulty_grade is None:
-                if grader_error:
-                    grader_error += "; Difficulty grading failed"
-                else:
-                    grader_error = (
-                        "Difficulty grading failed (API error or no response)"
-                    )
-        except Exception as e:
-            error_msg = f"Difficulty grading error: {str(e)}"
-            if grader_error:
-                grader_error += f"; {error_msg}"
-            else:
-                grader_error = error_msg
-            console.print(f"[red]{error_msg}[/red]")
+        if difficulty_grade is None:
+            grader_error = "Difficulty grading failed (API error or no response)"
+    except Exception as e:
+        grader_error = f"Difficulty grading error: {str(e)}"
+        console.print(f"[red]{grader_error}[/red]")
+        tokens = 0
 
     elapsed = time.time() - start_time
 
@@ -157,16 +57,13 @@ def grade_sample(
     metadata = GraderMetadata(
         model=client.model,
         timestamp=datetime.now().isoformat(),
-        tokens_used=total_tokens,
-        quality_tokens=quality_tokens,
-        difficulty_tokens=difficulty_tokens,
+        tokens_used=tokens,
         grading_time_seconds=elapsed,
     )
 
     # Augment sample with grading results
     graded_sample = {
         **sample,
-        "grader_quality": quality_grade.model_dump() if quality_grade else None,
         "grader_difficulty": (
             difficulty_grade.model_dump() if difficulty_grade else None
         ),
@@ -184,11 +81,9 @@ def process_jsonl(
     output_file: Path,
     client: AnthropicGraderClient,
     limit: int | None = None,
-    skip_quality: bool = False,
-    skip_difficulty: bool = False,
     retry_failed: bool = False,
 ) -> dict[str, int]:
-    """Process a JSONL file, grading each sample and writing to output.
+    """Process a JSONL file, grading each sample for difficulty and writing to output.
 
     The output file is a COMPLETE COPY of the input file, with grading fields
     added to the samples that were graded. Samples not graded pass through unchanged.
@@ -198,8 +93,6 @@ def process_jsonl(
         output_file: Output JSONL file path
         client: Anthropic client for API calls
         limit: Limit number of samples to grade (None = all)
-        skip_quality: Skip quality assessment
-        skip_difficulty: Skip difficulty assessment
         retry_failed: Only grade samples with grader_error field
 
     Returns:
@@ -256,8 +149,6 @@ def process_jsonl(
                     graded_sample = grade_sample(
                         sample,
                         client,
-                        skip_quality=skip_quality,
-                        skip_difficulty=skip_difficulty,
                     )
 
                     # Write graded sample

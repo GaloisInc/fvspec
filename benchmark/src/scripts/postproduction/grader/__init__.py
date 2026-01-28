@@ -1,12 +1,11 @@
-"""Post-production: Grade benchmark samples for quality and difficulty using Claude Haiku.
+"""Post-production: Grade benchmark samples for difficulty using Claude Haiku.
 
-This CLI tool uses Claude Haiku 4.5 to evaluate formalization quality and difficulty
-for samples in merged JSONL files. Each sample is augmented with grading results.
+This CLI tool uses Claude Haiku 4.5 to estimate formalization difficulty
+for samples in merged JSONL files. Each sample is augmented with difficulty grading.
 
 Usage (from benchmark/ directory):
     uv run grader artifacts/dataset-out/fvspec.jsonl
     uv run grader input.jsonl --output graded.jsonl --limit 10
-    uv run grader input.jsonl --skip-difficulty
     uv run grader input.graded.jsonl --retry-failed  # Input must be previously graded
 """
 
@@ -15,10 +14,10 @@ from pathlib import Path
 import typer
 from rich.console import Console
 
-from .client import AnthropicGraderClient
-from .grader import process_jsonl
+from scripts.postproduction.grader.client import AnthropicGraderClient
+from scripts.postproduction.grader.grader import process_jsonl
 
-app = typer.Typer(help="Grade benchmark samples for quality and difficulty")
+app = typer.Typer(help="Grade benchmark samples for difficulty")
 console = Console()
 
 
@@ -47,16 +46,6 @@ def main(
         "-n",
         help="Grade only first N samples (output contains all samples, only first N graded)",
     ),
-    skip_quality: bool = typer.Option(
-        False,
-        "--skip-quality",
-        help="Skip quality assessment (only grade difficulty)",
-    ),
-    skip_difficulty: bool = typer.Option(
-        False,
-        "--skip-difficulty",
-        help="Skip difficulty assessment (only grade quality)",
-    ),
     retry_failed: bool = typer.Option(
         False,
         "--retry-failed",
@@ -69,11 +58,9 @@ def main(
         help="Number of parallel workers (not yet implemented)",
     ),
 ) -> None:
-    """Grade benchmark samples for quality and difficulty using Claude Haiku.
+    """Grade benchmark samples for difficulty using Claude Haiku.
 
-    Reads a merged JSONL file and uses Claude Haiku 4.5 to assess:
-    - Quality: correctness, type safety, edge cases, Lean idioms
-    - Difficulty: math complexity, type challenges, proof difficulty, domain knowledge
+    Reads a merged JSONL file and uses Claude Haiku 4.5 to estimate formalization difficulty.
 
     **Output behavior**: The output is a COMPLETE COPY of the input file.
     All samples are written to output, but only specified samples are graded
@@ -81,25 +68,18 @@ def main(
     Ungraded samples pass through unchanged.
 
     Each graded sample is augmented with:
-    - grader_quality: Quality assessment (or None if skipped/failed)
-    - grader_difficulty: Difficulty estimation (or None if skipped/failed)
+    - grader_difficulty: Difficulty estimation (or None if failed)
     - grader_metadata: Grading metadata (model, tokens, time)
     - grader_error: Error message (if grading failed)
 
     Examples (from benchmark/ directory):
         uv run grader artifacts/dataset-out/fvspec.jsonl
         uv run grader input.jsonl --output graded.jsonl --limit 10
-        uv run grader input.jsonl --skip-difficulty
         uv run grader input.graded.jsonl --retry-failed  # Retry with previously graded file
     """
-    console.print("[bold]Post-production: Grading benchmark samples[/bold]\n")
-
-    # Validate options
-    if skip_quality and skip_difficulty:
-        console.print(
-            "[red]Error: Cannot skip both quality and difficulty assessment[/red]"
-        )
-        raise typer.Exit(1)
+    console.print(
+        "[bold]Post-production: Grading benchmark samples for difficulty[/bold]\n"
+    )
 
     if parallel > 1:
         console.print(
@@ -118,10 +98,6 @@ def main(
 
     if limit:
         console.print(f"Sample limit: {limit}")
-    if skip_quality:
-        console.print("[yellow]Skipping quality assessment[/yellow]")
-    if skip_difficulty:
-        console.print("[yellow]Skipping difficulty assessment[/yellow]")
     if retry_failed:
         console.print("[cyan]Retry mode: only processing samples with errors[/cyan]")
 
@@ -144,8 +120,6 @@ def main(
         output_file=output_path,
         client=client,
         limit=limit,
-        skip_quality=skip_quality,
-        skip_difficulty=skip_difficulty,
         retry_failed=retry_failed,
     )
 

@@ -1,23 +1,21 @@
-# Grader: Quality and Difficulty Assessment
+# Grader: Difficulty Assessment
 
-Post-production tool that uses Claude Haiku 4.5 to grade benchmark samples for formalization quality and difficulty.
+Post-production tool that uses Claude Haiku 4.5 to estimate proof difficulty for Lean formalizations.
 
 ## Overview
 
-The grader evaluates each sample along two dimensions:
+The grader evaluates each sample on **Difficulty** (0-10): estimates the challenge of completing the proofs (replacing `sorry` with actual proofs), considering mathematical complexity, type challenges, proof difficulty, domain knowledge, and Lean expertise.
 
-1. **Quality**: Assesses how well the Lean formalization captures the Python PBT
-   - Correctness (0-10): Faithfulness to Python logic
-   - Type safety (0-10): Type alignment with Python semantics
-   - Edge cases (0-10): Boundary condition handling
-   - Lean idioms (0-10): Idiomatic Lean code
+Each score is accompanied by **"Haiku Takes"**: prose justification explaining the key factors behind the score.
 
-2. **Difficulty**: Estimates the challenge of creating the formalization
-   - Math complexity (0-10): Abstract reasoning required
-   - Type challenges (0-10): Type system complexity
-   - Proof difficulty (0-10): Proof sophistication needed
-   - Domain knowledge (0-10): Specialized knowledge required
-   - Lean expertise (0-10): Lean proficiency needed
+**Philosophy**: The grader treats the Lean formalization as a standalone formal verification task, **ignoring its Python provenance**. It evaluates: "Given this Lean code, how hard would it be to prove these theorems?" The Python source that generated it is irrelevant to the difficulty of the Lean problem itself.
+
+**Why only difficulty?** Quality is already captured during generation via:
+- `structural_faithfulness`: Objective metrics (parameter coverage, type correspondence, etc.)
+- `faithfulness_subjective`: Self-reported score (though currently not populated)
+- `plausibility`: Automated property testing results
+
+Difficulty requires human/LLM judgment and isn't captured elsewhere.
 
 ## Usage
 
@@ -51,10 +49,6 @@ uv run grader input.jsonl --output graded.jsonl
 # Test with a small limit
 uv run grader input.jsonl --limit 10
 
-# Skip one dimension
-uv run grader input.jsonl --skip-difficulty  # Only grade quality
-uv run grader input.jsonl --skip-quality     # Only grade difficulty
-
 # Retry failed samples (input must be a previously graded file)
 uv run grader input.graded.jsonl --retry-failed
 ```
@@ -64,49 +58,34 @@ uv run grader input.graded.jsonl --retry-failed
 - `--output, -o`: Output file path (default: `<input>.graded.jsonl`)
 - `--model, -m`: Model to use (default: `claude-haiku-4-5-20251001`)
 - `--limit, -n`: Grade only the first N samples (output still contains all samples, but only first N are graded)
-- `--skip-quality`: Skip quality assessment (only grade difficulty)
-- `--skip-difficulty`: Skip difficulty assessment (only grade quality)
 - `--retry-failed`: Only re-grade samples that have `grader_error` field. **Important**: Input must be a previously graded file (e.g., `input.graded.jsonl`), not the original input.
 - `--parallel, -p`: Parallel workers (not yet implemented)
 
 **Notes**:
 - The output is always a complete copy of the input. `--limit` and `--retry-failed` control which samples get graded, but all samples are written to the output file.
 - When using `--retry-failed`, the input must be a previously graded file (containing `grader_error` fields), not the original ungraded input.
+- **Prompt caching**: The system prompt is automatically cached, reducing cost by ~90% for cached tokens. Cache lasts 5 minutes, so batched grading is highly cost-effective.
+- **Rate limiting**: If you hit rate limits (429 errors), the grader will automatically retry with exponential backoff. You can safely run large batches.
 
 ## Output Format
 
 **Important**: The output file is a **complete copy** of the input file. All samples are written to the output, but only the specified samples (based on `--limit`, `--retry-failed`, or all if neither) are re-graded. Other samples pass through unchanged.
 
-Each graded sample is augmented with three fields:
+**What gets graded**: Only the Lean formalization itself (spec + impl code). The grader ignores Python source, dependencies, complexity metrics, and other provenance - it treats each sample as a standalone Lean verification task.
+
+Each graded sample is augmented with two fields:
 
 ```json
 {
-  "grader_quality": {
-    "score": 7.5,
-    "correctness": 8.0,
-    "type_safety": 7.0,
-    "edge_cases": 7.0,
-    "lean_idioms": 8.0,
-    "explanation": "The formalization correctly captures...",
-    "confidence": 0.85
-  },
   "grader_difficulty": {
     "score": 6.5,
-    "math_complexity": 7.0,
-    "type_challenges": 6.0,
-    "proof_difficulty": 7.0,
-    "domain_knowledge": 5.0,
-    "lean_expertise": 6.0,
-    "explanation": "This task requires understanding...",
-    "confidence": 0.9
+    "haiku_takes": "This task requires moderate Lean proficiency for type class usage and recursion. The mathematical complexity is straightforward, but the proof obligations involve non-trivial induction steps."
   },
   "grader_metadata": {
     "model": "claude-haiku-4-5-20251001",
     "timestamp": "2025-01-23T12:34:56.789Z",
-    "tokens_used": 3542,
-    "quality_tokens": 1821,
-    "difficulty_tokens": 1721,
-    "grading_time_seconds": 2.45,
+    "tokens_used": 1422,
+    "grading_time_seconds": 1.15,
     "version": "1.0.0"
   }
 }
@@ -116,9 +95,12 @@ If grading fails, a `grader_error` field is added with the error message.
 
 ## Cost Estimation
 
-**Per sample**: ~3.5K input tokens + ~500 output tokens = ~$0.0015
+**Per sample (first call)**: ~1K system + Lean code input + ~250 output tokens ≈ ~$0.0005-0.0015 (varies by code length)
+**Per sample (with cache hit)**: ~100 system (cached) + Lean code input + ~250 output ≈ ~$0.0003-0.0008
 
-For 10,000 samples: ~$15
+For 10,000 samples: ~$5-15 (depends on code length), with ~50% savings from caching
+
+The grader uses **prompt caching** for the system prompt, which saves ~90% on cached tokens after the first request. The cache lasts 5 minutes, so batched grading is highly cost-effective. Input size varies based on Lean code length (spec + impl).
 
 Use `--limit` to test on a small number of samples before running on full dataset.
 
@@ -159,7 +141,7 @@ uv run merge src/scripts/postproduction/merge/runs.txt
 # 2. Deduplicate
 uv run python src/scripts/postproduction/deduplicate.py artifacts/dataset-out/fvspec-jan22.jsonl
 
-# 3. Grade samples (NEW)
+# 3. Grade samples for difficulty
 uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
 # Creates: artifacts/dataset-out/fvspec-jan22.graded.jsonl
 
@@ -167,36 +149,51 @@ uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
 uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed -o artifacts/dataset-out/fvspec-jan22.graded.jsonl
 # Re-grades only samples with grader_error field, overwrites the file
 
-# 5. Analyze and filter by quality/difficulty scores
+# 5. Analyze and filter by difficulty scores
 ```
 
 ## Architecture
 
 - **SDK**: Raw Anthropic SDK (not pydantic-ai) for simple LLM-as-judge task
-- **Structured output**: Uses tool use pattern for guaranteed JSON schema conformance
+- **Structured output**: Uses new beta structured outputs API for guaranteed JSON schema conformance
 - **Templates**: Jinja2 templates for prompts (modular and editable)
-- **Retry logic**: Exponential backoff for rate limits
+- **Prompt caching**: System prompt is cached for 90% cost savings on repeated calls
+- **Rate limit handling**:
+  - Graceful handling of 429 errors with exponential backoff + jitter
+  - Respects `retry-after` headers from API
+  - Automatic retry with increasing delays
 - **Incremental output**: Writes samples as they're graded (resume-friendly)
 - **Error handling**: Failed samples written with `grader_error` field
 
 ## Files
 
 - `__init__.py` - Typer CLI entry point
-- `models.py` - Pydantic models for grading results
-- `client.py` - Anthropic API wrapper with retry logic
-- `grader.py` - Core grading logic and template rendering
-- `prompts/` - Jinja2 prompt templates
-  - `system.prompt` - Shared system prompt
-  - `quality.prompt.template` - Quality assessment template
-  - `difficulty.prompt.template` - Difficulty estimation template
+- `models.py` - Pydantic models for grading results (DifficultyGrade, GraderMetadata)
+- `client.py` - Anthropic API wrapper with retry logic and structured outputs
+- `grader.py` - Core grading logic (orchestrates prompts + client)
+- `prompts/` - Jinja2 prompt templates and loaders
+  - `__init__.py` - Template loading functions (load_system_prompt, render_difficulty_prompt)
+  - `system.prompt` - Shared system prompt (cached for 90% savings)
+  - `difficulty.prompt.template` - Difficulty estimation template (Jinja2)
 
 ## Customization
 
-Edit prompt templates in `prompts/` to customize grading criteria without modifying Python code.
+### Editing Prompts
+Edit prompt templates in `prompts/` to customize grading criteria:
+- `system.prompt` - Core instructions and context (plain text)
+- `difficulty.prompt.template` - Difficulty assessment prompt (Jinja2 template)
 
-## Notes
+The template loaders are in `prompts/__init__.py` and use Jinja2 for variable substitution.
 
-- Grader handles failed generations (spec/impl may be None)
-- Structural faithfulness scores provided as context, not to bias assessment
-- Calibrated scoring: 5 is average, 8+ is exceptional/very challenging
-- Parallel processing not yet implemented (use serial mode)
+### Import Style
+All imports use absolute paths (`from scripts.postproduction.grader.X import Y`) for clarity and IDE support.
+
+## Performance Notes
+
+- **Prompt caching**: System prompt cached for 90% savings on repeat calls (5 min TTL)
+- **Rate limits**: Automatic retry with exponential backoff + jitter for 429 errors
+- **Batching**: Most cost-effective to grade samples in batches (caching benefits)
+- **Failed generations**: Grader handles failed generations gracefully
+- **Calibrated scoring**: 5 is moderate difficulty, 8+ is very challenging
+- **Parallel processing**: Not yet implemented (use serial mode)
+- **Quality vs Difficulty**: Quality already captured via `structural_faithfulness` and `plausibility` metrics
