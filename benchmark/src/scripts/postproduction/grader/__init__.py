@@ -28,7 +28,7 @@ def main(
         help="Path to input JSONL file (merged benchmark data)",
         exists=True,
     ),
-    output: str = typer.Option(
+    output: str | None = typer.Option(
         None,
         "--output",
         "-o",
@@ -40,7 +40,7 @@ def main(
         "-m",
         help="Model to use for grading",
     ),
-    limit: int = typer.Option(
+    limit: int | None = typer.Option(
         None,
         "--limit",
         "-n",
