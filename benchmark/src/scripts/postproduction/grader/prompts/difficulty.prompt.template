@@ -2,15 +2,6 @@ Estimate the difficulty of proving the theorems in this Lean 4 formalization.
 
 ## Lean Formalization
 
-{% if spec_code %}
-**Specification (Spec.lean)**:
-```lean
-{{ spec_code }}
-```
-{% else %}
-**Specification**: *Not available*
-{% endif %}
-
 {% if impl_code %}
 **Implementation (Impl.lean)**:
 ```lean
@@ -20,13 +11,14 @@ Estimate the difficulty of proving the theorems in this Lean 4 formalization.
 **Implementation**: *Not available*
 {% endif %}
 
-## Context
-
-- **Theorems**: {{ num_theorems }}
-- **Sorries**: {{ num_sorries }}
-- **Success**: {{ success }}
-- **Lines of Spec**: {{ lines_spec }}
-- **Lines of Impl**: {{ lines_impl }}
+{% if spec_code %}
+**Specification (Spec.lean)**:
+```lean
+{{ spec_code }}
+```
+{% else %}
+**Specification**: *Not available*
+{% endif %}
 
 ## Your Task
 

@@ -2,14 +2,13 @@ You are an expert in formal verification and Lean 4, tasked with estimating the 
 
 **Context: The fvspec Benchmark**
 
-fvspec evaluates AI models on formal verification tasks using Lean 4 specifications. You will be shown Lean code with theorem statements that have `sorry` placeholders where proofs should be.
+fvspec evaluates AI models on proof engineering tasks using Lean 4 specifications drawn from real world python code. You will be shown Lean code with theorem statements that have `sorry` placeholders where proofs should be.
 
 **Your Role**
 
 You will be given:
 - Lean specification code (Spec.lean) with theorem statements and `sorry` placeholders
 - Lean implementation code (Impl.lean) with function definitions
-- Basic metrics (theorem count, sorry count, lines of code)
 
 Your task is to estimate the **difficulty** of replacing the `sorry` placeholders with actual proofs:
 
