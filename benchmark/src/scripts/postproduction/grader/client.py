@@ -33,7 +33,7 @@ class AnthropicGraderClient:
     Features:
     - Prompt caching: System prompts are cached for 90% cost savings (5 min TTL)
     - Rate limit handling: Graceful 429 handling with exponential backoff + jitter
-    - Structured outputs: Uses beta API for guaranteed JSON schema conformance
+    - Structured outputs: Guaranteed JSON schema conformance (GA on Claude API)
     """
 
     def __init__(
@@ -68,7 +68,7 @@ class AnthropicGraderClient:
         output_schema: type[BaseModel],
         max_tokens: int = 4096,
     ) -> tuple[BaseModel | None, int, float]:
-        """Call the API with structured output using the new beta API.
+        """Call the API with structured output (GA feature).
 
         Uses prompt caching for the system prompt and graceful rate limit handling.
 
@@ -101,12 +101,13 @@ class AnthropicGraderClient:
                     ],
                     messages=[{"role": "user", "content": user_message}],
                     betas=[
-                        "structured-outputs-2025-11-13",
                         "prompt-caching-2024-07-31",
                     ],
-                    output_format={
-                        "type": "json_schema",
-                        "schema": output_schema.model_json_schema(),
+                    output_config={
+                        "format": {
+                            "type": "json_schema",
+                            "schema": output_schema.model_json_schema(),
+                        }
                     },
                 )
 
