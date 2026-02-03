@@ -69,7 +69,7 @@ FIELDS_TO_REMOVE = {
     # Noise
     "datetime",  # temporal metadata, not useful
     "function_discovery",
-    "realpbt_name",
+    "sample_name",
 }
 
 # Field renames: old_name -> new_name
@@ -80,6 +80,7 @@ FIELD_RENAMES = {
     # Note: 'id' is removed (redundant with sample_id)
     # 'original_id' becomes 'realpbt_id' (FK to HuggingFace realpbt dataset)
     "original_id": "realpbt_id",
+    "radon": "realpbt_radon",
     "repo_id": "realpbt_repo_id",
     "name": "realpbt_sample_name",
     "code": "realpbt_code",
