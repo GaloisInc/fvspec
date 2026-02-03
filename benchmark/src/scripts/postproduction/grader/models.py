@@ -1,6 +1,6 @@
 """Pydantic models for grading results and metadata."""
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class DifficultyGrade(BaseModel):
@@ -8,6 +8,8 @@ class DifficultyGrade(BaseModel):
 
     Estimates the difficulty of creating the formalization.
     """
+
+    model_config = ConfigDict(extra="forbid")
 
     score: float = Field(ge=0, le=10, description="Overall difficulty score (0-10)")
     haiku_takes: str = Field(
@@ -17,6 +19,8 @@ class DifficultyGrade(BaseModel):
 
 class GraderMetadata(BaseModel):
     """Metadata about the grading process."""
+
+    model_config = ConfigDict(extra="forbid")
 
     model: str = Field(default="claude-haiku-4-5-20251001", description="Model used")
     timestamp: str = Field(description="ISO timestamp of grading")
