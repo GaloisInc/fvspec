@@ -133,21 +133,19 @@ grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
 The grader fits into the postproduction pipeline:
 
 ```bash
-# 1. Merge runs
+# 1. Merge and deduplicate runs
 uv run merge src/scripts/postproduction/merge/runs.txt
+# Creates: artifacts/dataset-out/fvspec.jsonl (deduplication happens automatically)
 
-# 2. Deduplicate
-uv run python src/scripts/postproduction/deduplicate.py artifacts/dataset-out/fvspec-jan22.jsonl
+# 2. Grade samples for difficulty
+uv run grader artifacts/dataset-out/fvspec.jsonl
+# Creates: artifacts/dataset-out/fvspec.graded.jsonl
 
-# 3. Grade samples for difficulty
-uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
-# Creates: artifacts/dataset-out/fvspec-jan22.graded.jsonl
-
-# 4. Retry failed samples (if any had errors)
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed -o artifacts/dataset-out/fvspec-jan22.graded.jsonl
+# 3. Retry failed samples (if any had errors)
+uv run grader artifacts/dataset-out/fvspec.graded.jsonl --retry-failed -o artifacts/dataset-out/fvspec.graded.jsonl
 # Re-grades only samples with grader_error field, overwrites the file
 
-# 5. Analyze and filter by difficulty scores
+# 4. Analyze and filter by difficulty scores
 ```
 
 ## Architecture
