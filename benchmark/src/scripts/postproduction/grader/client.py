@@ -150,6 +150,8 @@ class AnthropicGraderClient:
                                 retry_after = float(retry_after_header)
                                 sleep_time = max(sleep_time, retry_after)
                             except ValueError:
+                                # If the retry-after header is malformed, ignore it and
+                                # fall back to the existing exponential backoff value.
                                 pass
 
                     console.print(
