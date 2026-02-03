@@ -88,6 +88,8 @@ def process_jsonl(
     output_file: Path,
     client: AnthropicGraderClient,
     limit: int | None = None,
+    start_idx: int | None = None,
+    stop_idx: int | None = None,
     retry_failed: bool = False,
 ) -> dict[str, int]:
     """Process a JSONL file, grading each sample for difficulty and writing to output.
@@ -100,6 +102,8 @@ def process_jsonl(
         output_file: Output JSONL file path
         client: Anthropic client for API calls
         limit: Limit number of samples to grade (None = all)
+        start_idx: Start grading from this index (0-based, inclusive)
+        stop_idx: Stop grading at this index (0-based, exclusive)
         retry_failed: Only grade samples with grader_error field
 
     Returns:
@@ -126,13 +130,24 @@ def process_jsonl(
     indices_to_grade = set()
 
     if retry_failed:
-        # Only grade samples with grader_error
+        # Only grade samples with grader_error, respecting start/stop range if provided
         for i, sample in enumerate(all_samples):
             if "grader_error" in sample:
+                # Apply start/stop filter if specified
+                if start_idx is not None and i < start_idx:
+                    continue
+                if stop_idx is not None and i >= stop_idx:
+                    continue
                 indices_to_grade.add(i)
         console.print(
             f"[cyan]Found {len(indices_to_grade)} samples with errors to retry[/cyan]"
         )
+    elif start_idx is not None or stop_idx is not None:
+        # Grade samples in [start, stop) range
+        start = start_idx if start_idx is not None else 0
+        stop = stop_idx if stop_idx is not None else len(all_samples)
+        indices_to_grade = set(range(start, min(stop, len(all_samples))))
+        console.print(f"[cyan]Grading samples {start} to {stop}[/cyan]")
     elif limit is not None:
         # Grade first N samples
         indices_to_grade = set(range(min(limit, len(all_samples))))

@@ -46,6 +46,16 @@ def main(
         "-n",
         help="Grade only first N samples (output contains all samples, only first N graded)",
     ),
+    start_idx: int = typer.Option(
+        None,
+        "--start-idx",
+        help="Start grading from this index (0-based, inclusive)",
+    ),
+    stop_idx: int = typer.Option(
+        None,
+        "--stop-idx",
+        help="Stop grading at this index (0-based, exclusive)",
+    ),
     retry_failed: bool = typer.Option(
         False,
         "--retry-failed",
@@ -75,11 +85,24 @@ def main(
     Examples (from benchmark/ directory):
         uv run grader artifacts/dataset-out/fvspec.jsonl
         uv run grader input.jsonl --output graded.jsonl --limit 10
+        uv run grader input.jsonl --start-idx 100 --stop-idx 200  # Grade samples 100-199
         uv run grader input.graded.jsonl --retry-failed  # Retry with previously graded file
+        uv run grader input.graded.jsonl --retry-failed --start-idx 500 --stop-idx 1000  # Retry errors in range
     """
     console.print(
         "[bold]Post-production: Grading benchmark samples for difficulty[/bold]\n"
     )
+
+    # Validate arguments
+    if limit and (start_idx is not None or stop_idx is not None):
+        console.print(
+            "[red]Error: Cannot use --limit with --start-idx/--stop-idx[/red]"
+        )
+        raise typer.Exit(1)
+
+    if start_idx is not None and stop_idx is not None and start_idx >= stop_idx:
+        console.print("[red]Error: --start-idx must be less than --stop-idx[/red]")
+        raise typer.Exit(1)
 
     if parallel > 1:
         console.print(
@@ -98,6 +121,10 @@ def main(
 
     if limit:
         console.print(f"Sample limit: {limit}")
+    if start_idx is not None or stop_idx is not None:
+        start_str = str(start_idx) if start_idx is not None else "0"
+        stop_str = str(stop_idx) if stop_idx is not None else "end"
+        console.print(f"Index range: [{start_str}, {stop_str})")
     if retry_failed:
         console.print("[cyan]Retry mode: only processing samples with errors[/cyan]")
 
@@ -120,6 +147,8 @@ def main(
         output_file=output_path,
         client=client,
         limit=limit,
+        start_idx=start_idx,
+        stop_idx=stop_idx,
         retry_failed=retry_failed,
     )
 
