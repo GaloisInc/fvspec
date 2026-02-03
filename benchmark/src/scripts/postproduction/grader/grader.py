@@ -64,11 +64,18 @@ def grade_sample(
     # Augment sample with grading results
     graded_sample = {
         **sample,
-        "grader_difficulty": (
-            difficulty_grade.model_dump() if difficulty_grade else None
-        ),
         "grader_metadata": metadata.model_dump(),
     }
+
+    # Add difficulty fields with renamed keys
+    if difficulty_grade:
+        graded_sample["difficulty_subjective_haiku"] = difficulty_grade.score
+        graded_sample["difficulty_subjective_haiku_takes"] = (
+            difficulty_grade.haiku_takes
+        )
+    else:
+        graded_sample["difficulty_subjective_haiku"] = None
+        graded_sample["difficulty_subjective_haiku_takes"] = None
 
     if grader_error:
         graded_sample["grader_error"] = grader_error
