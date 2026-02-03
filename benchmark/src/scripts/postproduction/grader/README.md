@@ -73,14 +73,12 @@ uv run grader input.graded.jsonl --retry-failed
 
 **What gets graded**: Only the Lean formalization itself (spec + impl code). The grader ignores Python source, dependencies, complexity metrics, and other provenance - it treats each sample as a standalone Lean verification task.
 
-Each graded sample is augmented with two fields:
+Each graded sample is augmented with the following fields:
 
 ```json
 {
-  "grader_difficulty": {
-    "score": 6.5,
-    "haiku_takes": "This task requires moderate Lean proficiency for type class usage and recursion. The mathematical complexity is straightforward, but the proof obligations involve non-trivial induction steps."
-  },
+  "difficulty_subjective_haiku": 6.5,
+  "difficulty_subjective_haiku_takes": "This task requires moderate Lean proficiency for type class usage and recursion. The mathematical complexity is straightforward, but the proof obligations involve non-trivial induction steps.",
   "grader_metadata": {
     "model": "claude-haiku-4-5-20251001",
     "timestamp": "2025-01-23T12:34:56.789Z",
