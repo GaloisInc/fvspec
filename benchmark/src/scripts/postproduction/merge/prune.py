@@ -111,7 +111,6 @@ FIELD_ORDER = [
     "realpbt_code",
     "realpbt_summary",
     # Results
-    "success",
     "num_theorems",
     # Metadata fields follow alphabetically
 ]
