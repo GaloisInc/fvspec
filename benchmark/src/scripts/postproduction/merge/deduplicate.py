@@ -46,7 +46,6 @@ def deduplicate_samples(
         Dictionary mapping sample_id to the best quality sample for that id
     """
     best_by_id: dict[int, dict[str, Any]] = {}
-    duplicates_replaced = 0
 
     for sample in samples:
         sample_id = sample.get("sample_id")
@@ -70,6 +69,5 @@ def deduplicate_samples(
                     f"[dim]Sample {sample_id}: replacing {old_prov} with {new_prov}[/dim]"
                 )
                 best_by_id[sample_id] = sample
-                duplicates_replaced += 1
 
     return best_by_id
