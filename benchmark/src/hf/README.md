@@ -11,9 +11,16 @@ size_categories:
 
 # `fvspec` DRAFT
 
+Based on [RealPBT](https://huggingface.co/datasets/Benchify/realpbt)
+
 Scraping `hypothesis` tests from the real world and transpiling them into Lean challenge problems. 
 
 THIS IS A ROUGH DRAFT SNEAK PEAK PLEASE DO NOT POST ANYWHERE. MORE SAMPLES AND MORE METRICS TO COME. 
+
+## TODO: Usage
+
+1. paste `lean-toolchain`, `lakefile.toml`, `lake-manifest.json` in here.
+2. show the `datasets.load_dataset` call that appends `Spec.lean` to `Impl.lean`
 
 ## Acknowledgements
 

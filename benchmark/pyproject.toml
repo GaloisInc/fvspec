@@ -9,6 +9,7 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
+    "anthropic>=0.77.1",
     "datasets>=4.1.1",
     "hvplot>=0.12.1",
     "inspect-ai>=0.3.142",
@@ -49,6 +50,7 @@ ci-digest = "scripts.ci.ci_digest:app"
 create-ci-db = "scripts.ci.create_ci_db:app"
 accumulate = "scripts.postproduction.accumulate:app"
 merge = "scripts.postproduction.merge:app"
+grader = "scripts.postproduction.grader:app"
 fix-eval-status = "scripts.ops.fix_eval_status:main"
 
 [tool.pytest.ini_options]

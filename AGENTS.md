@@ -19,12 +19,14 @@ fvspec is a benchmark for evaluating AI models on formal verification tasks. Ext
 
 ## Repository Structure
 
-- **`/benchmark`** - Benchmark generation (`inspect_ai`, SQLite, two-agent orchestration)
+- **`/benchmark`** - Benchmark generation (`inspect_ai`, SQLite, three-agent orchestration) and postproduction pipeline
+  - `src/generate/` - Core benchmark generation (impl, spec, units agents)
+  - `src/scripts/postproduction/` - Post-processing tools (merge, grader, W&B accumulator)
 - **`/baselines`** - Baseline model evaluations (minimal currently)
 - **`/leaderboard`** - Public leaderboard (Next.js, Hono API, BullMQ worker)
 - **`/benchmark/artifacts`** - Generated outputs (gitignored)
 
-See subdirectory `AGENTS.md` files for details.
+See subdirectory `CLAUDE.md` and `README.md` files for details.
 
 ## Development
 

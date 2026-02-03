@@ -1,0 +1,43 @@
+Estimate the difficulty of proving the theorems in this Lean 4 formalization.
+
+## Lean Formalization
+
+{% if impl_code %}
+**Implementation (Impl.lean)**:
+```lean
+{{ impl_code }}
+```
+{% else %}
+**Implementation**: *Not available*
+{% endif %}
+
+{% if spec_code %}
+**Specification (Spec.lean)**:
+```lean
+{{ spec_code }}
+```
+{% else %}
+**Specification**: *Not available*
+{% endif %}
+
+## Your Task
+
+Estimate the difficulty of proving the theorems (replacing `sorry` with proofs):
+
+1. **Difficulty Score** (0-10): How challenging would it be to complete these proofs?
+   - Mathematical complexity: Abstract reasoning and algorithm complexity
+   - Type challenges: Dependent types, type classes, conversions
+   - Proof difficulty: Induction, lemmas, non-obvious steps
+   - Domain knowledge: Specialized concepts and library familiarity
+   - Lean expertise: Advanced features and idioms needed
+
+2. **Haiku Takes**: Provide a clear prose justification (2-4 sentences) for your score, explaining:
+   - Main factors that make these proofs easy or challenging
+   - Specific challenges in types, proofs, domain, or Lean features
+   - Whether this is straightforward, moderate, or highly challenging
+   - Any notable patterns or complexity in the formalization
+
+**Important**:
+- Focus only on the Lean code itself, not any external context
+- Be calibrated: 5 is moderate difficulty, 8+ is very challenging
+- Consider what proof techniques and lemmas would be needed

@@ -75,6 +75,39 @@ Edit `config.toml` for model/variant/wandb. **CRITICAL:** Keep `entity = "fvspec
 - JSON fields: `.get_deps()` / `.get_dep_names()`
 - Use `get_session(db_path)` context manager
 
+## Postproduction Pipeline
+
+After running benchmarks, postproduction scripts process results:
+
+**`src/scripts/postproduction/`** - Post-processing tools
+- **`merge/`** - Merge multiple runs into unified JSONL dataset with automatic deduplication
+  - `uv run merge src/scripts/postproduction/merge/runs.txt`
+  - Combines runs, deduplicates by sample_id (quality-based), applies schema pruning
+  - See `src/scripts/postproduction/merge/README.md` for details
+
+- **`grader/`** - LLM-based difficulty assessment using Claude Haiku 4.5
+  - `uv run grader artifacts/dataset-out/fvspec.jsonl`
+  - Rates proof difficulty (0-10) with justification
+  - Uses structured outputs with prompt caching for cost efficiency
+  - See `src/scripts/postproduction/grader/README.md` for details
+
+- **`accumulate_wandb/`** - Download and analyze W&B runs
+  - `uv run python -m scripts.postproduction.accumulate sync`
+  - Downloads run data (metrics, files, config) for offline analysis
+  - Streamlit dashboard for interactive exploration
+  - See `src/scripts/postproduction/accumulate_wandb/README.md` for details
+
+**Typical workflow:**
+```bash
+# 1. Merge runs
+uv run merge src/scripts/postproduction/merge/runs.txt
+
+# 2. Grade difficulty (optional)
+uv run grader artifacts/dataset-out/fvspec.jsonl
+
+# 3. Analyze results
+```
+
 ## Code Style
 
 **Python:** Absolute imports, Pydantic (not dataclasses), `from datetime import datetime`
