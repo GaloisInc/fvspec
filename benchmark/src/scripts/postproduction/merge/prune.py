@@ -65,8 +65,11 @@ FIELDS_TO_REMOVE = {
     "faithfulness_subjective",  # null
     "interest_subjective",  # null
     "percent_plausible",  # null
+    "plausibility",
     # Noise
     "datetime",  # temporal metadata, not useful
+    "function_discovery",
+    "realpbt_name",
 }
 
 # Field renames: old_name -> new_name
@@ -78,7 +81,7 @@ FIELD_RENAMES = {
     # 'original_id' becomes 'realpbt_id' (FK to HuggingFace realpbt dataset)
     "original_id": "realpbt_id",
     "repo_id": "realpbt_repo_id",
-    "name": "realpbt_name",
+    "name": "realpbt_sample_name",
     "code": "realpbt_code",
     "source_file": "realpbt_source_file",
     "start_line": "realpbt_start_line",
@@ -88,6 +91,7 @@ FIELD_RENAMES = {
     "source": "realpbt_source",
     "summary": "realpbt_summary",
     "mode": "realpbt_mode",
+    "lines_pbt": "realpbt_lines_pbt",
     # Note: id, hash, summary_vector, summaryversion, summaryconfidence are removed (see FIELDS_TO_REMOVE)
 }
 
@@ -95,10 +99,10 @@ FIELD_RENAMES = {
 FIELD_ORDER = [
     # Benchmark-generated identifiers
     "sample_id",
-    "sample_name",
+    "realpbt_sample_name",
     # Generated Lean code
-    "impl",
     "spec",
+    "impl",
     # RealPBT source data
     "realpbt_id",
     "realpbt_name",
