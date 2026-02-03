@@ -171,7 +171,7 @@ class AnthropicGraderClient:
 
             except Exception as e:
                 # Non-rate-limit error, don't retry
-                last_error = e
+                _last_error = e
                 console.print(f"[red]API error: {e}[/red]")
                 return None, 0, 0.0
 
