@@ -149,7 +149,7 @@ def process_jsonl(
                 # Grade this sample
                 console.print(
                     f"[cyan]Grading sample {stats['total_graded'] + 1}/{len(indices_to_grade)}: "
-                    f"{sample.get('name', 'unknown')}[/cyan]"
+                    f"{sample.get('realpbt_sample_name', 'unknown')}[/cyan]"
                 )
 
                 try:
