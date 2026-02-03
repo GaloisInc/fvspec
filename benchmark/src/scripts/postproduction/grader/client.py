@@ -7,7 +7,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from anthropic import Anthropic, RateLimitError
+from anthropic import Anthropic, RateLimitError, transform_schema
 from anthropic.types import Message
 from dotenv import load_dotenv
 from pydantic import BaseModel
@@ -106,7 +106,10 @@ class AnthropicGraderClient:
                     output_config={
                         "format": {
                             "type": "json_schema",
-                            "schema": output_schema.model_json_schema(),
+                            # Transform schema to remove unsupported constraints
+                            "schema": transform_schema(
+                                output_schema.model_json_schema()
+                            ),
                         }
                     },
                 )
