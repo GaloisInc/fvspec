@@ -53,17 +53,59 @@ uv run grader input.jsonl --limit 10
 uv run grader input.graded.jsonl --retry-failed
 ```
 
+### Range-Based Grading
+
+Grade specific ranges of samples using `--start-idx` and `--stop-idx` (0-based indexing):
+
+```bash
+# Grade samples 100-199 (inclusive start, exclusive stop)
+uv run grader input.jsonl --start-idx 100 --stop-idx 200
+
+# Resume from sample 500 to end
+uv run grader input.jsonl --start-idx 500
+
+# Grade up to sample 1000 (0-999)
+uv run grader input.jsonl --stop-idx 1000
+
+# Retry errors in specific range
+uv run grader input.graded.jsonl --retry-failed --start-idx 500 --stop-idx 1000
+```
+
+**Parallelization with ranges**: Split large datasets into chunks for parallel processing:
+
+```bash
+# Split 10,000 samples into 4 parallel workers
+# Terminal 1
+uv run grader input.jsonl --start-idx 0 --stop-idx 2500 -o output-1.jsonl
+
+# Terminal 2
+uv run grader input.jsonl --start-idx 2500 --stop-idx 5000 -o output-2.jsonl
+
+# Terminal 3
+uv run grader input.jsonl --start-idx 5000 --stop-idx 7500 -o output-3.jsonl
+
+# Terminal 4
+uv run grader input.jsonl --start-idx 7500 -o output-4.jsonl
+
+# Then merge the graded chunks (each output file is a complete copy with graded ranges)
+# Use the merge script or manually combine the graded samples
+```
+
 ### Options
 
 - `--output, -o`: Output file path (default: `<input>.graded.jsonl`)
 - `--model, -m`: Model to use (default: `claude-haiku-4-5-20251001`)
-- `--limit, -n`: Grade only the first N samples (output still contains all samples, but only first N are graded)
-- `--retry-failed`: Only re-grade samples that have `grader_error` field. **Important**: Input must be a previously graded file (e.g., `input.graded.jsonl`), not the original input.
+- `--limit, -n`: Grade only the first N samples (mutually exclusive with `--start-idx`/`--stop-idx`)
+- `--start-idx`: Start grading from this index (0-based, inclusive). Can be used alone or with `--stop-idx`
+- `--stop-idx`: Stop grading at this index (0-based, exclusive). Can be used alone or with `--start-idx`
+- `--retry-failed`: Only re-grade samples that have `grader_error` field. Works with range arguments to retry errors in specific ranges. **Important**: Input must be a previously graded file (e.g., `input.graded.jsonl`), not the original input.
 - `--parallel, -p`: Parallel workers (not yet implemented)
 
 **Notes**:
-- The output is always a complete copy of the input. `--limit` and `--retry-failed` control which samples get graded, but all samples are written to the output file.
+- The output is always a complete copy of the input. All control flags (`--limit`, `--start-idx`, `--stop-idx`, `--retry-failed`) only control which samples get graded, but all samples are written to the output file.
+- `--limit` and `--start-idx`/`--stop-idx` are mutually exclusive (validation enforced)
 - When using `--retry-failed`, the input must be a previously graded file (containing `grader_error` fields), not the original ungraded input.
+- `--retry-failed` respects range arguments - only retries errors within the specified range
 - **Prompt caching**: The system prompt is automatically cached, reducing cost by ~90% for cached tokens. Cache lasts 5 minutes, so batched grading is highly cost-effective.
 - **Rate limiting**: If you hit rate limits (429 errors), the grader will automatically retry with exponential backoff. You can safely run large batches.
 
@@ -124,6 +166,15 @@ uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed \
 # Step 4: Verify all succeeded
 grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
 # Should be 0 (or fewer than before)
+```
+
+**Range-based retry**: If errors are concentrated in a specific range:
+
+```bash
+# Retry only errors in samples 1000-2000
+uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed \
+  --start-idx 1000 --stop-idx 2000 \
+  -o artifacts/dataset-out/fvspec-jan22.graded.jsonl
 ```
 
 **Important**: `--retry-failed` expects a **previously graded file** as input (one that has `grader_error` fields). Don't pass the original ungraded input.
