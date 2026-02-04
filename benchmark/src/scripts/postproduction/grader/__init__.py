@@ -16,6 +16,10 @@ from rich.console import Console
 
 from scripts.postproduction.grader.client import AnthropicGraderClient
 from scripts.postproduction.grader.grader import process_jsonl
+from scripts.postproduction.grader.prompts import (
+    load_system_prompt,
+    render_difficulty_prompt,
+)
 
 app = typer.Typer(help="Grade benchmark samples for difficulty")
 console = Console()
@@ -166,6 +170,79 @@ def main(
     console.print(
         f"[dim]File size: {output_path.stat().st_size / 1024 / 1024:.2f} MB[/dim]"
     )
+
+
+@app.command(name="test-prompt")
+def preview_prompt(
+    input_file: Path = typer.Argument(
+        ...,
+        help="Path to input JSONL file",
+        exists=True,
+    ),
+    limit: int = typer.Option(
+        1,
+        "--limit",
+        "-n",
+        help="Number of samples to render prompts for",
+    ),
+    start_idx: int = typer.Option(
+        None,
+        "--start-idx",
+        help="Start from this sample index",
+    ),
+) -> None:
+    """Test prompt rendering without making API calls.
+
+    Renders the difficulty prompts for sample(s) and displays them to console.
+    Useful for debugging and testing prompt changes.
+
+    Examples:
+        uv run grader test-prompt input.jsonl  # Show first sample
+        uv run grader test-prompt input.jsonl --limit 3  # Show first 3
+        uv run grader test-prompt input.jsonl --start-idx 100 --limit 2  # Samples 100-101
+    """
+    import json
+
+    console.print("[bold]Prompt Rendering Test[/bold]\n")
+
+    # Read samples
+    all_samples = []
+    with open(input_file) as f:
+        for line in f:
+            if line.strip():
+                all_samples.append(json.loads(line))
+
+    # Determine which samples to render
+    start = start_idx if start_idx is not None else 0
+    end = min(start + limit, len(all_samples))
+    samples_to_render = all_samples[start:end]
+
+    console.print(f"Input file: {input_file}")
+    console.print(f"Total samples: {len(all_samples)}")
+    console.print(f"Rendering prompts for samples {start} to {end - 1}\n")
+
+    # Load system prompt
+    system_prompt = load_system_prompt()
+
+    # Render each sample
+    for i, sample in enumerate(samples_to_render, start=start):
+        console.print(f"[bold cyan]{'=' * 80}[/bold cyan]")
+        console.print(
+            f"[bold cyan]Sample {i}: {sample.get('realpbt_sample_name', 'unknown')}[/bold cyan]"
+        )
+        console.print(f"[bold cyan]{'=' * 80}[/bold cyan]\n")
+
+        # Render difficulty prompt
+        difficulty_prompt = render_difficulty_prompt(sample)
+
+        console.print("[bold yellow]SYSTEM PROMPT:[/bold yellow]")
+        console.print(f"[dim]{system_prompt}[/dim]\n")
+
+        console.print("[bold yellow]USER PROMPT (Difficulty Assessment):[/bold yellow]")
+        console.print(difficulty_prompt)
+        console.print("\n")
+
+    console.print(f"[green]✓[/green] Rendered {len(samples_to_render)} prompt(s)")
 
 
 if __name__ == "__main__":
