@@ -59,7 +59,7 @@ def main(
     retry_failed: bool = typer.Option(
         False,
         "--retry-failed",
-        help="Only re-grade samples with grader_error field (input must be a previously graded file)",
+        help="Also retry samples with grader_error (default: grades samples missing difficulty fields)",
     ),
     parallel: int = typer.Option(
         1,
@@ -72,22 +72,24 @@ def main(
 
     Reads a merged JSONL file and uses Claude Haiku 4.5 to estimate formalization difficulty.
 
+    **Default behavior**: Automatically grades samples missing difficulty fields (resume-safe).
+    Already-graded samples are skipped. Use --retry-failed to also retry samples with errors.
+
     **Output behavior**: The output is a COMPLETE COPY of the input file.
-    All samples are written to output, but only specified samples are graded
-    (based on --limit, --retry-failed, or all by default).
-    Ungraded samples pass through unchanged.
+    All samples are written to output. Successfully graded samples pass through unchanged.
 
     Each graded sample is augmented with:
-    - grader_difficulty: Difficulty estimation (or None if failed)
+    - difficulty_subjective_haiku: Difficulty score (0-10)
+    - difficulty_subjective_haiku_takes: Prose justification
     - grader_metadata: Grading metadata (model, tokens, time)
     - grader_error: Error message (if grading failed)
 
     Examples (from benchmark/ directory):
-        uv run grader artifacts/dataset-out/fvspec.jsonl
+        uv run grader artifacts/dataset-out/fvspec.jsonl  # Grade missing samples
         uv run grader input.jsonl --output graded.jsonl --limit 10
-        uv run grader input.jsonl --start-idx 100 --stop-idx 200  # Grade samples 100-199
-        uv run grader input.graded.jsonl --retry-failed  # Retry with previously graded file
-        uv run grader input.graded.jsonl --retry-failed --start-idx 500 --stop-idx 1000  # Retry errors in range
+        uv run grader input.jsonl --start-idx 100 --stop-idx 200  # Grade range
+        uv run grader input.graded.jsonl  # Resume: grades only missing samples
+        uv run grader input.graded.jsonl --retry-failed  # Also retry errors
     """
     console.print(
         "[bold]Post-production: Grading benchmark samples for difficulty[/bold]\n"
@@ -126,7 +128,7 @@ def main(
         stop_str = str(stop_idx) if stop_idx is not None else "end"
         console.print(f"Index range: [{start_str}, {stop_str})")
     if retry_failed:
-        console.print("[cyan]Retry mode: only processing samples with errors[/cyan]")
+        console.print("[cyan]Retry mode: also retrying samples with errors[/cyan]")
 
     # Initialize client
     try:

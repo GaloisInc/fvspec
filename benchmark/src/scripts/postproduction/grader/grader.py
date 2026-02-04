@@ -129,33 +129,43 @@ def process_jsonl(
     # Determine which samples to grade (by index)
     indices_to_grade = set()
 
-    if retry_failed:
-        # Only grade samples with grader_error, respecting start/stop range if provided
-        for i, sample in enumerate(all_samples):
-            if "grader_error" in sample:
-                # Apply start/stop filter if specified
-                if start_idx is not None and i < start_idx:
-                    continue
-                if stop_idx is not None and i >= stop_idx:
-                    continue
-                indices_to_grade.add(i)
-        console.print(
-            f"[cyan]Found {len(indices_to_grade)} samples with errors to retry[/cyan]"
-        )
-    elif start_idx is not None or stop_idx is not None:
+    if start_idx is not None or stop_idx is not None:
         # Grade samples in [start, stop) range
         start = start_idx if start_idx is not None else 0
         stop = stop_idx if stop_idx is not None else len(all_samples)
-        indices_to_grade = set(range(start, min(stop, len(all_samples))))
-        console.print(f"[cyan]Grading samples {start} to {stop}[/cyan]")
+        # Within range, grade missing samples (and errors if retry_failed)
+        for i in range(start, min(stop, len(all_samples))):
+            sample = all_samples[i]
+            # Grade if missing difficulty fields or has error (when retry_failed)
+            if "difficulty_subjective_haiku" not in sample or (
+                retry_failed and "grader_error" in sample
+            ):
+                indices_to_grade.add(i)
+        console.print(
+            f"[cyan]Grading samples {start} to {stop} "
+            f"(found {len(indices_to_grade)} to grade)[/cyan]"
+        )
     elif limit is not None:
-        # Grade first N samples
-        indices_to_grade = set(range(min(limit, len(all_samples))))
+        # Grade first N missing/error samples
+        for i, sample in enumerate(all_samples):
+            if len(indices_to_grade) >= limit:
+                break
+            if "difficulty_subjective_haiku" not in sample or (
+                retry_failed and "grader_error" in sample
+            ):
+                indices_to_grade.add(i)
         console.print(f"[cyan]Grading first {len(indices_to_grade)} samples[/cyan]")
     else:
-        # Grade all samples
-        indices_to_grade = set(range(len(all_samples)))
-        console.print(f"[cyan]Grading all {len(indices_to_grade)} samples[/cyan]")
+        # Grade all missing samples (and errors if retry_failed)
+        for i, sample in enumerate(all_samples):
+            if "difficulty_subjective_haiku" not in sample or (
+                retry_failed and "grader_error" in sample
+            ):
+                indices_to_grade.add(i)
+        msg = f"Found {len(indices_to_grade)} samples to grade"
+        if retry_failed:
+            msg += " (missing + errors)"
+        console.print(f"[cyan]{msg}[/cyan]")
 
     # Process all samples and write complete output
     with open(output_file, "w") as outfile:

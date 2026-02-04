@@ -40,8 +40,11 @@ The grader will automatically load `.env` from the repo root when running from `
 From the `benchmark/` directory:
 
 ```bash
-# Grade all samples in a merged JSONL file
+# Grade all missing samples (automatically skips already-graded)
 uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
+
+# Resume a partial run (only grades samples missing difficulty fields)
+uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl
 
 # Specify output file
 uv run grader input.jsonl --output graded.jsonl
@@ -49,7 +52,7 @@ uv run grader input.jsonl --output graded.jsonl
 # Test with a small limit
 uv run grader input.jsonl --limit 10
 
-# Retry failed samples (input must be a previously graded file)
+# Retry failed samples (grades missing + retries errors)
 uv run grader input.graded.jsonl --retry-failed
 ```
 
@@ -95,23 +98,28 @@ uv run grader input.jsonl --start-idx 7500 -o output-4.jsonl
 
 - `--output, -o`: Output file path (default: `<input>.graded.jsonl`)
 - `--model, -m`: Model to use (default: `claude-haiku-4-5-20251001`)
-- `--limit, -n`: Grade only the first N samples (mutually exclusive with `--start-idx`/`--stop-idx`)
+- `--limit, -n`: Grade only the first N missing samples (mutually exclusive with `--start-idx`/`--stop-idx`)
 - `--start-idx`: Start grading from this index (0-based, inclusive). Can be used alone or with `--stop-idx`
 - `--stop-idx`: Stop grading at this index (0-based, exclusive). Can be used alone or with `--start-idx`
-- `--retry-failed`: Only re-grade samples that have `grader_error` field. Works with range arguments to retry errors in specific ranges. **Important**: Input must be a previously graded file (e.g., `input.graded.jsonl`), not the original input.
+- `--retry-failed`: Also retry samples with `grader_error` field (default: only grades missing samples)
 - `--parallel, -p`: Parallel workers (not yet implemented)
 
+**Default behavior**:
+- **Resume-safe**: Automatically grades samples missing `difficulty_subjective_haiku` field
+- **Skips already-graded**: Samples with difficulty fields pass through unchanged
+- **Complete copy**: All samples written to output, only missing ones are graded
+
 **Notes**:
-- The output is always a complete copy of the input. All control flags (`--limit`, `--start-idx`, `--stop-idx`, `--retry-failed`) only control which samples get graded, but all samples are written to the output file.
 - `--limit` and `--start-idx`/`--stop-idx` are mutually exclusive (validation enforced)
-- When using `--retry-failed`, the input must be a previously graded file (containing `grader_error` fields), not the original ungraded input.
-- `--retry-failed` respects range arguments - only retries errors within the specified range
+- `--retry-failed` adds error retry to default missing-sample behavior
 - **Prompt caching**: The system prompt is automatically cached, reducing cost by ~90% for cached tokens. Cache lasts 5 minutes, so batched grading is highly cost-effective.
 - **Rate limiting**: If you hit rate limits (429 errors), the grader will automatically retry with exponential backoff. You can safely run large batches.
 
 ## Output Format
 
-**Important**: The output file is a **complete copy** of the input file. All samples are written to the output, but only the specified samples (based on `--limit`, `--retry-failed`, or all if neither) are re-graded. Other samples pass through unchanged.
+**Important**: The output file is a **complete copy** of the input file. All samples are written to the output.
+
+**What gets graded by default**: Samples missing `difficulty_subjective_haiku` field (resume-safe behavior). Already-graded samples pass through unchanged. Use `--retry-failed` to also retry samples with `grader_error`.
 
 **What gets graded**: Only the Lean formalization itself (spec + impl code). The grader ignores Python source, dependencies, complexity metrics, and other provenance - it treats each sample as a standalone Lean verification task.
 
@@ -144,40 +152,44 @@ The grader uses **prompt caching** for the system prompt, which saves ~90% on ca
 
 Use `--limit` to test on a small number of samples before running on full dataset.
 
-## Retry Workflow
+## Resume and Retry Workflow
 
-If some samples fail due to API errors or rate limits, use `--retry-failed` to re-grade only those samples:
+The grader automatically resumes partial runs by grading only missing samples:
 
 ```bash
-# Step 1: Initial grading run
+# Step 1: Initial grading run (partial completion)
 uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
 # Creates: fvspec-jan22.graded.jsonl
-# Some samples may have grader_error field
+# Some samples graded, some may have grader_error, some might be missing
 
-# Step 2: Check for errors
+# Step 2: Resume - grades all missing samples automatically
+uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl
+# Automatically finds and grades samples missing difficulty fields
+# Skips already-graded samples
+
+# Step 3: Check for errors
 grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
 
-# Step 3: Retry failed samples (input is the GRADED file, not original)
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed \
-  -o artifacts/dataset-out/fvspec-jan22.graded.jsonl
-# Only re-grades samples with grader_error field
-# Overwrites the file with corrected version
+# Step 4: Retry errors (if any exist)
+uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed
+# Grades missing samples + retries samples with grader_error
 
-# Step 4: Verify all succeeded
+# Step 5: Verify all succeeded
 grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
-# Should be 0 (or fewer than before)
+# Should be 0
 ```
 
-**Range-based retry**: If errors are concentrated in a specific range:
+**Range-based resume/retry**:
 
 ```bash
-# Retry only errors in samples 1000-2000
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed \
-  --start-idx 1000 --stop-idx 2000 \
-  -o artifacts/dataset-out/fvspec-jan22.graded.jsonl
+# Resume from specific point
+uv run grader input.graded.jsonl --start-idx 1000
+
+# Retry errors in specific range
+uv run grader input.graded.jsonl --retry-failed --start-idx 1000 --stop-idx 2000
 ```
 
-**Important**: `--retry-failed` expects a **previously graded file** as input (one that has `grader_error` fields). Don't pass the original ungraded input.
+**Key insight**: The default behavior is resume-safe. Just re-run the grader on a partial file and it will automatically complete the missing samples.
 
 ## Workflow Integration
 
