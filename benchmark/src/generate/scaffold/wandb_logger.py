@@ -4,9 +4,9 @@ import statistics
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
-import wandb
 from inspect_ai.solver import TaskState
 
+import wandb
 from generate.config import WandbConfig
 from generate.scaffold.quality_assessment import QualityAssessment
 from generate.scaffold.tools import utilio
