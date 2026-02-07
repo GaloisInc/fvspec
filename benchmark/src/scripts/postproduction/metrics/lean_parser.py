@@ -187,6 +187,12 @@ def _count_proof_steps(proof_block: str) -> int:
 
     Returns:
         Number of tactic invocations
+
+    Note:
+        In the fvspec benchmark, most proofs use `sorry` placeholders rather than
+        actual tactic proofs, so this metric typically returns low values. The full
+        tactic list is included for forward compatibility should the benchmark
+        evolve to include complete proofs.
     """
     # Common Lean tactics
     tactics = [
