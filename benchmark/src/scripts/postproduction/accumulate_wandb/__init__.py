@@ -15,11 +15,10 @@ from pathlib import Path
 from typing import Any
 
 import typer
+import wandb
 from pydantic import BaseModel
 from rich.console import Console
 from rich.progress import track
-
-import wandb
 
 app = typer.Typer(help="Download and aggregate W&B runs for post-production analysis")
 console = Console()
