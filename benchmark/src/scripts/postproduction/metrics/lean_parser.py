@@ -130,8 +130,8 @@ def extract_complexity_metrics(lean_code: str) -> ComplexityMetrics:
         avg_dependencies_per_decl=avg_deps,
         avg_param_count=avg_params,
         max_param_count=max_params,
-        halstead_vocabulary=halstead["vocabulary"],
-        halstead_length=halstead["length"],
+        halstead_vocabulary=int(halstead["vocabulary"]),
+        halstead_length=int(halstead["length"]),
         halstead_volume=halstead["volume"],
         halstead_difficulty=halstead["difficulty"],
         halstead_effort=halstead["effort"],
@@ -187,6 +187,12 @@ def _count_proof_steps(proof_block: str) -> int:
 
     Returns:
         Number of tactic invocations
+
+    Note:
+        In the fvspec benchmark, most proofs use `sorry` placeholders rather than
+        actual tactic proofs, so this metric typically returns low values. The full
+        tactic list is included for forward compatibility should the benchmark
+        evolve to include complete proofs.
     """
     # Common Lean tactics
     tactics = [
