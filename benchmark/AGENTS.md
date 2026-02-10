@@ -91,6 +91,12 @@ After running benchmarks, postproduction scripts process results:
   - Uses structured outputs with prompt caching for cost efficiency
   - See `src/scripts/postproduction/grader/README.md` for details
 
+- **`metrics/`** - Lean code structure and complexity analysis
+  - `uv run metrics artifacts/dataset-out/fvspec.jsonl`
+  - Extracts line counts, declaration counts, nesting depth, proof complexity
+  - Fast regex-based parsing (~100-1000 samples/second)
+  - See `src/scripts/postproduction/metrics/README.md` for details
+
 - **`accumulate_wandb/`** - Download and analyze W&B runs
   - `uv run python -m scripts.postproduction.accumulate sync`
   - Downloads run data (metrics, files, config) for offline analysis
@@ -102,10 +108,13 @@ After running benchmarks, postproduction scripts process results:
 # 1. Merge runs
 uv run merge src/scripts/postproduction/merge/runs.txt
 
-# 2. Grade difficulty (optional)
-uv run grader artifacts/dataset-out/fvspec.jsonl
+# 2. Compute Lean metrics (optional)
+uv run metrics artifacts/dataset-out/fvspec.jsonl
 
-# 3. Analyze results
+# 3. Grade difficulty (optional)
+uv run grader artifacts/dataset-out/fvspec.metrics.jsonl
+
+# 4. Analyze results
 ```
 
 ## Code Style
