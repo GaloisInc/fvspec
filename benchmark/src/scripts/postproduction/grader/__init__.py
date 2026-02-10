@@ -76,8 +76,11 @@ def main(
 
     Reads a merged JSONL file and uses Claude Haiku 4.5 to estimate formalization difficulty.
 
-    **Default behavior**: Automatically grades samples missing difficulty fields (resume-safe).
-    Already-graded samples are skipped. Use --retry-failed to also retry samples with errors.
+    **Resume-safe**: If output file exists, already-graded samples are reused (matched by
+    sample name). This allows grading from an ungraded source while preserving previous work.
+
+    **Default behavior**: Automatically grades samples missing difficulty fields.
+    Use --retry-failed to also retry samples with errors.
 
     **Output behavior**: The output is a COMPLETE COPY of the input file.
     All samples are written to output. Successfully graded samples pass through unchanged.
@@ -89,11 +92,11 @@ def main(
     - grader_error: Error message (if grading failed)
 
     Examples (from benchmark/ directory):
-        uv run grader artifacts/dataset-out/fvspec.jsonl  # Grade missing samples
-        uv run grader input.jsonl --output graded.jsonl --limit 10
+        uv run grader artifacts/dataset-out/fvspec.jsonl  # Grade all
+        uv run grader input.jsonl -o out.graded.jsonl     # Grade to separate output
+        uv run grader input.jsonl -o out.graded.jsonl     # Resume: reuses existing grades from output
         uv run grader input.jsonl --start-idx 100 --stop-idx 200  # Grade range
-        uv run grader input.graded.jsonl  # Resume: grades only missing samples
-        uv run grader input.graded.jsonl --retry-failed  # Also retry errors
+        uv run grader input.graded.jsonl --retry-failed   # Retry samples with errors
     """
     console.print(
         "[bold]Post-production: Grading benchmark samples for difficulty[/bold]\n"
@@ -117,7 +120,11 @@ def main(
 
     # Setup paths
     if output is None:
-        output_path = input_file.with_suffix(".graded.jsonl")
+        # Idempotent: if input already ends in .graded.jsonl, overwrite in place
+        if input_file.name.endswith(".graded.jsonl"):
+            output_path = input_file
+        else:
+            output_path = input_file.with_suffix(".graded.jsonl")
     else:
         output_path = Path(output)
 
@@ -162,7 +169,8 @@ def main(
     console.print("\n[bold]Grading Summary:[/bold]\n")
     console.print(f"  Total samples in input: {stats['total_read']}")
     console.print(f"  Samples graded: {stats['total_graded']}")
-    console.print(f"  Samples passed through: {stats['skipped']}")
+    console.print(f"  Reused from output: {stats['reused']}")
+    console.print(f"  Passed through: {stats['skipped']}")
     console.print(f"  Grading errors: {stats['errors']}")
     console.print(f"  Total samples in output: {stats['total_read']}")
 

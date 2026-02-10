@@ -40,14 +40,12 @@ The grader will automatically load `.env` from the repo root when running from `
 From the `benchmark/` directory:
 
 ```bash
-# Grade all missing samples (automatically skips already-graded)
+# Grade all samples (output: fvspec-jan22.graded.jsonl)
 uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
 
-# Resume a partial run (only grades samples missing difficulty fields)
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl
-
-# Specify output file
-uv run grader input.jsonl --output graded.jsonl
+# Grade to specific output (resume-safe: reuses existing grades from output)
+uv run grader input.jsonl -o graded.jsonl
+uv run grader input.jsonl -o graded.jsonl  # Run again: skips already-graded
 
 # Test with a small limit
 uv run grader input.jsonl --limit 10
@@ -77,26 +75,24 @@ uv run grader input.graded.jsonl --retry-failed --start-idx 500 --stop-idx 1000
 **Parallelization with ranges**: Split large datasets into chunks for parallel processing:
 
 ```bash
-# Split 10,000 samples into 4 parallel workers
-# Terminal 1
-uv run grader input.jsonl --start-idx 0 --stop-idx 2500 -o output-1.jsonl
+# Split 10,000 samples into 4 parallel workers (separate outputs)
+uv run grader input.jsonl --start-idx 0 --stop-idx 2500 -o output-1.jsonl     # Terminal 1
+uv run grader input.jsonl --start-idx 2500 --stop-idx 5000 -o output-2.jsonl  # Terminal 2
+uv run grader input.jsonl --start-idx 5000 --stop-idx 7500 -o output-3.jsonl  # Terminal 3
+uv run grader input.jsonl --start-idx 7500 -o output-4.jsonl                  # Terminal 4
 
-# Terminal 2
-uv run grader input.jsonl --start-idx 2500 --stop-idx 5000 -o output-2.jsonl
+# Then merge the graded chunks
+cat output-{1,2,3,4}.jsonl > output.graded.jsonl
+```
 
-# Terminal 3
-uv run grader input.jsonl --start-idx 5000 --stop-idx 7500 -o output-3.jsonl
-
-# Terminal 4
-uv run grader input.jsonl --start-idx 7500 -o output-4.jsonl
-
-# Then merge the graded chunks (each output file is a complete copy with graded ranges)
-# Use the merge script or manually combine the graded samples
+**Simpler approach** (sequential resume): Just run the same command multiple times:
+```bash
+uv run grader input.jsonl -o output.graded.jsonl  # Run, interrupt, re-run - it resumes
 ```
 
 ### Options
 
-- `--output, -o`: Output file path (default: `<input>.graded.jsonl`)
+- `--output, -o`: Output file path (default: `<input>.graded.jsonl`, idempotent if input already ends in `.graded.jsonl`)
 - `--model, -m`: Model to use (default: `claude-haiku-4-5-20251001`)
 - `--limit, -n`: Grade only the first N missing samples (mutually exclusive with `--start-idx`/`--stop-idx`)
 - `--start-idx`: Start grading from this index (0-based, inclusive). Can be used alone or with `--stop-idx`
@@ -105,9 +101,10 @@ uv run grader input.jsonl --start-idx 7500 -o output-4.jsonl
 - `--parallel, -p`: Parallel workers (not yet implemented)
 
 **Default behavior**:
-- **Resume-safe**: Automatically grades samples missing `difficulty_subjective_haiku` field
-- **Skips already-graded**: Samples with difficulty fields pass through unchanged
+- **Resume-safe**: If output file exists, already-graded samples are reused (matched by sample name)
+- **Skips already-graded**: Samples with difficulty fields in input or output pass through unchanged
 - **Complete copy**: All samples written to output, only missing ones are graded
+- **Idempotent naming**: Running on `foo.graded.jsonl` outputs to the same file (not `foo.graded.graded.jsonl`)
 
 **Notes**:
 - `--limit` and `--start-idx`/`--stop-idx` are mutually exclusive (validation enforced)
@@ -154,28 +151,27 @@ Use `--limit` to test on a small number of samples before running on full datase
 
 ## Resume and Retry Workflow
 
-The grader automatically resumes partial runs by grading only missing samples:
+The grader automatically resumes partial runs by reusing grades from the output file:
 
 ```bash
-# Step 1: Initial grading run (partial completion)
-uv run grader artifacts/dataset-out/fvspec-jan22.jsonl
-# Creates: fvspec-jan22.graded.jsonl
-# Some samples graded, some may have grader_error, some might be missing
+# Step 1: Initial grading run (may be interrupted)
+uv run grader fvspec.jsonl -o fvspec.graded.jsonl
+# Creates: fvspec.graded.jsonl with some samples graded
 
-# Step 2: Resume - grades all missing samples automatically
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl
-# Automatically finds and grades samples missing difficulty fields
-# Skips already-graded samples
+# Step 2: Resume - reuses existing grades from output file
+uv run grader fvspec.jsonl -o fvspec.graded.jsonl
+# Loads fvspec.graded.jsonl, reuses already-graded samples
+# Only grades samples not yet in output
 
 # Step 3: Check for errors
-grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
+grep -c "grader_error" fvspec.graded.jsonl
 
 # Step 4: Retry errors (if any exist)
-uv run grader artifacts/dataset-out/fvspec-jan22.graded.jsonl --retry-failed
+uv run grader fvspec.graded.jsonl --retry-failed
 # Grades missing samples + retries samples with grader_error
 
 # Step 5: Verify all succeeded
-grep -c "grader_error" artifacts/dataset-out/fvspec-jan22.graded.jsonl
+grep -c "grader_error" fvspec.graded.jsonl
 # Should be 0
 ```
 
@@ -189,7 +185,7 @@ uv run grader input.graded.jsonl --start-idx 1000
 uv run grader input.graded.jsonl --retry-failed --start-idx 1000 --stop-idx 2000
 ```
 
-**Key insight**: The default behavior is resume-safe. Just re-run the grader on a partial file and it will automatically complete the missing samples.
+**Key insight**: The grader checks the output file for existing grades. You can always re-run `grader input.jsonl -o output.graded.jsonl` and it will skip samples already in the output.
 
 ## Workflow Integration
 
@@ -198,15 +194,15 @@ The grader fits into the postproduction pipeline:
 ```bash
 # 1. Merge and deduplicate runs
 uv run merge src/scripts/postproduction/merge/runs.txt
-# Creates: artifacts/dataset-out/fvspec.jsonl (deduplication happens automatically)
+# Creates: artifacts/dataset-out/fvspec.jsonl
 
-# 2. Grade samples for difficulty
-uv run grader artifacts/dataset-out/fvspec.jsonl
-# Creates: artifacts/dataset-out/fvspec.graded.jsonl
+# 2. Grade samples for difficulty (resume-safe)
+uv run grader artifacts/dataset-out/fvspec.jsonl -o artifacts/dataset-out/fvspec.graded.jsonl
+# Creates fvspec.graded.jsonl, can be re-run to resume
 
 # 3. Retry failed samples (if any had errors)
-uv run grader artifacts/dataset-out/fvspec.graded.jsonl --retry-failed -o artifacts/dataset-out/fvspec.graded.jsonl
-# Re-grades only samples with grader_error field, overwrites the file
+uv run grader artifacts/dataset-out/fvspec.graded.jsonl --retry-failed
+# Re-grades samples with grader_error field
 
 # 4. Analyze and filter by difficulty scores
 ```
@@ -221,7 +217,8 @@ uv run grader artifacts/dataset-out/fvspec.graded.jsonl --retry-failed -o artifa
   - Graceful handling of 429 errors with exponential backoff + jitter
   - Respects `retry-after` headers from API
   - Automatic retry with increasing delays
-- **Incremental output**: Writes samples as they're graded (resume-friendly)
+- **Resume from output**: Loads existing grades from output file to avoid re-grading
+- **Incremental output**: Writes samples as they're graded
 - **Error handling**: Failed samples written with `grader_error` field
 
 ## Files

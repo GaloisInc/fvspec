@@ -97,6 +97,8 @@ def process_jsonl(
     The output file is a COMPLETE COPY of the input file, with grading fields
     added to the samples that were graded. Samples not graded pass through unchanged.
 
+    Resume-safe: If output file exists, already-graded samples are reused (by sample name).
+
     Args:
         input_file: Input JSONL file path
         output_file: Output JSONL file path
@@ -113,10 +115,29 @@ def process_jsonl(
         "total_read": 0,
         "total_graded": 0,
         "skipped": 0,
+        "reused": 0,
         "errors": 0,
     }
 
-    # Read all samples
+    # Load existing graded samples from output file (if exists) for resume support
+    existing_graded: dict[int, dict[str, Any]] = {}
+    if output_file.exists() and input_file != output_file:
+        console.print(f"[cyan]Loading existing grades from {output_file}...[/cyan]")
+        with open(output_file) as f:
+            for line in f:
+                if line.strip():
+                    sample = json.loads(line)
+                    sample_id = sample.get("sample_id")
+                    # Only reuse if successfully graded (has difficulty field, no error)
+                    has_grade = "difficulty_subjective_haiku" in sample
+                    has_error = "grader_error" in sample
+                    if sample_id and has_grade and (not has_error or not retry_failed):
+                        existing_graded[sample_id] = sample
+        console.print(
+            f"[cyan]Found {len(existing_graded)} existing grades to reuse[/cyan]"
+        )
+
+    # Read all samples from input
     all_samples = []
     with open(input_file) as f:
         for line in f:
@@ -125,6 +146,20 @@ def process_jsonl(
                 all_samples.append(sample)
 
     stats["total_read"] = len(all_samples)
+
+    # Helper to check if sample needs grading
+    def needs_grading(sample: dict[str, Any]) -> bool:
+        sample_id = sample.get("sample_id")
+        # If we have an existing grade from output file, don't re-grade
+        if sample_id and sample_id in existing_graded:
+            return False
+        # Grade if missing difficulty fields in input
+        if "difficulty_subjective_haiku" not in sample:
+            return True
+        # Grade if has error and retry_failed is set
+        if retry_failed and "grader_error" in sample:
+            return True
+        return False
 
     # Determine which samples to grade (by index)
     indices_to_grade = set()
@@ -135,11 +170,7 @@ def process_jsonl(
         stop = stop_idx if stop_idx is not None else len(all_samples)
         # Within range, grade missing samples (and errors if retry_failed)
         for i in range(start, min(stop, len(all_samples))):
-            sample = all_samples[i]
-            # Grade if missing difficulty fields or has error (when retry_failed)
-            if "difficulty_subjective_haiku" not in sample or (
-                retry_failed and "grader_error" in sample
-            ):
+            if needs_grading(all_samples[i]):
                 indices_to_grade.add(i)
         console.print(
             f"[cyan]Grading samples {start} to {stop} "
@@ -150,17 +181,13 @@ def process_jsonl(
         for i, sample in enumerate(all_samples):
             if len(indices_to_grade) >= limit:
                 break
-            if "difficulty_subjective_haiku" not in sample or (
-                retry_failed and "grader_error" in sample
-            ):
+            if needs_grading(sample):
                 indices_to_grade.add(i)
         console.print(f"[cyan]Grading first {len(indices_to_grade)} samples[/cyan]")
     else:
         # Grade all missing samples (and errors if retry_failed)
         for i, sample in enumerate(all_samples):
-            if "difficulty_subjective_haiku" not in sample or (
-                retry_failed and "grader_error" in sample
-            ):
+            if needs_grading(sample):
                 indices_to_grade.add(i)
         msg = f"Found {len(indices_to_grade)} samples to grade"
         if retry_failed:
@@ -170,11 +197,14 @@ def process_jsonl(
     # Process all samples and write complete output
     with open(output_file, "w") as outfile:
         for i, sample in enumerate(all_samples):
+            name = sample.get("realpbt_sample_name")
+            sample_id = sample.get("sample_id")
+
             if i in indices_to_grade:
                 # Grade this sample
                 console.print(
                     f"[cyan]Grading sample {stats['total_graded'] + 1}/{len(indices_to_grade)}: "
-                    f"{sample.get('realpbt_sample_name', 'unknown')}[/cyan]"
+                    f"{name or 'unknown'}[/cyan]"
                 )
 
                 try:
@@ -202,8 +232,23 @@ def process_jsonl(
                     outfile.write(json.dumps(error_sample) + "\n")
                     outfile.flush()
                     stats["errors"] += 1
+            elif sample_id and sample_id in existing_graded:
+                # Reuse existing grade from output file (merge into current sample)
+                graded_fields = {
+                    k: v
+                    for k, v in existing_graded[sample_id].items()
+                    if k
+                    in (
+                        "difficulty_subjective_haiku",
+                        "difficulty_subjective_haiku_takes",
+                        "grader_metadata",
+                    )
+                }
+                merged = {**sample, **graded_fields}
+                outfile.write(json.dumps(merged) + "\n")
+                stats["reused"] += 1
             else:
-                # Pass through unchanged
+                # Pass through unchanged (already graded in input)
                 outfile.write(json.dumps(sample) + "\n")
                 stats["skipped"] += 1
 
