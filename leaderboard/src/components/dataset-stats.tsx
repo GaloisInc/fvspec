@@ -4,7 +4,6 @@ import Link from 'next/link'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
   Table,
   TableBody,
@@ -38,14 +37,6 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
           Aggregate statistics and insights across all benchmark samples
         </p>
       </div>
-
-      {/* Pre-alpha warning banner */}
-      <Alert>
-        <AlertDescription>
-          <strong>Early Development Dataset:</strong> This preview contains {stats.total} samples
-          while we work out generation pipeline kinks.
-        </AlertDescription>
-      </Alert>
 
       {/* Summary statistics grid */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">

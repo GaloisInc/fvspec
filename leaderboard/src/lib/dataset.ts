@@ -56,6 +56,7 @@ function setCaches(cache: Map<number, DatasetSampleDetail>): void {
     samples.push({
       sample_id: sampleId,
       sample_name: sample.sample_name,
+      difficulty_subjective_haiku: sample.difficulty_subjective_haiku ?? null,
     })
   }
 
@@ -127,6 +128,7 @@ export function getAllSamples(): DatasetSampleListItem[] {
     samples.push({
       sample_id: sampleId,
       sample_name: sample.sample_name,
+      difficulty_subjective_haiku: sample.difficulty_subjective_haiku ?? null,
     })
   }
 

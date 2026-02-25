@@ -7,6 +7,7 @@ import { z } from 'zod'
 export const DatasetSampleListItemSchema = z.object({
   sample_id: z.number(),
   sample_name: z.string(),
+  difficulty_subjective_haiku: z.number().nullable().optional(),
 })
 
 /**

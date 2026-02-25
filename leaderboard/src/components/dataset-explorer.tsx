@@ -8,7 +8,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shuffle, Star, Download, Search, ChevronDown, Loader2, ExternalLink } from 'lucide-react'
 import LZString from 'lz-string'
 import { CodeBlock } from './code-block'
@@ -19,6 +18,14 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 /** Default page size for the sample list API */
 const PAGE_LIMIT = 50
+
+/** Difficulty filter presets based on bimodal distribution of haiku scores */
+type DifficultyPreset = 'easy' | 'medium' | 'hard'
+const DIFFICULTY_RANGES: Record<DifficultyPreset, [number, number]> = {
+  easy: [0, 3],
+  medium: [4, 6],
+  hard: [7, 10],
+}
 
 interface DatasetExplorerProps {
   initialSample: DatasetSampleDetail
@@ -35,6 +42,7 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
+  const [difficultyFilter, setDifficultyFilter] = useState<DifficultyPreset | null>(null)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -116,13 +124,24 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  /** When showing bookmarks, use the full bookmarks store (not the paginated API results) */
+  /** Filter samples by bookmark mode and/or difficulty preset */
   const displayedSamples = useMemo(() => {
-    if (!showBookmarkedOnly) return samples
-    return Array.from(bookmarks.values())
-      .map(b => ({ sample_id: b.sample_id, sample_name: b.sample_name }))
-      .sort((a, b) => a.sample_id - b.sample_id)
-  }, [samples, showBookmarkedOnly, bookmarks])
+    let result: DatasetSampleListItem[] = showBookmarkedOnly
+      ? Array.from(bookmarks.values())
+          .map(b => ({ sample_id: b.sample_id, sample_name: b.sample_name }))
+          .sort((a, b) => a.sample_id - b.sample_id)
+      : samples
+
+    if (difficultyFilter) {
+      const [min, max] = DIFFICULTY_RANGES[difficultyFilter]
+      result = result.filter(s => {
+        const d = s.difficulty_subjective_haiku
+        return d != null && d >= min && d <= max
+      })
+    }
+
+    return result
+  }, [samples, showBookmarkedOnly, bookmarks, difficultyFilter])
 
   const handleSampleSelect = (sampleId: number) => {
     setOpen(false)
@@ -130,7 +149,7 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
   }
 
   const handleRandomSample = async () => {
-    if (showBookmarkedOnly && displayedSamples.length > 0) {
+    if ((showBookmarkedOnly || difficultyFilter) && displayedSamples.length > 0) {
       const randomIndex = Math.floor(Math.random() * displayedSamples.length)
       router.push(`/dataset/${displayedSamples[randomIndex].sample_id}`)
       return
@@ -187,14 +206,6 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
 
   return (
     <div className="space-y-6">
-      {/* Pre-alpha warning banner */}
-      <Alert>
-        <AlertDescription>
-          <strong>Early Development Dataset:</strong> This preview contains {totalSamples} samples
-          while we work out generation pipeline kinks.
-        </AlertDescription>
-      </Alert>
-
       {/* Sample selector */}
       <Card>
         <CardHeader>
@@ -287,6 +298,17 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
             <Shuffle className="h-4 w-4" />
             <span className="hidden sm:inline">Random</span>
           </Button>
+          {(['easy', 'medium', 'hard'] as const).map(preset => (
+            <Button
+              key={preset}
+              variant={difficultyFilter === preset ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setDifficultyFilter(prev => (prev === preset ? null : preset))}
+              title={`Filter by ${preset} difficulty (${DIFFICULTY_RANGES[preset][0]}-${DIFFICULTY_RANGES[preset][1]})`}
+            >
+              {preset.charAt(0).toUpperCase() + preset.slice(1)}
+            </Button>
+          ))}
           <Button
             variant={showBookmarkedOnly ? 'default' : 'outline'}
             onClick={() => setShowBookmarkedOnly(prev => !prev)}
