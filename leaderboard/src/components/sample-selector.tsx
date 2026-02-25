@@ -33,7 +33,9 @@ const DIFFICULTY_PRESETS: DifficultyPreset[] = ['easy', 'medium', 'hard']
 function parseDifficultyParam(param: string | null): Set<DifficultyPreset> {
   if (!param) return new Set()
   return new Set(
-    param.split(',').filter((v): v is DifficultyPreset => DIFFICULTY_PRESETS.includes(v as DifficultyPreset))
+    param
+      .split(',')
+      .filter((v): v is DifficultyPreset => DIFFICULTY_PRESETS.includes(v as DifficultyPreset))
   )
 }
 
@@ -49,8 +51,8 @@ export function SampleSelector({ activeSampleId, activeSampleName }: SampleSelec
   const [open, setOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showBookmarkedOnly, setShowBookmarkedOnly] = useState(false)
-  const [difficultyFilters, setDifficultyFilters] = useState<Set<DifficultyPreset>>(
-    () => parseDifficultyParam(searchParams.get('difficulty'))
+  const [difficultyFilters, setDifficultyFilters] = useState<Set<DifficultyPreset>>(() =>
+    parseDifficultyParam(searchParams.get('difficulty'))
   )
 
   const containerRef = useRef<HTMLDivElement>(null)
