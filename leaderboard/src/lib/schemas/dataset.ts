@@ -10,6 +10,31 @@ export const DatasetSampleListItemSchema = z.object({
 })
 
 /**
+ * Lean code structure metrics (lines, counts).
+ */
+const LeanStructureSchema = z
+  .object({
+    total_lines: z.number(),
+    code_lines: z.number(),
+    num_theorems: z.number(),
+    num_sorries: z.number(),
+  })
+  .passthrough()
+
+/**
+ * Lean metrics for spec, impl, and tests.
+ */
+const LeanMetricsSchema = z
+  .object({
+    spec_structure: LeanStructureSchema.nullable().optional(),
+    impl_structure: LeanStructureSchema.nullable().optional(),
+    tests_structure: LeanStructureSchema.nullable().optional(),
+    total_lean_lines: z.number().optional(),
+    total_sorries: z.number().optional(),
+  })
+  .passthrough()
+
+/**
  * Full dataset sample with all code and metadata.
  * Used for detailed sample view.
  */
@@ -18,24 +43,20 @@ export const DatasetSampleDetailSchema = z.object({
   sample_id: z.number(),
   sample_name: z.string(),
 
-  // Code content
-  code: z.string(), // Python PBT source
-  spec: z.string(), // Generated Lean spec
-  impl: z.string(), // Generated Lean impl
-  tests: z.string(), // Generated Lean tests
+  // Code content (Lean)
+  spec: z.string(),
+  impl: z.string(),
 
-  // Metadata
-  summary: z.string().nullable().optional(), // Can be null or missing
-  repo_id: z.number().optional(), // Number, not string
-  source_file: z.string().optional(),
-  variant: z.string().optional(),
-  model: z.string().optional(),
-  datetime: z.string().optional(),
+  // Original PBT source
+  realpbt_code: z.string().optional(),
+  realpbt_summary: z.string().nullable().optional(),
+  realpbt_repo_id: z.number().optional(),
+  realpbt_lines_pbt: z.number().nullable().optional(),
+  realpbt_sample_name: z.string().optional(),
 
   // Metrics
-  lines_pbt: z.number().optional(),
-  lines_code: z.number().optional(),
   num_theorems: z.number().optional(),
+  lean_metrics: LeanMetricsSchema.nullable().optional(),
   structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
 })
 
@@ -66,11 +87,7 @@ export const DatasetStatsSchema = z.object({
   total: z.number(),
   faithfulness: DistributionStatsSchema,
   theorems: DistributionStatsSchema,
-  lines_pbt: DistributionStatsSchema,
-  lines_code: DistributionStatsSchema,
-  by_variant: z.record(z.string(), z.number()),
-  by_model: z.record(z.string(), z.number()),
-  by_repo: z.array(z.object({ key: z.string(), count: z.number() })),
+  lean_lines: DistributionStatsSchema,
 })
 
 // Export TypeScript types

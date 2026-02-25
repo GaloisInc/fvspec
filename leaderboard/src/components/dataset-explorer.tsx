@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Shuffle } from 'lucide-react'
 import { CodeBlock } from './code-block'
 
-// Client component - use relative URL that goes through nginx proxy
+// Client component - use relative URL that goes through Next.js route handler
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 interface DatasetExplorerProps {
@@ -117,33 +117,33 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
             {initialSample.sample_name}
             <Badge variant="outline">ID: {initialSample.sample_id}</Badge>
           </CardTitle>
-          {initialSample.summary && <CardDescription>{initialSample.summary}</CardDescription>}
+          {initialSample.realpbt_summary && (
+            <CardDescription>{initialSample.realpbt_summary}</CardDescription>
+          )}
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
-            {initialSample.variant && (
-              <Badge variant="secondary">Variant: {initialSample.variant}</Badge>
-            )}
-            {initialSample.model && <Badge variant="secondary">Model: {initialSample.model}</Badge>}
-            {initialSample.repo_id && (
+            {initialSample.realpbt_repo_id !== undefined && (
               <Badge variant="outline" className="font-mono text-xs">
-                {initialSample.repo_id}
+                Repo: {initialSample.realpbt_repo_id}
               </Badge>
             )}
           </div>
 
           {/* Metrics */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-            {initialSample.lines_pbt !== undefined && (
+            {initialSample.realpbt_lines_pbt != null && (
               <div>
                 <div className="text-sm text-muted-foreground">PBT Lines</div>
-                <div className="text-2xl font-bold">{initialSample.lines_pbt}</div>
+                <div className="text-2xl font-bold">{initialSample.realpbt_lines_pbt}</div>
               </div>
             )}
-            {initialSample.lines_code !== undefined && (
+            {initialSample.lean_metrics?.total_lean_lines != null && (
               <div>
-                <div className="text-sm text-muted-foreground">Code Lines</div>
-                <div className="text-2xl font-bold">{initialSample.lines_code}</div>
+                <div className="text-sm text-muted-foreground">Lean Lines</div>
+                <div className="text-2xl font-bold">
+                  {initialSample.lean_metrics.total_lean_lines}
+                </div>
               </div>
             )}
             {initialSample.num_theorems !== undefined && (
@@ -172,23 +172,19 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="spec" className="w-full">
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger value="python">Python</TabsTrigger>
               <TabsTrigger value="spec">Spec</TabsTrigger>
               <TabsTrigger value="impl">Impl</TabsTrigger>
-              <TabsTrigger value="tests">Tests</TabsTrigger>
             </TabsList>
             <TabsContent value="python" className="mt-4">
-              <CodeBlock code={initialSample.code} language="python" />
+              <CodeBlock code={initialSample.realpbt_code ?? ''} language="python" />
             </TabsContent>
             <TabsContent value="spec" className="mt-4">
               <CodeBlock code={initialSample.spec} language="lean4" />
             </TabsContent>
             <TabsContent value="impl" className="mt-4">
               <CodeBlock code={initialSample.impl} language="lean4" />
-            </TabsContent>
-            <TabsContent value="tests" className="mt-4">
-              <CodeBlock code={initialSample.tests} language="lean4" />
             </TabsContent>
           </Tabs>
         </CardContent>

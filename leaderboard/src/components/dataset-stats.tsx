@@ -3,7 +3,6 @@
 import Link from 'next/link'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import {
@@ -86,7 +85,7 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
             <CardDescription>Mean Lean Lines</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatNumber(stats.lines_code.mean)}</div>
+            <div className="text-3xl font-bold">{formatNumber(stats.lean_lines.mean)}</div>
             <p className="mt-1 text-xs text-muted-foreground">Lines of Lean code</p>
           </CardContent>
         </Card>
@@ -135,116 +134,16 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
                 <TableCell className="text-right">{formatNumber(stats.theorems.mean)}</TableCell>
               </TableRow>
               <TableRow>
-                <TableCell className="font-medium">PBT Lines</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_pbt.min)}</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_pbt.q1)}</TableCell>
+                <TableCell className="font-medium">Lean Lines</TableCell>
+                <TableCell className="text-right">{formatInteger(stats.lean_lines.min)}</TableCell>
+                <TableCell className="text-right">{formatInteger(stats.lean_lines.q1)}</TableCell>
                 <TableCell className="text-right">
-                  {formatInteger(stats.lines_pbt.median)}
+                  {formatInteger(stats.lean_lines.median)}
                 </TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_pbt.q3)}</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_pbt.max)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.lines_pbt.mean)}</TableCell>
+                <TableCell className="text-right">{formatInteger(stats.lean_lines.q3)}</TableCell>
+                <TableCell className="text-right">{formatInteger(stats.lean_lines.max)}</TableCell>
+                <TableCell className="text-right">{formatNumber(stats.lean_lines.mean)}</TableCell>
               </TableRow>
-              <TableRow>
-                <TableCell className="font-medium">Lean Code Lines</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_code.min)}</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_code.q1)}</TableCell>
-                <TableCell className="text-right">
-                  {formatInteger(stats.lines_code.median)}
-                </TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_code.q3)}</TableCell>
-                <TableCell className="text-right">{formatInteger(stats.lines_code.max)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.lines_code.mean)}</TableCell>
-              </TableRow>
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {/* Breakdown by variant */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Breakdown by Variant</CardTitle>
-            <CardDescription>Distribution across functional vs MVCGen approaches</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(stats.by_variant)
-                .sort((a, b) => b[1] - a[1])
-                .map(([variant, count]) => (
-                  <div key={variant} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{variant || 'Unknown'}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-sm text-muted-foreground">
-                        {((count / stats.total) * 100).toFixed(1)}%
-                      </div>
-                      <div className="text-lg font-semibold">{count}</div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Breakdown by Model</CardTitle>
-            <CardDescription>Distribution across different generation models</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-3">
-              {Object.entries(stats.by_model)
-                .sort((a, b) => b[1] - a[1])
-                .map(([model, count]) => (
-                  <div key={model} className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Badge variant="outline">{model || 'Unknown'}</Badge>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-sm text-muted-foreground">
-                        {((count / stats.total) * 100).toFixed(1)}%
-                      </div>
-                      <div className="text-lg font-semibold">{count}</div>
-                    </div>
-                  </div>
-                ))}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Top repositories */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Top Source Repositories</CardTitle>
-          <CardDescription>Most frequent source repositories in the dataset</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Rank</TableHead>
-                <TableHead>Repository ID</TableHead>
-                <TableHead className="text-right">Sample Count</TableHead>
-                <TableHead className="text-right">Percentage</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {stats.by_repo.map((repo, index) => (
-                <TableRow key={repo.key}>
-                  <TableCell className="font-medium">{index + 1}</TableCell>
-                  <TableCell>
-                    <code className="rounded bg-muted px-1.5 py-0.5 text-sm">{repo.key}</code>
-                  </TableCell>
-                  <TableCell className="text-right">{repo.count}</TableCell>
-                  <TableCell className="text-right">
-                    {((repo.count / stats.total) * 100).toFixed(1)}%
-                  </TableCell>
-                </TableRow>
-              ))}
             </TableBody>
           </Table>
         </CardContent>
@@ -260,7 +159,7 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dataset/341">
+          <Link href="/dataset/1">
             <Button size="lg">Browse Samples →</Button>
           </Link>
         </CardContent>

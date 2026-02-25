@@ -4,7 +4,7 @@ import {
   DatasetSampleDetailSchema,
   DatasetStats,
 } from '@fvspec/common'
-import { calculateDistribution, countByValue, getTopEntries } from './stats'
+import { calculateDistribution } from './stats'
 
 /**
  * In-memory cache of dataset samples.
@@ -173,34 +173,16 @@ export function getDatasetStats(): DatasetStats {
 
   const samples: DatasetSampleDetail[] = Array.from(datasetCache.values())
 
-  const faithfulnessScores: (number | null | undefined)[] = samples.map(
+  const faithfulnessScores = samples.map(
     s => s.structural_faithfulness?.overall as number | undefined
   )
-
-  const theorems: (number | null | undefined)[] = samples.map(s => s.num_theorems)
-  const linesPbt: (number | null | undefined)[] = samples.map(s => s.lines_pbt)
-  const linesCode: (number | null | undefined)[] = samples.map(s => s.lines_code)
-
-  const variants: (string | null | undefined)[] = samples.map(s => s.variant)
-  const byVariant = countByValue(variants)
-
-  const models: (string | null | undefined)[] = samples.map(s => s.model)
-  const byModel = countByValue(models)
-
-  const repoIds: (string | null | undefined)[] = samples.map(s =>
-    s.repo_id !== undefined ? String(s.repo_id) : undefined
-  )
-  const repoIdCounts = countByValue(repoIds)
-  const byRepo = getTopEntries(repoIdCounts, 10)
+  const theorems = samples.map(s => s.num_theorems)
+  const leanLines = samples.map(s => s.lean_metrics?.total_lean_lines)
 
   return {
     total: samples.length,
     faithfulness: calculateDistribution(faithfulnessScores),
     theorems: calculateDistribution(theorems),
-    lines_pbt: calculateDistribution(linesPbt),
-    lines_code: calculateDistribution(linesCode),
-    by_variant: byVariant,
-    by_model: byModel,
-    by_repo: byRepo,
+    lean_lines: calculateDistribution(leanLines),
   }
 }
