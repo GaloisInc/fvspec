@@ -58,6 +58,7 @@ export const DatasetSampleDetailSchema = z.object({
   num_theorems: z.number().optional(),
   lean_metrics: LeanMetricsSchema.nullable().optional(),
   structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
+  difficulty_subjective_haiku: z.number().nullable().optional(),
 })
 
 /**
@@ -91,6 +92,7 @@ export const DatasetStatsSchema = z.object({
   faithfulness: DistributionStatsSchema,
   theorems: DistributionStatsSchema,
   lean_lines: DistributionStatsSchema,
+  difficulty: DistributionStatsSchema,
 })
 
 // Export TypeScript types

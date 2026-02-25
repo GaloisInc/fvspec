@@ -347,7 +347,15 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
           </div>
 
           {/* Metrics */}
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
+            {initialSample.difficulty_subjective_haiku != null && (
+              <div>
+                <div className="text-muted-foreground text-sm">Difficulty</div>
+                <div className="text-2xl font-bold">
+                  {initialSample.difficulty_subjective_haiku.toFixed(1)}
+                </div>
+              </div>
+            )}
             {initialSample.realpbt_lines_pbt != null && (
               <div>
                 <div className="text-muted-foreground text-sm">PBT Lines</div>

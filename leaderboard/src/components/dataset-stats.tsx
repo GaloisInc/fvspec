@@ -48,13 +48,23 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
       </Alert>
 
       {/* Summary statistics grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Total Samples</CardDescription>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-bold">{stats.total}</div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="pb-2">
+            <CardDescription>Mean Difficulty</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold">{formatNumber(stats.difficulty.mean)}</div>
+            <p className="mt-1 text-xs text-muted-foreground">Haiku subjective (1-10)</p>
           </CardContent>
         </Card>
 
@@ -109,6 +119,17 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
+              <TableRow>
+                <TableCell className="font-medium">Difficulty (Haiku)</TableCell>
+                <TableCell className="text-right">{formatNumber(stats.difficulty.min)}</TableCell>
+                <TableCell className="text-right">{formatNumber(stats.difficulty.q1)}</TableCell>
+                <TableCell className="text-right">
+                  {formatNumber(stats.difficulty.median)}
+                </TableCell>
+                <TableCell className="text-right">{formatNumber(stats.difficulty.q3)}</TableCell>
+                <TableCell className="text-right">{formatNumber(stats.difficulty.max)}</TableCell>
+                <TableCell className="text-right">{formatNumber(stats.difficulty.mean)}</TableCell>
+              </TableRow>
               <TableRow>
                 <TableCell className="font-medium">Faithfulness Score</TableCell>
                 <TableCell className="text-right">{formatNumber(stats.faithfulness.min)}</TableCell>

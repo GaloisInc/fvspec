@@ -205,11 +205,13 @@ export function getDatasetStats(): DatasetStats {
   )
   const theorems = samples.map(s => s.num_theorems)
   const leanLines = samples.map(s => s.lean_metrics?.total_lean_lines)
+  const difficulty = samples.map(s => s.difficulty_subjective_haiku)
 
   return {
     total: samples.length,
     faithfulness: calculateDistribution(faithfulnessScores),
     theorems: calculateDistribution(theorems),
     lean_lines: calculateDistribution(leanLines),
+    difficulty: calculateDistribution(difficulty),
   }
 }
