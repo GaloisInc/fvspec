@@ -57,8 +57,17 @@ export function Header() {
             </Link>
           </nav>
         </div>
-        {/* GitHub button on right - always visible on small+ screens */}
-        <div className="flex items-center">
+        {/* External links on right - always visible on small+ screens */}
+        <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+            <a
+              href="https://huggingface.co/datasets/quinn-dougherty/fvspec"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              HuggingFace
+            </a>
+          </Button>
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
             <a href="https://github.com/GaloisInc/fvspec" target="_blank" rel="noopener noreferrer">
               GitHub
@@ -84,6 +93,15 @@ export function Header() {
             >
               Paper
             </Link>
+            <a
+              href="https://huggingface.co/datasets/quinn-dougherty/fvspec"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              HuggingFace →
+            </a>
             <a
               href="https://github.com/GaloisInc/fvspec"
               target="_blank"
