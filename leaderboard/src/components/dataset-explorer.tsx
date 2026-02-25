@@ -158,9 +158,29 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
 
   const currentBookmarked = hydrated && isBookmarked(initialSample.sample_id)
 
-  /** Build a live.lean-lang.org URL with impl + spec concatenated */
+  /** Build a live.lean-lang.org URL with impl + spec merged into a single file */
   const playgroundUrl = useMemo(() => {
-    const code = initialSample.impl + '\n\n' + initialSample.spec
+    const isImport = (line: string) => /^\s*import\s/.test(line)
+    const splitImports = (src: string) => {
+      const lines = src.split('\n')
+      const imports: string[] = []
+      const body: string[] = []
+      for (const line of lines) {
+        if (isImport(line)) imports.push(line.trim())
+        else body.push(line)
+      }
+      return { imports, body: body.join('\n').replace(/^\n+/, '') }
+    }
+
+    const impl = splitImports(initialSample.impl)
+    const spec = splitImports(initialSample.spec)
+
+    // Deduplicate imports, drop "import Fvspec.Impl" (meaningless outside project)
+    const allImports = [...new Set([...impl.imports, ...spec.imports])].filter(
+      i => i !== 'import Fvspec.Impl'
+    )
+
+    const code = [allImports.join('\n'), '', impl.body, '', spec.body].join('\n')
     const compressed = LZString.compressToBase64(code).replace(/=*$/, '')
     return `https://live.lean-lang.org/#codez=${compressed}`
   }, [initialSample.impl, initialSample.spec])
