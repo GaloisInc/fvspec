@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { DatasetStats } from '@/components/dataset-stats'
+import { SampleSelector } from '@/components/sample-selector'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
@@ -70,7 +71,8 @@ export default function DatasetIndexPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-gray-50 to-white dark:from-gray-900 dark:to-gray-800">
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto space-y-6 px-4 py-8">
+        <SampleSelector />
         <DatasetStats stats={stats} />
       </main>
     </div>
