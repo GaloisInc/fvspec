@@ -62,10 +62,13 @@ export const DatasetSampleDetailSchema = z.object({
 
 /**
  * Response wrapper for dataset list endpoint.
+ * Includes pagination metadata for server-side pagination.
  */
 export const DatasetListResponseSchema = z.object({
   samples: z.array(DatasetSampleListItemSchema),
   total: z.number(),
+  page: z.number(),
+  limit: z.number(),
 })
 
 /**

@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import {
   loadDataset,
   loadDatasetFromUrl,
-  getAllSamples,
+  searchSamples,
   getSampleById,
   getDatasetStats,
 } from './dataset'
@@ -46,12 +46,21 @@ app.get('/', c => c.json({ ok: true, service: 'fvspec-leaderboard-api' }))
 
 /**
  * GET /api/dataset/list
- * Returns list of all dataset samples (minimal data for dropdown)
+ * Returns paginated list of dataset samples with optional search.
+ *
+ * Query params:
+ *   q     - substring search on sample_name (case-insensitive)
+ *   page  - 1-indexed page number (default 1)
+ *   limit - results per page (default 50, max 200)
  */
 app.get('/dataset/list', c => {
   try {
-    const samples = getAllSamples()
-    return c.json({ samples, total: samples.length })
+    const q = c.req.query('q') || undefined
+    const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
+    const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50))
+
+    const result = searchSamples(q, page, limit)
+    return c.json(result)
   } catch (error) {
     console.error('GET /api/dataset/list error:', error)
     if (error instanceof Error) {

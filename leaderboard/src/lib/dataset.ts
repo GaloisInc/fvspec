@@ -137,6 +137,33 @@ export function getAllSamples(): DatasetSampleListItem[] {
 }
 
 /**
+ * Search and paginate samples by name substring match.
+ *
+ * @param query - Optional substring to match against sample_name (case-insensitive)
+ * @param page - 1-indexed page number (default 1)
+ * @param limit - Number of results per page (default 50)
+ * @returns Paginated results with metadata
+ * @throws Error if dataset not loaded
+ */
+export function searchSamples(
+  query?: string,
+  page: number = 1,
+  limit: number = 50
+): { samples: DatasetSampleListItem[]; total: number; page: number; limit: number } {
+  const all = getAllSamples()
+
+  const filtered = query
+    ? all.filter(s => s.sample_name.toLowerCase().includes(query.toLowerCase()))
+    : all
+
+  const total = filtered.length
+  const start = (page - 1) * limit
+  const samples = filtered.slice(start, start + limit)
+
+  return { samples, total, page, limit }
+}
+
+/**
  * Get full sample by ID.
  *
  * @param id - Sample ID
