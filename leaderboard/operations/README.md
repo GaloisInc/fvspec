@@ -1,3 +1,5 @@
+# **This is defunct. we are now just using vercel!**
+
 # Operations Directory Overview
 
 This infrastructure documentation describes the deployment setup for the fvspec leaderboard website.

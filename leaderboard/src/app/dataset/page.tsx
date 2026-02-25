@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { DatasetStats } from '@/components/dataset-stats'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function DatasetIndexPage() {
   const [stats, setStats] = useState<DatasetStatsType | null>(null)

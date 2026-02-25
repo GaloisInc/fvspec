@@ -1,5 +1,5 @@
 // Constants
-export * from './constants.js'
+export * from './constants'
 
 // Schemas
-export * from './schemas/dataset.js'
+export * from './schemas/dataset'

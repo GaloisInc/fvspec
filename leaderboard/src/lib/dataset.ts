@@ -1,11 +1,10 @@
-import fs from 'node:fs'
 import {
   DatasetSampleDetail,
   DatasetSampleListItem,
   DatasetSampleDetailSchema,
   DatasetStats,
-} from '../../src/lib/common.js'
-import { calculateDistribution, countByValue, getTopEntries } from './stats.js'
+} from '@fvspec/common'
+import { calculateDistribution, countByValue, getTopEntries } from './stats'
 
 /**
  * In-memory cache of dataset samples.
@@ -28,7 +27,6 @@ function parseDataset(content: string): Map<number, DatasetSampleDetail> {
 
   for (let i = 0; i < lines.length; i++) {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
       const sample = JSON.parse(lines[i])
       const parseResult = DatasetSampleDetailSchema.safeParse(sample)
 
@@ -69,19 +67,19 @@ function setCaches(cache: Map<number, DatasetSampleDetail>): void {
 
 /**
  * Load dataset from a local JSONL file and cache in memory.
- *
- * @param filePath - Absolute path to fvspec.jsonl file
- * @returns Map of sample_id to sample data
- * @throws Error if file not found or parse fails
+ * Requires Node.js runtime (uses node:fs).
  */
-export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> {
-  console.log(`[dataset] Loading dataset from ${filePath}...`)
+export async function loadDataset(filePath: string): Promise<Map<number, DatasetSampleDetail>> {
+  const fs = await import('node:fs')
+  const path = await import('node:path')
+  const resolved = path.resolve(process.cwd(), filePath)
+  console.log(`[dataset] Loading dataset from ${resolved}...`)
 
-  if (!fs.existsSync(filePath)) {
-    throw new Error(`Dataset file not found: ${filePath}`)
+  if (!fs.existsSync(resolved)) {
+    throw new Error(`Dataset file not found: ${resolved}`)
   }
 
-  const fileContent = fs.readFileSync(filePath, 'utf-8')
+  const fileContent = fs.readFileSync(resolved, 'utf-8')
   const cache = parseDataset(fileContent)
   setCaches(cache)
   return cache
@@ -117,20 +115,17 @@ export async function loadDatasetFromUrl(url: string): Promise<Map<number, Datas
  */
 export function getAllSamples(): DatasetSampleListItem[] {
   if (!datasetCache) {
-    throw new Error('Dataset not loaded. Call loadDataset() first.')
+    throw new Error('Dataset not loaded. Call loadDatasetFromUrl() first.')
   }
 
-  // Return cached list (populated during loadDataset)
   if (sampleListCache) {
     return sampleListCache
   }
 
-  // Fallback: build list if cache is missing (shouldn't happen in normal flow)
   const samples: DatasetSampleListItem[] = []
   for (const [sampleId, sample] of datasetCache.entries()) {
     samples.push({
       sample_id: sampleId,
-
       sample_name: sample.sample_name,
     })
   }
@@ -150,7 +145,7 @@ export function getAllSamples(): DatasetSampleListItem[] {
  */
 export function getSampleById(id: number): DatasetSampleDetail | null {
   if (!datasetCache) {
-    throw new Error('Dataset not loaded. Call loadDataset() first.')
+    throw new Error('Dataset not loaded. Call loadDatasetFromUrl() first.')
   }
 
   return datasetCache.get(id) ?? null
@@ -173,35 +168,25 @@ export function getDatasetSize(): number {
  */
 export function getDatasetStats(): DatasetStats {
   if (!datasetCache) {
-    throw new Error('Dataset not loaded. Call loadDataset() first.')
+    throw new Error('Dataset not loaded. Call loadDatasetFromUrl() first.')
   }
 
   const samples: DatasetSampleDetail[] = Array.from(datasetCache.values())
 
-  // Extract faithfulness scores (overall score from structural_faithfulness)
   const faithfulnessScores: (number | null | undefined)[] = samples.map(
     s => s.structural_faithfulness?.overall as number | undefined
   )
 
-  // Extract metrics
-
   const theorems: (number | null | undefined)[] = samples.map(s => s.num_theorems)
-
   const linesPbt: (number | null | undefined)[] = samples.map(s => s.lines_pbt)
-
   const linesCode: (number | null | undefined)[] = samples.map(s => s.lines_code)
-
-  // Count by variant
 
   const variants: (string | null | undefined)[] = samples.map(s => s.variant)
   const byVariant = countByValue(variants)
 
-  // Count by model
-
   const models: (string | null | undefined)[] = samples.map(s => s.model)
   const byModel = countByValue(models)
 
-  // Count by repo (top 10)
   const repoIds: (string | null | undefined)[] = samples.map(s =>
     s.repo_id !== undefined ? String(s.repo_id) : undefined
   )

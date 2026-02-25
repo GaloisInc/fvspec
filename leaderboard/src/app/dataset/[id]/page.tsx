@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import { DatasetExplorer } from '@/components/dataset-explorer'
 import type { DatasetSampleDetail } from '@fvspec/common'
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001'
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 
 export default function DatasetPage() {
   const params = useParams()
