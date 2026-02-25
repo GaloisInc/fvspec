@@ -9,7 +9,8 @@ import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Shuffle, Star, Download, Search, ChevronDown, Loader2 } from 'lucide-react'
+import { Shuffle, Star, Download, Search, ChevronDown, Loader2, ExternalLink } from 'lucide-react'
+import LZString from 'lz-string'
 import { CodeBlock } from './code-block'
 import { useBookmarks } from '@/hooks/useBookmarks'
 
@@ -154,6 +155,13 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
   }
 
   const currentBookmarked = hydrated && isBookmarked(initialSample.sample_id)
+
+  /** Build a live.lean-lang.org URL with impl + spec concatenated */
+  const playgroundUrl = useMemo(() => {
+    const code = initialSample.impl + '\n\n' + initialSample.spec
+    const compressed = LZString.compressToBase64(code).replace(/=*$/, '')
+    return `https://live.lean-lang.org/#codez=${compressed}`
+  }, [initialSample.impl, initialSample.spec])
 
   return (
     <div className="space-y-6">
@@ -353,8 +361,18 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
       {/* Code viewer with tabs */}
       <Card>
         <CardHeader>
-          <CardTitle>Code</CardTitle>
-          <CardDescription>View Python source and generated Lean files</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Code</CardTitle>
+              <CardDescription>View Python source and generated Lean files</CardDescription>
+            </div>
+            <Button variant="outline" size="sm" className="gap-2" asChild>
+              <a href={playgroundUrl} target="_blank" rel="noopener noreferrer">
+                <ExternalLink className="h-4 w-4" />
+                Open in Lean Playground
+              </a>
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <Tabs defaultValue="spec" className="w-full">
