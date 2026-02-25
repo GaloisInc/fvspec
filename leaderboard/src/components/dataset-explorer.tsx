@@ -41,7 +41,7 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
   const listRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const { toggle, isBookmarked, count, hydrated, exportBookmarks } = useBookmarks()
+  const { bookmarks, toggle, isBookmarked, count, hydrated, exportBookmarks } = useBookmarks()
 
   /** Fetch samples from the paginated API */
   const fetchSamples = useCallback(
@@ -116,11 +116,13 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [])
 
-  /** Filter by bookmarks client-side */
+  /** When showing bookmarks, use the full bookmarks store (not the paginated API results) */
   const displayedSamples = useMemo(() => {
     if (!showBookmarkedOnly) return samples
-    return samples.filter(s => isBookmarked(s.sample_id))
-  }, [samples, showBookmarkedOnly, isBookmarked])
+    return Array.from(bookmarks.values())
+      .map(b => ({ sample_id: b.sample_id, sample_name: b.sample_name }))
+      .sort((a, b) => a.sample_id - b.sample_id)
+  }, [samples, showBookmarkedOnly, bookmarks])
 
   const handleSampleSelect = (sampleId: number) => {
     setOpen(false)
