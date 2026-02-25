@@ -10,7 +10,7 @@ Public dataset explorer for Lean 4 formal verification benchmarks (like SWEBench
 
 ## Architecture
 
-Two services:
+Single Next.js project with a separate API server:
 
 | App     | Stack                     | Deployment |
 | ------- | ------------------------- | ---------- |
@@ -19,9 +19,13 @@ Two services:
 
 **Flow:** Frontend fetches dataset samples from API → API loads JSONL file at startup → serves via REST endpoints
 
-## Apps
+**Structure:**
 
-### `packages/web` — Frontend
+- `src/` — Next.js app (app/, components/, lib/)
+- `server/` — Hono API server (outside src/ so Next.js ignores it)
+- `src/lib/common.ts` — Barrel re-export replacing old `@fvspec/common` package
+
+### Web — Frontend
 
 Next.js 16, Tailwind v4, shadcn/ui. Static export.
 
@@ -29,9 +33,9 @@ Next.js 16, Tailwind v4, shadcn/ui. Static export.
 
 **Development:** `npm run dev:web` (port 3000)
 
-### `packages/api` — REST API
+### API — REST Server
 
-Hono, Zod. No database required.
+Hono, Zod. No database required. Lives in `server/`.
 
 **Endpoints:** `/dataset/list`, `/dataset/stats`, `/dataset/:id`
 

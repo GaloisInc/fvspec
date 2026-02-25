@@ -4,7 +4,7 @@ import {
   DatasetSampleListItem,
   DatasetSampleDetailSchema,
   DatasetStats,
-} from '@fvspec/common'
+} from '../../src/lib/common.js'
 import { calculateDistribution, countByValue, getTopEntries } from './stats.js'
 
 /**

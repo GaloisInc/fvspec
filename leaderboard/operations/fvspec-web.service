@@ -5,7 +5,7 @@ After=network.target
 [Service]
 Type=simple
 User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/web
+WorkingDirectory=/home/quinnd/fvspec/leaderboard
 # Note: Do not use EnvironmentFile here - PORT would conflict with API service
 # EnvironmentFile=-/home/quinnd/fvspec/leaderboard/.env
 Environment="PORT=3000"

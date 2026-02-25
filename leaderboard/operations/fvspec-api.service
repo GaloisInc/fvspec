@@ -5,11 +5,11 @@ After=network.target postgresql.service redis.service
 [Service]
 Type=simple
 User=quinnd
-WorkingDirectory=/home/quinnd/fvspec/leaderboard/packages/api
+WorkingDirectory=/home/quinnd/fvspec/leaderboard
 EnvironmentFile=/home/quinnd/fvspec/leaderboard/.env
 Environment="PORT=3002"
 # Use tsx to run TypeScript directly (no build step needed)
-ExecStart=/usr/bin/npx tsx src/index.ts
+ExecStart=/usr/bin/npx tsx server/index.ts
 Restart=always
 RestartSec=10
 StandardOutput=journal
