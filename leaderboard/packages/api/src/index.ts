@@ -4,7 +4,13 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { serve } from '@hono/node-server'
 import path from 'node:path'
-import { loadDataset, getAllSamples, getSampleById, getDatasetStats } from './lib/dataset.js'
+import {
+  loadDataset,
+  loadDatasetFromUrl,
+  getAllSamples,
+  getSampleById,
+  getDatasetStats,
+} from './lib/dataset.js'
 
 const app = new Hono()
 
@@ -29,17 +35,26 @@ app.options('*', c => {
 })
 
 // Load dataset at startup
-// Use environment variable or default relative path
-const datasetPath =
-  process.env.DATASET_PATH ||
-  path.resolve(process.cwd(), '../../../benchmark/artifacts/dataset-out/fvspec.jsonl')
-try {
-  loadDataset(datasetPath)
-  console.log('[startup] Dataset loaded successfully')
-} catch (error) {
-  console.error('[startup] Failed to load dataset:', error)
-  console.error('[startup] Dataset endpoints will not be available')
+// Priority: DATASET_PATH (local file) > DATASET_URL (remote) > S3 default
+const DATASET_URL_DEFAULT = 'https://fvspec-vercel-assets.s3.us-west-2.amazonaws.com/fvspec.jsonl'
+
+async function initDataset() {
+  try {
+    if (process.env.DATASET_PATH) {
+      const datasetPath = path.resolve(process.cwd(), process.env.DATASET_PATH)
+      loadDataset(datasetPath)
+    } else {
+      const url = process.env.DATASET_URL || DATASET_URL_DEFAULT
+      await loadDatasetFromUrl(url)
+    }
+    console.log('[startup] Dataset loaded successfully')
+  } catch (error) {
+    console.error('[startup] Failed to load dataset:', error)
+    console.error('[startup] Dataset endpoints will not be available')
+  }
 }
+
+void initDataset()
 
 // Health check
 app.get('/', c => c.json({ ok: true, service: 'fvspec-leaderboard-api' }))

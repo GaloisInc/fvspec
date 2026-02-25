@@ -20,72 +20,92 @@ let datasetCache: Map<number, DatasetSampleDetail> | null = null
 let sampleListCache: DatasetSampleListItem[] | null = null
 
 /**
- * Load dataset from JSONL file and cache in memory.
- * Should be called once at API startup.
+ * Parse JSONL content into the dataset cache.
+ */
+function parseDataset(content: string): Map<number, DatasetSampleDetail> {
+  const lines = content.split('\n').filter(line => line.trim().length > 0)
+  const cache = new Map<number, DatasetSampleDetail>()
+
+  for (let i = 0; i < lines.length; i++) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
+      const sample = JSON.parse(lines[i])
+      const parseResult = DatasetSampleDetailSchema.safeParse(sample)
+
+      if (!parseResult.success) {
+        console.warn(`[dataset] Line ${i + 1}: Invalid sample data:`, parseResult.error)
+        continue
+      }
+
+      const validatedSample: DatasetSampleDetail = parseResult.data
+      cache.set(validatedSample.sample_id, validatedSample)
+    } catch (parseError) {
+      console.warn(`[dataset] Line ${i + 1}: Failed to parse JSON:`, parseError)
+    }
+  }
+
+  return cache
+}
+
+/**
+ * Populate caches from a parsed dataset map.
+ */
+function setCaches(cache: Map<number, DatasetSampleDetail>): void {
+  datasetCache = cache
+
+  const samples: DatasetSampleListItem[] = []
+  for (const [sampleId, sample] of cache.entries()) {
+    samples.push({
+      sample_id: sampleId,
+      sample_name: sample.sample_name,
+    })
+  }
+
+  samples.sort((a, b) => a.sample_id - b.sample_id)
+  sampleListCache = samples
+
+  console.log(`[dataset] Successfully loaded ${cache.size} samples`)
+}
+
+/**
+ * Load dataset from a local JSONL file and cache in memory.
  *
  * @param filePath - Absolute path to fvspec.jsonl file
  * @returns Map of sample_id to sample data
  * @throws Error if file not found or parse fails
  */
 export function loadDataset(filePath: string): Map<number, DatasetSampleDetail> {
-  try {
-    console.log(`[dataset] Loading dataset from ${filePath}...`)
+  console.log(`[dataset] Loading dataset from ${filePath}...`)
 
-    if (!fs.existsSync(filePath)) {
-      throw new Error(`Dataset file not found: ${filePath}`)
-    }
-
-    const fileContent = fs.readFileSync(filePath, 'utf-8')
-    const lines = fileContent.split('\n').filter(line => line.trim().length > 0)
-
-    const cache = new Map<number, DatasetSampleDetail>()
-
-    for (let i = 0; i < lines.length; i++) {
-      try {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
-        const sample = JSON.parse(lines[i])
-
-        // Validate using Zod schema
-
-        const parseResult = DatasetSampleDetailSchema.safeParse(sample)
-
-        if (!parseResult.success) {
-          console.warn(`[dataset] Line ${i + 1}: Invalid sample data:`, parseResult.error)
-          continue
-        }
-
-        // Store in cache (parseResult.data is properly typed after success check)
-
-        const validatedSample: DatasetSampleDetail = parseResult.data
-
-        cache.set(validatedSample.sample_id, validatedSample)
-      } catch (parseError) {
-        console.warn(`[dataset] Line ${i + 1}: Failed to parse JSON:`, parseError)
-      }
-    }
-
-    datasetCache = cache
-
-    // Populate sample list cache
-    const samples: DatasetSampleListItem[] = []
-    for (const [sampleId, sample] of cache.entries()) {
-      samples.push({
-        sample_id: sampleId,
-
-        sample_name: sample.sample_name,
-      })
-    }
-
-    samples.sort((a, b) => a.sample_id - b.sample_id)
-    sampleListCache = samples
-
-    console.log(`[dataset] Successfully loaded ${cache.size} samples`)
-
-    return cache
-  } catch (error) {
-    console.error('[dataset] Failed to load dataset:', error)
-    throw error
+  if (!fs.existsSync(filePath)) {
+    throw new Error(`Dataset file not found: ${filePath}`)
   }
+
+  const fileContent = fs.readFileSync(filePath, 'utf-8')
+  const cache = parseDataset(fileContent)
+  setCaches(cache)
+  return cache
+}
+
+/**
+ * Load dataset from a URL (e.g. S3) and cache in memory.
+ *
+ * @param url - URL to fetch fvspec.jsonl from
+ * @returns Map of sample_id to sample data
+ * @throws Error if fetch fails or parse fails
+ */
+export async function loadDatasetFromUrl(url: string): Promise<Map<number, DatasetSampleDetail>> {
+  console.log(`[dataset] Fetching dataset from ${url}...`)
+
+  const response = await fetch(url)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch dataset: ${response.status} ${response.statusText}`)
+  }
+
+  const content = await response.text()
+  const cache = parseDataset(content)
+  setCaches(cache)
+  return cache
 }
 
 /**
