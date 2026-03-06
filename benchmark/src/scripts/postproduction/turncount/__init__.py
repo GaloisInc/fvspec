@@ -100,7 +100,9 @@ def main(
                                 stats["skipped"] += 1
                                 continue
                         except json.JSONDecodeError as e:
-                            console.print(f"[red]Skipping corrupt JSON in {qa_path}: {e}[/red]")
+                            console.print(
+                                f"[red]Skipping corrupt JSON in {qa_path}: {e}[/red]"
+                            )
                             stats["errors"] += 1
                             continue
 
