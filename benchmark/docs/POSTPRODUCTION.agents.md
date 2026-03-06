@@ -94,7 +94,18 @@ uv run turncount artifacts/runs/ --force  # re-compute even if turn_counts exist
 
 ## Merge integration
 
-The `merge` tool's `prune.py` schema controls which `qa.json` fields propagate to the JSONL. Add `turn_counts` to the kept fields so it flows through to `fvspec.jsonl` automatically.
+The `merge` tool's `prune.py` uses a blocklist (`FIELDS_TO_REMOVE`) — any field **not** in that set passes through automatically. Since `turn_counts` is not blocklisted, it will flow into `fvspec.jsonl` with no changes to `prune.py`.
+
+### Caveat: preserving `graded` and `metrics` fields
+
+The existing `fvspec.jsonl` may already have `graded` (from `uv run grader`) and `metrics` (from `uv run metrics`) fields that were computed in earlier postproduction steps. A naive `uv run merge` will regenerate the JSONL from `qa.json` files alone, which do **not** contain these fields—so they would be lost.
+
+**Options:**
+1. **Re-run grader + metrics after merge** — simplest but expensive (grader uses LLM calls).
+2. **Pre-merge join** — before merging, read the existing `fvspec.jsonl`, index `graded` and `metrics` by `sample_id`, then patch them back into the merged output.
+3. **Extend merge to accept a "carry-forward" JSONL** — pass the old JSONL as an argument and have merge preserve specified fields from it when the sample already exists.
+
+Until one of these is implemented, **do not blindly re-run `uv run merge`** if the current JSONL already has graded/metrics data—those fields will be dropped.
 
 ## Validation
 
