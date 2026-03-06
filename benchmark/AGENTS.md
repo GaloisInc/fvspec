@@ -97,6 +97,11 @@ After running benchmarks, postproduction scripts process results:
   - Fast regex-based parsing (~100-1000 samples/second)
   - See `src/scripts/postproduction/metrics/README.md` for details
 
+- **`turncount/`** - Extract true turn counts from .eval zip files into qa.json
+  - `uv run turncount artifacts/runs/`
+  - Counts assistant messages (turns) and tool messages per subagent conversation
+  - Resume-safe: skips qa.json files already enriched (use `--force` to re-compute)
+
 - **`accumulate_wandb/`** - Download and analyze W&B runs
   - `uv run python -m scripts.postproduction.accumulate sync`
   - Downloads run data (metrics, files, config) for offline analysis
