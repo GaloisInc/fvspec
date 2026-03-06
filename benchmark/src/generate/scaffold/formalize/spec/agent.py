@@ -8,14 +8,19 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 from pathlib import Path
 
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
-from generate.scaffold.formalize.spec.models import SpecPayload, SpecResult
+from generate.scaffold.formalize.spec.models import (
+    SpecPayload,
+    SpecResult,
+    SpecValidation,
+)
 from generate.scaffold.formalize.spec.validator import validate_spec_output
-from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
+from generate.scaffold.tools.declaration import all_lean_tools
 from generate.templates.spec import get_variant_prompts
 
 logger = logging.getLogger(__name__)
@@ -157,21 +162,33 @@ def spec_generation_agent(
         spec_file.parent.mkdir(parents=True, exist_ok=True)
         spec_file.write_text(lean_code)
 
-        # Call lean_diagnostic_messages to check compilation
-        # We need to import and call it directly
-
+        # Validate compilation with lake build (reliable, unlike LSP diagnostics
+        # which may return stale/empty results before elaboration completes)
         try:
-            lsp_result = call_lean_lsp_mcp(
-                workspace=workspace,
-                tool_name="lean_diagnostic_messages",
-                arguments={"file_path": str(spec_file)},
+            build_result = subprocess.run(
+                ["lake", "build"],
+                cwd=str(workspace),
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
-            diagnostics = ""
-            content = lsp_result.get("content", [])
-            if content and isinstance(content, list) and len(content) > 0:
-                diagnostics = content[0].get("text", "")
+            # lake build exit code 0 = success, non-zero = errors
+            compiles = build_result.returncode == 0
+            diagnostics = build_result.stderr if build_result.returncode != 0 else ""
 
             validation = validate_spec_output(lean_code, diagnostics)
+            # Override compiles with lake build result (authoritative)
+            validation = SpecValidation(
+                compiles=compiles,
+                has_statements=validation.has_statements,
+                has_sorry=validation.has_sorry,
+                valid=compiles and validation.has_statements,
+                errors=(
+                    validation.errors
+                    if not compiles
+                    else [e for e in validation.errors if e != "Code has type errors"]
+                ),
+            )
 
             result = SpecResult(
                 success=validation.valid,
@@ -182,6 +199,18 @@ def spec_generation_agent(
                 attempts=attempts,
                 tool_calls=tool_calls_count,
                 error="; ".join(validation.errors) if validation.errors else None,
+            )
+
+        except subprocess.TimeoutExpired:
+            result = SpecResult(
+                success=False,
+                lean_code=lean_code,
+                compiles=False,
+                has_sorry=False,
+                has_statements=False,
+                attempts=attempts,
+                tool_calls=tool_calls_count,
+                error="lake build timed out after 120s",
             )
 
         except Exception as e:
