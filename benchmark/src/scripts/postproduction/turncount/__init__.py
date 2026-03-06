@@ -6,6 +6,7 @@ Usage (from benchmark/ directory):
     uv run postprod turncount artifacts/runs/ --force
 """
 
+import json
 from pathlib import Path
 
 import typer
@@ -94,12 +95,16 @@ def main(
 
                     if not force:
                         try:
-                            existing = qa_path.read_text()
-                            if '"turn_counts"' in existing:
+                            data = json.loads(qa_path.read_text())
+                            if "turn_counts" in data:
                                 stats["skipped"] += 1
                                 continue
-                        except Exception:
-                            pass
+                        except json.JSONDecodeError as e:
+                            console.print(
+                                f"[red]Skipping corrupt JSON in {qa_path}: {e}[/red]"
+                            )
+                            stats["errors"] += 1
+                            continue
 
                     try:
                         patch_qa_json(qa_path, turn_counts)
