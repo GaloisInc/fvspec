@@ -48,7 +48,6 @@ CATEGORY_PATTERNS: list[tuple[str, list[str]]] = [
 ]
 
 TURN_BUCKETS = [(0, 10), (11, 15), (16, 20), (21, 30), (31, 50), (51, 999)]
-TOOL_CALL_BUCKETS = [(0, 5), (6, 10), (11, 20), (21, 50), (51, 999)]
 
 
 class ValidationResult(BaseModel):
@@ -65,7 +64,6 @@ class ValidationResult(BaseModel):
     turn_counts_total: int | None = None
     turn_counts_impl_turns: int | None = None
     turn_counts_spec_turns: int | None = None
-    turn_counts_total_tool_calls: int | None = None
     impl_autoform_success: float | None = None
     num_theorems: int | None = None
 
@@ -91,7 +89,6 @@ def compile_sample(
     turn_counts_total = tc.get("total_turns")
     turn_counts_impl_turns = tc_impl.get("turns")
     turn_counts_spec_turns = tc_spec.get("turns")
-    turn_counts_total_tool_calls = tc.get("total_tool_calls")
     impl_autoform_success = sample.get("impl_autoform_success")
     num_theorems = sample.get("num_theorems")
 
@@ -114,7 +111,6 @@ def compile_sample(
             turn_counts_total=turn_counts_total,
             turn_counts_impl_turns=turn_counts_impl_turns,
             turn_counts_spec_turns=turn_counts_spec_turns,
-            turn_counts_total_tool_calls=turn_counts_total_tool_calls,
             impl_autoform_success=impl_autoform_success,
             num_theorems=num_theorems,
         )
@@ -433,15 +429,6 @@ def print_analysis(results: list[ValidationResult]) -> None:
             f"({100 * bucket_fails / bucket_total:.0f}%)"
         )
 
-    console.print("\n[bold]Failure Rate by Total Tool Calls[/bold]")
-    for label, bucket_fails, bucket_total in _bucket_stats(
-        with_turns, TOOL_CALL_BUCKETS, lambda r: r.turn_counts_total_tool_calls
-    ):
-        console.print(
-            f"  {label:>6s} calls: {bucket_fails}/{bucket_total} fail "
-            f"({100 * bucket_fails / bucket_total:.0f}%)"
-        )
-
     # Error categories
     console.print("\n[bold]Error Categories[/bold]")
     categories: dict[str, int] = {}
@@ -557,23 +544,6 @@ def write_report(
         w("|-------|--------------|------|")
         for label, bucket_fails, bucket_total in _bucket_stats(
             with_turns, TURN_BUCKETS, lambda r: r.turn_counts_total
-        ):
-            w(
-                f"| {label} | "
-                f"{bucket_fails}/{bucket_total} | "
-                f"{100 * bucket_fails / bucket_total:.0f}% |"
-            )
-        w()
-
-        # Tool call buckets
-        w("### Failure Rate by Tool Calls")
-        w()
-        w("| Tool calls | Fails / Total | Rate |")
-        w("|-----------|--------------|------|")
-        for label, bucket_fails, bucket_total in _bucket_stats(
-            with_turns,
-            TOOL_CALL_BUCKETS,
-            lambda r: r.turn_counts_total_tool_calls,
         ):
             w(
                 f"| {label} | "
