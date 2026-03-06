@@ -1,9 +1,9 @@
 """Post-production: Enrich qa.json files with true turn counts from .eval files.
 
 Usage (from benchmark/ directory):
-    uv run turncount artifacts/runs/
-    uv run turncount artifacts/runs/2025-12-18T14-48-17__idx43000-43500__control-functional/
-    uv run turncount artifacts/runs/ --force
+    uv run postprod turncount artifacts/runs/
+    uv run postprod turncount artifacts/runs/<run-dir>/
+    uv run postprod turncount artifacts/runs/ --force
 """
 
 from pathlib import Path
@@ -44,9 +44,9 @@ def main(
     Use --force to re-compute all.
 
     Examples (from benchmark/ directory):
-        uv run turncount artifacts/runs/                    # All runs
-        uv run turncount artifacts/runs/<specific-run>/     # Single run
-        uv run turncount artifacts/runs/ --force            # Re-compute all
+        uv run postprod turncount artifacts/runs/                    # All runs
+        uv run postprod turncount artifacts/runs/<specific-run>/     # Single run
+        uv run postprod turncount artifacts/runs/ --force            # Re-compute all
     """
     console.print("[bold]Post-production: Enriching qa.json with turn counts[/bold]\n")
 
