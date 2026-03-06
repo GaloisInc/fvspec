@@ -313,24 +313,34 @@ class QualityAssessment(BaseModel):
         variant = cast(str, state.metadata.get("variant"))
         lines_pbt = datapoint.code.count("\n")
 
-        # Extract code metrics
-        pattern = r"(?s)<code>(.*?)</code>"
-        mtch = re.search(pattern, state.messages[-1].text)
-        if not mtch:
-            success = False
-            spec_sig_success = False
-            num_sorries = 0
-            num_theorems = 0
-            lines_code = 0
-            percent_lines_added = 0.0
-            code_snippet = ""
+        # Extract spec result from store (set by spec agent with compilation checks)
+        spec_result_data = state.store.get("spec_result")
+        if isinstance(spec_result_data, dict):
+            spec_sig_success = spec_result_data.get(
+                "success", False
+            ) and spec_result_data.get("compiles", False)
+            code_snippet = spec_result_data.get("lean_code") or ""
+        elif spec_result_data is not None:
+            spec_sig_success = spec_result_data.success and spec_result_data.compiles
+            code_snippet = spec_result_data.lean_code or ""
         else:
-            code_snippet = mtch.group(1)
-            spec_sig_success = True  # Spec agent produced valid code
+            # Fallback: extract code from message (legacy path)
+            pattern = r"(?s)<code>(.*?)</code>"
+            mtch = re.search(pattern, state.messages[-1].text)
+            spec_sig_success = mtch is not None
+            code_snippet = mtch.group(1) if mtch else ""
+
+        # Extract code metrics from spec code
+        if code_snippet:
             num_sorries = code_snippet.count("sorry")
             num_theorems = count_lean_theorems(code_snippet)
             lines_code = code_snippet.count("\n")
             percent_lines_added = (lines_code - lines_pbt) / lines_pbt
+        else:
+            num_sorries = 0
+            num_theorems = 0
+            lines_code = 0
+            percent_lines_added = 0.0
 
         # Check impl autoformalization status
         impl_result_data = state.store.get("impl_result")
@@ -352,8 +362,7 @@ class QualityAssessment(BaseModel):
                 )
                 impl_eval_stripped = impl_result_data.has_eval_stripped
 
-        # Overall success: spec succeeded (backward compatible for spec-only tasks)
-        # For tasks with impl, both spec and impl must succeed
+        # Overall success: spec compiled AND (no impl OR impl compiled)
         if impl_result_data:
             success = spec_sig_success and impl_autoform_success
         else:

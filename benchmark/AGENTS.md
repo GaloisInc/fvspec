@@ -79,42 +79,25 @@ Edit `config.toml` for model/variant/wandb. **CRITICAL:** Keep `entity = "fvspec
 
 After running benchmarks, postproduction scripts process results:
 
-**`src/scripts/postproduction/`** - Post-processing tools
-- **`merge/`** - Merge multiple runs into unified JSONL dataset with automatic deduplication
-  - `uv run merge src/scripts/postproduction/merge/runs.txt`
-  - Combines runs, deduplicates by sample_id (quality-based), applies schema pruning
-  - See `src/scripts/postproduction/merge/README.md` for details
-
+**`src/scripts/postproduction/`** - Unified CLI: `uv run postprod <subcommand>`
+- **`turncount/`** - Extract true turn counts from .eval zip files into qa.json
+- **`merge/`** - Merge multiple runs into unified JSONL dataset with deduplication
+- **`metrics/`** - Lean code structure and complexity analysis (regex-based)
 - **`grader/`** - LLM-based difficulty assessment using Claude Haiku 4.5
-  - `uv run grader artifacts/dataset-out/fvspec.jsonl`
-  - Rates proof difficulty (0-10) with justification
-  - Uses structured outputs with prompt caching for cost efficiency
-  - See `src/scripts/postproduction/grader/README.md` for details
-
-- **`metrics/`** - Lean code structure and complexity analysis
-  - `uv run metrics artifacts/dataset-out/fvspec.jsonl`
-  - Extracts line counts, declaration counts, nesting depth, proof complexity
-  - Fast regex-based parsing (~100-1000 samples/second)
-  - See `src/scripts/postproduction/metrics/README.md` for details
-
-- **`accumulate_wandb/`** - Download and analyze W&B runs
-  - `uv run python -m scripts.postproduction.accumulate sync`
-  - Downloads run data (metrics, files, config) for offline analysis
-  - Streamlit dashboard for interactive exploration
-  - See `src/scripts/postproduction/accumulate_wandb/README.md` for details
 
 **Typical workflow:**
 ```bash
-# 1. Merge runs
-uv run merge src/scripts/postproduction/merge/runs.txt
+# 1. Enrich turn counts (operates on raw run artifacts)
+uv run postprod turncount artifacts/runs/
 
-# 2. Compute Lean metrics (optional)
-uv run metrics artifacts/dataset-out/fvspec.jsonl
+# 2. Merge runs
+uv run postprod merge src/scripts/postproduction/merge/runs.txt
 
-# 3. Grade difficulty (optional)
-uv run grader artifacts/dataset-out/fvspec.metrics.jsonl
+# 3. Compute Lean metrics (optional)
+uv run postprod metrics artifacts/dataset-out/fvspec.jsonl
 
-# 4. Analyze results
+# 4. Grade difficulty (optional)
+uv run postprod grader artifacts/dataset-out/fvspec.metrics.jsonl
 ```
 
 ## Code Style
