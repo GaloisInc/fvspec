@@ -4,13 +4,13 @@ version = "0.1.0"
 description = "Baseline evaluation tools for fvspec benchmark"
 readme = "README.md"
 authors = [
-    { name = "Quinn Dougherty", email = "quinn.dougherty.forall@gmail.com" }
+    { name = "Quinn Dougherty", email = "quinn@for-all.dev" }
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "datasets>=4.3.0",
-    "pydantic>=2.12.3",
-    "pydantic-ai>=1.5.0",
+    "datasets>=4.6.0",
+    "pydantic>=2.12.5",
+    "pydantic-ai>=1.63.0",
 ]
 
 [build-system]
@@ -19,8 +19,8 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
-    "hypothesis>=6.142.3",
-    "pytest>=8.4.2",
-    "ruff>=0.14.2",
-    "ty>=0.0.1a24",
+    "hypothesis>=6.151.9",
+    "pytest>=9.0.2",
+    "ruff>=0.15.2",
+    "ty>=0.0.18",
 ]
