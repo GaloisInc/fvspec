@@ -506,8 +506,12 @@ def write_report(
     w("| Metric | Value |")
     w("|--------|-------|")
     w(f"| Total validated | {total} |")
-    w(f"| Compiles | {compiles} ({100 * compiles / total:.1f}%) |")
-    w(f"| Fails | {fails} ({100 * fails / total:.1f}%) |")
+    if total > 0:
+        w(f"| Compiles | {compiles} ({100 * compiles / total:.1f}%) |")
+        w(f"| Fails | {fails} ({100 * fails / total:.1f}%) |")
+    else:
+        w(f"| Compiles | {compiles} |")
+        w(f"| Fails | {fails} |")
     w(f"| Timeouts | {timeouts} |")
 
     if total > 0:
@@ -588,10 +592,13 @@ def write_report(
         cat = _classify_error(r)
         categories[cat] = categories.get(cat, 0) + 1
 
-    w("| Category | Count | % of failures |")
-    w("|----------|-------|--------------|")
-    for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
-        w(f"| {cat} | {count} | {100 * count / fails:.0f}% |")
+    if not categories:
+        w("_No compilation failures — 100% success._")
+    else:
+        w("| Category | Count | % of failures |")
+        w("|----------|-------|--------------|")
+        for cat, count in sorted(categories.items(), key=lambda x: -x[1]):
+            w(f"| {cat} | {count} | {100 * count / fails:.0f}% |")
     w()
 
     # Error patterns
