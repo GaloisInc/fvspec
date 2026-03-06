@@ -33,7 +33,6 @@ FIELDS_TO_REMOVE = {
     # not informative
     "has_unit_tests",
     "id",  # redundant with sample_id
-    "success",
     # Realpbt metadata fields - not needed for benchmark
     "hash",
     "summary_vector",
