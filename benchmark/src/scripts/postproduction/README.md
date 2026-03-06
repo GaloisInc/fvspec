@@ -45,6 +45,8 @@ uv run postprod grader artifacts/dataset-out/fvspec.metrics.jsonl
 ## Notes
 
 - Steps 3 and 4 are independent of each other and can run in either order.
-- All tools are resume-safe: re-running skips already-processed samples.
+- Resume behavior:
+  - `turncount`, `metrics`, and `grader` are resume-safe: re-running them skips already-processed samples.
+  - `merge` and `validate` always reprocess their entire inputs; they are idempotent but not incremental.
 - Each tool has its own `--help` with detailed options (`uv run postprod <tool> --help`).
 - See each tool's subdirectory for implementation details.
