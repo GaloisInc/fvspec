@@ -36,6 +36,16 @@ def mock_lake_template(tmp_path):
         "-- Auto-generated entry point\nimport Fvspec.Deps\nimport Fvspec.Spec"
     )
 
+    # Create .lake directory structure mirroring the real template
+    lake_dir = template / ".lake"
+    lake_dir.mkdir()
+    packages_dir = lake_dir / "packages"
+    packages_dir.mkdir()
+    (packages_dir / "mathlib").mkdir()
+    (packages_dir / "mathlib" / "Mathlib.lean").write_text("-- mathlib stub")
+    build_dir = lake_dir / "build"
+    build_dir.mkdir()
+
     return template
 
 
@@ -52,19 +62,24 @@ def test_create_sample_workspace_creates_directory(mock_lake_template):
 
 
 def test_create_sample_workspace_copies_template(mock_lake_template):
-    """Verify the Lake template is copied into the workspace."""
+    """Verify the Lake template is copied into the workspace.
+
+    Note: Fvspec/ is intentionally skipped (agents create their own files).
+    .lake/ is set up with symlinked packages/ and empty build/.
+    """
     workspace = create_sample_workspace("sample_002", lake_template=mock_lake_template)
 
     try:
         # Verify Lake project files were copied
         assert (workspace / "lakefile.toml").exists()
         assert (workspace / "lake-manifest.json").exists()
-        assert (workspace / "Fvspec").is_dir()
-        assert (workspace / "Fvspec" / "Spec.lean").exists()
+
+        # Fvspec/ is intentionally NOT copied (agents create their own)
+        assert not (workspace / "Fvspec").exists()
 
         # Verify content was copied correctly
-        content = (workspace / "Fvspec" / "Spec.lean").read_text()
-        assert "import Fvspec.Deps" in content
+        content = (workspace / "lakefile.toml").read_text()
+        assert "fvspec" in content
     finally:
         cleanup_sample_workspace(workspace)
 
@@ -145,9 +160,17 @@ def test_sample_workspace_context_manager_cleans_up_on_exception(mock_lake_templ
 
 
 def test_workspace_can_write_lean_files(mock_lake_template):
-    """Verify we can write Lean files to the workspace."""
+    """Verify we can write Lean files to the workspace.
+
+    Note: Fvspec/ is not copied from template (agents create their own),
+    so we create it ourselves before writing, as the agents would.
+    """
     with sample_workspace("sample_008", lake_template=mock_lake_template) as workspace:
-        spec_file = workspace / "Fvspec" / "Spec.lean"
+        # Agents create the Fvspec directory themselves
+        fvspec_dir = workspace / "Fvspec"
+        fvspec_dir.mkdir()
+
+        spec_file = fvspec_dir / "Spec.lean"
         lean_code = """-- Generated spec
 def add (x y : Nat) : Nat := sorry
 
@@ -189,6 +212,31 @@ def test_multiple_workspaces_are_isolated(mock_lake_template):
     finally:
         cleanup_sample_workspace(workspace1)
         cleanup_sample_workspace(workspace2)
+
+
+def test_workspace_lake_packages_symlinked(mock_lake_template):
+    """Verify .lake/packages/ is symlinked (not copied) to reduce disk I/O."""
+    with sample_workspace("sample_010", lake_template=mock_lake_template) as workspace:
+        lake_dir = workspace / ".lake"
+        packages_link = lake_dir / "packages"
+        build_dir = lake_dir / "build"
+
+        # .lake/ directory should exist
+        assert lake_dir.is_dir()
+
+        # packages/ should be a symlink pointing to the template's packages
+        assert packages_link.is_symlink()
+        assert (
+            packages_link.resolve()
+            == (mock_lake_template / ".lake" / "packages").resolve()
+        )
+
+        # Symlinked content should be accessible
+        assert (packages_link / "mathlib" / "Mathlib.lean").exists()
+
+        # build/ should be a real directory (not a symlink), for per-workspace isolation
+        assert build_dir.is_dir()
+        assert not build_dir.is_symlink()
 
 
 def test_workspace_prefix_includes_sample_id(mock_lake_template):

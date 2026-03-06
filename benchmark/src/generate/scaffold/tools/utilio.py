@@ -271,7 +271,7 @@ def create_sample_workspace(
     Tmpdir Lifecycle:
     1. Created in artifacts/.tmp/ (on main disk, not /tmp tmpfs) to avoid quota issues
     2. Registered in global _active_workspaces for atexit cleanup safety net
-    3. Lake template copied (EXCLUDING .lake/ to avoid disk quota issues)
+    3. Lake template copied with symlinked .lake/packages/ to reduce disk I/O
     4. Used during sample execution (workspace_setup → solver → write_to_disk)
     5. Cleaned up in write_to_disk() cleanup phase (normal path)
     6. If cleanup fails, atexit handler ensures removal on process exit (safety net)
@@ -282,10 +282,11 @@ def create_sample_workspace(
     Thread safety: Uses _workspace_lock for registry access in parallel execution
 
     Lake Build Strategy:
-    - Copies .lake/ from template (6GB cached artifacts per workspace)
-    - Safe because tmpdir is on main disk (3.7TB available) not /tmp (32GB tmpfs)
-    - With parallelism=10: 10 × 6GB = 60GB (manageable)
-    - No rebuilds needed (much faster than rebuilding mathlib from scratch)
+    - Symlinks .lake/packages/ to template (read-only shared deps, ~6GB)
+    - Creates empty .lake/build/ per workspace (avoids build races)
+    - Skips Fvspec/ directory (agents create their own files there)
+    - Resolves lean-toolchain symlink to absolute copy (prevents dangling)
+    - Disk usage: O(1) per workspace instead of O(6GB) per workspace
 
     Args:
         sample_id: Unique identifier for the sample (used in tmpdir prefix)
@@ -315,19 +316,34 @@ def create_sample_workspace(
     with _workspace_lock:
         _active_workspaces.add(tmpdir)
 
-    # Copy Lake project template into workspace (including .lake/ for cached builds)
-    # Now safe because workspaces are on main disk (artifacts/.tmp/) not /tmp tmpfs
-    if lake_template.exists():
-        for item in lake_template.iterdir():
-            if item.is_dir():
-                shutil.copytree(item, tmpdir / item.name, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, tmpdir / item.name)
-    else:
+    # Copy template structure (without .lake and Fvspec — we set those up separately)
+    if not lake_template.exists():
         raise FileNotFoundError(
             f"Lake template not found at {lake_template}. "
             "Run 'lake init' to create the template first."
         )
+
+    for item in lake_template.iterdir():
+        if item.name in (".lake", "Fvspec"):
+            continue
+        dest = tmpdir / item.name
+        if item.is_dir():
+            shutil.copytree(item, dest, symlinks=True)
+        else:
+            shutil.copy2(item, dest)
+
+    # Set up .lake: symlink packages (read-only deps), own build dir (avoids races)
+    lake_dir = tmpdir / ".lake"
+    lake_dir.mkdir()
+    (lake_dir / "packages").symlink_to((lake_template / ".lake" / "packages").resolve())
+    (lake_dir / "build").mkdir()
+
+    # Resolve lean-toolchain symlink to absolute copy (prevents dangling symlinks)
+    toolchain_link = tmpdir / "lean-toolchain"
+    if toolchain_link.is_symlink():
+        target = toolchain_link.resolve()
+        toolchain_link.unlink()
+        shutil.copy2(target, toolchain_link)
 
     return tmpdir
 
