@@ -1,0 +1,27 @@
+ranseed = 0
+parallelism = 10
+num_samples = 1000
+
+[[model]]
+human_name = "snt46"
+provider = "anthropic"
+model_pin = "claude-sonnet-4-6"
+dollars_per_output_millitoken = 15
+
+[[model]]
+human_name = "ops46"
+provider = "anthropic"
+model_pin = "claude-opus-4-6"
+dollars_per_output_millitoken = 25
+
+[[model]]
+human_name = "gpt4o"
+provider = "openai"
+model_pin = "gpt-4o"
+dollars_per_output_millitoken = 10
+
+[[model]]
+human_name = "gemini25pro"
+provider = "google"
+model_pin = "gemini-2.5-pro"
+dollars_per_output_millitoken = 10

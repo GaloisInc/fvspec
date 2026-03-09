@@ -21,6 +21,26 @@ pre-commit:
       glob: "*.py"
       run: uv run pytest
 
+    # Baselines: format, lint, typecheck, test
+    format-baselines:
+      root: "baselines/"
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    lint-baselines:
+      root: "baselines/"
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    typecheck-baselines:
+      root: "baselines/"
+      glob: "*.py"
+      run: uv run ty check
+    test-baselines:
+      root: "baselines/"
+      glob: "*.py"
+      run: uv run pytest
+
     # Leaderboard: build first (needed for type resolution), then format/lint/typecheck
     build-leaderboard:
       root: "leaderboard"
