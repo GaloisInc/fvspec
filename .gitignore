@@ -84,3 +84,5 @@ next-env.d.ts
 /benchmark/src/hf/*.jsonl
 
 .claude/worktrees
+
+!/comms/paper/data
