@@ -1,87 +1,169 @@
 #import "@preview/charged-ieee:0.1.4": ieee
+#import "@preview/cetz:0.4.2"
+#import "fns.typ" as fns
 
 #show: ieee.with(
-  title: [A Typesetting System to Untangle the Scientific Writing Process],
+  title: [From Property-Based Tests to Formal Proofs: \ A Benchmark for Lean 4 Specification Generation],
   abstract: [
-    The process of scientific writing is often tangled up with the intricacies of typesetting, leading to frustration and wasted time for researchers. In this paper, we introduce Typst, a new typesetting system designed specifically for scientific writing. Typst untangles the typesetting process, allowing researchers to compose papers faster. In a series of experiments we demonstrate that Typst offers several advantages, including faster document creation, simplified syntax, and increased ease-of-use.
+    We present a benchmark for evaluating AI models on formal verification tasks, extending the RealPBT dataset of real-world Python property-based tests (PBTs) into Lean 4 specifications with `sorry` placeholders. Translating PBTs into formal specifications is challenging: it requires modelling Python library semantics in Lean, bridging the gap between input/output testing and structural proofs, and handling the inherent difficulties of dependently-typed programming. We describe a three-agent LLM pipeline for transpiling PBT suites into Lean specifications, evaluate coverage and quality metrics, and provide baselines for proof completion using several automated and model-based approaches. Our benchmark aims to drive progress on the underexplored problem of AI-assisted formal verification of real-world software.
   ],
-  authors: (
-    (
-      name: "Martin Haug",
-      department: [Co-Founder],
-      organization: [Typst GmbH],
-      location: [Berlin, Germany],
-      email: "haug@typst.app"
-    ),
-    (
-      name: "Laurenz Mädje",
-      department: [Co-Founder],
-      organization: [Typst GmbH],
-      location: [Berlin, Germany],
-      email: "maedje@typst.app"
-    ),
-  ),
-  index-terms: ("Scientific writing", "Typesetting", "Document creation", "Syntax"),
+  // TODO: authors
+  authors: (),
+  index-terms: ("Formal verification", "Property-based testing", "Lean 4", "Benchmark", "LLM"),
   bibliography: bibliography("refs.bib"),
   figure-supplement: [Fig.],
 )
 
-= Introduction
-Scientific writing is a crucial part of the research process, allowing researchers to share their findings with the wider scientific community. However, the process of typesetting scientific documents can often be a frustrating and time-consuming affair, particularly when using outdated tools such as LaTeX. Despite being over 30 years old, it remains a popular choice for scientific writing due to its power and flexibility. However, it also comes with a steep learning curve, complex syntax, and long compile times, leading to frustration and despair for many researchers @netwok2020 @netwok2022.
+// ---------------------------------------------------------------------------
+// 1. Introduction
+// ---------------------------------------------------------------------------
 
-== Paper overview
-In this paper we introduce Typst, a new typesetting system designed to streamline the scientific writing process and provide researchers with a fast, efficient, and easy-to-use alternative to existing systems. Our goal is to shake up the status quo and offer researchers a better way to approach scientific writing.
+= Introduction <sec:intro>
 
-By leveraging advanced algorithms and a user-friendly interface, Typst offers several advantages over existing typesetting systems, including faster document creation, simplified syntax, and increased ease-of-use.
-
-To demonstrate the potential of Typst, we conducted a series of experiments comparing it to other popular typesetting systems, including LaTeX. Our findings suggest that Typst offers several benefits for scientific writing, particularly for novice users who may struggle with the complexities of LaTeX. Additionally, we demonstrate that Typst offers advanced features for experienced users, allowing for greater customization and flexibility in document creation.
-
-Overall, we believe that Typst represents a significant step forward in the field of scientific writing and typesetting, providing researchers with a valuable tool to streamline their workflow and focus on what really matters: their research. In the following sections, we will introduce Typst in more detail and provide evidence for its superiority over other typesetting systems in a variety of scenarios.
-
-= Methods <sec:methods>
-#lorem(45)
-
-$ a + b = gamma $ <eq:gamma>
+// What is PBT? What is RealPBT?
+// What is Lean? Why benchmarking Lean is hard
+// Summary of process
+// Summary of results
 
 #lorem(80)
 
+// ---------------------------------------------------------------------------
+// 2. Task Definition
+// ---------------------------------------------------------------------------
+
+= Task Definition <sec:task>
+
+// Intuitive description of the task
+
+#lorem(40)
+
+== Running Example <sec:example>
+
+// Tiny Hypothesis example -- adding two numbers
+
+// Tiny corresponding Lean example -- adding two numbers in Lean
+
+// Baseline example -- proof that adding two numbers is correct
+
+#lorem(60)
+
+== PBT vs. Proof <sec:pbt-vs-proof>
+
+// Input/output vs. proofs over structure
+
+#lorem(40)
+
+== Challenges <sec:challenges>
+
+// Library modelling
+// Other difficulties
+
+#lorem(40)
+
+// ---------------------------------------------------------------------------
+// 3. Pipeline
+// ---------------------------------------------------------------------------
+
+= Pipeline <sec:pipeline>
+
+// Clean up dataset (already done by RealPBT)
+
+#lorem(30)
+
+== LLM-Based Transpilation <sec:transpilation>
+
+// Three-agent design: impl, spec, units
+// Why it's hard
+
+#lorem(60)
+
+== Cleanup and Quality Evaluation <sec:cleanup>
+
+// Cleanup examples / quality evaluation process
+
+#lorem(40)
+
+== Metrics <sec:metrics>
+
+// Coverage, structural faithfulness, quality metrics
+
+#lorem(40)
+
+// ---------------------------------------------------------------------------
+// 4. Results
+// ---------------------------------------------------------------------------
+
+= Results <sec:results>
+
+== Experimental Setup <sec:experimental-setup>
+
+// Pipeline configuration, models used
+
+#lorem(40)
+
+== Coverage <sec:coverage>
+
+// % coverage across the dataset
+
+#lorem(40)
+
+== Quality <sec:quality>
+
+// % quality of generated specifications
+
+#lorem(40)
+
+== Baselines <sec:baselines>
+
+// % baseline success for various tools / models
+
+#lorem(40)
+
+== Difficulty Stratification <sec:difficulty>
+
+// Stratification of tasks by difficulty
+// Human baselining ???
+
 #figure(
-  placement: none,
-  circle(radius: 15pt),
-  caption: [A circle representing the Sun.]
-) <fig:sun>
+  fns.difficulty-histogram(),
+  caption: [Distribution of Haiku-assessed difficulty grades across the #fns.fvspec_n benchmark tasks.],
+) <fig:difficulty>
 
-In @fig:sun you can see a common representation of the Sun, which is a star that is located at the center of the solar system.
+#lorem(40)
 
-#lorem(120)
+// ---------------------------------------------------------------------------
+// 5. Threats to Validity / Limitations
+// ---------------------------------------------------------------------------
 
-#figure(
-  caption: [The Planets of the Solar System and Their Average Distance from the Sun],
-  placement: top,
-  table(
-    // Table styling is not mandated by the IEEE. Feel free to adjust these
-    // settings and potentially move them into a set rule.
-    columns: (6em, auto),
-    align: (left, right),
-    inset: (x: 8pt, y: 4pt),
-    stroke: (x, y) => if y <= 1 { (top: 0.5pt) },
-    fill: (x, y) => if y > 0 and calc.rem(y, 2) == 0  { rgb("#efefef") },
+= Threats to Validity <sec:threats>
 
-    table.header[Planet][Distance (million km)],
-    [Mercury], [57.9],
-    [Venus], [108.2],
-    [Earth], [149.6],
-    [Mars], [227.9],
-    [Jupiter], [778.6],
-    [Saturn], [1,433.5],
-    [Uranus], [2,872.5],
-    [Neptune], [4,495.1],
-  )
-) <tab:planets>
+// No human baselines
+// Partial coverage
+// Other limitations
 
-In @tab:planets, you see the planets of the solar system and their average distance from the Sun.
-The distances were calculated with @eq:gamma that we presented in @sec:methods.
+#lorem(40)
 
-#lorem(240)
+// ---------------------------------------------------------------------------
+// 6. Related Work
+// ---------------------------------------------------------------------------
 
-#lorem(240)
+= Related Work <sec:related>
+
+// FVAPPS / Proving the Coding Interview
+// Other formal verification benchmarks
+// LLM + formal methods
+// Various criticisms
+
+#lorem(60)
+
+// ---------------------------------------------------------------------------
+// 7. Conclusion
+// ---------------------------------------------------------------------------
+
+= Conclusion <sec:conclusion>
+
+#lorem(40)
+
+== Future Work <sec:future>
+
+#lorem(40)
