@@ -6,6 +6,7 @@ import subprocess
 from pathlib import Path
 
 from inspect_ai import Task, task
+from inspect_ai.model import ChatMessageSystem
 from inspect_ai.scorer import Score, Target, scorer
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 
@@ -40,10 +41,7 @@ def proof_solver() -> Solver:
 
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         system_prompt = load_system_prompt()
-        state.messages.insert(
-            0,
-            {"role": "system", "content": system_prompt},  # type: ignore[dict-item]
-        )
+        state.messages.insert(0, ChatMessageSystem(content=system_prompt))
         state = await generate(state, tool_calls="loop")
         return state
 
