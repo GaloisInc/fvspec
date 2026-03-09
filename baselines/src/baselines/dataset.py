@@ -14,8 +14,19 @@ logger = logging.getLogger(__name__)
 EASY_THRESHOLD = 3.0
 MEDIUM_THRESHOLD = 6.0
 
-# Target bucket sizes
-BUCKET_SIZES = {"easy": 300, "medium": 400, "hard": 300}
+# Bucket ratios: easy/medium/hard
+BUCKET_RATIOS = {"easy": 0.3, "medium": 0.4, "hard": 0.3}
+
+
+def bucket_sizes(num_samples: int) -> dict[str, int]:
+    """Compute per-bucket sizes from total sample count and ratios.
+
+    Distributes any rounding remainder to the largest bucket (medium).
+    """
+    raw = {k: int(v * num_samples) for k, v in BUCKET_RATIOS.items()}
+    remainder = num_samples - sum(raw.values())
+    raw["medium"] += remainder
+    return raw
 
 
 def load_samples() -> list[FvspecSample]:
@@ -37,15 +48,16 @@ def load_samples() -> list[FvspecSample]:
     return samples
 
 
-def load_and_sample(ranseed: int = 42) -> list[FvspecSample]:
+def load_and_sample(ranseed: int = 42, num_samples: int = 1000) -> list[FvspecSample]:
     """Load dataset and apply stratified sampling by difficulty bucket.
 
-    Takes 300 easy / 400 medium / 300 hard samples, shuffled within each
-    bucket using a fixed random seed.
+    Splits *num_samples* across easy/medium/hard using BUCKET_RATIOS,
+    shuffled within each bucket using a fixed random seed.
     """
     import random
 
     all_samples = load_samples()
+    sizes = bucket_sizes(num_samples)
 
     # Group by bucket
     buckets: dict[str, list[FvspecSample]] = {"easy": [], "medium": [], "hard": []}
@@ -57,7 +69,7 @@ def load_and_sample(ranseed: int = 42) -> list[FvspecSample]:
     rng = random.Random(ranseed)
 
     selected: list[FvspecSample] = []
-    for bucket_name, target_size in BUCKET_SIZES.items():
+    for bucket_name, target_size in sizes.items():
         pool = buckets[bucket_name]
         rng.shuffle(pool)
 
@@ -75,9 +87,9 @@ def load_and_sample(ranseed: int = 42) -> list[FvspecSample]:
     logger.info(
         "Sampled %d total: easy=%d, medium=%d, hard=%d",
         len(selected),
-        min(len(buckets["easy"]), BUCKET_SIZES["easy"]),
-        min(len(buckets["medium"]), BUCKET_SIZES["medium"]),
-        min(len(buckets["hard"]), BUCKET_SIZES["hard"]),
+        min(len(buckets["easy"]), sizes["easy"]),
+        min(len(buckets["medium"]), sizes["medium"]),
+        min(len(buckets["hard"]), sizes["hard"]),
     )
     return selected
 

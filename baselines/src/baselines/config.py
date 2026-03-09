@@ -29,6 +29,7 @@ class Config(BaseModel):
 
     ranseed: int = 42
     parallelism: int = 10
+    num_samples: int = 1000
     model: list[ModelConfig]
 
     def get_model(self, name: str) -> ModelConfig:

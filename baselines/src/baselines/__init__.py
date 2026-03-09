@@ -12,6 +12,9 @@ def run(
     model: str = typer.Option(
         ..., "-m", help="Model human_name, model_pin, or provider/model_pin"
     ),
+    num_samples: int | None = typer.Option(
+        None, "-n", "--num-samples", help="Override config num_samples"
+    ),
     ranseed: int | None = typer.Option(None, "-s", help="Override config ranseed"),
     parallelism: int | None = typer.Option(None, help="Override config parallelism"),
 ) -> None:
@@ -26,9 +29,10 @@ def run(
     cfg = load_config()
     seed = ranseed if ranseed is not None else cfg.ranseed
     par = parallelism if parallelism is not None else cfg.parallelism
+    n = num_samples if num_samples is not None else cfg.num_samples
 
     model_cfg = cfg.get_model(model)
-    task = fvspec_baselines(ranseed=seed)
+    task = fvspec_baselines(ranseed=seed, num_samples=n)
     inspect_eval(
         task,
         model=model_cfg.inspect_model,
@@ -40,6 +44,9 @@ def run(
 @app.command()
 def stats(
     log_dir: str = typer.Option("artifacts", help="Directory containing .eval logs"),
+    num_samples: int | None = typer.Option(
+        None, "-n", "--num-samples", help="Override config num_samples"
+    ),
     ranseed: int | None = typer.Option(None, "-s", help="Override config ranseed"),
 ) -> None:
     """Aggregate eval logs into results.toml."""
@@ -50,18 +57,22 @@ def stats(
 
     cfg = load_config()
     seed = ranseed if ranseed is not None else cfg.ranseed
+    n = num_samples if num_samples is not None else cfg.num_samples
 
     results = aggregate_logs(log_dir=log_dir)
     if not results:
         typer.echo("No results found.")
         raise typer.Exit(1)
 
-    out = write_results_toml(results, ranseed=seed)
+    out = write_results_toml(results, ranseed=seed, num_samples=n)
     typer.echo(f"Wrote {out}")
 
 
 @app.command(name="sample-info")
 def sample_info(
+    num_samples: int | None = typer.Option(
+        None, "-n", "--num-samples", help="Override config num_samples"
+    ),
     ranseed: int | None = typer.Option(None, "-s", help="Override config ranseed"),
 ) -> None:
     """Print bucket sizes and sample IDs for the given seed."""
@@ -72,8 +83,9 @@ def sample_info(
 
     cfg = load_config()
     seed = ranseed if ranseed is not None else cfg.ranseed
+    n = num_samples if num_samples is not None else cfg.num_samples
 
-    samples = load_and_sample(ranseed=seed)
+    samples = load_and_sample(ranseed=seed, num_samples=n)
 
     buckets: dict[str, list[str]] = {"easy": [], "medium": [], "hard": []}
     for s in samples:

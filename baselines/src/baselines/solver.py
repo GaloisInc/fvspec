@@ -129,16 +129,17 @@ async def cleanup_fn(state: TaskState) -> None:
 
 
 @task
-def fvspec_baselines(ranseed: int = 42) -> Task:
+def fvspec_baselines(ranseed: int = 42, num_samples: int = 1000) -> Task:
     """Create the fvspec baselines evaluation task.
 
     Args:
         ranseed: Random seed for stratified sampling
+        num_samples: Total number of samples (split across buckets by ratio)
 
     Returns:
         Task configured with proof-writing agent and lake build scorer
     """
-    samples = load_and_sample(ranseed=ranseed)
+    samples = load_and_sample(ranseed=ranseed, num_samples=num_samples)
     dataset = to_inspect_dataset(samples)
 
     return Task(

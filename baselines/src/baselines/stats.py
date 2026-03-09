@@ -118,6 +118,7 @@ def write_results_toml(
     stats: dict[str, RunStats],
     output_path: str = "artifacts/results.toml",
     ranseed: int = 42,
+    num_samples: int = 1000,
 ) -> Path:
     """Write aggregated results to TOML for typst consumption.
 
@@ -129,13 +130,15 @@ def write_results_toml(
     Returns:
         Path to the written TOML file
     """
-    from baselines.dataset import BUCKET_SIZES
+    from baselines.dataset import bucket_sizes
 
+    sizes = bucket_sizes(num_samples)
     doc: dict = {
         "meta": {
             "ranseed": ranseed,
+            "num_samples": num_samples,
             "timestamp": datetime.now().isoformat(),
-            "bucket_sizes": list(BUCKET_SIZES.values()),
+            "bucket_sizes": list(sizes.values()),
         },
         "results": {},
     }

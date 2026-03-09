@@ -1,5 +1,6 @@
 ranseed = 0
 parallelism = 10
+num_samples = 1000
 
 [[model]]
 human_name = "snt46"
