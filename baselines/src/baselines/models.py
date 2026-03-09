@@ -14,7 +14,7 @@ class FvspecSample(BaseModel):
     num_theorems: int
     difficulty_subjective_haiku: float | None = None
 
-    @computed_field  # type: ignore[prop-decorator]
+    @computed_field
     @property
     def difficulty_bucket(self) -> str:
         """Bucket based on haiku difficulty score: easy ≤ 3, medium ≤ 6, hard > 6."""

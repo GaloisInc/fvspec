@@ -50,7 +50,7 @@ def proof_solver() -> Solver:
     return solve
 
 
-@scorer(metrics=[])  # type: ignore[arg-type]
+@scorer(metrics=[])
 def lake_build_scorer():
     """Score by counting remaining sorry and running lake build."""
 

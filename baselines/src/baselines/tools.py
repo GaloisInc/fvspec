@@ -92,7 +92,7 @@ def call_lean_lsp_mcp(
         raise ToolError(f"No valid response from lean-lsp-mcp. stderr: {stderr}")
 
     except subprocess.TimeoutExpired:
-        process.kill()  # type: ignore[possibly-undefined]
+        process.kill()
         raise ToolError("lean-lsp-mcp call timed out")
     except ToolError:
         raise
