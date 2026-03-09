@@ -1,0 +1,34 @@
+## Task
+
+Replace all `sorry` placeholders in Spec.lean with valid Lean 4 proofs. There are {{ num_theorems }} theorem(s) to prove.
+
+## Impl.lean (read-only)
+
+```lean
+{{ impl }}
+```
+
+## Spec.lean (your working file)
+
+```lean
+{{ spec }}
+```
+
+## Original Python property-based test
+
+This specification was derived from the following Python test:
+
+```python
+{{ realpbt_code }}
+```
+
+{% if realpbt_summary %}
+**Summary:** {{ realpbt_summary }}
+{% endif %}
+
+## Instructions
+
+1. First, use `write_lean_spec` to write the current Spec.lean content to the workspace.
+2. Use the LSP tools to understand the proof obligations and iteratively develop proofs.
+3. Replace each `sorry` with a valid proof.
+4. Ensure the final Spec.lean compiles without errors.
