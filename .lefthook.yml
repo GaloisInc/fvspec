@@ -39,7 +39,7 @@ pre-commit:
     test-baselines:
       root: "baselines/"
       glob: "*.py"
-      run: uv run pytest || test $? -eq 5
+      run: uv run pytest
 
     # Leaderboard: build first (needed for type resolution), then format/lint/typecheck
     build-leaderboard:
