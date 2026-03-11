@@ -97,6 +97,12 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
+    model: str = Option(
+        None,
+        "-m",
+        "--model",
+        help="Model identifier (e.g., 'anthropic/claude-sonnet-4-6'). Overrides config.toml.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -117,6 +123,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
+        model: Model identifier string (overrides config.toml).
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -150,6 +157,7 @@ def main_callback(
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
+    use_model = model if model is not None else cfg.agent.model
 
     # Configure wandb settings: CLI flag > config
     # --wandb-disable flag explicitly disables, otherwise use config.toml setting
@@ -192,7 +200,7 @@ def main_callback(
 
         wandb_logger.init_run(
             variant=use_variant or "default",
-            model=cfg.agent.model,
+            model=use_model,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
             timestamp=timestamp,
@@ -211,7 +219,7 @@ def main_callback(
                 start_idx=start_idx,
                 end_idx=end_idx,
             ),
-            model=cfg.agent.model,
+            model=use_model,
             log_dir=str(log_dir),
             max_samples=use_parallelism,
             display=use_display,
