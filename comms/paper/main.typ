@@ -25,11 +25,11 @@
 // Summary of process
 // Summary of results
 
-Several AI safety proposals are premised on AI-driven _formal verification_ (FV); this is a core hypothesis of the ARIA Safeguarding AI program and the related Guaranteed Safe AI agenda. If FV is to play this role, it must scale to the complexities of real-world engineered systems, but today we have little evidence whether such capabilities are possible. Relevant benchmarks are mostly either small datasets crafted by hand, larger datasets extracted from expert-driven verification projects, or are focused on advanced mathematics rather than engineering. None of these are likely to be representative of real-world engineering tasks.
+Several AI safety proposals are premised on AI-driven _formal verification_ (FV); this is a core hypothesis of the ARIA Safeguarding AI program and the related Guaranteed Safe AI agenda @dalrymple2024guaranteed. If FV is to play this role, it must scale to the complexities of real-world engineered systems, but today we have little evidence whether such capabilities are possible. Relevant benchmarks are mostly either small datasets crafted by hand @loughridge2024dafnybench, larger datasets extracted from expert-driven verification projects @chakraborty2024neural, or are focused on advanced mathematics rather than engineering @glazer2024frontiermath. None of these are likely to be representative of real-world engineering tasks.
 
-We generate our benchmark from public uses of _property-based testing_ (PBT). While FV itself is rarely used in software development, PBT is a 'close sibling' technology which has seen significant adoption. In both FV and PBT, engineers write _specifications_---logical properties that the software must obey. For example, we might require that a Python function `double(x)` always returns `2*x`. The difference lies in how this property is checked. In FV, the property is _proved_ using mathematical techniques---this results in almost-perfect confidence, but requires _proof engineering_ by highly expert teams. In PBT, the code is randomly tested---e.g. for random values of `x`. This is a push-button process with no proof engineering.
+We generate a new benchmark, FV-Spec, from public uses of _property-based testing_ (PBT). While FV itself is rarely used in software development, PBT is a 'close sibling' technology which has seen significant adoption. In both FV and PBT, engineers write _specifications_---logical properties that the software must obey. For example, we might require that a Python function `double(x)` always returns `2*x`. The difference lies in how this property is checked. In FV, the property is _proved_ using mathematical techniques---this results in almost-perfect confidence, but requires _proof engineering_ by highly expert teams @dodds2022formally. In PBT, the code is randomly tested---e.g. for random values of `x`. This is a push-button process with no proof engineering.
 
-PBT is typically much cheaper than formal verification, and as a result has seen wider adoption. We build our benchmark from a dataset of 54k permissively-licensed PBTs written in Python's Hypothesis framework. Each PBT in our dataset can be seen as a small theorem about a piece of Python code. To make it possible for an AI to prove or refute these theorems, we translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. This approach has been pioneered by Dougherty and Mehta on the FVAPPS verification benchmark. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al, translated to PBTs, then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
+PBT is typically much cheaper than formal verification, and as a result has seen wider adoption. We build our benchmark from RealPBT, a dataset of 54k permissively-licensed PBTs written in Python's Hypothesis framework @maciver2019hypothesis. Each PBT in our dataset can be seen as a small theorem about a piece of Python code. To make it possible for an AI to prove or refute these theorems, we translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. This approach has been pioneered by Dougherty and Mehta on the FVAPPS verification benchmark @dougherty2025proving. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al @hendrycks2021apps, translated to PBTs, then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
 
 We use AI-driven translation to generate Lean programs and theorems at scale. LLMs are quite good at program translation, and FVAPPS has shown that this approach is practical for constructing Lean theorems. The result is tens of thousands of verification challenges, each consisting of (1) a program and (2) a desired specification, both written in Lean. Unlike existing FV benchmarks, each problem corresponds to properties of real-world software written by engineers with no formal verification experience.
 
@@ -43,30 +43,67 @@ We use AI-driven translation to generate Lean programs and theorems at scale. LL
 
 // Intuitive description of the task
 
-Each problem in the benchmark consists of (1) a URL pointing to the original property-based test, function, and license information, (2) a property written in Lean, and (3) a function written in Lean. The AI's task is to complete the proof, replacing the `sorry` placeholder with a valid Lean proof term.
+Each problem in the FV-Spec benchmark consists of three components: (1) the original Python property-based test, (2) a Lean theorem corresponding to the PBT, with a `sorry` placeholder where the proof should go, and (3) a Lean implementation of the functions referenced in the theorem. The AI's task is to complete the proof by replacing `sorry` with a valid Lean proof term. Each problem also includes a URL pointing to the original source code and license information.
 
 == Running Example <sec:example>
 
-// Tiny Hypothesis example -- adding two numbers
+Consider a Hypothesis test asserting the Pythagorean trigonometric identity, $sin^2(x) + cos^2(x) = 1$:
 
-// Tiny corresponding Lean example -- adding two numbers in Lean
+```python
+from hypothesis import given, strategies
 
-// Baseline example -- proof that adding two numbers is correct
+@given(x=strategies.floats(
+    min_value=-sys.float_info.max / 4,
+    max_value=sys.float_info.max / 4,
+    allow_infinity=False))
+def test_property(x):
+    assert old.sine(x) ** 2 + old.cosine(x) ** 2 == pytest.approx(1)
+```
 
-#lorem(60)
+Our pipeline translates this into a Lean implementation:
+
+```lean
+namespace Fvspec.Impl
+
+def to_radians (degrees : Float) : Float :=
+  degrees * Float.pi / 180.0
+
+def sine (θ : Float) : Float :=
+  Float.sin (to_radians θ)
+
+end Fvspec.Impl
+```
+
+And a corresponding Lean specification:
+
+```lean
+import Fvspec.Impl
+open Fvspec.Impl
+
+def cosine (θ : Float) : Float := sorry
+
+theorem sine_cosine_pythagorean (x : Float) :
+  (sine x) * (sine x) + (cosine x) * (cosine x) = 1 := sorry
+```
+
+The AI must fill in both `sorry` placeholders with valid Lean proof terms.
 
 == PBT vs. Proof <sec:pbt-vs-proof>
 
 // Input/output vs. proofs over structure
 
-In PBT, a property is checked by randomly generating inputs and testing them---the process is push-button but provides only statistical confidence. In FV, the property is _proved_ using mathematical techniques, providing near-perfect confidence but requiring proof engineering. Translating a PBT into a formal specification thus involves a shift from input/output testing to proofs over the structure of the program. The FVAPPS pipeline filters nonsensical theorems, but any discrepancies that remain will not affect the usefulness of the dataset. Because the Lean theorem prover provides a 'perfect' oracle, every theorem we generate is a useful challenge problem, even if it differs from the original PBT. In fact, some PBTs in our input dataset will be naturally false due to undetected edge cases.
+In PBT, a property is checked by randomly generating inputs and testing them---the process is push-button but provides only statistical confidence. In FV, the property is _proved_ using mathematical techniques, providing near-perfect confidence but requiring proof engineering. 
+
+Translating a PBT into a formal specification thus involves a shift from input/output testing to proofs over the structure of the program. Our pipeline filters nonsensical theorems, but any discrepancies that remain will not affect the usefulness of the dataset. Because the Lean theorem prover provides a 'perfect' oracle, every theorem we generate is a useful challenge problem, even if it differs from the original PBT. In fact, some PBTs in our input dataset will be naturally false due to undetected edge cases.
 
 == Challenges <sec:challenges>
 
 // Library modelling
 // Other difficulties
 
-Formal verification is unusually difficult to benchmark for two reasons. *Problem 1:* Just as with advanced mathematics, formal verification tasks are highly varied, and constructing interesting problems requires considerable expertise. FV tasks also vary in difficulty---they can be as shallow as checking the type-safety of simple functions, or as deep as proving an unsolved mathematical theorem such as the Collatz Conjecture. Our benchmark avoids the need to select and hand-build challenge problems by translating naturally occurring PBT problems written by real-world engineers. *Problem 2:* Formal verification is little used outside academia. As a result, there are few natural datasets, and those that exist are fragmented between multiple FV tools (e.g. SAW/Cryptol for cryptographic systems, ACL2/Coq for traditional software verification, Lean for mathematics, SPIN/TLA+ for protocol analysis). Public FV examples are often pedagogical exercises for which the proof exists in many different forms in the training set. Our benchmark solves this problem by translating from a 'close sibling' domain, PBT, where many more datapoints exist. As a result, most theorems in our benchmark will have never been verified by anyone.
+Formal verification is unusually difficult to benchmark for two reasons. First, just as with advanced mathematics, formal verification tasks are highly varied, and constructing interesting problems requires considerable expertise. FV tasks also vary in difficulty---they can be as shallow as checking the type-safety of simple functions, or as deep as proving an unsolved mathematical theorem such as the Collatz Conjecture. Our benchmark avoids the need to select and hand-build challenge problems by translating naturally occurring PBT problems written by real-world engineers. 
+
+Formal verification is little used outside academia. As a result, there are few natural datasets, and those that exist are fragmented between multiple FV tools (e.g. SAW/Cryptol for cryptographic systems, ACL2/Coq for traditional software verification, Lean for mathematics, SPIN/TLA+ for protocol analysis). Public FV examples are often pedagogical exercises for which the proof exists in many different forms in the training set. Our benchmark solves this problem by translating from a 'close sibling' domain, PBT, where many more datapoints exist. As a result, most theorems in our benchmark will have never been verified by anyone.
 
 // ---------------------------------------------------------------------------
 // 3. Pipeline
@@ -76,7 +113,47 @@ Formal verification is unusually difficult to benchmark for two reasons. *Proble
 
 // Clean up dataset (already done by RealPBT)
 
-Our pipeline is modelled on the one used by Dougherty and Mehta for FVAPPS. We begin with the RealPBT dataset, which has already been cleaned and filtered.
+Our pipeline is modelled on the one used by Dougherty and Mehta for FVAPPS @dougherty2025proving. We begin with the RealPBT dataset, which has already been cleaned and filtered.
+
+Pipeline - 
+
+- Pick a sample from RealPBT 
+- Load a prompt that says "these are the functions under test"
+- Says this is the spec
+- Dispatch to two agents 
+  - function Under test formalizer 
+    - Instructed to be completely computable 
+    - No sorries at all 
+  - PBT formalizer 
+    - instructed to sorry everywhere 
+- Agent loop (both agents) 
+  - Call Lean-LSP-MCP 
+    - check whether the formalized code typechecks in Lean 
+  - Call the agent 
+- Loop exit 
+  - Static evaluation via LLM judges  
+    - Difficulty evaluation - measure 1-10 difficulty 
+    - Faithfulness - does the code / test actually match the original 
+
+
+(eg structural faithfulness: { "parameter_coverage": 0, "type_correspondence": 1, "strategy_coverage": 1, "assertion_coverage": 1, "dependency_coverage": 1, "assertion_theorem_difference": -1, "overall": 0.75 })
+
+// CETZ diagram
+
+For each sample drawn from the RealPBT dataset, we first use tree-sitter to extract the Python source code of the function under test (FUT) and any functions it depends on. This _function discovery_ step succeeds for approximately 92% of samples; when it fails, we generate a stub implementation with generic type parameters to avoid trivial theorems.
+
+The extracted code is then processed by three LLM agents. The _implementation agent_ runs first, translating the FUT and its dependencies into fully computable Lean definitions---no `sorry` placeholders are permitted, so all code must typecheck and evaluate. Dependencies are formalized separately and merged with deduplication into a single `Impl.lean` file. If the implementation agent succeeds, we extract the Lean type signatures of all formalized functions and pass them as context to the next stage. If it fails (i.e. it exhausts its retry budget without producing typechecking code), the downstream agents still run, but without a verified implementation to build on.
+
+Next, the _specification agent_ and _units agent_ run in parallel. The specification agent translates the Hypothesis tests into Lean theorems that import the formalized implementation, using `sorry` for all proof obligations. The units agent translates any available Python unit tests (drawn from a database of 6.3M tests) into LSpec test cases. The units agent's output is included in the benchmark for additional validation but does not gate the specification.
+
+All agents operate in an iterative repair loop. At each step, the agent's output is checked against the Lean compiler via the Lean LSP (accessed through an MCP tool server). If the code does not typecheck, the compiler diagnostics are fed back to the agent, which attempts a revised translation. This loop continues until the code typechecks or a retry budget is exhausted. Final compilation is validated with a full `lake build` invocation.
+
+The generated specifications undergo two forms of quality assessment. _Structural faithfulness_ is computed programmatically by analyzing the source code: the metric decomposes into sub-scores for parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage, producing a weighted overall score (e.g. 0.75 out of 1.0). _Difficulty_ is assessed by an LLM judge (Claude Haiku), which rates each problem on a 1--10 scale estimating the proof effort required.
+
+#figure(
+  fns.pipeline-diagram(),
+  caption: [Overview of the FV-Spec generation pipeline. Function discovery extracts the Python source, then the implementation agent formalizes it to computable Lean. On success, its output and extracted type signatures feed into the specification and units agents, which run in parallel. On failure, the downstream agents proceed without a verified implementation. All agents iteratively repair their output against the Lean LSP. The final result is scored for structural faithfulness (programmatic) and difficulty (LLM judge).],
+) <fig:pipeline>
 
 == LLM-Based Transpilation <sec:transpilation>
 
@@ -87,7 +164,7 @@ Our three-agent transpilation pipeline operates as follows:
 
 - Identify target property-based tests on Github covered by permissive licenses.
 - Using a mix of syntactic translation and code-focused LLM, translate to Lean code and properties. As in FVAPPS, we iteratively repair partially-successful translations over multiple steps.
-- Use Lean's property-based testing framework Plausible alongside the code-focused LLM to filter poor-quality translations, and target them for repair.
+- Use Lean's property-based testing framework Plausible @plausible2024 alongside the code-focused LLM to filter poor-quality translations, and target them for repair.
 
 Based on FVAPPS, we are confident that smaller problems and code can be easily transpiled using an LLM. Larger examples may fail or generate poor-quality translations. In such cases, we fall back to syntactic translation, which we expect to produce less understandable but more predictable results, and then use LLMs for targeted quality improvement.
 
@@ -95,7 +172,7 @@ Based on FVAPPS, we are confident that smaller problems and code can be easily t
 
 // Cleanup examples / quality evaluation process
 
-In some cases, transpilation may generate less useful specification/program pairs. For example, a common failure in FVAPPS was type restriction in specifications, such as translating a signed integer into an unsigned natural. We investigate pairwise testing between original and translated programs to detect such discrepancies. We filter and review challenge problems (akin to the SWE-bench Verified effort), build clear and usable documentation, and develop a website with leaderboards.
+In some cases, transpilation may generate less useful specification/program pairs. For example, a common failure in FVAPPS was type restriction in specifications, such as translating a signed integer into an unsigned natural. We investigate pairwise testing between original and translated programs to detect such discrepancies. We filter and review challenge problems (akin to the SWE-bench Verified effort @jimenez2024swebench), build clear and usable documentation, and develop a website with leaderboards.
 
 == Metrics <sec:metrics>
 
@@ -168,11 +245,11 @@ We note that the theorems we construct _may be false_---this is desirable becaus
 // LLM + formal methods
 // Various criticisms
 
-Our work extends the FVAPPS benchmark by Dougherty and Mehta, which pioneered AI-driven translation of coding problems into Lean theorems. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al, translated to PBTs, then lifted to theorems. We apply the same process at scale to PBTs found in the wild, rather than synthetic coding challenges.
+Our work extends the FVAPPS benchmark by Dougherty and Mehta @dougherty2025proving, which pioneered AI-driven translation of coding problems into Lean theorems. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al @hendrycks2021apps, translated to PBTs, then lifted to theorems. We apply the same process at scale to PBTs found in the wild, rather than synthetic coding challenges.
 
-Relevant benchmarks in formal verification include DafnyBench, a small hand-crafted benchmark, work on neural synthesis for SMT-assisted proof-oriented programming using expert-driven verification projects, and FrontierMath, which is focused on advanced mathematics rather than engineering. None of these are likely to be representative of real-world engineering tasks.
+Relevant benchmarks in formal verification include DafnyBench @loughridge2024dafnybench, a small hand-crafted benchmark, work on neural synthesis for SMT-assisted proof-oriented programming using expert-driven verification projects @chakraborty2024neural, and FrontierMath @glazer2024frontiermath, which is focused on advanced mathematics rather than engineering. None of these are likely to be representative of real-world engineering tasks.
 
-We also note the broader context of AI safety proposals premised on AI-driven formal verification, including the Guaranteed Safe AI agenda. If FV is to play this role, it must scale to the complexities of real-world engineered systems. Our benchmark is designed to measure whether such capabilities are possible.
+We also note the broader context of AI safety proposals premised on AI-driven formal verification, including the Guaranteed Safe AI agenda @dalrymple2024guaranteed. If FV is to play this role, it must scale to the complexities of real-world engineered systems. Our benchmark is designed to measure whether such capabilities are possible.
 
 // ---------------------------------------------------------------------------
 // 7. Conclusion
