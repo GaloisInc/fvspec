@@ -983,6 +983,7 @@ def fvspec(
     start_idx: int | None = None,
     end_idx: int | None = None,
     require_unit_tests: bool = False,
+    git_commit: str | None = None,
 ) -> Task:
     """Create fvspec benchmark task with two-agent architecture.
 
@@ -995,6 +996,7 @@ def fvspec(
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
         require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
+        git_commit: Git commit hash at generation time, forwarded to each sample's metadata.
 
     Returns:
         Task configured with two-agent orchestration
@@ -1016,6 +1018,7 @@ def fvspec(
         start_idx=start_idx,
         end_idx=end_idx,
         require_unit_tests=require_unit_tests,
+        git_commit=git_commit,
     )
 
     # Three-agent architecture: impl → spec & units

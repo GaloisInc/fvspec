@@ -145,6 +145,7 @@ def mk_dataset(
     start_idx: int | None = None,
     end_idx: int | None = None,
     require_unit_tests: bool = False,
+    git_commit: str | None = None,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from pbts_full.db.
 
@@ -157,6 +158,7 @@ def mk_dataset(
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
         require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
+        git_commit: Git commit hash at generation time, stored in each sample's metadata.
 
     Returns:
         MemoryDataset with randomly sampled datapoints (or sequential slice if indices provided)
@@ -207,6 +209,7 @@ def mk_dataset(
                     "start_idx": start_idx,  # For sequential run tracking
                     "end_idx": end_idx,  # For sequential run tracking
                     "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
+                    "git_commit": git_commit,  # Repo commit at generation time
                 },
                 id=f"{dp.id:05d}_{dp.name}",
             )

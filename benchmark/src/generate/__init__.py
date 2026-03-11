@@ -3,6 +3,7 @@
 import atexit
 import os
 import signal
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -159,6 +160,14 @@ def main_callback(
     use_display = display if display is not None else cfg.meta.display
     use_model = model if model is not None else cfg.agent.model
 
+    # Capture git commit at generation time for artifact provenance
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        git_commit = None
+
     # Configure wandb settings: CLI flag > config
     # --wandb-disable flag explicitly disables, otherwise use config.toml setting
     wandb_enabled = cfg.wandb.enabled if not wandb_disable else False
@@ -218,6 +227,7 @@ def main_callback(
                 timestamp=now,
                 start_idx=start_idx,
                 end_idx=end_idx,
+                git_commit=git_commit,
             ),
             model=use_model,
             log_dir=str(log_dir),
