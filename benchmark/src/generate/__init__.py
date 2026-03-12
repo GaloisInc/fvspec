@@ -184,7 +184,7 @@ def main_callback(
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
     log_dir_name = utilio.mk_run_path(
-        timestamp, use_variant, use_ranseed, start_idx, end_idx
+        timestamp, utilio.model_slug(use_model), use_ranseed, start_idx, end_idx
     )
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -228,6 +228,7 @@ def main_callback(
                 start_idx=start_idx,
                 end_idx=end_idx,
                 git_commit=git_commit,
+                model=utilio.model_slug(use_model),
             ),
             model=use_model,
             log_dir=str(log_dir),

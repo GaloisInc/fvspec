@@ -146,6 +146,7 @@ def mk_dataset(
     end_idx: int | None = None,
     require_unit_tests: bool = False,
     git_commit: str | None = None,
+    model: str | None = None,
 ) -> MemoryDataset:
     """Create an inspect_ai dataset from pbts_full.db.
 
@@ -159,6 +160,7 @@ def mk_dataset(
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
         require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
         git_commit: Git commit hash at generation time, stored in each sample's metadata.
+        model: Model slug (e.g., "claude-sonnet-4-6"), stored in each sample's metadata for artifact path naming.
 
     Returns:
         MemoryDataset with randomly sampled datapoints (or sequential slice if indices provided)
@@ -205,6 +207,7 @@ def mk_dataset(
                     "datapoint": dp,
                     "date_time": date_time.strftime("%Y-%m-%dT%H-%M-%S"),
                     "variant": actual_variant,
+                    "model": model,  # For artifact path naming
                     "ranseed": ranseed,  # For artifact path naming
                     "start_idx": start_idx,  # For sequential run tracking
                     "end_idx": end_idx,  # For sequential run tracking
