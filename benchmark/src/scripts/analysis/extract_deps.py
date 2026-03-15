@@ -673,6 +673,14 @@ def _resolve_module(module_path: str, index: RepoIndex) -> str | None:
         if mod.endswith(module_path) or mod.endswith("." + module_path):
             return mod
 
+    # Try suffix-based package matching: if module_path is "X.Y" and the index
+    # has "prefix.X.Y.submod", match it. This handles src-layout repos where
+    # `import X.Y` maps to `client/X/X/Y/_submod.py` indexed as `client.X.X.Y._submod`.
+    suffix = "." + module_path + "."
+    for mod in index.modules:
+        if suffix in mod:
+            return mod
+
     return None
 
 
@@ -800,6 +808,32 @@ class ImportResolver:
                 if rest[-1] in mod_defs:
                     return mod_defs[rest[-1]]
                 return None
+
+        # Try matching progressively longer prefixes of the dotted name
+        # against module paths in the index. Handles `import X.Y` where
+        # the call site uses the full path `X.Y.Z` (Python makes the full
+        # dotted path accessible via the root name after `import X.Y`).
+        # Search ALL matching modules (not just the first) because the target
+        # name may be in a sibling submodule (e.g. `X.Y._git.Git` when
+        # `_resolve_module("X.Y")` first finds `X.Y._code`).
+        for i in range(len(parts) - 1, 0, -1):
+            prefix = ".".join(parts[:i])
+            remaining = parts[i:]
+            lookup = ".".join(remaining)
+            last = remaining[-1]
+            for mod_path, mod_defs in self.index.modules.items():
+                if not (
+                    mod_path == prefix
+                    or mod_path.startswith(prefix + ".")
+                    or mod_path.endswith(prefix)
+                    or mod_path.endswith("." + prefix)
+                    or ("." + prefix + ".") in mod_path
+                ):
+                    continue
+                if lookup in mod_defs:
+                    return mod_defs[lookup]
+                if last in mod_defs:
+                    return mod_defs[last]
 
         # Last resort: the alias might be an unresolved import that maps to a
         # top-level package in the repo. e.g. `import aaanalysis as aa` where
@@ -1069,8 +1103,15 @@ def extract_dependencies(
     # PBT to avoid false-positive global search matches. Decorator names like
     # `given`, `example`, `settings` are framework names that should never
     # resolve via global search to unrelated repo functions.
+    #
+    # Exception: parameters that are ALSO call targets in the body are likely
+    # pytest fixtures (dependency-injected by name), not true local bindings.
+    # Exclude them so they can resolve via global search to conftest.py etc.
+    param_names = _extract_parameter_names(pbt_root, pbt_bytes)
+    call_targets = set(_extract_calls(pbt_root, pbt_bytes))
+    called_params = param_names & call_targets
     local_names = (
-        _extract_parameter_names(pbt_root, pbt_bytes)
+        (param_names - called_params)
         | _extract_local_vars(pbt_root, pbt_bytes)
         | _extract_decorator_names(pbt_root, pbt_bytes)
     )
