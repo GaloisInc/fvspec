@@ -146,14 +146,13 @@ def sample_datapoints(
     )
     datapoints = list(session.exec(datapoints_statement))
 
-    # Populate unit_tests field for each datapoint (non-DB field)
+    # Populate unit_tests field for all datapoints in a single batched query
+    # (avoids N+1 query pattern: 1 batch query instead of ~3 queries per datapoint)
+    all_unit_tests_by_pbt = get_all_overlapping_unit_tests(
+        session, [dp.id for dp in datapoints]
+    )
     for dp in datapoints:
-        unit_tests = []  # Collect unit tests
-        overlaps = get_overlapping_unit_tests(session, dp.id)
-        # Extract all unit tests from overlaps
-        if overlaps:
-            for overlap in overlaps:
-                unit_tests.extend(overlap.get("unit_tests", []))
+        unit_tests = all_unit_tests_by_pbt.get(dp.id, [])
         # Sample up to MAX_UNIT_TESTS to keep prompts manageable
         original_count = len(unit_tests)
         if original_count > MAX_UNIT_TESTS:
@@ -208,6 +207,64 @@ def count_total_datapoints(session: Session) -> int:
     """
     statement = select(func.count(Datapoint.id))
     return session.exec(statement).one()
+
+
+def get_all_overlapping_unit_tests(
+    session: Session,
+    pbt_ids: list[int],
+) -> dict[int, list[dict[str, Any]]]:
+    """Get unit tests that share functions with given PBTs, in a single batched query.
+
+    Replaces per-datapoint get_overlapping_unit_tests() calls with a single JOIN
+    query across all PBT IDs, eliminating the N+1 query pattern.
+
+    Args:
+        session: SQLModel database session
+        pbt_ids: List of PBT IDs to find overlapping unit tests for
+
+    Returns:
+        Dictionary mapping pbt_id to list of unit test dicts:
+        {pbt_id: [{"code": "...", "name": "test_foo", ...}, ...]}
+    """
+    if not pbt_ids:
+        return {}
+
+    result: dict[int, list[dict[str, Any]]] = {}
+
+    # Batch to stay under SQLite parameter limit
+    for id_batch in _batch_items(pbt_ids):
+        # Single JOIN query: pbt_functions → unit_test_functions → unit_tests
+        stmt = (
+            select(PBTFunction.pbt_id, UnitTest)
+            .join(
+                UnitTestFunction,
+                PBTFunction.function_name == UnitTestFunction.function_name,
+            )
+            .join(UnitTest, UnitTestFunction.unit_test_id == UnitTest.id)
+            .where(PBTFunction.pbt_id.in_(id_batch))  # type: ignore[attr-defined]
+        )
+        rows = session.exec(stmt).all()
+
+        # Group by pbt_id, deduplicating unit tests
+        for pbt_id, ut in rows:
+            if pbt_id not in result:
+                result[pbt_id] = []
+            ut_dict = {
+                "code": ut.code,
+                "name": ut.name,
+                "source_file": ut.source_file,
+                "start_line": ut.start_line,
+                "end_line": ut.end_line,
+            }
+            # Deduplicate by unit test id
+            if not any(
+                existing.get("name") == ut.name
+                and existing.get("source_file") == ut.source_file
+                for existing in result[pbt_id]
+            ):
+                result[pbt_id].append(ut_dict)
+
+    return result
 
 
 def get_overlapping_unit_tests(

@@ -147,7 +147,7 @@ class PBTFunction(SQLModel, table=True):
     __tablename__ = "pbt_functions"
 
     pbt_id: int = Field(primary_key=True)
-    function_name: str = Field(primary_key=True)
+    function_name: str = Field(primary_key=True, index=True)
 
 
 class UnitTestFunction(SQLModel, table=True):
@@ -156,7 +156,7 @@ class UnitTestFunction(SQLModel, table=True):
     __tablename__ = "unit_test_functions"
 
     unit_test_id: int = Field(primary_key=True)
-    function_name: str = Field(primary_key=True)
+    function_name: str = Field(primary_key=True, index=True)
 
 
 class ProcessingStatus(SQLModel, table=True):

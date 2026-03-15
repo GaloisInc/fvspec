@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, cast
 from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
-from sqlmodel import Session, create_engine, select
+from sqlmodel import Session, select
 
 logger = logging.getLogger(__name__)
 
@@ -471,10 +471,12 @@ class QualityAssessment(BaseModel):
                 radon_module = import_module("scripts.import_radon_metrics")
                 RadonMetricsDB = radon_module.RadonMetricsDB
 
-                # Connect to database
+                # Connect to database (reuse cached engine)
                 dataset_path = (DATA_DIR / "pbts_full.db").resolve()
                 if dataset_path.exists():
-                    engine = create_engine(f"sqlite:///{dataset_path}")
+                    from generate.scaffold.dataset.connection import get_engine
+
+                    engine = get_engine(dataset_path)
                     with Session(engine) as session:
                         result = session.exec(
                             select(RadonMetricsDB).where(
