@@ -540,15 +540,14 @@ def build_repo_index(repo_root: Path) -> RepoIndex:
 # ============================================================================
 
 
-def _resolve_relative_import(
-    rel_text: str, source_module: str | None
-) -> str | None:
+def _resolve_relative_import(rel_text: str, source_module: str | None) -> str | None:
     """Resolve a relative import like '..base' to an absolute module path.
 
     Args:
         rel_text: The relative import text (e.g. '..', '..base', '.')
         source_module: The dotted module path of the file containing the import
                        (e.g. 'src.nextline_rdb.models.tests.test_repr_val')
+
     Returns:
         Absolute dotted module path, or None if unresolvable.
     """
@@ -1255,9 +1254,7 @@ def extract_dependencies(
                         else:
                             dep_calls = []
                     if dep_calls:
-                        queue.append(
-                            (dep_calls, depth + 1, dep_file, dep_imports)
-                        )
+                        queue.append((dep_calls, depth + 1, dep_file, dep_imports))
 
     return sorted(collected.values(), key=lambda d: (d.depth, d.qualified_name))
 

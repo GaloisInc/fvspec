@@ -52,6 +52,7 @@ postprod = "scripts.postproduction:app"
 fix-eval-status = "scripts.ops.fix_eval_status:main"
 dedup-realpbt = "scripts.analysis.dedup:app"
 extract-deps = "scripts.analysis.extract_deps:app"
+realpbt-pipeline = "scripts.analysis.pipeline:app"
 
 [tool.pytest.ini_options]
 filterwarnings = [
