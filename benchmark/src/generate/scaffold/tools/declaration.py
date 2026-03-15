@@ -512,7 +512,7 @@ def write_datapoint_to_disk(
     date_time: str,
     sample_id: str,
     datapoint: Datapoint,
-    variant: str,
+    model: str,
     ranseed: int | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
@@ -523,7 +523,7 @@ def write_datapoint_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         datapoint: The datapoint from the metadata of the current sample.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
         end_idx: Ending index for sequential sampling (optional).
@@ -535,7 +535,7 @@ def write_datapoint_to_disk(
         date_time,
         sample_id,
         "datapoint.json",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -547,7 +547,7 @@ def write_code_to_disk(
     date_time: str,
     sample_id: str,
     text: str,
-    variant: str,
+    model: str,
     workspace: Path | None = None,
     ranseed: int | None = None,
     start_idx: int | None = None,
@@ -565,7 +565,7 @@ def write_code_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         workspace: Optional workspace tmpdir path for fallback.
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
@@ -596,7 +596,7 @@ def write_code_to_disk(
         date_time,
         sample_id,
         "Spec.lean",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -610,7 +610,7 @@ def write_qa_to_disk(
     date_time: str,
     sample_id: str,
     state: TaskState,
-    variant: str,
+    model: str,
     ranseed: int | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
@@ -621,7 +621,7 @@ def write_qa_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         state: The task state after completion.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
         end_idx: Ending index for sequential sampling (optional).
@@ -636,7 +636,7 @@ def write_qa_to_disk(
         date_time,
         sample_id,
         "qa.json",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -679,7 +679,7 @@ def write_unit_tests_to_disk(
     date_time: str,
     sample_id: str,
     state: TaskState,
-    variant: str,
+    model: str,
     workspace: Path | None = None,
     ranseed: int | None = None,
     start_idx: int | None = None,
@@ -696,7 +696,7 @@ def write_unit_tests_to_disk(
         date_time: datetime string used in directory structure.
         sample_id: Identifier for the current sample.
         state: The task state containing units_result in store.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         workspace: Optional workspace tmpdir path for MCP tools.
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
@@ -765,7 +765,7 @@ import Fvspec.Spec
         date_time,
         sample_id,
         "Tests.lean",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -826,7 +826,7 @@ async def write_to_disk(state: TaskState) -> None:
     """
     date_time = cast(str, state.metadata.get("date_time"))
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
-    variant = cast(str, state.metadata.get("variant"))
+    model = cast(str, state.metadata.get("model"))
     ranseed = state.metadata.get("ranseed")  # May be None
     start_idx = state.metadata.get("start_idx")  # May be None
     end_idx = state.metadata.get("end_idx")  # May be None
@@ -841,7 +841,7 @@ async def write_to_disk(state: TaskState) -> None:
         date_time,
         sample_id,
         datapoint,
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -854,7 +854,7 @@ async def write_to_disk(state: TaskState) -> None:
             date_time,
             sample_id,
             state.output.message.text,
-            variant=variant,
+            model=model,
             workspace=workspace,
             ranseed=ranseed,
             start_idx=start_idx,
@@ -870,7 +870,7 @@ async def write_to_disk(state: TaskState) -> None:
                     date_time,
                     sample_id,
                     "Impl.lean",
-                    variant=variant,
+                    model=model,
                     ranseed=ranseed,
                     start_idx=start_idx,
                     end_idx=end_idx,
@@ -882,7 +882,7 @@ async def write_to_disk(state: TaskState) -> None:
             date_time,
             sample_id,
             state,
-            variant=variant,
+            model=model,
             workspace=workspace,
             ranseed=ranseed,
             start_idx=start_idx,
@@ -894,7 +894,7 @@ async def write_to_disk(state: TaskState) -> None:
             date_time,
             sample_id,
             state,
-            variant=variant,
+            model=model,
             ranseed=ranseed,
             start_idx=start_idx,
             end_idx=end_idx,

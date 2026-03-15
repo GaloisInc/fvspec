@@ -3,6 +3,7 @@
 import atexit
 import os
 import signal
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -97,6 +98,12 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
+    model: str = Option(
+        None,
+        "-m",
+        "--model",
+        help="Model identifier (e.g., 'anthropic/claude-sonnet-4-6'). Overrides config.toml.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -117,6 +124,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
+        model: Model identifier string (overrides config.toml).
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -150,6 +158,15 @@ def main_callback(
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
+    use_model = model if model is not None else cfg.agent.model
+
+    # Capture git commit at generation time for artifact provenance
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        git_commit = None
 
     # Configure wandb settings: CLI flag > config
     # --wandb-disable flag explicitly disables, otherwise use config.toml setting
@@ -167,7 +184,7 @@ def main_callback(
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
     log_dir_name = utilio.mk_run_path(
-        timestamp, use_variant, use_ranseed, start_idx, end_idx
+        timestamp, utilio.model_slug(use_model), use_ranseed, start_idx, end_idx
     )
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +209,7 @@ def main_callback(
 
         wandb_logger.init_run(
             variant=use_variant or "default",
-            model=cfg.agent.model,
+            model=use_model,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
             timestamp=timestamp,
@@ -210,8 +227,10 @@ def main_callback(
                 timestamp=now,
                 start_idx=start_idx,
                 end_idx=end_idx,
+                git_commit=git_commit,
+                model=utilio.model_slug(use_model),
             ),
-            model=cfg.agent.model,
+            model=use_model,
             log_dir=str(log_dir),
             max_samples=use_parallelism,
             display=use_display,

@@ -444,10 +444,10 @@ def create_bound_dependency_tools(
 
                 # Write to sample's deps/ directory
                 date_time = state.metadata.get("date_time")
-                variant_meta = state.metadata.get("variant")
-                if date_time and variant_meta:
+                model_meta = state.metadata.get("model")
+                if date_time and model_meta:
                     sample_dir = utilio.get_sample_output_dir(
-                        str(date_time), str(state.sample_id), str(variant_meta)
+                        str(date_time), str(state.sample_id), str(model_meta)
                     )
                     deps_dir = sample_dir / "deps"
                     deps_dir.mkdir(parents=True, exist_ok=True)

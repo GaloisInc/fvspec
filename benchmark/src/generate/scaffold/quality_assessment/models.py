@@ -205,6 +205,9 @@ class QualityAssessment(BaseModel):
     datetime: str
     variant: str = Field(description="Prompt variant name")
     model: str
+    git_commit: str | None = Field(
+        None, description="Repo git commit hash at generation time"
+    )
     token_usage: int = Field(
         description="Total tokens used (aggregate for backward compatibility)"
     )
@@ -554,6 +557,7 @@ class QualityAssessment(BaseModel):
             datetime=date_time,
             variant=variant,
             model=state.output.model,
+            git_commit=state.metadata.get("git_commit"),
             token_usage=state.token_usage,
             token_usage_breakdown=token_breakdown if token_breakdown else None,
             time=state.output.time if state.output.time is not None else 0.0,
