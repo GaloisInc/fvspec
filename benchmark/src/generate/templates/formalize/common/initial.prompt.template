@@ -1,0 +1,34 @@
+## Property-Based Test
+```python
+{{ pbt_code }}
+```
+
+## Function Under Test: `{{ function_name }}`
+{% if pbt_summary %}
+**Description:** {{ pbt_summary }}
+{% endif %}
+
+{% if function_code %}
+## Discovered Source Code
+```python
+{{ function_code }}
+```
+{% else %}
+The function source code was not found. Infer the implementation from the PBT above.
+If the test contains an inline reference implementation (e.g., `def ref(...)`), use it as the basis.
+{% endif %}
+
+{% if dependencies %}
+## Dependencies (already formalized in Impl.lean)
+{% for name, sig in dependencies.items() %}
+- `{{ sig }}`
+{% endfor %}
+{% endif %}
+
+## Task
+Produce two Lean 4 files:
+
+1. **Impl.lean** (`Fvspec.Impl` namespace): Implement `{{ function_name }}` and any helpers. ZERO sorry.
+2. **Spec.lean** (`Fvspec.Spec` namespace, imports `Fvspec.Impl`): Theorem statements with `sorry`. One theorem per assertion.
+
+Use `write_lean_impl` and `write_lean_spec` to write code, then `lean_diagnostic_messages` to check for errors.

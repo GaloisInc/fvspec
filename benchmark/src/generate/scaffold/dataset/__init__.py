@@ -37,10 +37,15 @@ from generate.scaffold.dataset.queries import (
 from generate.scaffold.dataset.queries import (
     sample_datapoints as _db_sample,
 )
+from generate.templates.formalize import (
+    FormalizationVariantRegistry as VariantRegistry,
+)
+from generate.templates.formalize import (
+    get_formalization_prompts as get_variant_prompts,
+)
 
 # Shared structures
 from generate.templates.models import Prompt
-from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 __all__ = [
     # Primary interface
@@ -56,7 +61,6 @@ __all__ = [
     "FunctionInfo",
     # Shared utilities
     "datapoint_to_prompt",
-    "extract_datapoint_unit_tests",
     "mk_initial_prompt",
     # Types
     "Datapoint",
@@ -85,37 +89,11 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     )
 
 
-def extract_datapoint_unit_tests(dp: Datapoint) -> str | None:
-    """Extract unit tests from a datapoint's overlapping unit tests.
-
-    Checks if the datapoint has associated unit tests from the database.
-    Returns a placeholder string indicating unit tests are available.
-
-    Args:
-        dp: The datapoint containing the overlapping unit tests
-
-    Returns:
-        Placeholder string if unit tests are available, None otherwise
-
-    Note:
-        Unit tests are for EVALUATION only - they should NOT be shown to the model.
-        The actual unit test code is passed to the units agent via orchestration,
-        which accesses dp.unit_tests directly.
-
-        This function's return value is only used by the QA system to determine
-        if unit tests were available for this sample.
-    """
-    # Check if unit_tests field is non-empty
-    # This field is populated by sample_datapoints() in queries.py
-    if dp.unit_tests and len(dp.unit_tests) > 0:
-        # Return a placeholder indicating unit tests are available
-        # The count is used by QA metrics
-        return f"-- {len(dp.unit_tests)} unit tests available from database"
-    return None
-
-
 def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
     """Render the initial user prompt from a Prompt object.
+
+    Note: This is a placeholder for inspect_ai's Sample.input field.
+    The actual prompt is constructed by the formalization agent during orchestration.
 
     Args:
         prompt: The prompt containing test and dependencies
@@ -125,13 +103,12 @@ def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
         Rendered initial prompt string
     """
     _, initial_template = get_variant_prompts(variant)
-    # Render with the context expected by the template
-    # impl_signatures is empty at dataset creation time (populated during orchestration)
     context = {
         "pbt_code": prompt.pbt,
-        "pbt_name": prompt.pbt_name,
         "function_name": prompt.function_name,
-        "impl_signatures": {},  # Empty at dataset creation - populated during spec agent phase
+        "function_code": None,  # Not available at dataset creation time
+        "pbt_summary": None,
+        "dependencies": {},
     }
     return initial_template.render(**context)
 
@@ -144,7 +121,6 @@ def mk_dataset(
     ranseed: int | None = 0,
     start_idx: int | None = None,
     end_idx: int | None = None,
-    require_unit_tests: bool = False,
     git_commit: str | None = None,
     model: str | None = None,
 ) -> MemoryDataset:
@@ -158,7 +134,6 @@ def mk_dataset(
         ranseed: Random seed used for sampling datapoints (Note: SQLite RANDOM() limitations)
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
-        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
         git_commit: Git commit hash at generation time, stored in each sample's metadata.
         model: Model slug (e.g., "claude-sonnet-4-6"), stored in each sample's metadata for artifact path naming.
 
@@ -177,7 +152,6 @@ def mk_dataset(
             ranseed=ranseed,
             start_idx=start_idx,
             end_idx=end_idx,
-            require_unit_tests=require_unit_tests,
         )
 
     console = Console()
@@ -195,9 +169,6 @@ def mk_dataset(
 
     samples = []
     for dp in datapoints:
-        # Extract unit tests for evaluation (NOT shown to model)
-        unit_tests_lspec = extract_datapoint_unit_tests(dp)
-
         samples.append(
             Sample(
                 input=mk_initial_prompt(
@@ -211,7 +182,6 @@ def mk_dataset(
                     "ranseed": ranseed,  # For artifact path naming
                     "start_idx": start_idx,  # For sequential run tracking
                     "end_idx": end_idx,  # For sequential run tracking
-                    "unit_tests_lspec": unit_tests_lspec,  # For evaluation only
                     "git_commit": git_commit,  # Repo commit at generation time
                 },
                 id=f"{dp.id:05d}_{dp.name}",

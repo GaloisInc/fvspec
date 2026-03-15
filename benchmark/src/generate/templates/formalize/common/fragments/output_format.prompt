@@ -1,0 +1,29 @@
+## Output Format
+
+Write your final code using the `write_lean_impl` and `write_lean_spec` tools.
+
+**Impl.lean** must start with:
+```
+import Batteries
+
+namespace Fvspec.Impl
+```
+And end with:
+```
+end Fvspec.Impl
+```
+
+**Spec.lean** must start with:
+```
+import Plausible
+import Fvspec.Impl
+
+namespace Fvspec.Spec
+open Fvspec.Impl
+```
+And end with:
+```
+end Fvspec.Spec
+```
+
+**IMPORTANT:** Do NOT include `#eval` statements in Spec.lean. Spec.lean should only contain theorem declarations with `sorry` placeholders.

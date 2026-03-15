@@ -243,14 +243,6 @@ class QualityAssessment(BaseModel):
     structural_faithfulness: StructuralFaithfulness | None = Field(
         None, description="Objective structural metrics"
     )
-    # Unit test metrics
-    has_unit_tests: bool = Field(
-        False, description="Whether unit tests were extracted from PBT"
-    )
-    num_unit_tests: int = Field(0, description="Number of unit tests extracted")
-    unit_tests_available: bool = Field(
-        False, description="Whether unit tests are available for evaluation"
-    )
     # Plausible property testing metrics
     plausibility: Plausibility = Field(
         default_factory=Plausibility,
@@ -401,15 +393,6 @@ class QualityAssessment(BaseModel):
                 )
                 pass
 
-        # Extract unit test information from store
-        unit_tests_lspec = state.store.get("unit_tests_lspec")
-        has_unit_tests = unit_tests_lspec is not None
-        num_unit_tests = 0
-        if has_unit_tests and unit_tests_lspec:
-            # Count number of test cases in the LSpec code
-            # Each test is a line containing 'test "'
-            num_unit_tests = unit_tests_lspec.count('test "')
-
         # Extract plausibility metrics from store
         plausibility = state.store.get("plausibility", Plausibility())
         # Ensure it's a Plausibility object (may be dict from JSON deserialization)
@@ -546,11 +529,6 @@ class QualityAssessment(BaseModel):
         if spec_usage:
             token_breakdown.append(spec_usage)
 
-        # Add units token usage (if units agent ran)
-        units_usage = state.store.get("units_token_usage")
-        if units_usage:
-            token_breakdown.append(units_usage)
-
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
@@ -576,9 +554,6 @@ class QualityAssessment(BaseModel):
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,
             structural_faithfulness=structural,
-            has_unit_tests=has_unit_tests,
-            num_unit_tests=num_unit_tests,
-            unit_tests_available=has_unit_tests,
             plausibility=plausibility,
             percent_plausible=percent_plausible,
             impl_autoform_success=impl_autoform_success,
@@ -702,22 +677,6 @@ class QualityAssessment(BaseModel):
             scores["assertion_theorem_difference"] = Score(
                 value=sf.assertion_theorem_difference,
                 explanation=f"Difference between Lean theorems and Python asserts: {sf.assertion_theorem_difference} (zero is perfect, positive = more theorems, negative = fewer theorems)",
-            )
-
-        # Unit test metrics
-        if self.has_unit_tests:
-            scores["has_unit_tests"] = Score(
-                value=1.0,
-                explanation=f"Unit tests extracted: {self.num_unit_tests} test(s) available for evaluation",
-            )
-            scores["num_unit_tests"] = Score(
-                value=self.num_unit_tests,
-                explanation=f"Number of extracted unit tests: {self.num_unit_tests}",
-            )
-        else:
-            scores["has_unit_tests"] = Score(
-                value=0.0,
-                explanation="No unit tests could be extracted from the PBT",
             )
 
         # Plausible property testing metrics
@@ -853,15 +812,10 @@ class QualityAssessment(BaseModel):
             spec_total = sum(
                 a["tokens_spent"] for a in token_breakdown if a["subagent"] == "spec"
             )
-            units_total = sum(
-                a["tokens_spent"] for a in token_breakdown if a["subagent"] == "units"
-            )
 
             if impl_total > 0:
                 metrics["token_usage/impl_total"] = impl_total
             if spec_total > 0:
                 metrics["token_usage/spec"] = spec_total
-            if units_total > 0:
-                metrics["token_usage/units"] = units_total
 
         return metrics

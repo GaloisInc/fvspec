@@ -27,11 +27,6 @@ logger = logging.getLogger(__name__)
 # 4. Exceed practical limits for meaningful specification generation
 MAX_DEPENDENCIES = 100
 
-# Maximum number of unit tests to sample per datapoint
-# Rationale: Too many unit tests create excessively large prompts
-# 10 unit tests provides sufficient coverage while keeping prompts manageable
-MAX_UNIT_TESTS = 10
-
 # SQLite parameter limit for query batching
 # SQLite has a hard limit of 32766 parameters per query
 # We use 32700 to stay safely under the limit
@@ -58,15 +53,13 @@ def sample_datapoints(
     ranseed: int | None = 0,
     start_idx: int | None = None,
     end_idx: int | None = None,
-    require_unit_tests: bool = False,
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
     Implements memory-efficient deterministic sampling by:
     1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
-    2. Optionally filtering to only datapoints with unit tests
-    3. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
-    4. Taking first n IDs and fetching full datapoints
+    2. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
+    3. Taking first n IDs and fetching full datapoints
 
     When start_idx and/or end_idx are provided, returns a sequential slice
     of datapoints instead of random sampling. This enables resumable large-scale
@@ -78,7 +71,6 @@ def sample_datapoints(
         ranseed: Random seed for reproducibility (default: 0, ignored if start_idx/end_idx provided)
         start_idx: Starting index in the ordered dataset (0-indexed, inclusive)
         end_idx: Ending index in the ordered dataset (0-indexed, exclusive)
-        require_unit_tests: If True, only sample datapoints that have unit tests (default: False)
 
     Returns:
         List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
@@ -89,9 +81,6 @@ def sample_datapoints(
 
         Sequential mode (start_idx/end_idx): Returns datapoints[start_idx:end_idx] from
         the ordered, filtered dataset. Useful for splitting large runs across multiple jobs.
-
-        When require_unit_tests=True, filters to PBTs that have at least one associated
-        unit test via the pbt_functions and unit_test_functions junction tables.
     """
     # Use json_array_length to filter by dependency count
     # Fetch only IDs (lightweight) instead of full datapoint objects
@@ -101,20 +90,6 @@ def sample_datapoints(
         .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
         .order_by(Datapoint.id)  # type: ignore[attr-defined]
     )
-
-    # Optionally filter to only datapoints with unit tests
-    if require_unit_tests:
-        # Join through pbt_functions to unit_test_functions to find PBTs with unit tests
-        # Use EXISTS subquery for efficient filtering
-        has_unit_tests_subquery = (
-            select(PBTFunction.pbt_id)
-            .join(
-                UnitTestFunction,
-                PBTFunction.function_name == UnitTestFunction.function_name,
-            )
-            .where(PBTFunction.pbt_id == Datapoint.id)
-        )
-        id_statement = id_statement.where(has_unit_tests_subquery.exists())
 
     # Fetch all eligible IDs (deterministic order guaranteed by ORDER BY)
     results = session.exec(id_statement)
@@ -128,8 +103,6 @@ def sample_datapoints(
     if start_idx is not None or end_idx is not None:
         # Use Python's slice semantics (None = unbounded)
         selected_ids = all_ids[start_idx:end_idx]
-        # Create RNG for unit test sampling (sequential mode still needs reproducibility)
-        rng = random.Random(ranseed)
     else:
         # Random sampling mode: shuffle and take first n
         # Shuffle IDs using seeded RNG for deterministic sampling
@@ -145,25 +118,6 @@ def sample_datapoints(
         Datapoint.id.in_(selected_ids)  # type: ignore[attr-defined]
     )
     datapoints = list(session.exec(datapoints_statement))
-
-    # Populate unit_tests field for each datapoint (non-DB field)
-    for dp in datapoints:
-        unit_tests = []  # Collect unit tests
-        overlaps = get_overlapping_unit_tests(session, dp.id)
-        # Extract all unit tests from overlaps
-        if overlaps:
-            for overlap in overlaps:
-                unit_tests.extend(overlap.get("unit_tests", []))
-        # Sample up to MAX_UNIT_TESTS to keep prompts manageable
-        original_count = len(unit_tests)
-        if original_count > MAX_UNIT_TESTS:
-            # Use the same seeded RNG for reproducible unit test sampling
-            unit_tests = rng.sample(unit_tests, MAX_UNIT_TESTS)
-            logger.debug(
-                f"Sampled {MAX_UNIT_TESTS} of {original_count} unit tests for datapoint {dp.id}"
-            )
-        # Set the unit_tests field directly (now a proper field on the model)
-        dp.unit_tests = unit_tests
 
     # Return in correct order
     # For sequential mode, preserve order from all_ids slice

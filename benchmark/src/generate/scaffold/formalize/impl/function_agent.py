@@ -14,11 +14,6 @@ from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
-from generate.scaffold.formalize.impl.filters import (
-    strip_spec_keywords,
-    strip_spec_namespace,
-    validate_impl_only,
-)
 from generate.scaffold.quality_assessment.lean_parsing import detect_eval_statements
 from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
 from generate.templates.impl import get_impl_function_prompts
@@ -175,34 +170,6 @@ def function_impl_agent(
         # Fallback to final message if no <code> blocks found in history
         if not lean_code and final_message.text:
             lean_code = _extract_code_block(final_message.text)
-
-        # Filter out any hallucinated spec namespaces and keywords
-        # Model occasionally generates specs alongside impls despite prompts
-        # This is our defense-in-depth: strip specs before validation/storage
-        if lean_code:
-            original_length = len(lean_code)
-
-            # Apply filtering pipeline:
-            # 1. Remove entire Fvspec.Spec namespace blocks
-            lean_code = strip_spec_namespace(lean_code)
-            # 2. Remove individual spec keywords (theorem/lemma/example) from Impl namespace
-            lean_code = strip_spec_keywords(lean_code)
-
-            # Log if we stripped significant content (indicates hallucination)
-            if len(lean_code) < original_length * 0.8:
-                chars_removed = original_length - len(lean_code)
-                logger.warning(
-                    f"Impl agent hallucinated specs: stripped {chars_removed} chars "
-                    f"({chars_removed / original_length:.1%} of output)"
-                )
-
-            # Validate that filtering worked (defensive check)
-            is_valid, error = validate_impl_only(lean_code)
-            if not is_valid:
-                logger.error(
-                    f"Impl agent output still contains specs after filtering: {error}. "
-                    f"This indicates filtering logic needs updating."
-                )
 
         if not lean_code:
             result = FunctionImplResult(

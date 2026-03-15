@@ -13,7 +13,7 @@ from inspect_ai.model import ChatMessageAssistant
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.orchestration import fvspec
-from generate.templates.spec import get_variant_prompts
+from generate.templates.formalize import get_formalization_prompts
 
 
 @pytest.fixture
@@ -159,26 +159,23 @@ def anyio_backend(request):
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
     # Test functional variant
-    functional_system, functional_initial = get_variant_prompts("control-functional")
+    functional_system, functional_initial = get_formalization_prompts(
+        "control-functional"
+    )
     assert isinstance(functional_system, str)
     assert len(functional_system) > 0
-
-    # Test mvcgen variant
-    mvcgen_system, mvcgen_initial = get_variant_prompts("control-mvcgen")
-    assert isinstance(mvcgen_system, str)
-    assert len(mvcgen_system) > 0
-    assert "mvcgen" in mvcgen_system
 
     # Test initial prompt rendering with sample data
     initial_prompt = functional_initial.render(
         pbt_code="def test(): pass",
-        pbt_name="test_add",
         function_name="add",
-        impl_signatures={"add": "def add (x y : Nat) : Nat"},
+        function_code="def add(x, y): return x + y",
+        pbt_summary="Test addition",
+        dependencies={},
     )
     assert isinstance(initial_prompt, str)
     assert "def test(): pass" in initial_prompt
-    assert "def add (x y : Nat) : Nat" in initial_prompt
+    assert "def add(x, y): return x + y" in initial_prompt
 
 
 def test_smoke_tool_registration():

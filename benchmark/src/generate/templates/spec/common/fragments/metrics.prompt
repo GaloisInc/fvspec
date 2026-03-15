@@ -1,4 +1,0 @@
-## Metrics
-You will report two metrics for each translation:
-- **Faithfulness** (X/10): How well the Lean 4 code captures the semantics of the original Python test
-- **Interest** (X/10): The intricacy of the generated Lean 4 specification, with an eye toward the expected difficulty of filling in the `sorry`s

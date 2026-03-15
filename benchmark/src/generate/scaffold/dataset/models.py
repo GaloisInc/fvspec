@@ -65,16 +65,6 @@ class Datapoint(SQLModel, table=True):
     summaryversion: int | None = None
     summaryconfidence: float | None = None
 
-    @property
-    def unit_tests(self) -> list[dict[str, Any]]:
-        """Non-DB field: unit tests populated by sample_datapoints()."""
-        return self.__dict__.get("unit_tests", [])
-
-    @unit_tests.setter
-    def unit_tests(self, value: list[dict[str, Any]]) -> None:
-        """Set unit tests (stored in __dict__ to avoid DB persistence)."""
-        self.__dict__["unit_tests"] = value
-
     @field_validator("dep_names", mode="before")
     @classmethod
     def parse_dep_names(cls, v: Any) -> str:

@@ -23,7 +23,7 @@ if _env_path.exists():
 from generate.scaffold.orchestration import fvspec
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import init_wandb_logger
-from generate.templates.spec import VariantRegistry
+from generate.templates.formalize import FormalizationVariantRegistry as VariantRegistry
 
 cfg = load_config()
 

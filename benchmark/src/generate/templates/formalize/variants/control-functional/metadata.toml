@@ -1,0 +1,7 @@
+[variant]
+name = "control-functional"
+style = "functional"
+description = "Unified formalization agent — functional style (control condition)"
+
+[tags]
+tags = ["functional", "stable", "control"]

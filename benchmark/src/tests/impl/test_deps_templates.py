@@ -30,7 +30,6 @@ def test_dependency_registry_lists_variants() -> None:
     registry = DependencyVariantRegistry()
     variants = registry.list_variants()
     assert "functional" in variants
-    assert "mvcgen" in variants
 
 
 def test_dependency_registry_default() -> None:
@@ -74,22 +73,8 @@ def test_functional_prompt_structure_strategy() -> None:
     assert "count" in rendered
 
 
-def test_mvcgen_prompts_render() -> None:
-    """Mvcgen prompts should highlight imperative guidance and normalization plan."""
-    payload = _example_payload()
-    context = payload.prompt_context()
-
-    bundle = get_dependency_prompts("mvcgen")
-    rendered = bundle.translate_template.render(**context)
-    assert "Hoare" in rendered or "vcg" in rendered
-    assert payload.artifact.qualified_module in rendered
-    assert "Normalization plan" in rendered
-
-
 def test_dependency_tags_filter() -> None:
-    """Tag filtering should surface functional and mvcgen variants."""
+    """Tag filtering should surface functional variants."""
     registry = DependencyVariantRegistry()
     default_variants = registry.list_variants_by_tag("default")
     assert "functional" in default_variants
-    mvcgen_variants = registry.list_variants_by_tag("mvcgen")
-    assert "mvcgen" in mvcgen_variants
