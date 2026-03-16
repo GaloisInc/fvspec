@@ -210,6 +210,8 @@ def test_smoke_quality_assessment_from_mock_state():
     mock_output.model = "mock/model"
     mock_output.time = 1.5
 
+    lean_code = "def test : Nat := sorry"
+
     state = TaskState(
         model=ModelName("mock/model"),
         sample_id="00001_test",
@@ -218,7 +220,7 @@ def test_smoke_quality_assessment_from_mock_state():
         messages=[
             ChatMessageUser(content="test", source="input"),
             ChatMessageAssistant(
-                content="<code>def test : Nat := sorry</code>\nFaithfulness: 7/10\nInterest: 3/10",
+                content=f"<code>{lean_code}</code>\nFaithfulness: 7/10\nInterest: 3/10",
                 source="generate",
             ),
         ],
@@ -232,6 +234,17 @@ def test_smoke_quality_assessment_from_mock_state():
             ),
             "date_time": "2025-01-01T00-00-00",
             "variant": "control-functional",
+        },
+    )
+
+    # Set spec_result in store (QA requires validated compilation, no legacy fallback)
+    state.store.set(
+        "spec_result",
+        {
+            "success": True,
+            "lean_code": lean_code,
+            "compiles": True,
+            "has_statements": True,
         },
     )
 

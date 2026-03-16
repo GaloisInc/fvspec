@@ -269,7 +269,7 @@ def extract_metadata_summary(sample: dict) -> dict:
         "variant": metadata.get("variant", "Unknown"),
         "python_source_file": datapoint.get("source", "Unknown"),
         "success": sample.get("scores", {}).get("success", {}).get("value", "I") == "C",
-        "tokens": sample.get("model_usage", {}).get("total_tokens", 0),
+        "tokens": sample.get("scores", {}).get("token_usage", {}).get("value", 0),
         "time": output.get("time", 0.0) if output else 0.0,
         "model": output.get("model", "Unknown") if output else "Unknown",
     }
@@ -517,9 +517,9 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
         compilation_status: Compilation status dict
         scores: Scores dict
     """
-    # Key metrics (4-column layout)
+    # Key metrics (5-column layout)
     st.subheader("Key Metrics")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.metric("Success", "✓" if metadata["success"] else "✗")
@@ -528,9 +528,14 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col3:
         st.metric("Time (s)", f"{metadata['time']:.2f}")
     with col4:
-        # Count theorems from scores if available
         num_theorems = scores.get("num_theorems", {}).get("value", 0)
         st.metric("Theorems", num_theorems)
+    with col5:
+        pct = scores.get("percent_plausible", {}).get("value")
+        if pct is not None:
+            st.metric("Plausible", f"{pct:.0%}")
+        else:
+            st.metric("Plausible", "N/A")
 
     st.divider()
 

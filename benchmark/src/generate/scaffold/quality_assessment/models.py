@@ -316,11 +316,14 @@ class QualityAssessment(BaseModel):
             spec_sig_success = spec_result_data.success and spec_result_data.compiles
             code_snippet = spec_result_data.lean_code or ""
         else:
-            # Fallback: extract code from message (legacy path)
-            pattern = r"(?s)<code>(.*?)</code>"
-            mtch = re.search(pattern, state.messages[-1].text)
-            spec_sig_success = mtch is not None
-            code_snippet = mtch.group(1) if mtch else ""
+            # No spec_result in store — compilation was never verified.
+            # Mark as failed rather than guessing from message content.
+            logger.warning(
+                f"No spec_result in store for sample {datapoint.id} — "
+                "marking spec_sig_success=False"
+            )
+            spec_sig_success = False
+            code_snippet = ""
 
         # Extract code metrics from spec code
         if code_snippet:
