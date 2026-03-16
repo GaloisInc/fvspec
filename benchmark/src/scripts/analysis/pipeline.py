@@ -1,15 +1,21 @@
 """Full pipeline: dedup → extract deps → JSONL dump for HuggingFace upload.
 
+Produces two HuggingFace-idiomatic JSONL files matching the original
+Benchify/realpbt schema:
+  - pbts.jsonl:      same schema as original, with improved dependency names
+  - functions.jsonl:  extracted functions with full source code
+
 Processes the Benchify/realpbt dataset end-to-end:
 1. Deduplicates by collapsing forked repositories
-2. Clones each repo (with timeout), builds a tree-sitter index
-3. Extracts depth-bounded dependencies for each PBT (up to 8 in parallel per repo)
-4. Writes a JSONL file suitable for HuggingFace upload
+2. Drops repos that cannot be cloned (deleted, private, etc.)
+3. Clones each repo (with timeout), builds a tree-sitter index
+4. Extracts depth-bounded dependencies for each PBT (up to 8 in parallel per repo)
+5. Writes pbts.jsonl + functions.jsonl matching the original HF schema
 
 Usage:
     uv run realpbt-pipeline                                # full run
     uv run realpbt-pipeline --limit 10                     # test on 10 repos
-    uv run realpbt-pipeline --output /tmp/realpbt.jsonl    # custom output
+    uv run realpbt-pipeline --outdir artifacts/realpbt2    # custom output dir
     uv run realpbt-pipeline --skip-dedup                   # skip deduplication
     uv run realpbt-pipeline --workers 4                    # parallel PBTs per repo
 """
@@ -172,8 +178,8 @@ def _process_repo(
     return out
 
 
-def _row_to_jsonl(row: dict) -> dict:
-    """Convert an internal row to the JSONL output format."""
+def _row_to_pbt(row: dict) -> dict:
+    """Convert an internal row to the pbts.jsonl format (matches original HF schema)."""
     deps = row.get("_extracted_deps", [])
     dep_names = [d["name"] for d in deps]
 
@@ -185,40 +191,48 @@ def _row_to_jsonl(row: dict) -> dict:
         "source_file": row.get("source_file"),
         "start_line": row.get("start_line"),
         "end_line": row.get("end_line"),
+        "dependencies": json.dumps(dep_names),
         "repo": row["repo"],
         "metrics": row.get("metrics"),
         "summary": row.get("summary"),
-        "dep_names": json.dumps(dep_names),
-        "dependencies": [
-            {
-                "name": d["name"],
-                "qualified_name": d["qualified_name"],
-                "code": d["code"],
-                "file_path": d["file_path"],
-                "depth": d["depth"],
-                "kind": d["kind"],
-                "resolution": d["resolution"],
-            }
-            for d in deps
-        ],
-        "dep_status": row.get("_dep_status", "unknown"),
     }
+
+
+def _deps_to_functions(row: dict, func_id_counter: list[int]) -> list[dict]:
+    """Convert extracted deps to functions.jsonl rows (matches original HF schema)."""
+    deps = row.get("_extracted_deps", [])
+    funcs = []
+    for d in deps:
+        func_id_counter[0] += 1
+        funcs.append(
+            {
+                "id": func_id_counter[0],
+                "name": d["name"],
+                "code": d["code"],
+                "language": row.get("language", "python"),
+                "source_file": d["file_path"],
+                "start_line": None,
+                "end_line": None,
+                "repo": row["repo"],
+            }
+        )
+    return funcs
 
 
 @app.command()
 def main(
-    output: Path = typer.Option(
-        Path("artifacts/realpbt_deps.jsonl"),
-        help="Output JSONL path.",
+    outdir: Path = typer.Option(
+        Path("artifacts/realpbt2"),
+        help="Output directory (will contain pbts.jsonl + functions.jsonl).",
     ),
     limit: int | None = typer.Option(None, help="Limit to N repos (for testing)."),
     workers: int = typer.Option(8, help="Max parallel PBTs per repo."),
-    clone_timeout: int = typer.Option(90, help="Clone timeout in seconds."),
+    clone_timeout: int = typer.Option(300, help="Clone timeout in seconds."),
     skip_dedup: bool = typer.Option(
         False, "--skip-dedup", help="Skip deduplication step."
     ),
     skip_large: bool = typer.Option(
-        True,
+        False,
         "--skip-large/--include-large",
         help="Skip notoriously large repos (pytorch, cpython, etc.).",
     ),
@@ -264,7 +278,7 @@ def main(
     )
 
     # Step 4: Process repos
-    output.parent.mkdir(parents=True, exist_ok=True)
+    outdir.mkdir(parents=True, exist_ok=True)
     results: list[dict] = []
     ok_count = 0
     fail_count = 0
@@ -284,30 +298,35 @@ def main(
 
             repo_results = _process_repo(repo_name, pbts, workers, clone_timeout)
             for result in repo_results:
-                results.append(result)
                 if result.get("_dep_status") == "ok":
+                    results.append(result)
                     ok_count += 1
                 else:
                     fail_count += 1
 
             progress.advance(task)
 
-    # Step 5: Write JSONL
+    # Step 5: Write JSONL files matching original HF schema
     console.print("\n[bold]Step 3: Writing JSONL[/bold]")
-    with open(output, "w") as f:
-        for row in results:
-            line = _row_to_jsonl(row)
-            f.write(json.dumps(line) + "\n")
 
-    console.print(f"  Wrote {len(results):,} rows to {output}")
-    console.print(f"  OK: {ok_count:,}, Failed: {fail_count:,}")
+    pbts_path = outdir / "pbts.jsonl"
+    funcs_path = outdir / "functions.jsonl"
+    func_id_counter = [0]
+
+    with open(pbts_path, "w") as pf, open(funcs_path, "w") as ff:
+        for row in results:
+            pf.write(json.dumps(_row_to_pbt(row)) + "\n")
+            for func in _deps_to_functions(row, func_id_counter):
+                ff.write(json.dumps(func) + "\n")
+
+    console.print(f"  Wrote {len(results):,} PBTs to {pbts_path}")
+    console.print(f"  Wrote {func_id_counter[0]:,} functions to {funcs_path}")
+    console.print(
+        f"  Dropped {fail_count:,} PBTs (clone failed / file not found / errors)"
+    )
 
     # Stats summary
-    dep_counts = [
-        len(r.get("_extracted_deps", []))
-        for r in results
-        if r.get("_dep_status") == "ok"
-    ]
+    dep_counts = [len(r.get("_extracted_deps", [])) for r in results]
     if dep_counts:
         avg = sum(dep_counts) / len(dep_counts)
         median = sorted(dep_counts)[len(dep_counts) // 2]
