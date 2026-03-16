@@ -602,48 +602,55 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
 def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     """Extract conversations from the store object.
 
-    The three-agent orchestration stores conversations separately for each agent.
-    The impl-agent may fork into multiple copies, each with its own conversation.
+    The unified orchestration stores:
+      - dep_conversations: list of {dep_name, messages} dicts (one per dependency)
+      - formalize_conversation: list of messages (the main formalization agent)
+
+    Also supports legacy three-agent keys (impl_conversation, spec_conversation,
+    units_conversation) for older .eval files.
 
     Args:
         sample: Sample dict containing store object
 
     Returns:
-        Dict mapping agent name to list of messages:
-        {
-            "impl_0": [...],
-            "impl_1": [...],
-            "spec": [...],
-            "units": [...]
-        }
+        Dict mapping agent name to list of messages
     """
     store = sample.get("store", {})
     conversations = {}
 
-    # Extract implementation agent conversations (may be multiple due to forking)
-    # Check for both single conversation and indexed conversations
-    if "impl_conversation" in store:
-        impl_conv = store.get("impl_conversation", [])
-        if impl_conv:
-            conversations["impl"] = impl_conv
+    # Unified orchestration format (current)
+    formalize_conv = store.get("formalize_conversation", [])
+    if formalize_conv:
+        conversations["formalize"] = formalize_conv
 
-    # Check for numbered impl conversations (impl_conversation_0, impl_conversation_1, etc.)
-    impl_idx = 0
-    while f"impl_conversation_{impl_idx}" in store:
-        impl_conv = store.get(f"impl_conversation_{impl_idx}", [])
-        if impl_conv:
-            conversations[f"impl_{impl_idx}"] = impl_conv
-        impl_idx += 1
+    dep_conversations = store.get("dep_conversations", [])
+    for dep in dep_conversations:
+        dep_name = dep.get("dep_name", "unknown")
+        messages = dep.get("messages", [])
+        if messages:
+            conversations[f"dep: {dep_name}"] = messages
 
-    # Extract specification agent conversation
-    spec_conv = store.get("spec_conversation", [])
-    if spec_conv:
-        conversations["spec"] = spec_conv
+    # Legacy three-agent format (older .eval files)
+    if not conversations:
+        if "impl_conversation" in store:
+            impl_conv = store.get("impl_conversation", [])
+            if impl_conv:
+                conversations["impl"] = impl_conv
 
-    # Extract units agent conversation
-    units_conv = store.get("units_conversation", [])
-    if units_conv:
-        conversations["units"] = units_conv
+        impl_idx = 0
+        while f"impl_conversation_{impl_idx}" in store:
+            impl_conv = store.get(f"impl_conversation_{impl_idx}", [])
+            if impl_conv:
+                conversations[f"impl_{impl_idx}"] = impl_conv
+            impl_idx += 1
+
+        spec_conv = store.get("spec_conversation", [])
+        if spec_conv:
+            conversations["spec"] = spec_conv
+
+        units_conv = store.get("units_conversation", [])
+        if units_conv:
+            conversations["units"] = units_conv
 
     return conversations
 
@@ -1053,18 +1060,20 @@ def main():
         render_metadata_panel(metadata, compilation_status, scores)
 
     with tab3:
-        # Extract conversations from store (three-agent orchestration)
+        # Extract conversations from store
         agent_conversations = extract_conversations_from_store(sample)
 
         if agent_conversations:
-            # Display conversations in tabs for each agent
             agent_names = list(agent_conversations.keys())
 
-            # Format tab labels with better styling for impl forks
             tab_labels = []
             for name in agent_names:
-                if name.startswith("impl_"):
-                    # Extract fork number for impl agents
+                if name == "formalize":
+                    tab_labels.append("📋 FORMALIZE")
+                elif name.startswith("dep: "):
+                    tab_labels.append(f"🔧 DEP: {name[5:]}")
+                # Legacy three-agent keys
+                elif name.startswith("impl_"):
                     fork_num = name.split("_")[-1]
                     if fork_num.isdigit():
                         tab_labels.append(f"🔧 IMPL (Fork {fork_num})")
