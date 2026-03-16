@@ -277,19 +277,26 @@ def main(
         f"across {len(repo_names):,} repos[/bold]"
     )
 
-    # Step 4: Process repos
+    # Step 4: Process repos, streaming results to disk
     outdir.mkdir(parents=True, exist_ok=True)
-    results: list[dict] = []
+    pbts_path = outdir / "pbts.jsonl"
+    funcs_path = outdir / "functions.jsonl"
+    func_id_counter = [0]
     ok_count = 0
     fail_count = 0
+    dep_total = 0
 
-    with Progress(
-        TextColumn("[bold blue]{task.description}"),
-        BarColumn(),
-        MofNCompleteColumn(),
-        TimeElapsedColumn(),
-        console=console,
-    ) as progress:
+    with (
+        open(pbts_path, "w") as pf,
+        open(funcs_path, "w") as ff,
+        Progress(
+            TextColumn("[bold blue]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TimeElapsedColumn(),
+            console=console,
+        ) as progress,
+    ):
         task = progress.add_task("Repos", total=len(repo_names))
 
         for repo_name in repo_names:
@@ -299,40 +306,26 @@ def main(
             repo_results = _process_repo(repo_name, pbts, workers, clone_timeout)
             for result in repo_results:
                 if result.get("_dep_status") == "ok":
-                    results.append(result)
+                    pf.write(json.dumps(_row_to_pbt(result)) + "\n")
+                    for func in _deps_to_functions(result, func_id_counter):
+                        ff.write(json.dumps(func) + "\n")
+                    dep_total += len(result.get("_extracted_deps", []))
                     ok_count += 1
                 else:
                     fail_count += 1
 
+            pf.flush()
+            ff.flush()
             progress.advance(task)
 
-    # Step 5: Write JSONL files matching original HF schema
-    console.print("\n[bold]Step 3: Writing JSONL[/bold]")
-
-    pbts_path = outdir / "pbts.jsonl"
-    funcs_path = outdir / "functions.jsonl"
-    func_id_counter = [0]
-
-    with open(pbts_path, "w") as pf, open(funcs_path, "w") as ff:
-        for row in results:
-            pf.write(json.dumps(_row_to_pbt(row)) + "\n")
-            for func in _deps_to_functions(row, func_id_counter):
-                ff.write(json.dumps(func) + "\n")
-
-    console.print(f"  Wrote {len(results):,} PBTs to {pbts_path}")
-    console.print(f"  Wrote {func_id_counter[0]:,} functions to {funcs_path}")
+    console.print("\n[bold]Results[/bold]")
+    console.print(f"  PBTs:      {ok_count:,} → {pbts_path}")
+    console.print(f"  Functions: {func_id_counter[0]:,} → {funcs_path}")
     console.print(
-        f"  Dropped {fail_count:,} PBTs (clone failed / file not found / errors)"
+        f"  Dropped:   {fail_count:,} (clone failed / file not found / errors)"
     )
-
-    # Stats summary
-    dep_counts = [len(r.get("_extracted_deps", [])) for r in results]
-    if dep_counts:
-        avg = sum(dep_counts) / len(dep_counts)
-        median = sorted(dep_counts)[len(dep_counts) // 2]
-        console.print(
-            f"  Avg deps: {avg:.1f}, Median: {median}, Max: {max(dep_counts)}"
-        )
+    if ok_count:
+        console.print(f"  Avg deps:  {dep_total / ok_count:.1f} per PBT")
 
 
 if __name__ == "__main__":
