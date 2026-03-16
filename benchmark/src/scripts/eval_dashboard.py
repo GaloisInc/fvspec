@@ -453,6 +453,51 @@ def render_sample_list_sidebar(
     return options.get(selected) if selected else None
 
 
+def build_playground_url(impl_code: str | None, spec_code: str | None) -> str | None:
+    """Build a live.lean-lang.org URL with impl + spec merged into a single file.
+
+    Ports the leaderboard logic: split imports from body, deduplicate,
+    drop project-local imports, compress with lz-string.
+
+    Args:
+        impl_code: Lean implementation code
+        spec_code: Lean specification code
+
+    Returns:
+        URL string or None if no code available
+    """
+    if not impl_code and not spec_code:
+        return None
+
+    import lzstring
+
+    def split_imports(src: str) -> tuple[list[str], str]:
+        lines = src.split("\n")
+        imports = []
+        body = []
+        for line in lines:
+            if re.match(r"^\s*import\s", line):
+                imports.append(line.strip())
+            else:
+                body.append(line)
+        return imports, "\n".join(body).lstrip("\n")
+
+    impl_imports, impl_body = split_imports(impl_code or "")
+    spec_imports, spec_body = split_imports(spec_code or "")
+
+    # Deduplicate imports, drop project-local import
+    seen: set[str] = set()
+    all_imports: list[str] = []
+    for imp in [*impl_imports, *spec_imports]:
+        if imp not in seen and imp != "import Fvspec.Impl":
+            seen.add(imp)
+            all_imports.append(imp)
+
+    code = "\n".join(["\n".join(all_imports), "", impl_body, "", spec_body])
+    compressed = lzstring.LZString().compressToBase64(code).rstrip("=")
+    return f"https://live.lean-lang.org/#codez={compressed}"
+
+
 def render_code_comparison(
     python_code: str, python_deps: list[str], lean_files: dict, compilation_status: dict
 ):
@@ -477,6 +522,13 @@ def render_code_comparison(
 
     with col2:
         st.subheader("Lean Files")
+
+        # "Open in Lean Playground" link
+        playground_url = build_playground_url(
+            lean_files.get("impl_code"), lean_files.get("spec_code")
+        )
+        if playground_url:
+            st.link_button("Open in Lean Playground", playground_url)
 
         # Tabs for different Lean files
         lean_tabs = st.tabs(["Spec.lean", "Impl.lean", "Tests.lean"])
@@ -655,11 +707,12 @@ def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     return conversations
 
 
-def render_conversation_history(messages: list[dict]):
+def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv"):
     """Render conversation with collapsible messages, role badges, code highlighting.
 
     Args:
         messages: List of message dicts from sample
+        key_prefix: Unique prefix for widget keys (avoids duplicate element IDs)
     """
     if not messages:
         return
@@ -677,6 +730,7 @@ def render_conversation_history(messages: list[dict]):
             max_value=num_pages,
             value=1,
             step=1,
+            key=f"{key_prefix}_page",
         )
     else:
         page = 1
@@ -1091,11 +1145,11 @@ def main():
             for i, agent_name in enumerate(agent_names):
                 with agent_tabs[i]:
                     messages = agent_conversations[agent_name]
-                    render_conversation_history(messages)
+                    render_conversation_history(messages, key_prefix=f"agent_{i}")
         else:
             # Fallback to top-level messages if no store conversations found
             messages = sample.get("messages", [])
-            render_conversation_history(messages)
+            render_conversation_history(messages, key_prefix="fallback")
 
 
 def cli():

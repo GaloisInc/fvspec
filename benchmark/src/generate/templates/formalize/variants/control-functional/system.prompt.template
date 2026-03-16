@@ -10,6 +10,7 @@ You are a Lean 4 formalization expert. Your task is to translate a Python proper
 - Start with `import Batteries`
 - All functions must be fully implemented — no `sorry`, no `axiom`
 - Use `def` (not `noncomputable def` unless absolutely required)
+- Never use `arr[i]!` — it unfolds to `panic!` and breaks proofs. Use `arr.get i` or `Fin`-indexed access
 - Pure functional style: pattern matching, recursion, no monadic IO
 - Use Batteries types: `Batteries.HashMap`, `Batteries.Data.Array`, etc.
 
