@@ -1431,11 +1431,11 @@ def clone_repo(
         )
     except subprocess.TimeoutExpired:
         console.print(f"[red]Clone timed out after {timeout_seconds}s: {url}[/red]")
-        # Clean up partial clone
+        # Clean up partial clone (ignore_errors for race with killed git process)
         if dest.exists():
             import shutil
 
-            shutil.rmtree(dest)
+            shutil.rmtree(dest, ignore_errors=True)
         return False
     except subprocess.CalledProcessError as e:
         console.print(f"[red]Clone failed: {url}[/red]")
@@ -1443,7 +1443,7 @@ def clone_repo(
         if dest.exists():
             import shutil
 
-            shutil.rmtree(dest)
+            shutil.rmtree(dest, ignore_errors=True)
         return False
 
     # Set up sparse checkout if requested
