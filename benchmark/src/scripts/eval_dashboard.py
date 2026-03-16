@@ -707,8 +707,125 @@ def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     return conversations
 
 
+ROLE_STYLES: dict[str, dict[str, str]] = {
+    "system": {
+        "icon": "🔧",
+        "bg": "#2d2d3d",
+        "border": "#6c6caa",
+        "label_bg": "#4a4a7a",
+    },
+    "user": {
+        "icon": "👤",
+        "bg": "#1a2e1a",
+        "border": "#4a8c4a",
+        "label_bg": "#2d5a2d",
+    },
+    "assistant": {
+        "icon": "🤖",
+        "bg": "#1a1a2e",
+        "border": "#4a6fa5",
+        "label_bg": "#2d4a6d",
+    },
+    "tool": {
+        "icon": "🔨",
+        "bg": "#2e2a1a",
+        "border": "#8c7a4a",
+        "label_bg": "#5a4d2d",
+    },
+}
+
+LONG_MESSAGE_THRESHOLD = 1500
+
+
+def _detect_lang(code: str) -> str | None:
+    """Guess language for a code block from content heuristics."""
+    if re.search(r"\b(theorem|lemma|namespace|#check|#eval|sorry)\b", code):
+        return "lean"
+    if re.search(r"\b(def |class |import |from .+ import)\b", code):
+        return "python"
+    if re.search(r"\b(function |const |let |=>)\b", code):
+        return "javascript"
+    return None
+
+
+def _render_content_block(text: str):
+    """Render a text block, splitting out fenced code blocks and <code> tags."""
+    # Split on fenced code blocks: ```lang\n...\n```
+    fenced_pattern = r"```(\w*)\n(.*?)```"
+    parts = re.split(fenced_pattern, text, flags=re.DOTALL)
+
+    # parts: [text, lang, code, text, lang, code, ...]
+    idx = 0
+    while idx < len(parts):
+        if idx % 3 == 0:
+            # Prose segment — still check for <code> tags
+            prose = parts[idx]
+            if prose.strip():
+                code_tag_pattern = r"<code>(.*?)</code>"
+                subparts = re.split(code_tag_pattern, prose, flags=re.DOTALL)
+                for j, sub in enumerate(subparts):
+                    if j % 2 == 0:
+                        if sub.strip():
+                            st.markdown(sub)
+                    else:
+                        lang = _detect_lang(sub)
+                        st.code(sub.strip(), language=lang, line_numbers=True)
+        elif idx % 3 == 1:
+            # Language tag from fenced block
+            lang_tag = parts[idx] or None
+            code_body = parts[idx + 1] if idx + 1 < len(parts) else ""
+            resolved_lang = lang_tag or _detect_lang(code_body)
+            st.code(code_body.strip(), language=resolved_lang, line_numbers=True)
+            idx += 1  # skip the code body, we consumed it
+        idx += 1
+
+
+def _render_message_content(content, msg: dict):
+    """Render message content handling str, list-of-blocks, and fallback."""
+    if isinstance(content, str):
+        text = content.strip()
+        if not text:
+            return
+        if len(text) > LONG_MESSAGE_THRESHOLD:
+            # Long message: show preview, full content in nested expander
+            preview = text[:300].replace("\n", " ")
+            st.caption(f"{preview}...")
+            with st.expander("Show full message", expanded=False):
+                _render_content_block(text)
+        else:
+            _render_content_block(text)
+    elif isinstance(content, list):
+        # Anthropic-style content blocks: [{type: "text", text: ...}, {type: "tool_use", ...}]
+        for block in content:
+            if isinstance(block, dict):
+                block_type = block.get("type", "")
+                if block_type == "text":
+                    block_text = block.get("text", "")
+                    if block_text.strip():
+                        if len(block_text) > LONG_MESSAGE_THRESHOLD:
+                            preview = block_text[:300].replace("\n", " ")
+                            st.caption(f"{preview}...")
+                            with st.expander("Show full text", expanded=False):
+                                _render_content_block(block_text)
+                        else:
+                            _render_content_block(block_text)
+                elif block_type == "tool_use":
+                    tool_name = block.get("name", "unknown")
+                    tool_input = block.get("input", {})
+                    with st.expander(f"🔧 Tool call: `{tool_name}`", expanded=False):
+                        st.json(tool_input)
+                elif block_type == "tool_result":
+                    st.json(block)
+                else:
+                    st.json(block)
+            else:
+                st.write(block)
+    else:
+        st.json(msg)
+
+
 def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv"):
-    """Render conversation with collapsible messages, role badges, code highlighting.
+    """Render conversation with role-styled messages, syntax highlighting, collapsible long content.
 
     Args:
         messages: List of message dicts from sample
@@ -745,57 +862,62 @@ def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv
         content = msg.get("content", "")
         source = msg.get("source", "")
 
-        # Role badge styling
-        role_colors = {
-            "system": "🔧",
-            "user": "👤",
-            "assistant": "🤖",
-            "tool": "🔨",
-        }
-        role_icon = role_colors.get(role, "❓")
+        style = ROLE_STYLES.get(role, ROLE_STYLES["tool"])
 
         # Create a preview of the content for the expander title
         content_preview = ""
         if isinstance(content, str) and content.strip():
-            # Get first 60 chars of content as preview
             preview_text = content.strip().replace("\n", " ")[:60]
             if len(content) > 60:
                 preview_text += "..."
             content_preview = f" - {preview_text}"
+        elif isinstance(content, list):
+            # Summarise list-of-blocks content
+            text_blocks = [
+                b.get("text", "")[:40]
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            tool_blocks = [
+                b.get("name", "?")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "tool_use"
+            ]
+            parts = []
+            if text_blocks:
+                parts.append(
+                    text_blocks[0] + ("..." if len(text_blocks[0]) >= 40 else "")
+                )
+            if tool_blocks:
+                parts.append(f"[tools: {', '.join(tool_blocks)}]")
+            if parts:
+                content_preview = f" - {' '.join(parts)}"
 
-        # Build title with source only if it exists
         source_text = f"[{source}]" if source else ""
+        title = f"{style['icon']} #{i}: {role} {source_text}{content_preview}"
 
-        with st.expander(
-            f"{role_icon} #{i}: {role} {source_text}{content_preview}", expanded=False
-        ):
-            # Check if content contains code blocks
-            if isinstance(content, str):
-                # Simple markdown rendering
-                # Look for <code> tags and render them separately
-                code_pattern = r"<code>(.*?)</code>"
-                parts = re.split(code_pattern, content, flags=re.DOTALL)
+        # Role-colored container
+        st.markdown(
+            f"""<div style="
+                border-left: 3px solid {style["border"]};
+                background: {style["bg"]};
+                padding: 2px 8px;
+                margin-bottom: 4px;
+                border-radius: 4px;
+            "><span style="
+                background: {style["label_bg"]};
+                padding: 1px 6px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                font-weight: 600;
+            ">{style["icon"]} {role.upper()}</span>
+            <span style="font-size: 0.75em; opacity: 0.7;"> #{i} {source_text}</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
-                for j, part in enumerate(parts):
-                    if j % 2 == 0:
-                        # Regular text
-                        if part.strip():
-                            st.markdown(part)
-                    else:
-                        # Code block
-                        # Try to detect language
-                        if "namespace" in part or "theorem" in part or "def " in part:
-                            lang = "lean"
-                        elif "def " in part or "import " in part:
-                            lang = "python"
-                        else:
-                            lang = None
-                        st.code(part, language=lang, line_numbers=True)
-            elif isinstance(content, list):
-                # Content is a list (tool calls, etc.)
-                st.json(content)
-            else:
-                st.json(msg)
+        with st.expander(title, expanded=False):
+            _render_message_content(content, msg)
 
 
 # ============================================================================
