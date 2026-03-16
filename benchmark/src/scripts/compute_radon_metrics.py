@@ -14,12 +14,12 @@ from datetime import datetime
 from pathlib import Path
 
 import typer
+from generate.scaffold.dataset.connection import get_session
 from rich.console import Console
 from rich.progress import track
 from rich.table import Table
 
 from generate.config import DATA_DIR
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.quality_assessment.radon_metrics import (
     compute_metrics_for_datapoint,

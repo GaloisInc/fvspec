@@ -238,6 +238,7 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import typer
+from generate.scaffold.dataset.connection import get_session
 from rich.progress import (
     BarColumn,
     Progress,
@@ -249,7 +250,6 @@ from rich.progress import (
 )
 from sqlmodel import select
 
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.dataset.queries import (
     count_total_datapoints,
