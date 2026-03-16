@@ -277,18 +277,43 @@ def main(
         f"across {len(repo_names):,} repos[/bold]"
     )
 
-    # Step 4: Process repos, streaming results to disk
+    # Step 4: Process repos, streaming results to disk (with resume support)
     outdir.mkdir(parents=True, exist_ok=True)
     pbts_path = outdir / "pbts.jsonl"
     funcs_path = outdir / "functions.jsonl"
+
+    # Resume: detect already-processed repos from existing output
+    done_repos: set[str] = set()
     func_id_counter = [0]
     ok_count = 0
     fail_count = 0
     dep_total = 0
 
+    if pbts_path.exists() and pbts_path.stat().st_size > 0:
+        with open(pbts_path) as f:
+            for line in f:
+                row = json.loads(line)
+                done_repos.add(row["repo"]["name"])
+                ok_count += 1
+                dep_count = len(json.loads(row.get("dependencies", "[]")))
+                dep_total += dep_count
+        # Count existing functions to continue IDs
+        if funcs_path.exists():
+            with open(funcs_path) as f:
+                for line in f:
+                    func_id_counter[0] += 1
+        if done_repos:
+            console.print(
+                f"  Resuming: {len(done_repos):,} repos already done "
+                f"({ok_count:,} PBTs)"
+            )
+
+    remaining = [r for r in repo_names if r not in done_repos]
+    console.print(f"  Remaining: {len(remaining):,} repos to process")
+
     with (
-        open(pbts_path, "w") as pf,
-        open(funcs_path, "w") as ff,
+        open(pbts_path, "a") as pf,
+        open(funcs_path, "a") as ff,
         Progress(
             TextColumn("[bold blue]{task.description}"),
             BarColumn(),
@@ -297,9 +322,9 @@ def main(
             console=console,
         ) as progress,
     ):
-        task = progress.add_task("Repos", total=len(repo_names))
+        task = progress.add_task("Repos", total=len(remaining))
 
-        for repo_name in repo_names:
+        for repo_name in remaining:
             pbts = groups[repo_name]
             progress.update(task, description=f"{repo_name} ({len(pbts)} PBTs)")
 
