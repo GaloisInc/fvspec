@@ -3,8 +3,7 @@
 from typer import Option, Typer
 
 from generate.config import DATA_DIR, load_config
-from generate.scaffold.dataset.connection import get_session
-from generate.scaffold.dataset.queries import sample_datapoints
+from generate.scaffold.dataset.queries import load_jsonl, sample_datapoints
 from generate.templates.formalize import (
     FormalizationVariantRegistry,
     get_formalization_prompts,
@@ -24,7 +23,7 @@ __all__ = [
 ]
 
 app = Typer()
-DEFAULT_DATASET = "pbts_full.db"
+DEFAULT_DATASET = "realpbt2.jsonl"
 
 
 @app.command()
@@ -33,7 +32,7 @@ def preview_prompts(
         DEFAULT_DATASET,
         "--data",
         "-d",
-        help="Dataset SQLite database file under benchmark/data (default: pbts_full.db).",
+        help="Dataset JSONL file under benchmark/data (default: realpbt2.jsonl).",
     ),
     variant: str = Option(
         None,
@@ -57,12 +56,12 @@ def preview_prompts(
         help="Random seed for sampling. If not specified, uses value from config.toml (default: 0).",
     ),
 ) -> None:
-    """Preview prompts for the given database and variant.
+    """Preview prompts for the given dataset and variant.
 
-    Randomly samples from the SQLite database.
+    Randomly samples from the JSONL dataset.
 
     Args:
-        data: SQLite database file name located under benchmark/data
+        data: JSONL file name located under benchmark/data
         variant: Prompt variant to preview
         prompt_type: Which prompt family to preview ('formalize' or 'deps')
         sample_size: Number of samples to randomly select
@@ -75,10 +74,9 @@ def preview_prompts(
     )
     actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
 
-    db_path = DATA_DIR / data
-
-    with get_session(db_path) as session:
-        datapoints = sample_datapoints(session, actual_sample_size, actual_ranseed)
+    data_path = DATA_DIR / data
+    all_datapoints = load_jsonl(data_path)
+    datapoints = sample_datapoints(all_datapoints, actual_sample_size, actual_ranseed)
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.formalize.impl.models import (

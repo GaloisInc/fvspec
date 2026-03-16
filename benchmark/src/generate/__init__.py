@@ -38,7 +38,7 @@ app = Typer(no_args_is_help=False, invoke_without_command=True)
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
+    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
     variant: str = Option(
         None,
         "-v",
@@ -245,7 +245,7 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
+    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
     variant: list[str] = Option(
         None,
         "-v",

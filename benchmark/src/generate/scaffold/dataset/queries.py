@@ -1,21 +1,14 @@
-"""Query functions for pbts_full.db using SQLModel.
+"""Query functions for realpbt2.jsonl dataset.
 
 All data access should go through these functions for consistency and testability.
 """
 
+import json
 import logging
 import random
-from typing import Any
+from pathlib import Path
 
-from sqlmodel import Session, func, select
-
-from generate.scaffold.dataset.models import (
-    Datapoint,
-    Function,
-    PBTFunction,
-    UnitTest,
-    UnitTestFunction,
-)
+from generate.scaffold.dataset.models import Datapoint
 
 logger = logging.getLogger(__name__)
 
@@ -27,28 +20,32 @@ logger = logging.getLogger(__name__)
 # 4. Exceed practical limits for meaningful specification generation
 MAX_DEPENDENCIES = 100
 
-# SQLite parameter limit for query batching
-# SQLite has a hard limit of 32766 parameters per query
-# We use 32700 to stay safely under the limit
-SQLITE_PARAM_BATCH_SIZE = 32700
 
-
-def _batch_items(items: list, batch_size: int = SQLITE_PARAM_BATCH_SIZE):
-    """Yield batches of items to avoid SQLite parameter limit.
+def load_jsonl(path: Path) -> list[Datapoint]:
+    """Parse a JSONL file into a list of Datapoint objects.
 
     Args:
-        items: List of items to batch
-        batch_size: Size of each batch (default: SQLITE_PARAM_BATCH_SIZE)
+        path: Path to the .jsonl file
 
-    Yields:
-        Batches of items
+    Returns:
+        List of parsed Datapoint objects
     """
-    for i in range(0, len(items), batch_size):
-        yield items[i : i + batch_size]
+    datapoints: list[Datapoint] = []
+    with open(path) as f:
+        for line_num, line in enumerate(f, 1):
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+                datapoints.append(Datapoint.model_validate(record))
+            except (json.JSONDecodeError, ValueError) as e:
+                logger.warning(f"Skipping invalid record at line {line_num}: {e}")
+    return datapoints
 
 
 def sample_datapoints(
-    session: Session,
+    datapoints: list[Datapoint],
     n: int,
     ranseed: int | None = 0,
     start_idx: int | None = None,
@@ -56,280 +53,51 @@ def sample_datapoints(
 ) -> list[Datapoint]:
     """Sample n random datapoints, filtering by dependency count.
 
-    Implements memory-efficient deterministic sampling by:
-    1. Fetching only IDs of eligible datapoints (deps <= MAX_DEPENDENCIES)
-    2. Shuffling IDs using seeded Python RNG (if start_idx/end_idx not provided)
-    3. Taking first n IDs and fetching full datapoints
-
     When start_idx and/or end_idx are provided, returns a sequential slice
-    of datapoints instead of random sampling. This enables resumable large-scale
-    runs by processing the dataset in chunks.
+    instead of random sampling.
 
     Args:
-        session: SQLModel database session
+        datapoints: Full list of datapoints to sample from
         n: Number of samples to draw (ignored if start_idx/end_idx provided)
-        ranseed: Random seed for reproducibility (default: 0, ignored if start_idx/end_idx provided)
+        ranseed: Random seed for reproducibility (default: 0)
         start_idx: Starting index in the ordered dataset (0-indexed, inclusive)
         end_idx: Ending index in the ordered dataset (0-indexed, exclusive)
 
     Returns:
-        List of randomly sampled Datapoint objects (may be fewer than n if insufficient eligible samples)
-
-    Note:
-        Uses Python's random.shuffle() for deterministic sampling since SQLite's RANDOM()
-        does not support seeding. Only loads IDs into memory, not full datapoint objects.
-
-        Sequential mode (start_idx/end_idx): Returns datapoints[start_idx:end_idx] from
-        the ordered, filtered dataset. Useful for splitting large runs across multiple jobs.
+        List of sampled Datapoint objects
     """
-    # Use json_array_length to filter by dependency count
-    # Fetch only IDs (lightweight) instead of full datapoint objects
-    # ORDER BY id ensures deterministic ordering from database
-    id_statement = (
-        select(Datapoint.id)
-        .where(func.json_array_length(Datapoint.deps) <= MAX_DEPENDENCIES)
-        .order_by(Datapoint.id)  # type: ignore[attr-defined]
-    )
+    # Filter by dependency count and sort by id for deterministic ordering
+    eligible = [dp for dp in datapoints if len(dp.dependencies) <= MAX_DEPENDENCIES]
+    eligible.sort(key=lambda dp: dp.id)
 
-    # Fetch all eligible IDs (deterministic order guaranteed by ORDER BY)
-    results = session.exec(id_statement)
-    all_ids = list(results)
-
-    # Return empty list if no eligible datapoints
-    if not all_ids:
+    if not eligible:
         return []
 
     # Sequential mode: slice by indices if provided
     if start_idx is not None or end_idx is not None:
-        # Use Python's slice semantics (None = unbounded)
-        selected_ids = all_ids[start_idx:end_idx]
-    else:
-        # Random sampling mode: shuffle and take first n
-        # Shuffle IDs using seeded RNG for deterministic sampling
-        rng = random.Random(ranseed)
-        rng.shuffle(all_ids)
+        return eligible[start_idx:end_idx]
 
-        # Take first n IDs (or all if fewer than n available)
-        sample_size = min(n, len(all_ids))
-        selected_ids = all_ids[:sample_size]
-
-    # Fetch full datapoints for selected IDs
-    datapoints_statement = select(Datapoint).where(
-        Datapoint.id.in_(selected_ids)  # type: ignore[attr-defined]
-    )
-    datapoints = list(session.exec(datapoints_statement))
-
-    # Return in correct order
-    # For sequential mode, preserve order from all_ids slice
-    # For random mode, preserve shuffled order
-    id_to_datapoint = {dp.id: dp for dp in datapoints}
-    missing_ids = [dp_id for dp_id in selected_ids if dp_id not in id_to_datapoint]
-    if missing_ids:
-        raise KeyError(
-            f"Datapoint(s) with ID(s) {missing_ids} not found in database. Data integrity issue."
-        )
-    return [id_to_datapoint[dp_id] for dp_id in selected_ids]
+    # Random sampling mode: shuffle and take first n
+    rng = random.Random(ranseed)
+    ids = list(range(len(eligible)))
+    rng.shuffle(ids)
+    sample_size = min(n, len(ids))
+    selected_indices = ids[:sample_size]
+    return [eligible[i] for i in selected_indices]
 
 
 def load_datapoints_by_id(
-    session: Session,
-    datapoint_ids: list[int],
+    datapoints: list[Datapoint],
+    ids: list[int],
 ) -> dict[int, Datapoint]:
     """Load specific datapoints by their IDs.
 
     Args:
-        session: SQLModel database session
-        datapoint_ids: List of datapoint IDs to load
+        datapoints: Full list of datapoints
+        ids: List of datapoint IDs to load
 
     Returns:
         Dictionary mapping datapoint ID to Datapoint object (only IDs that were found)
     """
-    statement = select(Datapoint).where(
-        Datapoint.id.in_(datapoint_ids)  # type: ignore[attr-defined]
-    )
-    results = session.exec(statement)
-    return {dp.id: dp for dp in results}
-
-
-def count_total_datapoints(session: Session) -> int:
-    """Get total count of datapoints in the database.
-
-    Args:
-        session: SQLModel database session
-
-    Returns:
-        Total number of datapoints
-    """
-    statement = select(func.count(Datapoint.id))
-    return session.exec(statement).one()
-
-
-def get_overlapping_unit_tests(
-    session: Session,
-    pbt_id: int,
-) -> list[dict[str, Any]]:
-    """Get unit tests that share functions with a given PBT.
-
-    This reconstructs the overlapping_tests data structure from the relational schema.
-
-    Args:
-        session: SQLModel database session
-        pbt_id: ID of the PBT to find overlaps for
-
-    Returns:
-        List of overlap dictionaries with structure:
-        [
-            {
-                "shared_functions": ["func1", "func2"],
-                "unit_tests": [
-                    {"code": "...", "name": "test_foo", ...},
-                    ...
-                ]
-            }
-        ]
-
-    Note:
-        This may be expensive for PBTs with many shared functions.
-        Consider caching or materializing this data if needed frequently.
-    """
-    # Get all function names shared by this PBT
-    shared_funcs_stmt = select(PBTFunction.function_name).where(
-        PBTFunction.pbt_id == pbt_id
-    )
-    shared_functions = list(session.exec(shared_funcs_stmt))
-
-    if not shared_functions:
-        return []
-
-    # Get all unit test IDs that use these functions
-    # Batch the query if there are many shared functions to avoid SQLite parameter limit
-    unit_test_ids = []
-    for func_batch in _batch_items(shared_functions):
-        unit_test_ids_stmt = select(UnitTestFunction.unit_test_id).where(
-            UnitTestFunction.function_name.in_(func_batch)  # type: ignore[attr-defined]
-        )
-        batch_ids = list(session.exec(unit_test_ids_stmt))
-        unit_test_ids.extend(batch_ids)
-
-    # Deduplicate IDs
-    unit_test_ids = list(set(unit_test_ids))
-
-    if not unit_test_ids:
-        return []
-
-    # Fetch the actual unit tests
-    # Batch the query if there are many unit test IDs to avoid SQLite parameter limit
-    unit_tests = []
-    for id_batch in _batch_items(unit_test_ids):
-        unit_tests_stmt = select(UnitTest).where(
-            UnitTest.id.in_(id_batch)  # type: ignore[attr-defined]
-        )
-        batch_tests = list(session.exec(unit_tests_stmt))
-        unit_tests.extend(batch_tests)
-
-    # Format as expected by existing code
-    # Group by shared functions (simplified - just one group for now)
-    return [
-        {
-            "shared_functions": shared_functions,
-            "unit_tests": [
-                {
-                    "code": ut.code,
-                    "name": ut.name,
-                    "source_file": ut.source_file,
-                    "start_line": ut.start_line,
-                    "end_line": ut.end_line,
-                }
-                for ut in unit_tests
-            ],
-        }
-    ]
-
-
-def lookup_function_exact(
-    session: Session,
-    function_name: str,
-    repo_id: int | None = None,
-) -> Function | None:
-    """Look up a function by exact name match.
-
-    Args:
-        session: SQLModel database session
-        function_name: Exact function name to look up
-        repo_id: Optional repository ID for scope-aware lookup (prefer same repo)
-
-    Returns:
-        Function object if found, None otherwise
-        If repo_id provided and multiple matches, returns same-repo match first
-    """
-    statement = select(Function).where(Function.name == function_name)
-
-    # If repo_id provided, try to get same-repo match first
-    if repo_id is not None:
-        same_repo_stmt = statement.where(Function.repo_id == repo_id)
-        result = session.exec(same_repo_stmt).first()
-        if result:
-            return result
-
-    # Fall back to any match
-    return session.exec(statement).first()
-
-
-def lookup_function_fuzzy(
-    session: Session,
-    function_name: str,
-    repo_id: int | None = None,
-    limit: int = 5,
-) -> list[Function]:
-    """Look up functions with fuzzy name matching.
-
-    Args:
-        session: SQLModel database session
-        function_name: Function name pattern (supports SQL LIKE patterns)
-        repo_id: Optional repository ID for scope-aware lookup (prefer same repo)
-        limit: Maximum number of results to return
-
-    Returns:
-        List of matching Function objects, ordered by repo match and name similarity
-    """
-    # Use SQL LIKE for fuzzy matching
-    # Try exact first, then prefix, then contains
-    patterns = [
-        function_name,  # exact
-        f"{function_name}%",  # prefix
-        f"%{function_name}%",  # contains
-    ]
-
-    results: list[Function] = []
-    for pattern in patterns:
-        statement = select(Function).where(Function.name.like(pattern)).limit(limit)  # type: ignore[attr-defined]
-
-        # If repo_id provided, prioritize same-repo matches
-        if repo_id is not None:
-            same_repo_stmt = statement.where(Function.repo_id == repo_id)
-            same_repo_results = list(session.exec(same_repo_stmt))
-            if same_repo_results:
-                return same_repo_results[:limit]
-
-        matches = list(session.exec(statement))
-        if matches:
-            return matches[:limit]
-
-    return results
-
-
-def get_associated_function_names(
-    session: Session,
-    pbt_id: int,
-) -> list[str]:
-    """Get function names associated with a PBT from pbt_functions table.
-
-    Args:
-        session: SQLModel database session
-        pbt_id: ID of the PBT
-
-    Returns:
-        List of function names associated with this PBT
-    """
-    statement = select(PBTFunction.function_name).where(PBTFunction.pbt_id == pbt_id)
-    return list(session.exec(statement))
+    id_set = set(ids)
+    return {dp.id: dp for dp in datapoints if dp.id in id_set}

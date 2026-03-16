@@ -20,7 +20,6 @@ from pydantic import ValidationError
 
 from generate.config import DATA_DIR, load_config
 from generate.scaffold.dataset import Datapoint, mk_dataset
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.function_discovery import discover_function_code
 from generate.scaffold.formalize.agent import (
     FormalizationPayload,
@@ -93,18 +92,6 @@ def workspace_setup() -> Solver:
 
 
 @solver
-def pass_session_to_state(db_path: Path) -> Solver:
-    """Inject database session into task state for function discovery."""
-
-    async def run(state: TaskState, generate: Generate) -> TaskState:
-        session = get_session(db_path)
-        state.metadata["db_session"] = session
-        return state
-
-    return run
-
-
-@solver
 def orchestrate_subagents(variant: str | None = None) -> Solver:
     """Orchestrate unified formalization: discovery → deps → unified agent → plausible.
 
@@ -135,50 +122,38 @@ def orchestrate_subagents(variant: str | None = None) -> Solver:
         if function_name.startswith("test_"):
             function_name = function_name[5:]
 
-        # Phase 0: Database work before fork() calls (deepcopy can't pickle sessions)
-        db_session = state.metadata.get("db_session")
-
-        # Discover function code
+        # Discover function code from embedded dependencies
         function_code = None
-        function_info = None
-        if db_session:
-            function_info = discover_function_code(datapoint, db_session)
-            if function_info and function_info.confidence >= 0.5:
-                function_name = function_info.name
-                function_code = function_info.code
-                state.store.set(
-                    "function_discovery",
-                    {
-                        "discovered": True,
-                        "method": function_info.discovery_method.value,
-                        "confidence": function_info.confidence,
-                        "original_name": datapoint.name,
-                        "resolved_name": function_info.name,
-                    },
-                )
-            else:
-                state.store.set(
-                    "function_discovery",
-                    {
-                        "discovered": False,
-                        "method": function_info.discovery_method.value
-                        if function_info
-                        else "failed",
-                        "confidence": function_info.confidence
-                        if function_info
-                        else 0.0,
-                        "original_name": datapoint.name,
-                        "resolved_name": function_name,
-                    },
-                )
+        function_info = discover_function_code(datapoint)
+        if function_info and function_info.confidence >= 0.5:
+            function_name = function_info.name
+            function_code = function_info.code
+            state.store.set(
+                "function_discovery",
+                {
+                    "discovered": True,
+                    "method": function_info.discovery_method.value,
+                    "confidence": function_info.confidence,
+                    "original_name": datapoint.name,
+                    "resolved_name": function_info.name,
+                },
+            )
+        else:
+            state.store.set(
+                "function_discovery",
+                {
+                    "discovered": False,
+                    "method": function_info.discovery_method.value
+                    if function_info
+                    else "failed",
+                    "confidence": function_info.confidence if function_info else 0.0,
+                    "original_name": datapoint.name,
+                    "resolved_name": function_name,
+                },
+            )
 
         # Get dependency payloads — pass pre-discovered function_info to avoid redundant call
         all_payloads = payloads_from_datapoint(datapoint, function_info=function_info)
-
-        # Close database session before fork() calls
-        if db_session:
-            db_session.close()
-            state.metadata.pop("db_session", None)
 
         # Map variant to impl style for dep formalization
         formalize_variant_name = variant or "control-functional"
@@ -541,7 +516,7 @@ def fvspec(
     """Create fvspec benchmark task with unified formalization agent.
 
     Args:
-        datafile: Path to pbts_full.db database file (relative to `./benchmark/data/`)
+        datafile: Path to JSONL data file (relative to `./benchmark/data/`)
         variant: Prompt variant name from registry.toml
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
@@ -561,9 +536,9 @@ def fvspec(
     resolved_variant = variant or registry.default_variant()
 
     # Load dataset
-    db_path = DATA_DIR / datafile
+    data_path = DATA_DIR / datafile
     dataset = mk_dataset(
-        db_path,
+        data_path,
         now,
         variant=resolved_variant,
         sample_size=sample_size,
@@ -578,7 +553,6 @@ def fvspec(
         dataset=dataset,
         setup=[
             workspace_setup(),
-            pass_session_to_state(db_path),
         ],
         solver=[
             orchestrate_subagents(variant=resolved_variant),

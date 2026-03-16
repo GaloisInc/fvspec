@@ -1,17 +1,14 @@
-"""Dataset module for building inspect_ai tasks from pbts_full.db.
+"""Dataset module for building inspect_ai tasks from realpbt2.jsonl.
 
-This module provides a SQLModel-based interface to the pbts_full.db SQLite database.
+This module provides a JSONL-based interface to the realpbt2 dataset.
 
 Public API:
-    - mk_dataset: Create dataset from pbts_full.db (primary interface)
-    - mk_dataset_from_db: Alias for mk_dataset (explicit naming)
-    - load_datapoints_by_id: Load specific datapoints from DB by ID
-    - get_session: Get database session for custom queries
-    - get_engine: Get database engine
-    - get_overlapping_unit_tests: Reconstruct unit test overlaps from DB
+    - mk_dataset: Create dataset from realpbt2.jsonl (primary interface)
+    - load_datapoints_by_id: Load specific datapoints by ID
+    - load_jsonl: Load all datapoints from JSONL file
 
     Types:
-    - Datapoint: SQLModel type for PBT datapoints (DB rows)
+    - Datapoint: Pydantic model for PBT datapoints
     - Prompt: Shared DTO for test + dependencies
 """
 
@@ -21,21 +18,18 @@ from pathlib import Path
 from inspect_ai.dataset import MemoryDataset, Sample
 from rich.console import Console
 
-# DB models and functions
-from generate.scaffold.dataset.connection import get_engine, get_session
 from generate.scaffold.dataset.function_discovery import (
     FunctionInfo,
-    lookup_function_exact,
 )
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.dataset.queries import (
-    get_overlapping_unit_tests,
+    load_datapoints_by_id as _load_by_id,
 )
 from generate.scaffold.dataset.queries import (
-    load_datapoints_by_id as _db_load_by_id,
+    load_jsonl,
 )
 from generate.scaffold.dataset.queries import (
-    sample_datapoints as _db_sample,
+    sample_datapoints as _sample,
 )
 from generate.templates.formalize import (
     FormalizationVariantRegistry as VariantRegistry,
@@ -50,14 +44,9 @@ from generate.templates.models import Prompt
 __all__ = [
     # Primary interface
     "mk_dataset",
-    "mk_dataset_from_db",  # Explicit alias
     "load_datapoints_by_id",
-    # DB utilities
-    "get_session",
-    "get_engine",
-    "get_overlapping_unit_tests",
+    "load_jsonl",
     # Function discovery
-    "lookup_function_exact",
     "FunctionInfo",
     # Shared utilities
     "datapoint_to_prompt",
@@ -80,7 +69,6 @@ def datapoint_to_prompt(dp: Datapoint) -> Prompt:
     # Infer function name from test name (remove test_ prefix)
     function_name = dp.name.replace("test_", "").replace("Test", "")
 
-    # DB datapoint stores deps as JSON string
     return Prompt(
         pbt=dp.code,
         pbt_name=dp.name,
@@ -114,7 +102,7 @@ def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
 
 
 def mk_dataset(
-    db_path: Path,
+    data_path: Path,
     date_time: datetime,
     variant: str | None = None,
     sample_size: int = 100,
@@ -124,14 +112,14 @@ def mk_dataset(
     git_commit: str | None = None,
     model: str | None = None,
 ) -> MemoryDataset:
-    """Create an inspect_ai dataset from pbts_full.db.
+    """Create an inspect_ai dataset from realpbt2.jsonl.
 
     Args:
-        db_path: Path to the pbts_full.db SQLite database
+        data_path: Path to the realpbt2.jsonl file
         date_time: Timestamp for organizing output artifacts
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset
-        ranseed: Random seed used for sampling datapoints (Note: SQLite RANDOM() limitations)
+        ranseed: Random seed used for sampling datapoints
         start_idx: Starting index for sequential sampling (0-indexed, inclusive)
         end_idx: Ending index for sequential sampling (0-indexed, exclusive)
         git_commit: Git commit hash at generation time, stored in each sample's metadata.
@@ -144,15 +132,15 @@ def mk_dataset(
     registry = VariantRegistry()
     actual_variant = variant or registry.default_variant()
 
-    # Sample datapoints from DB
-    with get_session(db_path) as session:
-        datapoints = _db_sample(
-            session,
-            n=sample_size,
-            ranseed=ranseed,
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
+    # Load and sample datapoints from JSONL
+    all_datapoints = load_jsonl(data_path)
+    datapoints = _sample(
+        all_datapoints,
+        n=sample_size,
+        ranseed=ranseed,
+        start_idx=start_idx,
+        end_idx=end_idx,
+    )
 
     console = Console()
     # Adjust warning message for sequential vs random mode
@@ -191,22 +179,18 @@ def mk_dataset(
     return MemoryDataset(samples)
 
 
-# Explicit alias for clarity
-mk_dataset_from_db = mk_dataset
-
-
 def load_datapoints_by_id(
-    db_path: Path,
+    data_path: Path,
     datapoint_ids: list[int],
 ) -> dict[int, Datapoint]:
-    """Load specific datapoints by ID from pbts_full.db.
+    """Load specific datapoints by ID from realpbt2.jsonl.
 
     Args:
-        db_path: Path to the pbts_full.db SQLite database
+        data_path: Path to the realpbt2.jsonl file
         datapoint_ids: List of datapoint IDs to load
 
     Returns:
         Dictionary mapping datapoint ID to Datapoint object
     """
-    with get_session(db_path) as session:
-        return _db_load_by_id(session, datapoint_ids)
+    all_datapoints = load_jsonl(data_path)
+    return _load_by_id(all_datapoints, datapoint_ids)
