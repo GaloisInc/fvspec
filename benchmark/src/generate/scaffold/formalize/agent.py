@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 from pathlib import Path
 
 from inspect_ai.model import (
@@ -20,7 +21,7 @@ from inspect_ai.model import (
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
-from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
+from generate.scaffold.tools.declaration import all_lean_tools
 from generate.templates.formalize import get_formalization_prompts
 
 logger = logging.getLogger(__name__)
@@ -168,25 +169,19 @@ def _validate_workspace_files(workspace: Path, state: TaskState) -> None:
         spec_code = spec_file.read_text()
         spec_has_statements = bool(re.search(r"\b(theorem|lemma|def)\b", spec_code))
 
-    # Run `lake build` via lean-lsp-mcp — the ground truth for compilation
+    # Run `lake build` directly — the ground truth for compilation
     impl_compiles = False
     spec_compiles = False
     try:
-        result = call_lean_lsp_mcp(
-            workspace=workspace,
-            tool_name="lean_build",
-            arguments={"lean_project_path": str(workspace), "output_lines": 40},
+        proc = subprocess.run(
+            ["lake", "build"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
-        content = result.get("content", [])
-        build_output = ""
-        if content and isinstance(content, list) and len(content) > 0:
-            build_output = content[0].get("text", "")
-
-        is_error = result.get("isError", False)
-        # lean_build returns isError=true on build failure, or output contains "error"
-        build_passed = not is_error and not re.search(
-            r"\berror\b", build_output, re.IGNORECASE
-        )
+        build_output = (proc.stdout + proc.stderr).strip()
+        build_passed = proc.returncode == 0
 
         if build_passed:
             impl_compiles = impl_file.exists()

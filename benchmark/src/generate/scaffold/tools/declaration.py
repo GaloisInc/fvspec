@@ -118,112 +118,22 @@ def call_lean_lsp_mcp(
 
 
 @tool  # type: ignore[arg-type]
-def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
-    """Get diagnostic messages for a Lean file using per-sample workspace."""
-
-    async def execute(file_path: str, view: ToolCallView) -> str:
-        # view: Required by inspect_ai but not used in this tool
-        """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
-
-        Args:
-            file_path: Path to the Lean file (relative to workspace or absolute)
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Diagnostic messages as formatted text
-        """
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        # Get workspace path
-        workspace_path = state.metadata.get("workspace")
-        if not workspace_path:
-            raise ToolError("No workspace path found in metadata")
-
-        workspace = Path(workspace_path)
-
-        # Call lean-lsp-mcp with this sample's workspace
-        result = call_lean_lsp_mcp(
-            workspace=workspace,
-            tool_name="lean_diagnostic_messages",
-            arguments={"file_path": file_path},
-        )
-
-        content = result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No diagnostics"))
-        return "No diagnostics"
-
-    return execute
-
-
-@tool  # type: ignore[arg-type]
-def lean_goal() -> Callable[[str, int, int | None, ToolCallView], Awaitable[str]]:
-    """Get proof goal at a specific location in a Lean file."""
+def lean_hover_info() -> Callable[[str, int, int, ToolCallView], Awaitable[str]]:
+    """Get type signature and documentation for a Lean identifier at a position."""
 
     async def execute(
-        file_path: str, line: int, column: int | None, view: ToolCallView
+        file_path: str, line: int, column: int, view: ToolCallView
     ) -> str:
-        """Get the proof goal at a specific location.
+        """Get hover information (type signature + docs) for an identifier.
 
         Args:
             file_path: Path to the Lean file
-            line: Line number
-            column: Optional column number
+            line: Line number (1-indexed)
+            column: Column number at the start of the identifier (0-indexed)
             view: Tool call context (provided by inspect_ai)
 
         Returns:
-            Goal state information
-        """
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        workspace_path = state.metadata.get("workspace")
-        if not workspace_path:
-            raise ToolError("No workspace path found in metadata")
-
-        workspace = Path(workspace_path)
-
-        arguments = {"file_path": file_path, "line": line}
-        if column is not None:
-            arguments["column"] = column
-
-        result = call_lean_lsp_mcp(
-            workspace=workspace, tool_name="lean_goal", arguments=arguments
-        )
-
-        content = result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No goal information"))
-        return "No goal information"
-
-    return execute
-
-
-@tool  # type: ignore[arg-type]
-def lean_multi_attempt() -> Callable[
-    [str, int, list[str], ToolCallView], Awaitable[str]
-]:
-    """Try multiple proof tactics and return goal states for each."""
-
-    async def execute(
-        file_path: str, line: int, snippets: list[str], view: ToolCallView
-    ) -> str:
-        """Attempt multiple Lean code snippets at a line and return diagnostics.
-
-        This tool is useful to screen different proof attempts before committing
-        to the most promising one.
-
-        Args:
-            file_path: Path to the Lean file
-            line: Line number where to attempt the snippets
-            snippets: List of Lean code snippets to try
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Goal states and diagnostics for each snippet
+            Type signature and documentation for the identifier
         """
         state = sample_state()
         if not state:
@@ -237,14 +147,14 @@ def lean_multi_attempt() -> Callable[
 
         result = call_lean_lsp_mcp(
             workspace=workspace,
-            tool_name="lean_multi_attempt",
-            arguments={"file_path": file_path, "line": line, "snippets": snippets},
+            tool_name="lean_hover_info",
+            arguments={"file_path": file_path, "line": line, "column": column},
         )
 
         content = result.get("content", [])
         if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No results"))
-        return "No results"
+            return str(content[0].get("text", "No hover information"))
+        return "No hover information"
 
     return execute
 
@@ -316,16 +226,18 @@ def lean_build() -> Callable[[ToolCallView], Awaitable[str]]:
 
         workspace = Path(workspace_path)
 
-        result = call_lean_lsp_mcp(
-            workspace=workspace,
-            tool_name="lean_build",
-            arguments={"lean_project_path": str(workspace), "output_lines": 40},
+        result = subprocess.run(
+            ["lake", "build"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
         )
 
-        content = result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "Build completed"))
-        return "Build completed (no output)"
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            return output or "Build succeeded"
+        return output or "Build failed"
 
     return execute
 
@@ -474,16 +386,11 @@ def workspace_utility_tools() -> list:
 def lean_lsp_mcp_tools() -> list:
     """Construct Lean LSP tools that wrap lean-lsp-mcp server.
 
-    These tools spawn lean-lsp-mcp as a subprocess per call, setting the
-    LEAN_PROJECT_PATH environment variable to the sample's workspace.
-    This allows parallel execution while maintaining LSP functionality.
-
-    These are wrappers around the actual MCP server tools.
+    Only lean_hover_info and lean_local_search are routed through lean-lsp-mcp.
+    lean_build runs lake directly via subprocess.
     """
     return [
-        lean_diagnostic_messages(),
-        lean_goal(),
-        lean_multi_attempt(),
+        lean_hover_info(),
         lean_local_search(),
         lean_build(),
     ]
