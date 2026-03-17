@@ -50,6 +50,9 @@ ci-digest = "scripts.ci.ci_digest:app"
 create-ci-db = "scripts.ci.create_ci_db:app"
 postprod = "scripts.postproduction:app"
 fix-eval-status = "scripts.ops.fix_eval_status:main"
+dedup-realpbt = "scripts.analysis.dedup:app"
+extract-deps = "scripts.analysis.extract_deps:app"
+realpbt-pipeline = "scripts.analysis.pipeline:app"
 
 [tool.pytest.ini_options]
 filterwarnings = [
