@@ -736,9 +736,13 @@ LONG_MESSAGE_THRESHOLD = 1500
 
 
 def _detect_lang(code: str) -> str | None:
-    """Guess language for a code block from content heuristics."""
+    """Guess language for a code block from content heuristics.
+
+    Returns a Prism.js-supported language name, or None for plain text.
+    Lean is not supported by Prism, so it falls back to None.
+    """
     if re.search(r"\b(theorem|lemma|namespace|#check|#eval|sorry)\b", code):
-        return "lean"
+        return None  # Lean: Prism doesn't support it, plain text is fine
     if re.search(r"\b(def |class |import |from .+ import)\b", code):
         return "python"
     if re.search(r"\b(function |const |let |=>)\b", code):
@@ -772,19 +776,49 @@ def _render_content_block(text: str):
             # Language tag from fenced block
             lang_tag = parts[idx] or None
             code_body = parts[idx + 1] if idx + 1 < len(parts) else ""
+            # Map unsupported Prism languages to None (plain text)
+            _UNSUPPORTED = {"lean"}
+            if lang_tag in _UNSUPPORTED:
+                lang_tag = None
             resolved_lang = lang_tag or _detect_lang(code_body)
             st.code(code_body.strip(), language=resolved_lang, line_numbers=True)
             idx += 1  # skip the code body, we consumed it
         idx += 1
 
 
+_WRITE_TOOL_NAMES = {"write_lean_impl", "write_lean_spec"}
+
+
+def _render_tool_calls(tool_calls: list) -> None:
+    """Render inspect_ai tool_calls list (separate from content blocks)."""
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function", "unknown")
+        args = tc.get("arguments", {})
+        if fn in _WRITE_TOOL_NAMES and isinstance(args, dict) and "code" in args:
+            st.caption(f"🔧 `{fn}`")
+            code = args["code"]
+            lang = _detect_lang(code)
+            st.code(code, language=lang, line_numbers=True)
+        else:
+            # Show other tool calls (diagnostics, search, etc.) compactly
+            display_args = (
+                {k: v for k, v in args.items() if k != "view"}
+                if isinstance(args, dict)
+                else args
+            )
+            st.caption(f"🔧 `{fn}` — {display_args}")
+
+
 def _render_message_content(content, msg: dict):
-    """Render message content handling str, list-of-blocks, and fallback."""
+    """Render message content handling str, list-of-blocks, tool_calls, and fallback."""
     if isinstance(content, str):
         text = content.strip()
         if not text:
-            return
-        _render_content_block(text)
+            pass  # fall through to tool_calls below
+        else:
+            _render_content_block(text)
     elif isinstance(content, list):
         # Anthropic-style content blocks: [{type: "text", text: ...}, {type: "tool_use", ...}]
         for block in content:
@@ -797,14 +831,19 @@ def _render_message_content(content, msg: dict):
                 elif block_type == "tool_use":
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
-                    with st.expander(f"🔧 Tool call: `{tool_name}`", expanded=False):
-                        st.json(tool_input)
+                    st.caption(f"🔧 Tool call: `{tool_name}`")
+                    st.json(tool_input)
                 elif block_type == "tool_result":
                     st.json(block)
                 else:
                     st.json(block)
             else:
                 st.write(block)
+
+    # inspect_ai stores tool calls in a separate top-level field
+    tool_calls = msg.get("tool_calls") or []
+    if tool_calls:
+        _render_tool_calls(tool_calls)
     else:
         st.json(msg)
 
@@ -857,6 +896,15 @@ def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv
                 parts.append(f"[tools: {', '.join(tool_blocks)}]")
             if parts:
                 content_preview = f" - {' '.join(parts)}"
+
+        # Also check inspect_ai's top-level tool_calls field
+        if not content_preview:
+            tool_calls = msg.get("tool_calls") or []
+            if tool_calls and isinstance(tool_calls, list):
+                fn_names = [
+                    tc.get("function", "?") for tc in tool_calls if isinstance(tc, dict)
+                ]
+                content_preview = f" - [calls: {', '.join(fn_names)}]"
 
         source_text = f"[{source}]" if source else ""
         title = f"{style['icon']} #{i}: {role} {source_text}{content_preview}"
