@@ -220,9 +220,6 @@ def extract_lean_files(sample: dict) -> dict:
         "spec_code": store.get("spec_result", {}).get("lean_code")
         if store.get("spec_result")
         else None,
-        "tests_code": store.get("units_result", {}).get("lean_code")
-        if store.get("units_result")
-        else None,
     }
 
 
@@ -237,15 +234,12 @@ def extract_compilation_status(sample: dict) -> dict:
     """
     store = sample.get("store", {})
     spec_result = store.get("spec_result", {})
-    units_result = store.get("units_result", {})
 
     return {
         "spec_compiles": spec_result.get("compiles", False),
         "spec_has_sorry": spec_result.get("has_sorry", False),
         "spec_has_statements": spec_result.get("has_statements", False),
         "impl_compiles": store.get("impl_result", {}).get("compiles", False),
-        "units_test_count": units_result.get("test_count", 0),
-        "units_has_tests": units_result.get("has_tests", False),
     }
 
 
@@ -313,7 +307,7 @@ def apply_filters(samples: dict, filters: dict) -> dict:
 
     Args:
         samples: Dict of sample_id -> sample_data
-        filters: Dict with keys: variant, success_only, has_unit_tests, search_query
+        filters: Dict with keys: variant, success_only, search_query
 
     Returns:
         Filtered dict of samples
@@ -324,7 +318,6 @@ def apply_filters(samples: dict, filters: dict) -> dict:
         try:
             # Extract metadata for filtering
             metadata_summary = extract_metadata_summary(sample)
-            store = sample.get("store", {})
 
             # Variant filter (only apply if variant is specified and not "All")
             if filters.get("variant"):
@@ -334,12 +327,6 @@ def apply_filters(samples: dict, filters: dict) -> dict:
             # Success filter
             if filters.get("success_only"):
                 if not metadata_summary["success"]:
-                    continue
-
-            # Unit tests filter
-            if filters.get("has_unit_tests"):
-                units_result = store.get("units_result", {})
-                if not units_result.get("has_tests", False):
                     continue
 
             # Search query (test name or sample ID)
@@ -505,7 +492,7 @@ def render_code_comparison(
     Args:
         python_code: Python PBT source code
         python_deps: List of dependency names
-        lean_files: Dict with impl_code, spec_code, tests_code
+        lean_files: Dict with impl_code, spec_code
         compilation_status: Dict with compilation status flags
     """
     col1, col2 = st.columns(2)
@@ -530,7 +517,7 @@ def render_code_comparison(
             st.link_button("Open in Lean Playground", playground_url)
 
         # Tabs for different Lean files
-        lean_tabs = st.tabs(["Spec.lean", "Impl.lean", "Tests.lean"])
+        lean_tabs = st.tabs(["Spec.lean", "Impl.lean"])
 
         with lean_tabs[0]:
             if lean_files["spec_code"]:
@@ -552,12 +539,6 @@ def render_code_comparison(
                 if compilation_status["impl_compiles"]:
                     st.caption("✓ Compiles")
                 st.code(lean_files["impl_code"], language="lean", line_numbers=True)
-
-        with lean_tabs[2]:
-            if lean_files["tests_code"]:
-                if compilation_status["units_has_tests"]:
-                    st.caption(f"✓ {compilation_status['units_test_count']} tests")
-                st.code(lean_files["tests_code"], language="lean", line_numbers=True)
 
 
 def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict):
@@ -606,7 +587,7 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
 
     # Compilation status
     st.subheader("Compilation Status")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("**Spec.lean:**")
@@ -619,14 +600,6 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col2:
         st.markdown("**Impl.lean:**")
         st.markdown(f"{'✓' if compilation_status['impl_compiles'] else '✗'} Compiles")
-
-    with col3:
-        st.markdown("**Tests.lean:**")
-        st.markdown(
-            f"{'✓' if compilation_status['units_has_tests'] else '✗'} Has tests"
-        )
-        if compilation_status["units_has_tests"]:
-            st.markdown(f"Test count: {compilation_status['units_test_count']}")
 
     st.divider()
 
@@ -1104,7 +1077,6 @@ def main():
 
         filter_variant = st.selectbox("Variant:", variants, key="filter_variant")
         filter_success = st.checkbox("Success only", key="filter_success")
-        filter_unit_tests = st.checkbox("Has unit tests", key="filter_unit_tests")
         search_query = st.text_input(
             "Search:", key="search_query", placeholder="Test name or sample ID"
         )
@@ -1113,7 +1085,6 @@ def main():
         filters = {
             "variant": filter_variant if filter_variant != "All" else None,
             "success_only": filter_success,
-            "has_unit_tests": filter_unit_tests,
             "search_query": search_query if search_query else None,
         }
 

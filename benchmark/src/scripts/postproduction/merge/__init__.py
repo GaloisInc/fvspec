@@ -4,7 +4,7 @@ This CLI tool merges sample data from multiple runs listed in runs.txt
 into a single JSONL file where each line contains all data for one sample:
 - datapoint.json fields
 - qa.json fields
-- Lean code (spec, impl, tests)
+- Lean code (spec, impl)
 - Run provenance
 
 The output is automatically deduplicated by sample_id, keeping the highest
@@ -74,11 +74,9 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
     # Read Lean code files
     spec_file = sample_dir / "Spec.lean"
     impl_file = sample_dir / "Impl.lean"
-    tests_file = sample_dir / "Tests.lean"
 
     spec_code = spec_file.read_text() if spec_file.exists() else None
     impl_code = impl_file.read_text() if impl_file.exists() else None
-    tests_code = tests_file.read_text() if tests_file.exists() else None
 
     # Combine all data
     combined = {
@@ -86,7 +84,6 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
         **qa,  # All fields from qa.json
         "spec": spec_code,
         "impl": impl_code,
-        "tests": tests_code,
         "run_provenance": run_name,  # Which run this sample came from
     }
 
@@ -181,7 +178,7 @@ def main(
     a JSONL file where each line contains all data for one sample:
     - All fields from datapoint.json
     - All fields from qa.json
-    - Lean code (spec, impl, tests) as string fields
+    - Lean code (spec, impl) as string fields
     - run_provenance field indicating which run it came from
 
     When duplicate sample_ids are found across runs, automatically keeps

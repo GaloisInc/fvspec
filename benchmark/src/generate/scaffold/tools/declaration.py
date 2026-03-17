@@ -353,7 +353,7 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
                 f"#eval statements should NOT be included in Spec.lean because:\n"
                 f"1. Spec.lean should only contain theorem declarations (with sorry), not executable code\n"
                 f"2. If you're including Impl definitions here, they belong in Impl.lean instead\n"
-                f"3. #eval indicates testing behavior which belongs in Tests.lean\n\n"
+                f"3. #eval indicates executable testing behavior, not theorem declarations\n\n"
                 f"Found:\n"
             )
             for stmt in eval_statements:
