@@ -111,7 +111,7 @@ def formalization_agent(payload: FormalizationPayload, workspace: Path) -> Solve
         # Read final result from workspace files (agent wrote them via tools)
         result = _read_result_from_workspace(workspace)
 
-        # Validate both files via LSP
+        # Validate both files via lake build
         _validate_workspace_files(workspace, state)
 
         state.store.set("formalization_result", result.model_dump())
@@ -149,51 +149,60 @@ def _read_result_from_workspace(workspace: Path) -> FormalizationResult:
 
 
 def _validate_workspace_files(workspace: Path, state: TaskState) -> None:
-    """Validate both Lean files via LSP diagnostics. Stores results in state.store."""
+    """Validate Lean files via actual `lake build` compilation.
+
+    Previous LSP-diagnostic-only checks gave false positives (code reported as
+    compiling when `lake build` would fail).  Running the real compiler is the
+    only reliable way to determine compilation status.
+    """
     impl_file = workspace / "Fvspec" / "Impl.lean"
     spec_file = workspace / "Fvspec" / "Spec.lean"
 
-    # Validate Impl.lean
-    impl_compiles = False
+    # Static checks (don't need the compiler)
     impl_has_sorry = False
-    if impl_file.exists():
-        try:
-            impl_code = impl_file.read_text()
-            impl_has_sorry = bool(re.search(r"\bsorry\b", impl_code))
-
-            lsp_result = call_lean_lsp_mcp(
-                workspace=workspace,
-                tool_name="lean_diagnostic_messages",
-                arguments={"file_path": str(impl_file)},
-            )
-            diagnostics = ""
-            content = lsp_result.get("content", [])
-            if content and isinstance(content, list) and len(content) > 0:
-                diagnostics = content[0].get("text", "")
-            impl_compiles = not bool(re.search(r"\berror:", diagnostics, re.IGNORECASE))
-        except Exception as e:
-            logger.warning(f"Impl.lean validation failed: {e}")
-
-    # Validate Spec.lean
-    spec_compiles = False
     spec_has_statements = False
+    if impl_file.exists():
+        impl_code = impl_file.read_text()
+        impl_has_sorry = bool(re.search(r"\bsorry\b", impl_code))
     if spec_file.exists():
-        try:
-            spec_code = spec_file.read_text()
-            spec_has_statements = bool(re.search(r"\b(theorem|lemma|def)\b", spec_code))
+        spec_code = spec_file.read_text()
+        spec_has_statements = bool(re.search(r"\b(theorem|lemma|def)\b", spec_code))
 
-            lsp_result = call_lean_lsp_mcp(
-                workspace=workspace,
-                tool_name="lean_diagnostic_messages",
-                arguments={"file_path": str(spec_file)},
-            )
-            diagnostics = ""
-            content = lsp_result.get("content", [])
-            if content and isinstance(content, list) and len(content) > 0:
-                diagnostics = content[0].get("text", "")
-            spec_compiles = not bool(re.search(r"\berror:", diagnostics, re.IGNORECASE))
-        except Exception as e:
-            logger.warning(f"Spec.lean validation failed: {e}")
+    # Run `lake build` via lean-lsp-mcp — the ground truth for compilation
+    impl_compiles = False
+    spec_compiles = False
+    try:
+        result = call_lean_lsp_mcp(
+            workspace=workspace,
+            tool_name="lean_build",
+            arguments={"lean_project_path": str(workspace), "output_lines": 40},
+        )
+        content = result.get("content", [])
+        build_output = ""
+        if content and isinstance(content, list) and len(content) > 0:
+            build_output = content[0].get("text", "")
+
+        is_error = result.get("isError", False)
+        # lean_build returns isError=true on build failure, or output contains "error"
+        build_passed = not is_error and not re.search(
+            r"\berror\b", build_output, re.IGNORECASE
+        )
+
+        if build_passed:
+            impl_compiles = impl_file.exists()
+            spec_compiles = spec_file.exists()
+        else:
+            logger.info(f"lake build failed:\n{build_output}")
+            # Parse which files have errors to give per-file granularity
+            impl_has_error = "Impl.lean" in build_output
+            spec_has_error = "Spec.lean" in build_output
+            if impl_has_error and not spec_has_error:
+                spec_compiles = spec_file.exists()
+            elif spec_has_error and not impl_has_error:
+                impl_compiles = impl_file.exists()
+            # If both or neither mentioned, both fail (conservative)
+    except Exception as e:
+        logger.warning(f"lake build validation failed: {e}")
 
     state.store.set(
         "validation",

@@ -291,6 +291,46 @@ def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
 
 
 @tool  # type: ignore[arg-type]
+def lean_build() -> Callable[[ToolCallView], Awaitable[str]]:
+    """Run `lake build` on the workspace to verify full compilation."""
+
+    async def execute(view: ToolCallView) -> str:
+        """Build the Lean project with `lake build` and return the result.
+
+        Use this after writing files to verify they compile correctly.
+        LSP diagnostics can miss errors that only appear during a full build.
+
+        Args:
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Build output (errors/warnings) or success message
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        result = call_lean_lsp_mcp(
+            workspace=workspace,
+            tool_name="lean_build",
+            arguments={"lean_project_path": str(workspace), "output_lines": 40},
+        )
+
+        content = result.get("content", [])
+        if content and isinstance(content, list) and len(content) > 0:
+            return str(content[0].get("text", "Build completed"))
+        return "Build completed (no output)"
+
+    return execute
+
+
+@tool  # type: ignore[arg-type]
 def write_lean_impl() -> Callable[[str, ToolCallView], Awaitable[str]]:
     """Write Lean implementation code to Impl.lean in the workspace for LSP analysis.
 
@@ -445,6 +485,7 @@ def lean_lsp_mcp_tools() -> list:
         lean_goal(),
         lean_multi_attempt(),
         lean_local_search(),
+        lean_build(),
     ]
 
 
