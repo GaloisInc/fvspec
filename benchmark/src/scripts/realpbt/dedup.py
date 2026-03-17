@@ -24,7 +24,7 @@ from collections import defaultdict
 from pathlib import Path
 
 import typer
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 from rich.console import Console
 from rich.table import Table
 
@@ -69,9 +69,8 @@ def _load_pbts() -> list[dict]:
     """Load PBTs from HuggingFace into a list of dicts."""
     console.print("[bold]Loading PBTs from HuggingFace...[/bold]")
     ds = load_dataset("Benchify/realpbt", data_files="pbts.jsonl", split="train")
-    rows = []
-    for i in range(len(ds)):
-        rows.append(ds[i])
+    assert isinstance(ds, Dataset)
+    rows = list(ds)
     console.print(f"  Loaded {len(rows):,} PBTs")
     return rows
 

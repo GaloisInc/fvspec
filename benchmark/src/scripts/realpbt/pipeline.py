@@ -38,8 +38,9 @@ from rich.progress import (
     TimeElapsedColumn,
 )
 
-from scripts.analysis.dedup import _dedup, _load_pbts, _print_stats
-from scripts.analysis.extract_deps import (
+from scripts.realpbt.dedup import _dedup, _load_pbts, _print_stats
+from scripts.realpbt.extract_deps import (
+    RepoIndex,
     build_repo_index,
     clone_repo,
     extract_dependencies,
@@ -72,7 +73,7 @@ def _group_by_repo(rows: list[dict]) -> dict[str, list[dict]]:
 
 def _extract_one_pbt(
     row: dict,
-    index: object,
+    index: RepoIndex,
     repo_root: Path,
 ) -> dict:
     """Extract deps for a single PBT. Returns the row with updated deps."""
@@ -296,9 +297,7 @@ def main(
     # Skip repos alphabetically before the last completed one (avoids
     # re-attempting dead/failed repos that were already tried).
     last_done = max(done_repos) if done_repos else ""
-    remaining = [
-        r for r in repo_names if r not in done_repos and r >= last_done
-    ]
+    remaining = [r for r in repo_names if r not in done_repos and r >= last_done]
     console.print(f"  Remaining: {len(remaining):,} repos to process")
 
     with (
