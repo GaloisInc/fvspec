@@ -16,7 +16,6 @@ import streamlit as st
 
 # Constants
 DEFAULT_ARTIFACTS_DIR = Path("benchmark/artifacts/runs")
-MESSAGES_PER_PAGE = 15
 
 
 def get_artifacts_dir() -> Path:
@@ -785,14 +784,7 @@ def _render_message_content(content, msg: dict):
         text = content.strip()
         if not text:
             return
-        if len(text) > LONG_MESSAGE_THRESHOLD:
-            # Long message: show preview, full content in nested expander
-            preview = text[:300].replace("\n", " ")
-            st.caption(f"{preview}...")
-            with st.expander("Show full message", expanded=False):
-                _render_content_block(text)
-        else:
-            _render_content_block(text)
+        _render_content_block(text)
     elif isinstance(content, list):
         # Anthropic-style content blocks: [{type: "text", text: ...}, {type: "tool_use", ...}]
         for block in content:
@@ -801,13 +793,7 @@ def _render_message_content(content, msg: dict):
                 if block_type == "text":
                     block_text = block.get("text", "")
                     if block_text.strip():
-                        if len(block_text) > LONG_MESSAGE_THRESHOLD:
-                            preview = block_text[:300].replace("\n", " ")
-                            st.caption(f"{preview}...")
-                            with st.expander("Show full text", expanded=False):
-                                _render_content_block(block_text)
-                        else:
-                            _render_content_block(block_text)
+                        _render_content_block(block_text)
                 elif block_type == "tool_use":
                     tool_name = block.get("name", "unknown")
                     tool_input = block.get("input", {})
@@ -823,40 +809,20 @@ def _render_message_content(content, msg: dict):
         st.json(msg)
 
 
-def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv"):
+def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv"):  # noqa: ARG001
     """Render conversation with role-styled messages, syntax highlighting, collapsible long content.
 
     Args:
         messages: List of message dicts from sample
-        key_prefix: Unique prefix for widget keys (avoids duplicate element IDs)
+        key_prefix: Unused; kept for call-site compatibility
     """
     if not messages:
         return
 
     st.subheader(f"Conversation ({len(messages)} messages)")
 
-    # Pagination controls
-    messages_per_page = MESSAGES_PER_PAGE
-    num_pages = (len(messages) + messages_per_page - 1) // messages_per_page
-
-    if num_pages > 1:
-        page = st.number_input(
-            f"Page (1-{num_pages}):",
-            min_value=1,
-            max_value=num_pages,
-            value=1,
-            step=1,
-            key=f"{key_prefix}_page",
-        )
-    else:
-        page = 1
-
-    start_idx = (page - 1) * messages_per_page
-    end_idx = min(start_idx + messages_per_page, len(messages))
-    page_messages = messages[start_idx:end_idx]
-
     # Render messages
-    for i, msg in enumerate(page_messages, start=start_idx + 1):
+    for i, msg in enumerate(messages, start=1):
         role = msg.get("role", "unknown")
         content = msg.get("content", "")
         source = msg.get("source", "")
