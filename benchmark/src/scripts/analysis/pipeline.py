@@ -1,16 +1,14 @@
 """Full pipeline: dedup → extract deps → JSONL dump for HuggingFace upload.
 
-Produces two HuggingFace-idiomatic JSONL files matching the original
-Benchify/realpbt schema:
-  - pbts.jsonl:      same schema as original, with improved dependency names
-  - functions.jsonl:  extracted functions with full source code
+Produces a single denormalized JSONL file (realpbt2.jsonl) where each row is a
+PBT with its dependencies inlined — no join table needed.
 
 Processes the Benchify/realpbt dataset end-to-end:
 1. Deduplicates by collapsing forked repositories
 2. Drops repos that cannot be cloned (deleted, private, etc.)
 3. Clones each repo (with timeout), builds a tree-sitter index
 4. Extracts depth-bounded dependencies for each PBT (up to 8 in parallel per repo)
-5. Writes pbts.jsonl + functions.jsonl matching the original HF schema
+5. Writes a single realpbt2.jsonl with deps embedded per row
 
 Usage:
     uv run realpbt-pipeline                                # full run
@@ -178,10 +176,26 @@ def _process_repo(
     return out
 
 
-def _row_to_pbt(row: dict) -> dict:
-    """Convert an internal row to the pbts.jsonl format (matches original HF schema)."""
+def _row_to_jsonl(row: dict) -> dict:
+    """Convert an internal row to a single denormalized JSONL row.
+
+    Each row contains the PBT metadata plus its dependencies inlined
+    with full source code — no join table needed.
+    """
     deps = row.get("_extracted_deps", [])
-    dep_names = [d["name"] for d in deps]
+    dependencies = [
+        {
+            "name": d["name"],
+            "qualified_name": d["qualified_name"],
+            "code": d["code"],
+            "language": row.get("language", "python"),
+            "source_file": d["file_path"],
+            "depth": d["depth"],
+            "kind": d["kind"],
+            "resolution": d["resolution"],
+        }
+        for d in deps
+    ]
 
     return {
         "id": row["id"],
@@ -191,39 +205,18 @@ def _row_to_pbt(row: dict) -> dict:
         "source_file": row.get("source_file"),
         "start_line": row.get("start_line"),
         "end_line": row.get("end_line"),
-        "dependencies": json.dumps(dep_names),
         "repo": row["repo"],
         "metrics": row.get("metrics"),
         "summary": row.get("summary"),
+        "dependencies": dependencies,
     }
-
-
-def _deps_to_functions(row: dict, func_id_counter: list[int]) -> list[dict]:
-    """Convert extracted deps to functions.jsonl rows (matches original HF schema)."""
-    deps = row.get("_extracted_deps", [])
-    funcs = []
-    for d in deps:
-        func_id_counter[0] += 1
-        funcs.append(
-            {
-                "id": func_id_counter[0],
-                "name": d["name"],
-                "code": d["code"],
-                "language": row.get("language", "python"),
-                "source_file": d["file_path"],
-                "start_line": None,
-                "end_line": None,
-                "repo": row["repo"],
-            }
-        )
-    return funcs
 
 
 @app.command()
 def main(
     outdir: Path = typer.Option(
         Path("artifacts/realpbt2"),
-        help="Output directory (will contain pbts.jsonl + functions.jsonl).",
+        help="Output directory (will contain realpbt2.jsonl).",
     ),
     limit: int | None = typer.Option(None, help="Limit to N repos (for testing)."),
     workers: int = typer.Option(8, help="Max parallel PBTs per repo."),
@@ -279,41 +272,37 @@ def main(
 
     # Step 4: Process repos, streaming results to disk (with resume support)
     outdir.mkdir(parents=True, exist_ok=True)
-    pbts_path = outdir / "pbts.jsonl"
-    funcs_path = outdir / "functions.jsonl"
+    out_path = outdir / "realpbt2.jsonl"
 
     # Resume: detect already-processed repos from existing output
     done_repos: set[str] = set()
-    func_id_counter = [0]
     ok_count = 0
     fail_count = 0
     dep_total = 0
 
-    if pbts_path.exists() and pbts_path.stat().st_size > 0:
-        with open(pbts_path) as f:
+    if out_path.exists() and out_path.stat().st_size > 0:
+        with open(out_path) as f:
             for line in f:
                 row = json.loads(line)
                 done_repos.add(row["repo"]["name"])
                 ok_count += 1
-                dep_count = len(json.loads(row.get("dependencies", "[]")))
-                dep_total += dep_count
-        # Count existing functions to continue IDs
-        if funcs_path.exists():
-            with open(funcs_path) as f:
-                for line in f:
-                    func_id_counter[0] += 1
+                dep_total += len(row.get("dependencies", []))
         if done_repos:
             console.print(
                 f"  Resuming: {len(done_repos):,} repos already done "
                 f"({ok_count:,} PBTs)"
             )
 
-    remaining = [r for r in repo_names if r not in done_repos]
+    # Skip repos alphabetically before the last completed one (avoids
+    # re-attempting dead/failed repos that were already tried).
+    last_done = max(done_repos) if done_repos else ""
+    remaining = [
+        r for r in repo_names if r not in done_repos and r >= last_done
+    ]
     console.print(f"  Remaining: {len(remaining):,} repos to process")
 
     with (
-        open(pbts_path, "a") as pf,
-        open(funcs_path, "a") as ff,
+        open(out_path, "a") as outf,
         Progress(
             TextColumn("[bold blue]{task.description}"),
             BarColumn(),
@@ -331,21 +320,17 @@ def main(
             repo_results = _process_repo(repo_name, pbts, workers, clone_timeout)
             for result in repo_results:
                 if result.get("_dep_status") == "ok":
-                    pf.write(json.dumps(_row_to_pbt(result)) + "\n")
-                    for func in _deps_to_functions(result, func_id_counter):
-                        ff.write(json.dumps(func) + "\n")
+                    outf.write(json.dumps(_row_to_jsonl(result)) + "\n")
                     dep_total += len(result.get("_extracted_deps", []))
                     ok_count += 1
                 else:
                     fail_count += 1
 
-            pf.flush()
-            ff.flush()
+            outf.flush()
             progress.advance(task)
 
     console.print("\n[bold]Results[/bold]")
-    console.print(f"  PBTs:      {ok_count:,} → {pbts_path}")
-    console.print(f"  Functions: {func_id_counter[0]:,} → {funcs_path}")
+    console.print(f"  PBTs:      {ok_count:,} → {out_path}")
     console.print(
         f"  Dropped:   {fail_count:,} (clone failed / file not found / errors)"
     )
