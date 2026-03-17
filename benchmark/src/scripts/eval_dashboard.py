@@ -598,7 +598,6 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col1:
         st.markdown(f"**Sample ID:** {metadata['sample_id']}")
         st.markdown(f"**Test Name:** {metadata['test_name']}")
-        st.markdown(f"**Variant:** {metadata['variant']}")
 
     with col2:
         st.markdown(f"**Model:** {metadata['model']}")
@@ -1189,7 +1188,7 @@ def main():
     scores = extract_scores(sample)
 
     # Sample header with bookmark button
-    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
     with col1:
         st.metric("Sample ID", metadata["sample_id"])
     with col2:
@@ -1200,10 +1199,8 @@ def main():
             else metadata["test_name"],
         )
     with col3:
-        st.metric("Variant", metadata["variant"])
-    with col4:
         st.metric("Success", "✓" if metadata["success"] else "✗")
-    with col5:
+    with col4:
         # Bookmark button
         is_bookmarked = (
             str(st.session_state.current_eval_path),
