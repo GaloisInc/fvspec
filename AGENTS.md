@@ -9,7 +9,7 @@ fvspec is a benchmark for evaluating AI models on formal verification tasks. Ext
 **Goal:** Translate Python PBTs into Lean 4 specifications with `sorry` placeholders.
 
 **Key principles:**
-- Two approaches: **functional** (FVAPPS recursion) and **mvcgen** (imperative Hoare logic)
+- Single unified formalization agent produces both `Impl.lean` and `Spec.lean`
 - Real-world tests to avoid contamination
 - Structural faithfulness metrics
 - Interactive LSP via MCP tools
@@ -19,8 +19,8 @@ fvspec is a benchmark for evaluating AI models on formal verification tasks. Ext
 
 ## Repository Structure
 
-- **`/benchmark`** - Benchmark generation (`inspect_ai`, SQLite, three-agent orchestration) and postproduction pipeline
-  - `src/generate/` - Core benchmark generation (impl, spec, units agents)
+- **`/benchmark`** - Benchmark generation (`inspect_ai`, JSONL, unified formalization agent) and postproduction pipeline
+  - `src/generate/` - Core benchmark generation (dep formalization + unified formalization agent)
   - `src/scripts/postproduction/` - Post-processing tools (merge, grader, W&B accumulator)
 - **`/baselines`** - Baseline model evaluations (minimal currently)
 - **`/leaderboard`** - Public leaderboard (Next.js, Hono API, BullMQ worker)
