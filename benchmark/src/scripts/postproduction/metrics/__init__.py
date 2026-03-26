@@ -58,7 +58,7 @@ def main(
     """Compute Lean code metrics for benchmark samples.
 
     Reads a merged JSONL file and computes structure and complexity metrics
-    for Lean code (Spec.lean, Impl.lean, Tests.lean).
+    for Lean code (Spec.lean, Impl.lean).
 
     **Default behavior**: Automatically computes metrics for samples missing them (resume-safe).
     Already-computed samples are skipped. Use --retry-failed to also retry samples with errors.

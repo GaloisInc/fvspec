@@ -26,9 +26,6 @@ from typing import Any
 
 # Fields to remove from the final output
 FIELDS_TO_REMOVE = {
-    # Tests.lean field - mostly vacuous (94.8% have no real tests)
-    # Only 5.2% have actual test code, 21.5% are LLM hallucinations with .done stubs
-    "tests",
     "run_provenance",
     # not informative
     "has_unit_tests",

@@ -8,19 +8,15 @@ from __future__ import annotations
 
 import logging
 import re
+import subprocess
 from pathlib import Path
 
 from inspect_ai.model import ChatMessageSystem, ChatMessageUser, get_model
 from inspect_ai.solver import Generate, Solver, TaskState, solver
 from pydantic import BaseModel, Field
 
-from generate.scaffold.formalize.impl.filters import (
-    strip_spec_keywords,
-    strip_spec_namespace,
-    validate_impl_only,
-)
 from generate.scaffold.quality_assessment.lean_parsing import detect_eval_statements
-from generate.scaffold.tools.declaration import all_lean_tools, call_lean_lsp_mcp
+from generate.scaffold.tools.declaration import all_lean_tools
 from generate.templates.impl import get_impl_function_prompts
 
 logger = logging.getLogger(__name__)
@@ -176,34 +172,6 @@ def function_impl_agent(
         if not lean_code and final_message.text:
             lean_code = _extract_code_block(final_message.text)
 
-        # Filter out any hallucinated spec namespaces and keywords
-        # Model occasionally generates specs alongside impls despite prompts
-        # This is our defense-in-depth: strip specs before validation/storage
-        if lean_code:
-            original_length = len(lean_code)
-
-            # Apply filtering pipeline:
-            # 1. Remove entire Fvspec.Spec namespace blocks
-            lean_code = strip_spec_namespace(lean_code)
-            # 2. Remove individual spec keywords (theorem/lemma/example) from Impl namespace
-            lean_code = strip_spec_keywords(lean_code)
-
-            # Log if we stripped significant content (indicates hallucination)
-            if len(lean_code) < original_length * 0.8:
-                chars_removed = original_length - len(lean_code)
-                logger.warning(
-                    f"Impl agent hallucinated specs: stripped {chars_removed} chars "
-                    f"({chars_removed / original_length:.1%} of output)"
-                )
-
-            # Validate that filtering worked (defensive check)
-            is_valid, error = validate_impl_only(lean_code)
-            if not is_valid:
-                logger.error(
-                    f"Impl agent output still contains specs after filtering: {error}. "
-                    f"This indicates filtering logic needs updating."
-                )
-
         if not lean_code:
             result = FunctionImplResult(
                 success=False,
@@ -223,20 +191,17 @@ def function_impl_agent(
         impl_file.parent.mkdir(parents=True, exist_ok=True)
         impl_file.write_text(lean_code)
 
-        # Call lean_diagnostic_messages to check compilation
+        # Run `lake build` to check compilation — same approach as _validate_workspace_files
         try:
-            lsp_result = call_lean_lsp_mcp(
-                workspace=workspace,
-                tool_name="lean_diagnostic_messages",
-                arguments={"file_path": str(impl_file)},
+            proc = subprocess.run(
+                ["lake", "build"],
+                cwd=workspace,
+                capture_output=True,
+                text=True,
+                timeout=120,
             )
-            diagnostics = ""
-            content = lsp_result.get("content", [])
-            if content and isinstance(content, list) and len(content) > 0:
-                diagnostics = content[0].get("text", "")
-
-            # Check for errors
-            has_errors = bool(re.search(r"\berror:", diagnostics, re.IGNORECASE))
+            build_output = (proc.stdout + proc.stderr).strip()
+            has_errors = proc.returncode != 0
 
             # Check for sorry
             has_sorry = bool(re.search(r"\bsorry\b", lean_code))
@@ -248,50 +213,35 @@ def function_impl_agent(
             has_eval_stripped = False
 
             if has_errors and "#eval" in lean_code:
-                # Code has errors with #eval present - check if errors are #eval-related
                 eval_statements = detect_eval_statements(lean_code)
 
                 if eval_statements:
-                    # Check diagnostics for #eval-related errors
-                    # Common patterns: "failed to synthesize instance", errors mentioning #eval
+                    # Check build output for #eval-related errors
                     has_eval_errors = bool(
                         re.search(
                             r"#eval.*error|error.*#eval|failed to synthesize.*instance",
-                            diagnostics,
+                            build_output,
                             re.IGNORECASE,
                         )
                     )
 
                     if has_eval_errors:
-                        # Strip all #eval statements
+                        # Strip all #eval statements and rebuild
                         lean_code = re.sub(
                             r"^#eval\s+[^\n]+\n?", "", lean_code, flags=re.MULTILINE
                         )
-
-                        # Rewrite file without #eval
                         impl_file.write_text(lean_code)
                         has_eval_stripped = True
 
-                        # Validate stripped version compiles
-                        stripped_result = call_lean_lsp_mcp(
-                            workspace=workspace,
-                            tool_name="lean_diagnostic_messages",
-                            arguments={"file_path": str(impl_file)},
+                        stripped_proc = subprocess.run(
+                            ["lake", "build"],
+                            cwd=workspace,
+                            capture_output=True,
+                            text=True,
+                            timeout=120,
                         )
-
-                        # Update diagnostics with stripped version
-                        stripped_content = stripped_result.get("content", [])
-                        if (
-                            stripped_content
-                            and isinstance(stripped_content, list)
-                            and len(stripped_content) > 0
-                        ):
-                            diagnostics = stripped_content[0].get("text", "")
-                            has_errors = bool(
-                                re.search(r"\berror:", diagnostics, re.IGNORECASE)
-                            )
-                            # Recalculate success after stripping #eval
-                            success = not has_errors and not has_sorry
+                        has_errors = stripped_proc.returncode != 0
+                        success = not has_errors and not has_sorry
 
             result = FunctionImplResult(
                 success=success,

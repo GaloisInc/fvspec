@@ -74,11 +74,10 @@ def process_jsonl(
                     # Extract Lean code from sample
                     spec_code = sample.get("spec")
                     impl_code = sample.get("impl")
-                    tests_code = sample.get("tests")
 
                     # Compute metrics
                     start_time = time()
-                    metrics_data = extract_all_metrics(spec_code, impl_code, tests_code)
+                    metrics_data = extract_all_metrics(spec_code, impl_code)
                     computation_time = time() - start_time
 
                     # Create metrics objects
@@ -90,7 +89,6 @@ def process_jsonl(
                         computation_time_seconds=computation_time,
                         spec_available=spec_code is not None,
                         impl_available=impl_code is not None,
-                        tests_available=tests_code is not None,
                     )
 
                     # Augment sample with metrics

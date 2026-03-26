@@ -1,5 +1,7 @@
 Keep every definition transparent and computable so downstream provers can reduce it; avoid axioms or opaque wrappers.
 
+**Indexing:** Never use `arr[i]!` — it unfolds to `panic!` which is opaque and breaks proofs. Use `arr.get i` (returns `Option`) or index with a `Fin` proof instead.
+
 **Testing computability:** After implementing each function, add 2-3 `#eval` statements to verify computability:
 - Test with representative inputs that exercise the function logic
 - `#eval` will immediately catch if your implementation uses `sorry` or is uncomputable

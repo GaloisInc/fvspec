@@ -14,11 +14,11 @@ from pathlib import Path
 
 import pandas as pd
 import streamlit as st
+from generate.scaffold.dataset.connection import get_session
 from sqlmodel import select
 
 from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import PBTFunction
 from generate.scaffold.dataset.queries import (
     count_total_datapoints,

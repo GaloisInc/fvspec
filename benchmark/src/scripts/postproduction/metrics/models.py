@@ -97,18 +97,12 @@ class LeanCodeMetrics(BaseModel):
     impl_structure: StructureMetrics | None = Field(
         default=None, description="Structure metrics for Impl.lean"
     )
-    tests_structure: StructureMetrics | None = Field(
-        default=None, description="Structure metrics for Tests.lean"
-    )
 
     spec_complexity: ComplexityMetrics | None = Field(
         default=None, description="Complexity metrics for Spec.lean"
     )
     impl_complexity: ComplexityMetrics | None = Field(
         default=None, description="Complexity metrics for Impl.lean"
-    )
-    tests_complexity: ComplexityMetrics | None = Field(
-        default=None, description="Complexity metrics for Tests.lean"
     )
 
     # Aggregate metrics
@@ -125,4 +119,3 @@ class MetricsMetadata(BaseModel):
     computation_time_seconds: float = Field(description="Time taken to compute metrics")
     spec_available: bool = Field(description="Whether Spec.lean was present")
     impl_available: bool = Field(description="Whether Impl.lean was present")
-    tests_available: bool = Field(description="Whether Tests.lean was present")

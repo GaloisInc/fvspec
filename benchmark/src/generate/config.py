@@ -72,7 +72,7 @@ class WandbConfig(BaseModel):
         project: wandb project name
         entity: wandb entity/team name (optional)
         tags: Additional tags for runs
-        upload_samples: Upload all sample outputs (Spec.lean, Impl.lean, Tests.lean, qa.json, datapoint.json)
+        upload_samples: Upload all sample outputs (Spec.lean, Impl.lean, qa.json, datapoint.json)
     """
 
     enabled: bool = False

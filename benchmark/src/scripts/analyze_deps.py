@@ -30,6 +30,7 @@ from pathlib import Path
 from typing import Any, Literal
 
 import typer
+from generate.scaffold.dataset.connection import get_session
 from pydantic import BaseModel, Field
 from pydantic_ai import Agent
 from pydantic_ai.messages import ModelResponse, TextPart
@@ -37,7 +38,6 @@ from pydantic_ai.models import RequestUsage
 from pydantic_ai.models.function import FunctionModel
 from sqlmodel import func, select
 
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import Datapoint as DBDatapoint
 
 # --------------------------------------------------------------------------- #

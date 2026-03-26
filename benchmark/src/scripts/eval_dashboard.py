@@ -16,7 +16,6 @@ import streamlit as st
 
 # Constants
 DEFAULT_ARTIFACTS_DIR = Path("benchmark/artifacts/runs")
-MESSAGES_PER_PAGE = 15
 
 
 def get_artifacts_dir() -> Path:
@@ -221,9 +220,6 @@ def extract_lean_files(sample: dict) -> dict:
         "spec_code": store.get("spec_result", {}).get("lean_code")
         if store.get("spec_result")
         else None,
-        "tests_code": store.get("units_result", {}).get("lean_code")
-        if store.get("units_result")
-        else None,
     }
 
 
@@ -238,15 +234,12 @@ def extract_compilation_status(sample: dict) -> dict:
     """
     store = sample.get("store", {})
     spec_result = store.get("spec_result", {})
-    units_result = store.get("units_result", {})
 
     return {
         "spec_compiles": spec_result.get("compiles", False),
         "spec_has_sorry": spec_result.get("has_sorry", False),
         "spec_has_statements": spec_result.get("has_statements", False),
         "impl_compiles": store.get("impl_result", {}).get("compiles", False),
-        "units_test_count": units_result.get("test_count", 0),
-        "units_has_tests": units_result.get("has_tests", False),
     }
 
 
@@ -269,7 +262,7 @@ def extract_metadata_summary(sample: dict) -> dict:
         "variant": metadata.get("variant", "Unknown"),
         "python_source_file": datapoint.get("source", "Unknown"),
         "success": sample.get("scores", {}).get("success", {}).get("value", "I") == "C",
-        "tokens": sample.get("model_usage", {}).get("total_tokens", 0),
+        "tokens": sample.get("scores", {}).get("token_usage", {}).get("value", 0),
         "time": output.get("time", 0.0) if output else 0.0,
         "model": output.get("model", "Unknown") if output else "Unknown",
     }
@@ -314,7 +307,7 @@ def apply_filters(samples: dict, filters: dict) -> dict:
 
     Args:
         samples: Dict of sample_id -> sample_data
-        filters: Dict with keys: variant, success_only, has_unit_tests, search_query
+        filters: Dict with keys: variant, success_only, search_query
 
     Returns:
         Filtered dict of samples
@@ -325,7 +318,6 @@ def apply_filters(samples: dict, filters: dict) -> dict:
         try:
             # Extract metadata for filtering
             metadata_summary = extract_metadata_summary(sample)
-            store = sample.get("store", {})
 
             # Variant filter (only apply if variant is specified and not "All")
             if filters.get("variant"):
@@ -335,12 +327,6 @@ def apply_filters(samples: dict, filters: dict) -> dict:
             # Success filter
             if filters.get("success_only"):
                 if not metadata_summary["success"]:
-                    continue
-
-            # Unit tests filter
-            if filters.get("has_unit_tests"):
-                units_result = store.get("units_result", {})
-                if not units_result.get("has_tests", False):
                     continue
 
             # Search query (test name or sample ID)
@@ -453,6 +439,51 @@ def render_sample_list_sidebar(
     return options.get(selected) if selected else None
 
 
+def build_playground_url(impl_code: str | None, spec_code: str | None) -> str | None:
+    """Build a live.lean-lang.org URL with impl + spec merged into a single file.
+
+    Ports the leaderboard logic: split imports from body, deduplicate,
+    drop project-local imports, compress with lz-string.
+
+    Args:
+        impl_code: Lean implementation code
+        spec_code: Lean specification code
+
+    Returns:
+        URL string or None if no code available
+    """
+    if not impl_code and not spec_code:
+        return None
+
+    import lzstring
+
+    def split_imports(src: str) -> tuple[list[str], str]:
+        lines = src.split("\n")
+        imports = []
+        body = []
+        for line in lines:
+            if re.match(r"^\s*import\s", line):
+                imports.append(line.strip())
+            else:
+                body.append(line)
+        return imports, "\n".join(body).lstrip("\n")
+
+    impl_imports, impl_body = split_imports(impl_code or "")
+    spec_imports, spec_body = split_imports(spec_code or "")
+
+    # Deduplicate imports, drop project-local import
+    seen: set[str] = set()
+    all_imports: list[str] = []
+    for imp in [*impl_imports, *spec_imports]:
+        if imp not in seen and imp != "import Fvspec.Impl":
+            seen.add(imp)
+            all_imports.append(imp)
+
+    code = "\n".join(["\n".join(all_imports), "", impl_body, "", spec_body])
+    compressed = lzstring.LZString().compressToBase64(code).rstrip("=")
+    return f"https://live.lean-lang.org/#codez={compressed}"
+
+
 def render_code_comparison(
     python_code: str, python_deps: list[str], lean_files: dict, compilation_status: dict
 ):
@@ -461,7 +492,7 @@ def render_code_comparison(
     Args:
         python_code: Python PBT source code
         python_deps: List of dependency names
-        lean_files: Dict with impl_code, spec_code, tests_code
+        lean_files: Dict with impl_code, spec_code
         compilation_status: Dict with compilation status flags
     """
     col1, col2 = st.columns(2)
@@ -478,8 +509,15 @@ def render_code_comparison(
     with col2:
         st.subheader("Lean Files")
 
+        # "Open in Lean Playground" link
+        playground_url = build_playground_url(
+            lean_files.get("impl_code"), lean_files.get("spec_code")
+        )
+        if playground_url:
+            st.link_button("Open in Lean Playground", playground_url)
+
         # Tabs for different Lean files
-        lean_tabs = st.tabs(["Spec.lean", "Impl.lean", "Tests.lean"])
+        lean_tabs = st.tabs(["Spec.lean", "Impl.lean"])
 
         with lean_tabs[0]:
             if lean_files["spec_code"]:
@@ -502,12 +540,6 @@ def render_code_comparison(
                     st.caption("✓ Compiles")
                 st.code(lean_files["impl_code"], language="lean", line_numbers=True)
 
-        with lean_tabs[2]:
-            if lean_files["tests_code"]:
-                if compilation_status["units_has_tests"]:
-                    st.caption(f"✓ {compilation_status['units_test_count']} tests")
-                st.code(lean_files["tests_code"], language="lean", line_numbers=True)
-
 
 def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict):
     """Render metadata in organized sections with metrics.
@@ -517,9 +549,9 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
         compilation_status: Compilation status dict
         scores: Scores dict
     """
-    # Key metrics (4-column layout)
+    # Key metrics (5-column layout)
     st.subheader("Key Metrics")
-    col1, col2, col3, col4 = st.columns(4)
+    col1, col2, col3, col4, col5 = st.columns(5)
 
     with col1:
         st.metric("Success", "✓" if metadata["success"] else "✗")
@@ -528,9 +560,14 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col3:
         st.metric("Time (s)", f"{metadata['time']:.2f}")
     with col4:
-        # Count theorems from scores if available
         num_theorems = scores.get("num_theorems", {}).get("value", 0)
         st.metric("Theorems", num_theorems)
+    with col5:
+        pct = scores.get("percent_plausible", {}).get("value")
+        if pct is not None:
+            st.metric("Plausible", f"{pct:.0%}")
+        else:
+            st.metric("Plausible", "N/A")
 
     st.divider()
 
@@ -541,7 +578,6 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col1:
         st.markdown(f"**Sample ID:** {metadata['sample_id']}")
         st.markdown(f"**Test Name:** {metadata['test_name']}")
-        st.markdown(f"**Variant:** {metadata['variant']}")
 
     with col2:
         st.markdown(f"**Model:** {metadata['model']}")
@@ -551,7 +587,7 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
 
     # Compilation status
     st.subheader("Compilation Status")
-    col1, col2, col3 = st.columns(3)
+    col1, col2 = st.columns(2)
 
     with col1:
         st.markdown("**Spec.lean:**")
@@ -564,14 +600,6 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
     with col2:
         st.markdown("**Impl.lean:**")
         st.markdown(f"{'✓' if compilation_status['impl_compiles'] else '✗'} Compiles")
-
-    with col3:
-        st.markdown("**Tests.lean:**")
-        st.markdown(
-            f"{'✓' if compilation_status['units_has_tests'] else '✗'} Has tests"
-        )
-        if compilation_status["units_has_tests"]:
-            st.markdown(f"Test count: {compilation_status['units_test_count']}")
 
     st.divider()
 
@@ -597,139 +625,285 @@ def render_metadata_panel(metadata: dict, compilation_status: dict, scores: dict
 def extract_conversations_from_store(sample: dict) -> dict[str, list[dict]]:
     """Extract conversations from the store object.
 
-    The three-agent orchestration stores conversations separately for each agent.
-    The impl-agent may fork into multiple copies, each with its own conversation.
+    The unified orchestration stores:
+      - dep_conversations: list of {dep_name, messages} dicts (one per dependency)
+      - formalize_conversation: list of messages (the main formalization agent)
+
+    Also supports legacy three-agent keys (impl_conversation, spec_conversation,
+    units_conversation) for older .eval files.
 
     Args:
         sample: Sample dict containing store object
 
     Returns:
-        Dict mapping agent name to list of messages:
-        {
-            "impl_0": [...],
-            "impl_1": [...],
-            "spec": [...],
-            "units": [...]
-        }
+        Dict mapping agent name to list of messages
     """
     store = sample.get("store", {})
     conversations = {}
 
-    # Extract implementation agent conversations (may be multiple due to forking)
-    # Check for both single conversation and indexed conversations
-    if "impl_conversation" in store:
-        impl_conv = store.get("impl_conversation", [])
-        if impl_conv:
-            conversations["impl"] = impl_conv
+    # Unified orchestration format (current)
+    formalize_conv = store.get("formalize_conversation", [])
+    if formalize_conv:
+        conversations["formalize"] = formalize_conv
 
-    # Check for numbered impl conversations (impl_conversation_0, impl_conversation_1, etc.)
-    impl_idx = 0
-    while f"impl_conversation_{impl_idx}" in store:
-        impl_conv = store.get(f"impl_conversation_{impl_idx}", [])
-        if impl_conv:
-            conversations[f"impl_{impl_idx}"] = impl_conv
-        impl_idx += 1
+    dep_conversations = store.get("dep_conversations", [])
+    for dep in dep_conversations:
+        dep_name = dep.get("dep_name", "unknown")
+        messages = dep.get("messages", [])
+        if messages:
+            conversations[f"dep: {dep_name}"] = messages
 
-    # Extract specification agent conversation
-    spec_conv = store.get("spec_conversation", [])
-    if spec_conv:
-        conversations["spec"] = spec_conv
+    # Legacy three-agent format (older .eval files)
+    if not conversations:
+        if "impl_conversation" in store:
+            impl_conv = store.get("impl_conversation", [])
+            if impl_conv:
+                conversations["impl"] = impl_conv
 
-    # Extract units agent conversation
-    units_conv = store.get("units_conversation", [])
-    if units_conv:
-        conversations["units"] = units_conv
+        impl_idx = 0
+        while f"impl_conversation_{impl_idx}" in store:
+            impl_conv = store.get(f"impl_conversation_{impl_idx}", [])
+            if impl_conv:
+                conversations[f"impl_{impl_idx}"] = impl_conv
+            impl_idx += 1
+
+        spec_conv = store.get("spec_conversation", [])
+        if spec_conv:
+            conversations["spec"] = spec_conv
+
+        units_conv = store.get("units_conversation", [])
+        if units_conv:
+            conversations["units"] = units_conv
 
     return conversations
 
 
-def render_conversation_history(messages: list[dict]):
-    """Render conversation with collapsible messages, role badges, code highlighting.
+ROLE_STYLES: dict[str, dict[str, str]] = {
+    "system": {
+        "icon": "🔧",
+        "bg": "#2d2d3d",
+        "border": "#6c6caa",
+        "label_bg": "#4a4a7a",
+    },
+    "user": {
+        "icon": "👤",
+        "bg": "#1a2e1a",
+        "border": "#4a8c4a",
+        "label_bg": "#2d5a2d",
+    },
+    "assistant": {
+        "icon": "🤖",
+        "bg": "#1a1a2e",
+        "border": "#4a6fa5",
+        "label_bg": "#2d4a6d",
+    },
+    "tool": {
+        "icon": "🔨",
+        "bg": "#2e2a1a",
+        "border": "#8c7a4a",
+        "label_bg": "#5a4d2d",
+    },
+}
+
+LONG_MESSAGE_THRESHOLD = 1500
+
+
+def _detect_lang(code: str) -> str | None:
+    """Guess language for a code block from content heuristics.
+
+    Returns a Prism.js-supported language name, or None for plain text.
+    Lean is not supported by Prism, so it falls back to None.
+    """
+    if re.search(r"\b(theorem|lemma|namespace|#check|#eval|sorry)\b", code):
+        return None  # Lean: Prism doesn't support it, plain text is fine
+    if re.search(r"\b(def |class |import |from .+ import)\b", code):
+        return "python"
+    if re.search(r"\b(function |const |let |=>)\b", code):
+        return "javascript"
+    return None
+
+
+def _render_content_block(text: str):
+    """Render a text block, splitting out fenced code blocks and <code> tags."""
+    # Split on fenced code blocks: ```lang\n...\n```
+    fenced_pattern = r"```(\w*)\n(.*?)```"
+    parts = re.split(fenced_pattern, text, flags=re.DOTALL)
+
+    # parts: [text, lang, code, text, lang, code, ...]
+    idx = 0
+    while idx < len(parts):
+        if idx % 3 == 0:
+            # Prose segment — still check for <code> tags
+            prose = parts[idx]
+            if prose.strip():
+                code_tag_pattern = r"<code>(.*?)</code>"
+                subparts = re.split(code_tag_pattern, prose, flags=re.DOTALL)
+                for j, sub in enumerate(subparts):
+                    if j % 2 == 0:
+                        if sub.strip():
+                            st.markdown(sub)
+                    else:
+                        lang = _detect_lang(sub)
+                        st.code(sub.strip(), language=lang, line_numbers=True)
+        elif idx % 3 == 1:
+            # Language tag from fenced block
+            lang_tag = parts[idx] or None
+            code_body = parts[idx + 1] if idx + 1 < len(parts) else ""
+            # Map unsupported Prism languages to None (plain text)
+            _UNSUPPORTED = {"lean"}
+            if lang_tag in _UNSUPPORTED:
+                lang_tag = None
+            resolved_lang = lang_tag or _detect_lang(code_body)
+            st.code(code_body.strip(), language=resolved_lang, line_numbers=True)
+            idx += 1  # skip the code body, we consumed it
+        idx += 1
+
+
+_WRITE_TOOL_NAMES = {"write_lean_impl", "write_lean_spec"}
+
+
+def _render_tool_calls(tool_calls: list) -> None:
+    """Render inspect_ai tool_calls list (separate from content blocks)."""
+    for tc in tool_calls:
+        if not isinstance(tc, dict):
+            continue
+        fn = tc.get("function", "unknown")
+        args = tc.get("arguments", {})
+        if fn in _WRITE_TOOL_NAMES and isinstance(args, dict) and "code" in args:
+            st.caption(f"🔧 `{fn}`")
+            code = args["code"]
+            lang = _detect_lang(code)
+            st.code(code, language=lang, line_numbers=True)
+        else:
+            # Show other tool calls (diagnostics, search, etc.) compactly
+            display_args = (
+                {k: v for k, v in args.items() if k != "view"}
+                if isinstance(args, dict)
+                else args
+            )
+            st.caption(f"🔧 `{fn}` — {display_args}")
+
+
+def _render_message_content(content, msg: dict):
+    """Render message content handling str, list-of-blocks, tool_calls, and fallback."""
+    if isinstance(content, str):
+        text = content.strip()
+        if not text:
+            pass  # fall through to tool_calls below
+        else:
+            _render_content_block(text)
+    elif isinstance(content, list):
+        # Anthropic-style content blocks: [{type: "text", text: ...}, {type: "tool_use", ...}]
+        for block in content:
+            if isinstance(block, dict):
+                block_type = block.get("type", "")
+                if block_type == "text":
+                    block_text = block.get("text", "")
+                    if block_text.strip():
+                        _render_content_block(block_text)
+                elif block_type == "tool_use":
+                    tool_name = block.get("name", "unknown")
+                    tool_input = block.get("input", {})
+                    st.caption(f"🔧 Tool call: `{tool_name}`")
+                    st.json(tool_input)
+                elif block_type == "tool_result":
+                    st.json(block)
+                else:
+                    st.json(block)
+            else:
+                st.write(block)
+
+    # inspect_ai stores tool calls in a separate top-level field
+    tool_calls = msg.get("tool_calls") or []
+    if tool_calls:
+        _render_tool_calls(tool_calls)
+    else:
+        st.json(msg)
+
+
+def render_conversation_history(messages: list[dict], *, key_prefix: str = "conv"):  # noqa: ARG001
+    """Render conversation with role-styled messages, syntax highlighting, collapsible long content.
 
     Args:
         messages: List of message dicts from sample
+        key_prefix: Unused; kept for call-site compatibility
     """
     if not messages:
         return
 
     st.subheader(f"Conversation ({len(messages)} messages)")
 
-    # Pagination controls
-    messages_per_page = MESSAGES_PER_PAGE
-    num_pages = (len(messages) + messages_per_page - 1) // messages_per_page
-
-    if num_pages > 1:
-        page = st.number_input(
-            f"Page (1-{num_pages}):",
-            min_value=1,
-            max_value=num_pages,
-            value=1,
-            step=1,
-        )
-    else:
-        page = 1
-
-    start_idx = (page - 1) * messages_per_page
-    end_idx = min(start_idx + messages_per_page, len(messages))
-    page_messages = messages[start_idx:end_idx]
-
     # Render messages
-    for i, msg in enumerate(page_messages, start=start_idx + 1):
+    for i, msg in enumerate(messages, start=1):
         role = msg.get("role", "unknown")
         content = msg.get("content", "")
         source = msg.get("source", "")
 
-        # Role badge styling
-        role_colors = {
-            "system": "🔧",
-            "user": "👤",
-            "assistant": "🤖",
-            "tool": "🔨",
-        }
-        role_icon = role_colors.get(role, "❓")
+        style = ROLE_STYLES.get(role, ROLE_STYLES["tool"])
 
         # Create a preview of the content for the expander title
         content_preview = ""
         if isinstance(content, str) and content.strip():
-            # Get first 60 chars of content as preview
             preview_text = content.strip().replace("\n", " ")[:60]
             if len(content) > 60:
                 preview_text += "..."
             content_preview = f" - {preview_text}"
+        elif isinstance(content, list):
+            # Summarise list-of-blocks content
+            text_blocks = [
+                b.get("text", "")[:40]
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "text"
+            ]
+            tool_blocks = [
+                b.get("name", "?")
+                for b in content
+                if isinstance(b, dict) and b.get("type") == "tool_use"
+            ]
+            parts = []
+            if text_blocks:
+                parts.append(
+                    text_blocks[0] + ("..." if len(text_blocks[0]) >= 40 else "")
+                )
+            if tool_blocks:
+                parts.append(f"[tools: {', '.join(tool_blocks)}]")
+            if parts:
+                content_preview = f" - {' '.join(parts)}"
 
-        # Build title with source only if it exists
+        # Also check inspect_ai's top-level tool_calls field
+        if not content_preview:
+            tool_calls = msg.get("tool_calls") or []
+            if tool_calls and isinstance(tool_calls, list):
+                fn_names = [
+                    tc.get("function", "?") for tc in tool_calls if isinstance(tc, dict)
+                ]
+                content_preview = f" - [calls: {', '.join(fn_names)}]"
+
         source_text = f"[{source}]" if source else ""
+        title = f"{style['icon']} #{i}: {role} {source_text}{content_preview}"
 
-        with st.expander(
-            f"{role_icon} #{i}: {role} {source_text}{content_preview}", expanded=False
-        ):
-            # Check if content contains code blocks
-            if isinstance(content, str):
-                # Simple markdown rendering
-                # Look for <code> tags and render them separately
-                code_pattern = r"<code>(.*?)</code>"
-                parts = re.split(code_pattern, content, flags=re.DOTALL)
+        # Role-colored container
+        st.markdown(
+            f"""<div style="
+                border-left: 3px solid {style["border"]};
+                background: {style["bg"]};
+                padding: 2px 8px;
+                margin-bottom: 4px;
+                border-radius: 4px;
+            "><span style="
+                background: {style["label_bg"]};
+                padding: 1px 6px;
+                border-radius: 3px;
+                font-size: 0.8em;
+                font-weight: 600;
+            ">{style["icon"]} {role.upper()}</span>
+            <span style="font-size: 0.75em; opacity: 0.7;"> #{i} {source_text}</span>
+            </div>""",
+            unsafe_allow_html=True,
+        )
 
-                for j, part in enumerate(parts):
-                    if j % 2 == 0:
-                        # Regular text
-                        if part.strip():
-                            st.markdown(part)
-                    else:
-                        # Code block
-                        # Try to detect language
-                        if "namespace" in part or "theorem" in part or "def " in part:
-                            lang = "lean"
-                        elif "def " in part or "import " in part:
-                            lang = "python"
-                        else:
-                            lang = None
-                        st.code(part, language=lang, line_numbers=True)
-            elif isinstance(content, list):
-                # Content is a list (tool calls, etc.)
-                st.json(content)
-            else:
-                st.json(msg)
+        with st.expander(title, expanded=False):
+            _render_message_content(content, msg)
 
 
 # ============================================================================
@@ -903,7 +1077,6 @@ def main():
 
         filter_variant = st.selectbox("Variant:", variants, key="filter_variant")
         filter_success = st.checkbox("Success only", key="filter_success")
-        filter_unit_tests = st.checkbox("Has unit tests", key="filter_unit_tests")
         search_query = st.text_input(
             "Search:", key="search_query", placeholder="Test name or sample ID"
         )
@@ -912,7 +1085,6 @@ def main():
         filters = {
             "variant": filter_variant if filter_variant != "All" else None,
             "success_only": filter_success,
-            "has_unit_tests": filter_unit_tests,
             "search_query": search_query if search_query else None,
         }
 
@@ -1001,7 +1173,7 @@ def main():
     scores = extract_scores(sample)
 
     # Sample header with bookmark button
-    col1, col2, col3, col4, col5 = st.columns([2, 2, 2, 2, 1])
+    col1, col2, col3, col4 = st.columns([2, 2, 2, 1])
     with col1:
         st.metric("Sample ID", metadata["sample_id"])
     with col2:
@@ -1012,10 +1184,8 @@ def main():
             else metadata["test_name"],
         )
     with col3:
-        st.metric("Variant", metadata["variant"])
-    with col4:
         st.metric("Success", "✓" if metadata["success"] else "✗")
-    with col5:
+    with col4:
         # Bookmark button
         is_bookmarked = (
             str(st.session_state.current_eval_path),
@@ -1048,18 +1218,20 @@ def main():
         render_metadata_panel(metadata, compilation_status, scores)
 
     with tab3:
-        # Extract conversations from store (three-agent orchestration)
+        # Extract conversations from store
         agent_conversations = extract_conversations_from_store(sample)
 
         if agent_conversations:
-            # Display conversations in tabs for each agent
             agent_names = list(agent_conversations.keys())
 
-            # Format tab labels with better styling for impl forks
             tab_labels = []
             for name in agent_names:
-                if name.startswith("impl_"):
-                    # Extract fork number for impl agents
+                if name == "formalize":
+                    tab_labels.append("📋 FORMALIZE")
+                elif name.startswith("dep: "):
+                    tab_labels.append(f"🔧 DEP: {name[5:]}")
+                # Legacy three-agent keys
+                elif name.startswith("impl_"):
                     fork_num = name.split("_")[-1]
                     if fork_num.isdigit():
                         tab_labels.append(f"🔧 IMPL (Fork {fork_num})")
@@ -1077,11 +1249,11 @@ def main():
             for i, agent_name in enumerate(agent_names):
                 with agent_tabs[i]:
                     messages = agent_conversations[agent_name]
-                    render_conversation_history(messages)
+                    render_conversation_history(messages, key_prefix=f"agent_{i}")
         else:
             # Fallback to top-level messages if no store conversations found
             messages = sample.get("messages", [])
-            render_conversation_history(messages)
+            render_conversation_history(messages, key_prefix="fallback")
 
 
 def cli():

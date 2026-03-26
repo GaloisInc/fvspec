@@ -3,25 +3,27 @@
 from typer import Option, Typer
 
 from generate.config import DATA_DIR, load_config
-from generate.scaffold.dataset.connection import get_session
-from generate.scaffold.dataset.queries import sample_datapoints
+from generate.scaffold.dataset.queries import load_jsonl, sample_datapoints
+from generate.templates.formalize import (
+    FormalizationVariantRegistry,
+    get_formalization_prompts,
+)
 from generate.templates.impl import (
     DependencyVariantRegistry,
     get_dependency_prompts,
 )
 from generate.templates.models import Prompt
-from generate.templates.spec import VariantRegistry, get_variant_prompts
 
 __all__ = [
-    "get_variant_prompts",
-    "VariantRegistry",
+    "get_formalization_prompts",
+    "FormalizationVariantRegistry",
     "get_dependency_prompts",
     "DependencyVariantRegistry",
     "Prompt",
 ]
 
 app = Typer()
-DEFAULT_DATASET = "pbts_full.db"
+DEFAULT_DATASET = "realpbt2.jsonl"
 
 
 @app.command()
@@ -30,17 +32,17 @@ def preview_prompts(
         DEFAULT_DATASET,
         "--data",
         "-d",
-        help="Dataset SQLite database file under benchmark/data (default: pbts_full.db).",
+        help="Dataset JSONL file under benchmark/data (default: realpbt2.jsonl).",
     ),
     variant: str = Option(
         None,
-        help="Prompt variant name (e.g., 'control-functional', 'terse-functional'). If not specified, uses registry default.",
+        help="Prompt variant name (e.g., 'control-functional'). If not specified, uses registry default.",
     ),
     prompt_type: str = Option(
-        "spec",
+        "formalize",
         "--prompt-type",
         "-t",
-        help="Which prompt family to preview: 'spec' (default) or 'deps'.",
+        help="Which prompt family to preview: 'formalize' (default) or 'deps'.",
     ),
     sample_size: int | None = Option(
         None,
@@ -54,36 +56,32 @@ def preview_prompts(
         help="Random seed for sampling. If not specified, uses value from config.toml (default: 0).",
     ),
 ) -> None:
-    """Preview prompts for the given database and variant.
+    """Preview prompts for the given dataset and variant.
 
-    Randomly samples from the SQLite database.
+    Randomly samples from the JSONL dataset.
 
     Args:
-        data: SQLite database file name located under benchmark/data
+        data: JSONL file name located under benchmark/data
         variant: Prompt variant to preview
-        prompt_type: Which prompt family to preview ('spec' or 'deps')
+        prompt_type: Which prompt family to preview ('formalize' or 'deps')
         sample_size: Number of samples to randomly select
         ranseed: Random seed for deterministic sampling
     """
-    # Load config for defaults
     config = load_config()
 
-    # Use CLI args if provided, otherwise fall back to config
     actual_sample_size = (
         sample_size if sample_size is not None else config.dataset.sample_size
     )
     actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
 
-    db_path = DATA_DIR / data
-
-    # Sample datapoints from database
-    with get_session(db_path) as session:
-        datapoints = sample_datapoints(session, actual_sample_size, actual_ranseed)
+    data_path = DATA_DIR / data
+    all_datapoints = load_jsonl(data_path)
+    datapoints = sample_datapoints(all_datapoints, actual_sample_size, actual_ranseed)
 
     if prompt_type.lower() == "deps":
         from generate.scaffold.formalize.impl.models import (
             DependencyPayload,
-        )  # local import to avoid circular dependency
+        )
 
         registry = DependencyVariantRegistry()
         variant_name = variant or registry.default_variant()
@@ -111,25 +109,24 @@ def preview_prompts(
                 print(rendered)
                 print("=" * 80)
     else:
-        # Default to specification prompts
-        registry = VariantRegistry()
+        # Default to formalization prompts
+        registry = FormalizationVariantRegistry()
         variant_name = variant or registry.default_variant()
 
-        system_prompt, initial_template = get_variant_prompts(variant_name)
+        system_prompt, initial_template = get_formalization_prompts(variant_name)
 
         for datapoint in datapoints:
-            # Infer function name from test name (remove test_ prefix)
             function_name = datapoint.name.replace("test_", "").replace("Test", "")
 
-            # Prepare template context (matching spec agent context)
             context = {
                 "pbt_code": datapoint.code,
-                "pbt_name": datapoint.name,
                 "function_name": function_name,
-                "impl_signatures": {},  # Empty for preview (no impl available yet)
+                "function_code": None,
+                "pbt_summary": datapoint.summary,
+                "dependencies": {},
             }
 
-            print(f"=== Spec Variant: {variant_name} ===")
+            print(f"=== Formalize Variant: {variant_name} ===")
             print(system_prompt)
             print(initial_template.render(**context))
             print("=" * 80)

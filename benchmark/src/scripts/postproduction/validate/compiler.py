@@ -149,10 +149,6 @@ def compile_sample(
             impl if impl else "-- No implementation\n"
         )
         (fvspec_dir / "Spec.lean").write_text(spec if spec else "-- No specification\n")
-        # Stub Tests.lean so the root import doesn't fail
-        (fvspec_dir / "Tests.lean").write_text(
-            "import Fvspec.Spec\n-- No tests for validation\n"
-        )
 
         try:
             result = subprocess.run(
