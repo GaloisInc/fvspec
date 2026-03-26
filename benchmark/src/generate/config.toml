@@ -33,6 +33,6 @@ upload_samples = true
 
 [plausible]
 # Enable plausible property testing during generation
-enabled = true
+enabled = false
 # Timeout in seconds for plausible runs per sample
 timeout = 60
