@@ -66,6 +66,8 @@ FIELDS_TO_REMOVE = {
     "datetime",  # temporal metadata, not useful
     "function_discovery",
     "sample_name",
+    # Process metadata - not useful for benchmark consumers
+    "grader_metadata",
 }
 
 # Field renames: old_name -> new_name
