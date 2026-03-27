@@ -1,8 +1,13 @@
-"""HuggingFace dataset loading and stratified sampling for fvspec baselines."""
+"""Dataset loading and stratified sampling for fvspec baselines.
 
+Supports loading from local JSONL files or the quinn-dougherty/fvspec
+HuggingFace dataset.
+"""
+
+import json
 import logging
+from pathlib import Path
 
-from datasets import load_dataset
 from inspect_ai.dataset import MemoryDataset, Sample
 
 from baselines.models import FvspecSample
@@ -10,12 +15,8 @@ from baselines.prompts import render_user_prompt
 
 logger = logging.getLogger(__name__)
 
-# Bucket thresholds based on difficulty_subjective_haiku score
-EASY_THRESHOLD = 3.0
-MEDIUM_THRESHOLD = 6.0
-
-# Bucket ratios: easy/medium/hard
-BUCKET_RATIOS = {"easy": 0.3, "medium": 0.4, "hard": 0.3}
+# Equal bucket weights: 1/3 each
+BUCKET_RATIOS = {"easy": 1 / 3, "medium": 1 / 3, "hard": 1 / 3}
 
 
 def bucket_sizes(num_samples: int) -> dict[str, int]:
@@ -29,8 +30,35 @@ def bucket_sizes(num_samples: int) -> dict[str, int]:
     return raw
 
 
-def load_samples() -> list[FvspecSample]:
+def load_samples_from_jsonl(path: str | Path) -> list[FvspecSample]:
+    """Load all samples from a local JSONL file."""
+    p = Path(path)
+    if not p.is_absolute():
+        p = Path(__file__).parents[2] / p
+    samples = []
+    with p.open() as f:
+        for line in f:
+            row = json.loads(line)
+            samples.append(
+                FvspecSample(
+                    sample_id=str(row["sample_id"]),
+                    spec=row.get("spec") or "",
+                    impl=row.get("impl") or "",
+                    realpbt_code=row.get("realpbt_code") or "",
+                    realpbt_summary=row.get("realpbt_summary"),
+                    num_theorems=row.get("num_theorems") or 0,
+                    difficulty_subjective_haiku=row.get(
+                        "difficulty_subjective_haiku"
+                    ),
+                )
+            )
+    return samples
+
+
+def load_samples_from_hf() -> list[FvspecSample]:
     """Load all samples from the quinn-dougherty/fvspec HuggingFace dataset."""
+    from datasets import load_dataset
+
     ds = load_dataset("quinn-dougherty/fvspec", split="train")
     samples = []
     for row in ds:
@@ -48,15 +76,31 @@ def load_samples() -> list[FvspecSample]:
     return samples
 
 
-def load_and_sample(ranseed: int = 42, num_samples: int = 1000) -> list[FvspecSample]:
+def load_samples(data_source: str = "data/fvspec-mar27.jsonl") -> list[FvspecSample]:
+    """Load samples from the configured data source.
+
+    Args:
+        data_source: Path to a local JSONL file, or "huggingface" to
+            load from quinn-dougherty/fvspec.
+    """
+    if data_source.lower() == "huggingface":
+        return load_samples_from_hf()
+    return load_samples_from_jsonl(data_source)
+
+
+def load_and_sample(
+    ranseed: int = 42,
+    num_samples: int = 75,
+    data_source: str = "data/fvspec-mar27.jsonl",
+) -> list[FvspecSample]:
     """Load dataset and apply stratified sampling by difficulty bucket.
 
-    Splits *num_samples* across easy/medium/hard using BUCKET_RATIOS,
+    Splits *num_samples* across easy/medium/hard using equal bucket ratios,
     shuffled within each bucket using a fixed random seed.
     """
     import random
 
-    all_samples = load_samples()
+    all_samples = load_samples(data_source)
     sizes = bucket_sizes(num_samples)
 
     # Group by bucket

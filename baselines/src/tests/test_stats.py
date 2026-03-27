@@ -29,10 +29,10 @@ class TestWriteResultsToml:
         stats = {
             "claude-sonnet-4": RunStats(
                 model="claude-sonnet-4",
-                easy=BucketStats(proved=10, n=100, rate=0.1),
-                medium=BucketStats(proved=5, n=100, rate=0.05),
-                hard=BucketStats(proved=1, n=100, rate=0.01),
-                total=BucketStats(proved=16, n=300, rate=0.0533),
+                easy=BucketStats(proved=10, n=100, rate=0.1, partial_credit_avg=0.3),
+                medium=BucketStats(proved=5, n=100, rate=0.05, partial_credit_avg=0.2),
+                hard=BucketStats(proved=1, n=100, rate=0.01, partial_credit_avg=0.05),
+                total=BucketStats(proved=16, n=300, rate=0.0533, partial_credit_avg=0.18),
             ),
         }
         out = write_results_toml(
@@ -50,6 +50,7 @@ class TestWriteResultsToml:
         r = doc["results"]["claude_sonnet_4"]
         assert r["easy_proved"] == 10
         assert r["total_rate"] == 0.0533
+        assert r["easy_partial_credit_avg"] == 0.3
 
     def test_multiple_models(self, tmp_path: Path):
         stats = {

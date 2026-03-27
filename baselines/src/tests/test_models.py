@@ -21,17 +21,17 @@ class TestDifficultyBucket:
     def test_zero_is_easy(self):
         assert _sample(difficulty_subjective_haiku=0.0).difficulty_bucket == "easy"
 
-    def test_boundary_3_is_easy(self):
-        assert _sample(difficulty_subjective_haiku=3.0).difficulty_bucket == "easy"
+    def test_boundary_3_99_is_easy(self):
+        assert _sample(difficulty_subjective_haiku=3.99).difficulty_bucket == "easy"
 
-    def test_just_above_3_is_medium(self):
-        assert _sample(difficulty_subjective_haiku=3.01).difficulty_bucket == "medium"
+    def test_boundary_4_is_medium(self):
+        assert _sample(difficulty_subjective_haiku=4.0).difficulty_bucket == "medium"
 
-    def test_boundary_6_is_medium(self):
-        assert _sample(difficulty_subjective_haiku=6.0).difficulty_bucket == "medium"
+    def test_boundary_6_99_is_medium(self):
+        assert _sample(difficulty_subjective_haiku=6.99).difficulty_bucket == "medium"
 
-    def test_just_above_6_is_hard(self):
-        assert _sample(difficulty_subjective_haiku=6.01).difficulty_bucket == "hard"
+    def test_boundary_7_is_hard(self):
+        assert _sample(difficulty_subjective_haiku=7.0).difficulty_bucket == "hard"
 
     def test_10_is_hard(self):
         assert _sample(difficulty_subjective_haiku=10.0).difficulty_bucket == "hard"
