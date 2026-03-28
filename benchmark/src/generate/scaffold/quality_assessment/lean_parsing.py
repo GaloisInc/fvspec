@@ -1,38 +1,58 @@
-"""Lean regex-based parsing utilities for quality assessment."""
+"""Lean parsing utilities for quality assessment.
+
+Uses simple string parsing instead of regex to avoid catastrophic
+backtracking on complex Lean type signatures.
+"""
 
 import re
+
+
+def _parse_paren_groups(code: str) -> list[str]:
+    """Extract top-level parenthesized groups from code.
+
+    Handles nested parens so that "(x : List (Nat × Nat))" is returned
+    as a single group rather than being split at the inner close-paren.
+    """
+    groups = []
+    depth = 0
+    start = -1
+    for i, ch in enumerate(code):
+        if ch == "(":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0 and start >= 0:
+                groups.append(code[start + 1 : i])
+                start = -1
+    return groups
 
 
 def extract_lean_parameters(code: str) -> list[str]:
     """Extract parameter names from Lean function/theorem definitions."""
     params = []
-
-    # Match: (x : Type) or (x y : Type)
-    param_pattern = r"\(([a-zA-Z_]\w*(?:\s+[a-zA-Z_]\w*)*)\s*:\s*[^)]+\)"
-
-    for match in re.finditer(param_pattern, code):
-        # Split multiple params: "x y" → ["x", "y"]
-        param_names = match.group(1).split()
-        params.extend(param_names)
-
+    for group in _parse_paren_groups(code):
+        if ":" not in group:
+            continue
+        names_part = group.split(":", 1)[0].strip()
+        for token in names_part.split():
+            if token.isidentifier():
+                params.append(token)
     return params
 
 
 def extract_lean_types(code: str) -> dict[str, str]:
     """Extract parameter types from Lean code."""
     types = {}
-
-    # Match: (x : Int) or (x y : Nat)
-    param_pattern = (
-        r"\(([a-zA-Z_]\w*(?:\s+[a-zA-Z_]\w*)*)\s*:\s*([a-zA-Z_]\w*(?:\s*\w*)*)\)"
-    )
-
-    for match in re.finditer(param_pattern, code):
-        param_names = match.group(1).split()
-        param_type = match.group(2).strip()
-        for pname in param_names:
-            types[pname] = param_type
-
+    for group in _parse_paren_groups(code):
+        if ":" not in group:
+            continue
+        names_part, type_part = group.split(":", 1)
+        param_type = type_part.strip()
+        for token in names_part.split():
+            if token.isidentifier():
+                types[token] = param_type
     return types
 
 

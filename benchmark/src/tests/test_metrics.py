@@ -148,6 +148,23 @@ def add (x y : Int) (z : Nat) : Int := x + y + z
     assert types["z"] == "Nat"
 
 
+def test_extract_lean_types_complex_nested():
+    """Test that complex nested types complete in bounded time.
+
+    Regression test: the old regex-based parser had nested quantifiers
+    that caused exponential backtracking on complex Lean type signatures.
+    """
+    code = """
+def transform (input : Array (List (Nat × Nat))) (config : Option (String × Bool → IO Unit)) : IO (Array Nat) := sorry
+theorem preserves (xs : List (Option (Fin n × Fin m))) (h : ∀ x ∈ xs, x.isSome) : xs.length > 0 := by sorry
+"""
+    types = _extract_lean_types(code)
+    assert "input" in types
+    assert "config" in types
+    assert "xs" in types
+    assert "Nat" in types["input"] or "Array" in types["input"]
+
+
 def test_extract_lean_bounds():
     """Test extraction of numeric bounds from Lean hypotheses."""
     code = """
