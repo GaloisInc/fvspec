@@ -9,17 +9,17 @@ authors = [
 ]
 requires-python = ">=3.13"
 dependencies = [
-    "anthropic>=0.77.1",
+    "anthropic>=0.86.0",
     "datasets>=4.1.1",
     "hvplot>=0.12.1",
-    "inspect-ai>=0.3.142",
+    "inspect-ai>=0.3.201",
     "jinja2>=3.1.6",
     "jsonlines>=4.0.0",
     "lzstring>=1.0.4",
     "mcp>=1.18.0",
     "pandas>=2.3.3",
     "panel>=1.8.2",
-    "pydantic>=2.12.4",
+    "pydantic>=2.12.5",
     "pydantic-ai>=1.7.0",
     "python-dotenv>=1.1.1",
     "radon>=6.0.1",
