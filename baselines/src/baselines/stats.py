@@ -38,9 +38,7 @@ def _read_eval_log(log_path: Path) -> dict:
                     return data
 
                 # V1 format: single JSON file
-                json_name = next(
-                    (n for n in names if n.endswith(".json")), names[0]
-                )
+                json_name = next((n for n in names if n.endswith(".json")), names[0])
                 with zf.open(json_name) as f:
                     return json.load(f)
         except zipfile.BadZipFile:
@@ -102,10 +100,12 @@ def aggregate_logs(log_dir: str = "artifacts") -> dict[str, RunStats]:
             partial_credit = metadata.get("partial_credit", 0.0)
 
             if bucket in model_results[model]:
-                model_results[model][bucket].append({
-                    "proved": proved,
-                    "partial_credit": partial_credit,
-                })
+                model_results[model][bucket].append(
+                    {
+                        "proved": proved,
+                        "partial_credit": partial_credit,
+                    }
+                )
 
     # Build RunStats
     stats: dict[str, RunStats] = {}

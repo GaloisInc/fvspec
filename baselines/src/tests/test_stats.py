@@ -32,7 +32,9 @@ class TestWriteResultsToml:
                 easy=BucketStats(proved=10, n=100, rate=0.1, partial_credit_avg=0.3),
                 medium=BucketStats(proved=5, n=100, rate=0.05, partial_credit_avg=0.2),
                 hard=BucketStats(proved=1, n=100, rate=0.01, partial_credit_avg=0.05),
-                total=BucketStats(proved=16, n=300, rate=0.0533, partial_credit_avg=0.18),
+                total=BucketStats(
+                    proved=16, n=300, rate=0.0533, partial_credit_avg=0.18
+                ),
             ),
         }
         out = write_results_toml(

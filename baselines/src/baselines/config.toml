@@ -16,10 +16,10 @@ model_pin = "claude-opus-4-6"
 dollars_per_output_millitoken = 25
 
 [[model]]
-human_name = "gpt4o"
+human_name = "gpt54mini"
 provider = "openai"
-model_pin = "gpt-4o"
-dollars_per_output_millitoken = 10
+model_pin = "gpt-5.4-mini-2026-03-17"
+dollars_per_output_millitoken = 4.5
 
 [[model]]
 human_name = "gemini25pro"

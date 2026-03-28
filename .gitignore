@@ -26,6 +26,8 @@ logs/
 artifacts/
 
 .claude/settings.local.json
+run_logs/
+fvspec_run.pid
 
 # LEADERBOARD
 .turbo
