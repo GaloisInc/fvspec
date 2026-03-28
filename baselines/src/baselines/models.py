@@ -17,7 +17,7 @@ class FvspecSample(BaseModel):
     @computed_field
     @property
     def difficulty_bucket(self) -> str:
-        """Bucket based on haiku difficulty score: easy [1,4), medium [4,7), hard [7,10]."""
+        """Bucket based on haiku difficulty score: easy [0,4), medium [4,7), hard [7,∞)."""
         if self.difficulty_subjective_haiku is None:
             return "unknown"
         if self.difficulty_subjective_haiku < 4:
