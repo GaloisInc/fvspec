@@ -22,7 +22,7 @@ BUCKET_RATIOS = {"easy": 1 / 3, "medium": 1 / 3, "hard": 1 / 3}
 def bucket_sizes(num_samples: int) -> dict[str, int]:
     """Compute per-bucket sizes from total sample count and ratios.
 
-    Distributes any rounding remainder to the largest bucket (medium).
+    Distributes any rounding remainder to the medium bucket by convention.
     """
     raw = {k: int(v * num_samples) for k, v in BUCKET_RATIOS.items()}
     remainder = num_samples - sum(raw.values())
