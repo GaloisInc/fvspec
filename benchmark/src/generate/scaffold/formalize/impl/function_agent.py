@@ -120,7 +120,8 @@ def function_impl_agent(
 
         # Run iterative refinement loop using generate with tool_calls="loop"
         # This is the proper inspect_ai way - uses the injected generate function
-        # Loop terminates when model stops calling tools
+        # Loop terminates when model stops calling tools or hits message_limit
+        state.message_limit = 50
         state = await generate(state, tool_calls="loop")
 
         # Count tool calls from message history
