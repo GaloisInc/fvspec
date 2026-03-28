@@ -36,7 +36,7 @@ Pattern pointers from `./../benchmark/AGENTS.md`:
 uv sync
 uv run fvspec sample-info                    # Show bucket distribution
 uv run fvspec run -m snt46                   # Run with Claude Sonnet 4.6
-uv run fvspec run -m gpt4o --parallelism 5   # Run with GPT-4o
+uv run fvspec run -m gpt54mini --parallelism 5   # Run with gpt54mini (OpenAI default)
 uv run fvspec stats                          # Aggregate results
 ```
 
