@@ -1,4 +1,4 @@
-"""Aggregate inspect_ai eval logs into results.toml for the paper."""
+"""Aggregate inspect_ai eval logs into results TOML/JSON for the paper."""
 
 import json
 import logging
@@ -15,17 +15,33 @@ logger = logging.getLogger(__name__)
 
 
 def _read_eval_log(log_path: Path) -> dict:
-    """Read an inspect_ai .eval log file (JSON or zipped JSON)."""
+    """Read an inspect_ai .eval log file.
+
+    Supports both V1 (single JSON) and V2 (zip with header.json + samples/*.json).
+    Returns a dict with 'eval' header and 'samples' list.
+    """
     if log_path.suffix == ".zip" or str(log_path).endswith(".eval"):
-        # .eval files are zip archives containing a JSON file
         try:
             with zipfile.ZipFile(log_path) as zf:
                 names = zf.namelist()
+
+                # V2 format: header.json + samples/*.json
+                if "header.json" in names:
+                    with zf.open("header.json") as f:
+                        data = json.load(f)
+                    samples = []
+                    for name in names:
+                        if name.startswith("samples/") and name.endswith(".json"):
+                            with zf.open(name) as f:
+                                samples.append(json.load(f))
+                    data["samples"] = samples
+                    return data
+
+                # V1 format: single JSON file
                 json_name = next((n for n in names if n.endswith(".json")), names[0])
                 with zf.open(json_name) as f:
                     return json.load(f)
         except zipfile.BadZipFile:
-            # Try as plain JSON
             return json.loads(log_path.read_text())
     return json.loads(log_path.read_text())
 
@@ -81,9 +97,15 @@ def aggregate_logs(log_dir: str = "artifacts") -> dict[str, RunStats]:
             metadata = score_data.get("metadata", {})
             bucket = metadata.get("difficulty_bucket", "unknown")
             proved = metadata.get("proved", False)
+            partial_credit = metadata.get("partial_credit", 0.0)
 
             if bucket in model_results[model]:
-                model_results[model][bucket].append({"proved": proved})
+                model_results[model][bucket].append(
+                    {
+                        "proved": proved,
+                        "partial_credit": partial_credit,
+                    }
+                )
 
     # Build RunStats
     stats: dict[str, RunStats] = {}
@@ -91,23 +113,35 @@ def aggregate_logs(log_dir: str = "artifacts") -> dict[str, RunStats]:
         run = RunStats(model=model)
         total_proved = 0
         total_n = 0
+        total_partial = 0.0
 
         for bucket_name in ["easy", "medium", "hard"]:
             results = buckets[bucket_name]
             n = len(results)
             proved = sum(1 for r in results if r["proved"])
+            partial_sum = sum(r["partial_credit"] for r in results)
             rate = proved / n if n > 0 else 0.0
+            partial_avg = partial_sum / n if n > 0 else 0.0
 
-            bucket_stats = BucketStats(proved=proved, n=n, rate=round(rate, 4))
+            bucket_stats = BucketStats(
+                proved=proved,
+                n=n,
+                rate=round(rate, 4),
+                partial_credit_avg=round(partial_avg, 4),
+            )
             setattr(run, bucket_name, bucket_stats)
 
             total_proved += proved
             total_n += n
+            total_partial += partial_sum
 
         run.total = BucketStats(
             proved=total_proved,
             n=total_n,
             rate=round(total_proved / total_n, 4) if total_n > 0 else 0.0,
+            partial_credit_avg=round(total_partial / total_n, 4)
+            if total_n > 0
+            else 0.0,
         )
         stats[model] = run
 
@@ -116,9 +150,9 @@ def aggregate_logs(log_dir: str = "artifacts") -> dict[str, RunStats]:
 
 def write_results_toml(
     stats: dict[str, RunStats],
-    output_path: str = "artifacts/results.toml",
+    output_path: str = "artifacts/results/results.toml",
     ranseed: int = 42,
-    num_samples: int = 1000,
+    num_samples: int = 75,
 ) -> Path:
     """Write aggregated results to TOML for typst consumption.
 
@@ -126,6 +160,7 @@ def write_results_toml(
         stats: Per-model RunStats
         output_path: Output file path
         ranseed: Random seed used for sampling
+        num_samples: Total number of samples
 
     Returns:
         Path to the written TOML file
@@ -149,19 +184,29 @@ def write_results_toml(
             "easy_proved": run.easy.proved,
             "easy_n": run.easy.n,
             "easy_rate": run.easy.rate,
+            "easy_partial_credit_avg": run.easy.partial_credit_avg,
             "medium_proved": run.medium.proved,
             "medium_n": run.medium.n,
             "medium_rate": run.medium.rate,
+            "medium_partial_credit_avg": run.medium.partial_credit_avg,
             "hard_proved": run.hard.proved,
             "hard_n": run.hard.n,
             "hard_rate": run.hard.rate,
+            "hard_partial_credit_avg": run.hard.partial_credit_avg,
             "total_proved": run.total.proved,
             "total_n": run.total.n,
             "total_rate": run.total.rate,
+            "total_partial_credit_avg": run.total.partial_credit_avg,
         }
 
     out = Path(output_path)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_bytes(tomli_w.dumps(doc).encode())
     logger.info("Wrote results to %s", out)
+
+    # Also write JSON for convenience
+    json_out = out.with_suffix(".json")
+    json_out.write_text(json.dumps(doc, indent=2))
+    logger.info("Wrote results to %s", json_out)
+
     return out

@@ -6,12 +6,11 @@ Adapted from benchmark/src/generate/scaffold/tools/declaration.py.
 import json
 import os
 import subprocess
-from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
 from inspect_ai.solver._task_state import sample_state
-from inspect_ai.tool import ToolCallView, ToolError, tool
+from inspect_ai.tool import ToolError, tool
 
 
 def call_lean_lsp_mcp(
@@ -119,19 +118,15 @@ def _extract_text(result: dict[str, Any], fallback: str = "No results") -> str:
     return fallback
 
 
-@tool  # type: ignore[arg-type]
-def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
+@tool
+def write_lean_spec():
     """Write Lean code to Spec.lean in the workspace."""
 
-    async def execute(code: str, view: ToolCallView) -> str:
+    async def execute(code: str) -> str:
         """Write Lean specification code to the workspace Spec.lean file.
 
         Args:
             code: The Lean code to write to Fvspec/Spec.lean
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Success message with file path and size
         """
         workspace = _get_workspace()
         spec_file = workspace / "Fvspec" / "Spec.lean"
@@ -142,19 +137,15 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
-@tool  # type: ignore[arg-type]
-def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
+@tool
+def lean_diagnostic_messages():
     """Get diagnostic messages for a Lean file."""
 
-    async def execute(file_path: str, view: ToolCallView) -> str:
+    async def execute(file_path: str) -> str:
         """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
 
         Args:
             file_path: Path to the Lean file (relative to workspace or absolute)
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Diagnostic messages as formatted text
         """
         workspace = _get_workspace()
         result = call_lean_lsp_mcp(
@@ -167,23 +158,17 @@ def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
-@tool  # type: ignore[arg-type]
-def lean_goal() -> Callable[[str, int, int | None, ToolCallView], Awaitable[str]]:
+@tool
+def lean_goal():
     """Get proof goal at a specific location in a Lean file."""
 
-    async def execute(
-        file_path: str, line: int, column: int | None, view: ToolCallView
-    ) -> str:
+    async def execute(file_path: str, line: int, column: int | None = None) -> str:
         """Get the proof goal at a specific location.
 
         Args:
             file_path: Path to the Lean file
             line: Line number
             column: Optional column number
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Goal state information
         """
         workspace = _get_workspace()
         arguments: dict[str, Any] = {"file_path": file_path, "line": line}
@@ -197,25 +182,17 @@ def lean_goal() -> Callable[[str, int, int | None, ToolCallView], Awaitable[str]
     return execute
 
 
-@tool  # type: ignore[arg-type]
-def lean_multi_attempt() -> Callable[
-    [str, int, list[str], ToolCallView], Awaitable[str]
-]:
+@tool
+def lean_multi_attempt():
     """Try multiple proof tactics and return goal states for each."""
 
-    async def execute(
-        file_path: str, line: int, snippets: list[str], view: ToolCallView
-    ) -> str:
+    async def execute(file_path: str, line: int, snippets: list[str]) -> str:
         """Attempt multiple Lean code snippets at a line and return diagnostics.
 
         Args:
             file_path: Path to the Lean file
             line: Line number where to attempt the snippets
             snippets: List of Lean code snippets to try
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Goal states and diagnostics for each snippet
         """
         workspace = _get_workspace()
         result = call_lean_lsp_mcp(
@@ -228,19 +205,15 @@ def lean_multi_attempt() -> Callable[
     return execute
 
 
-@tool  # type: ignore[arg-type]
-def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
+@tool
+def lean_local_search():
     """Search for Lean definitions and theorems in the local project and stdlib."""
 
-    async def execute(query: str, view: ToolCallView) -> str:
+    async def execute(query: str) -> str:
         """Search for definitions and theorems matching the query.
 
         Args:
             query: Search query (identifier or pattern)
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Matching declarations from the local project and standard library
         """
         workspace = _get_workspace()
         result = call_lean_lsp_mcp(

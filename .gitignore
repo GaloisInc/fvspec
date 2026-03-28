@@ -27,6 +27,8 @@ artifacts/
 
 .claude/settings.local.json
 .claude/scheduled_tasks.lock
+run_logs/
+fvspec_run.pid
 
 # LEADERBOARD
 .turbo
