@@ -102,6 +102,7 @@ def formalization_agent(payload: FormalizationPayload, workspace: Path) -> Solve
         state.tools = all_lean_tools()
 
         # Phase 1: Iterative development with tools
+        state.message_limit = 50
         state = await generate(state, tool_calls="loop")
 
         # Count tool calls from message history
