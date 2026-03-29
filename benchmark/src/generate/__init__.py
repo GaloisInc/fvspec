@@ -441,11 +441,10 @@ def compare_variants(
         raise
 
 
-@app.command(name="retry-all")
-def retry_all(
-    artifacts_dir: str = Option(
-        "artifacts",
-        help="Directory to search for .eval files (default: artifacts/)",
+@app.command(name="retry")
+def retry(
+    eval_file: str = typer.Argument(
+        help="Path to a .eval file or directory containing .eval files to retry.",
     ),
     parallelism: int = Option(
         None,
@@ -458,40 +457,42 @@ def retry_all(
         help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
     ),
 ) -> None:
-    """Retry all .eval files found in artifacts directory.
+    """Retry failed/incomplete samples from a .eval file or directory.
 
-    This command finds all .eval files and retries them using inspect eval-retry,
-    automatically using the model and settings from config.toml.
+    Reuses completed samples from the original run — only retries samples
+    that failed or were never started. Creates a new .eval log file.
 
-    Args:
-        artifacts_dir: Directory to search for .eval files.
-        parallelism: Number of samples to evaluate in parallel (overrides config.toml).
-        display: Display mode for eval logs (overrides config.toml).
+    Examples:
+        uv run fvspec retry artifacts/runs/2026-03-28/.../log.eval
+        uv run fvspec retry artifacts/runs/2026-03-28/
     """
-    # Find all .eval files
-    artifacts_path = Path(artifacts_dir)
-    if not artifacts_path.exists():
-        print(f"Error: Directory {artifacts_dir} does not exist")
-        return
+    eval_path = Path(eval_file)
+    if not eval_path.exists():
+        print(f"Error: {eval_file} does not exist")
+        raise typer.Exit(1)
 
-    eval_files = sorted(artifacts_path.rglob("*.eval"))
+    # Collect .eval files
+    if eval_path.is_file() and eval_path.suffix == ".eval":
+        eval_files = [eval_path]
+    elif eval_path.is_dir():
+        eval_files = sorted(eval_path.rglob("*.eval"))
+    else:
+        print(f"Error: {eval_file} is not a .eval file or directory")
+        raise typer.Exit(1)
 
     if not eval_files:
-        print(f"No .eval files found in {artifacts_dir}")
-        return
+        print(f"No .eval files found in {eval_file}")
+        raise typer.Exit(1)
 
-    print(f"Found {len(eval_files)} .eval files")
-    print("Note: Will use the model stored in each .eval file")
-
-    # Use config settings
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
 
-    print(f"Parallelism: {use_parallelism}")
-    print(f"Display: {use_display}")
+    print(f"Retrying {len(eval_files)} .eval file(s)")
+    print("  Model: from .eval file(s)")
+    print(f"  Parallelism: {use_parallelism}")
+    print(f"  Display: {use_display}")
     print()
 
-    # Retry all files (model comes from .eval files, not config)
     eval_retry(
         [str(f) for f in eval_files],
         max_samples=use_parallelism,
