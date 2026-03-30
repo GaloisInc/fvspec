@@ -79,11 +79,15 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
     spec_code = spec_file.read_text() if spec_file.exists() else None
     impl_code = impl_file.read_text() if impl_file.exists() else None
 
-    # Build provenance from sample metadata
+    # Build provenance from sample metadata and run name
     model = qa.get("model") or datapoint.get("model")
+    # Run names look like "2025-12-18T14-48-17__idx43000-43500__control-functional"
+    # Extract the timestamp prefix (everything before the first "__")
+    run_timestamp = run_name.split("__")[0] if "__" in run_name else None
     provenance = {
         "git_commit": _get_git_commit(),
         "model": model,
+        "run_timestamp": run_timestamp,
     }
 
     # Combine all data
