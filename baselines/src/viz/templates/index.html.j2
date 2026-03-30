@@ -153,7 +153,7 @@
       <tbody>
         {% set current_bucket = namespace(val='') %}
         {% for sid in stats.sample_ids %}
-          {% set bucket = stats.bucket_map[sid] %}
+          {% set bucket = stats.bucket_map.get(sid, 'unknown') %}
           {% if bucket != current_bucket.val %}
             {% set current_bucket.val = bucket %}
         <tr class="bucket-divider {{ bucket }}" data-bucket="{{ bucket }}">

@@ -387,9 +387,12 @@ def compute_stats(
         for s in samples:
             all_ids.add(s["id"])
 
-    # Use first model's samples for bucket info
-    first_samples = model_samples[models[0]]
-    bucket_map = {s["id"]: s["difficulty_bucket"] for s in first_samples}
+    # Build bucket_map from all models' samples so every ID in the union is
+    # covered (first-seen value wins to keep deterministic ordering).
+    bucket_map: dict[str, str] = {}
+    for m in models:
+        for s in model_samples[m]:
+            bucket_map.setdefault(s["id"], s["difficulty_bucket"])
     sample_ids = sorted(
         all_ids,
         key=lambda sid: (_BUCKET_ORDER.get(bucket_map.get(sid, ""), 9), sid),
