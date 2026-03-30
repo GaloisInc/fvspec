@@ -55,7 +55,7 @@ FIELDS_TO_REMOVE = {
     "percent_lines_added",  # float64, -1--1
     "spec_sig_success",  # bool, 1 class
     "unit_tests_available",  # bool, 1 class
-    "model",  # all sonnet 4.5
+    "model",  # redundant with provenance.model
     "variant",  # all `control-functional`
     # Null/empty fields (no data)
     "faithfulness_subjective",  # null
@@ -110,6 +110,8 @@ FIELD_ORDER = [
     "realpbt_summary",
     # Results
     "num_theorems",
+    # Provenance
+    "provenance",
     # Metadata fields follow alphabetically
 ]
 

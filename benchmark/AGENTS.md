@@ -19,9 +19,9 @@ Benchmark generation system using the `inspect_ai` framework.
 - **Naming**: `.prompt.template` (Jinja2 markup) vs `.prompt` (plain)
 - **⚠️ Testing**: Template bugs are subtle - verify rendered output when modifying
 
-**`data/pbts_full.db`** - SQLite database
-- 54,345 PBTs, 6.3M unit tests, 448K PBT-function associations
-- SQLModel ORM for type-safe queries
+**`data/realpbt2.jsonl`** - Input dataset (JSONL)
+- Each row is a PBT with embedded dependencies, summary, and metadata
+- Loaded via `mk_dataset()` in `scaffold/dataset/`
 
 ## Common Commands
 
@@ -41,7 +41,7 @@ uv run ruff format && uv run ruff check && uv run pytest
 ## Architecture
 
 **Unified Agent Flow:**
-1. Sample from SQLite with filtering
+1. Sample from `realpbt2.jsonl` with filtering
 2. **Function discovery** - Tree-sitter lookup (92% coverage)
 3. **Dependency formalization** - Each dep gets its own `function_impl_agent` call (KNOWN_TEST_INFRA deps are skipped)
 4. **Unified formalization agent** - Sees full context (PBT + summary + discovered code + deps), produces both Impl.lean (zero sorry) and Spec.lean (theorems with sorry) via LSP tool loop
@@ -63,12 +63,11 @@ uv run ruff format && uv run ruff check && uv run pytest
 
 Edit `config.toml` for model/variant/wandb. **CRITICAL:** Keep `entity = "fvspec"`.
 
-## Database Schema
+## Dataset Schema
 
-**SQLModel ORM** (`dataset/models.py`, `connection.py`, `queries.py`):
-- Datapoint table: `id`, `repo_id`, `name`, `code`, `summary`
-- JSON fields: `.get_deps()` / `.get_dep_names()`
-- Use `get_session(db_path)` context manager
+**Pydantic models** (`dataset/models.py`, `queries.py`):
+- Datapoint: `id`, `repo_id`, `name`, `code`, `summary`, embedded `deps`
+- Loaded from `realpbt2.jsonl` via `mk_dataset()`
 
 ## Postproduction Pipeline
 

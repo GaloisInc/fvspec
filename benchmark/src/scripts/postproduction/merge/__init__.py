@@ -17,6 +17,7 @@ Usage (from benchmark/ directory):
 """
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -78,6 +79,13 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
     spec_code = spec_file.read_text() if spec_file.exists() else None
     impl_code = impl_file.read_text() if impl_file.exists() else None
 
+    # Build provenance from sample metadata
+    model = qa.get("model") or datapoint.get("model")
+    provenance = {
+        "git_commit": _get_git_commit(),
+        "model": model,
+    }
+
     # Combine all data
     combined = {
         **datapoint,  # All fields from datapoint.json
@@ -85,9 +93,30 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
         "spec": spec_code,
         "impl": impl_code,
         "run_provenance": run_name,  # Which run this sample came from
+        "provenance": provenance,
     }
 
     return combined
+
+
+_cached_git_commit: str | None = None
+
+
+def _get_git_commit() -> str | None:
+    """Get the current git commit hash, cached for the process lifetime."""
+    global _cached_git_commit
+    if _cached_git_commit is None:
+        try:
+            _cached_git_commit = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .decode()
+                .strip()
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            _cached_git_commit = ""
+    return _cached_git_commit or None
 
 
 def merge_runs_to_jsonl(
