@@ -478,7 +478,7 @@ def build_site(eval_paths: list[Path], output_dir: Path) -> None:
 
     env = Environment(
         loader=FileSystemLoader(str(HERE / "templates")),
-        autoescape=select_autoescape(["html"]),
+        autoescape=select_autoescape(["html", "j2"]),
     )
 
     ctx: dict[str, Any] = {
