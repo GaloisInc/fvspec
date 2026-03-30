@@ -23,7 +23,7 @@ fvspec is a benchmark for evaluating AI models on formal verification tasks. Ext
   - `src/generate/` - Core benchmark generation (dep formalization + unified formalization agent)
   - `src/scripts/postproduction/` - Post-processing tools (merge, grader, W&B accumulator)
 - **`/baselines`** - Baseline model evaluations, results aggregation, and `doteval-dashboard` trajectory viewer
-- **`/leaderboard`** - Public leaderboard (Next.js, Hono API, BullMQ worker)
+- **`/leaderboard`** - Public dataset explorer (Next.js, embedded Hono API)
 - **`/benchmark/artifacts`** - Generated outputs (gitignored)
 
 See subdirectory `CLAUDE.md` and `README.md` files for details.
