@@ -480,7 +480,6 @@ def build_site(eval_paths: list[Path], output_dir: Path) -> None:
         loader=FileSystemLoader(str(HERE / "templates")),
         autoescape=select_autoescape(["html"]),
     )
-    env.filters["tojson"] = lambda v: json.dumps(v)
 
     ctx: dict[str, Any] = {
         "stats": stats,
