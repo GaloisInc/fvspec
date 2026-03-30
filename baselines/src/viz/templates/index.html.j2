@@ -1,0 +1,315 @@
+{% extends "base.html.j2" %}
+
+{% block title %}Overview{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <div class="hero-label">fvspec baselines evaluation</div>
+  <h1>Model comparison</h1>
+  <p>Formal verification benchmark: translating Python property-based tests into Lean 4 proofs.</p>
+  <div class="hero-meta">
+    {% for m in models %}<span class="badge accent">{{ m }}</span>{% endfor %}
+    <span class="badge">{{ stats.n_samples }} samples ({{ stats.sample_ids_by_bucket.easy|length }}E / {{ stats.sample_ids_by_bucket.medium|length }}M / {{ stats.sample_ids_by_bucket.hard|length }}H)</span>
+    {% if stats.created %}<span class="badge">{{ stats.created[:10] }}</span>{% endif %}
+    {% if stats.message_limit %}<span class="badge">msg limit: {{ stats.message_limit }}</span>{% endif %}
+    {% if stats.revision.commit %}<span class="badge">{{ stats.revision.commit }}</span>{% endif %}
+  </div>
+</div>
+
+<!-- Per-model stat cards with bucket breakdown -->
+{% for m in models %}
+{% set md = stats.model_data[m] %}
+<h2 class="section-title" style="margin-top:{% if loop.first %}0{% else %}2{% endif %}rem">{{ m }}</h2>
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+  <div class="stat-card accent-green">
+    <div class="label">Proved</div>
+    <div class="value">{{ md.proved }}/{{ md.n_samples }}</div>
+    <div class="sub">{{ md.prove_rate }}% overall</div>
+    <table class="bucket-breakdown">
+      <tr>
+        <td><span class="diff-indicator easy"></span>Easy</td>
+        <td>{{ md.buckets.easy.proved }}/{{ md.buckets.easy.n }}</td>
+        <td>{{ md.buckets.easy.rate }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator medium"></span>Medium</td>
+        <td>{{ md.buckets.medium.proved }}/{{ md.buckets.medium.n }}</td>
+        <td>{{ md.buckets.medium.rate }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator hard"></span>Hard</td>
+        <td>{{ md.buckets.hard.proved }}/{{ md.buckets.hard.n }}</td>
+        <td>{{ md.buckets.hard.rate }}%</td>
+      </tr>
+    </table>
+  </div>
+  <div class="stat-card accent-teal">
+    <div class="label">Mean partial credit</div>
+    <div class="value">{{ (md.mean_partial_credit * 100)|round(1) }}%</div>
+    <div class="sub">sorry removal ratio</div>
+    <table class="bucket-breakdown">
+      <tr>
+        <td><span class="diff-indicator easy"></span>Easy</td>
+        <td>{{ md.buckets.easy.partial_credit }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator medium"></span>Medium</td>
+        <td>{{ md.buckets.medium.partial_credit }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator hard"></span>Hard</td>
+        <td>{{ md.buckets.hard.partial_credit }}%</td>
+      </tr>
+    </table>
+  </div>
+  <div class="stat-card accent-amber">
+    <div class="label">Mean time</div>
+    <div class="value">{{ md.mean_time }}s</div>
+    <div class="sub">{{ (md.total_time / 60)|round(1) }}m total</div>
+  </div>
+  <div class="stat-card">
+    <div class="label">Tokens</div>
+    <div class="value">{{ "{:,.0f}".format(md.total_tokens) }}</div>
+  </div>
+</div>
+{% endfor %}
+
+<!-- Cross-model comparison charts -->
+<h2 class="section-title">Comparison by difficulty</h2>
+
+<div class="chart-grid-2">
+  <div class="card">
+    <div class="card-title">Prove rate by difficulty (%)</div>
+    <div class="chart-wrap">
+      <canvas id="proveRateChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Mean partial credit by difficulty (%)</div>
+    <div class="chart-wrap">
+      <canvas id="partialCreditChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<div class="chart-grid-2">
+  <div class="card">
+    <div class="card-title">Mean time per sample</div>
+    <div class="chart-wrap">
+      <canvas id="timeChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">Total tokens</div>
+    <div class="chart-wrap">
+      <canvas id="tokenChart"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Per-bucket head-to-head -->
+<h2 class="section-title">Head-to-head by difficulty</h2>
+
+{% for bucket in ["easy", "medium", "hard"] %}
+{% if bucket in stats.head_to_head_charts %}
+<div class="card">
+  <div class="card-title">
+    <span class="diff-indicator {{ bucket }}" style="display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:.5rem"></span>
+    {{ bucket | capitalize }} — partial credit per sample (%)
+    <span style="margin-left:auto;font-weight:400;font-size:.82rem;color:var(--text-dim)">{{ stats.sample_ids_by_bucket[bucket]|length }} samples</span>
+  </div>
+  <div class="chart-wrap" style="{% if stats.sample_ids_by_bucket[bucket]|length > 15 %}min-height:{{ stats.sample_ids_by_bucket[bucket]|length * 22 + 60 }}px{% endif %}">
+    <canvas id="h2h-{{ bucket }}"></canvas>
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Sample table grouped by difficulty -->
+<h2 class="section-title">All samples</h2>
+
+<div class="diff-filters">
+  <button class="diff-filter-btn active" data-diff="all" onclick="filterBucket('all')">All ({{ stats.n_samples }})</button>
+  <button class="diff-filter-btn" data-diff="easy" onclick="filterBucket('easy')">Easy ({{ stats.sample_ids_by_bucket.easy|length }})</button>
+  <button class="diff-filter-btn" data-diff="medium" onclick="filterBucket('medium')">Medium ({{ stats.sample_ids_by_bucket.medium|length }})</button>
+  <button class="diff-filter-btn" data-diff="hard" onclick="filterBucket('hard')">Hard ({{ stats.sample_ids_by_bucket.hard|length }})</button>
+</div>
+
+<div class="card">
+  <div class="table-wrap">
+    <table id="samplesTable">
+      <thead>
+        <tr>
+          <th data-col="0">ID</th>
+          <th data-col="1">Bucket</th>
+          <th data-col="2">Theorems</th>
+          {% for m in models %}
+          <th data-col="{{ 3 + loop.index0 * 3 }}">{{ m }} score</th>
+          <th data-col="{{ 4 + loop.index0 * 3 }}">{{ m }} partial</th>
+          <th data-col="{{ 5 + loop.index0 * 3 }}">{{ m }} time</th>
+          {% endfor %}
+        </tr>
+      </thead>
+      <tbody>
+        {% set current_bucket = namespace(val='') %}
+        {% for sid in stats.sample_ids %}
+          {% set bucket = stats.bucket_map[sid] %}
+          {% if bucket != current_bucket.val %}
+            {% set current_bucket.val = bucket %}
+        <tr class="bucket-divider {{ bucket }}" data-bucket="{{ bucket }}">
+          <td colspan="{{ 3 + models|length * 3 }}">
+            <span class="diff-indicator {{ bucket }}"></span>
+            {{ bucket | upper }} ({{ stats.sample_ids_by_bucket[bucket]|length }} samples)
+          </td>
+        </tr>
+          {% endif %}
+        <tr class="row-{{ bucket }}" data-bucket="{{ bucket }}">
+          <td class="mono">
+            <a href="trajectories.html#sample-{{ sid }}" style="color:var(--accent);text-decoration:none">{{ sid }}</a>
+          </td>
+          {% for m in models %}
+            {% for s in model_samples[m] %}
+              {% if s.id == sid and m == models[0] %}
+          <td>
+            {% if s.difficulty_bucket == 'easy' %}<span class="pill pill-green">easy</span>
+            {% elif s.difficulty_bucket == 'medium' %}<span class="pill pill-blue">medium</span>
+            {% else %}<span class="pill pill-red">hard</span>{% endif %}
+          </td>
+          <td class="num">{{ s.num_theorems }}</td>
+              {% endif %}
+            {% endfor %}
+          {% endfor %}
+          {% for m in models %}
+            {% set found = namespace(s=none) %}
+            {% for s in model_samples[m] %}{% if s.id == sid %}{% set found.s = s %}{% endif %}{% endfor %}
+            {% if found.s %}
+          <td class="num" data-val="{{ found.s.score_value }}">
+            {% if found.s.proved %}<span class="pill pill-green">1.0</span>
+            {% elif found.s.compiles %}<span class="pill pill-amber">{{ found.s.score_value }}</span>
+            {% else %}<span class="pill pill-red">{{ found.s.score_value }}</span>{% endif %}
+          </td>
+          <td class="num" data-val="{{ found.s.partial_credit }}">{{ (found.s.partial_credit * 100)|round(1) }}%</td>
+          <td class="num" data-val="{{ found.s.total_time }}">{{ found.s.total_time }}s</td>
+            {% else %}
+          <td class="mono">-</td><td class="mono">-</td><td class="mono">-</td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+{% if stats.results %}
+<h2 class="section-title">Aggregated results (from results.json)</h2>
+<div class="card">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Model</th>
+          <th>Easy</th>
+          <th>Medium</th>
+          <th>Hard</th>
+          <th>Total</th>
+          <th>Prove rate</th>
+          <th>Partial credit</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for model_key, r in stats.results.items() %}
+        <tr>
+          <td class="mono">{{ model_key }}</td>
+          <td class="num">{{ r.easy_proved }}/{{ r.easy_n }}</td>
+          <td class="num">{{ r.medium_proved }}/{{ r.medium_n }}</td>
+          <td class="num">{{ r.hard_proved }}/{{ r.hard_n }}</td>
+          <td class="num">{{ r.total_proved }}/{{ r.total_n }}</td>
+          <td class="num">{{ (r.total_rate * 100)|round(1) }}%</td>
+          <td class="num">{{ (r.total_partial_credit_avg * 100)|round(1) }}%</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+new Chart(document.getElementById('proveRateChart'), {
+  type: 'bar',
+  data: {{ stats.prove_rate_chart|tojson }},
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+new Chart(document.getElementById('partialCreditChart'), {
+  type: 'bar',
+  data: {{ stats.partial_credit_chart|tojson }},
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+
+new Chart(document.getElementById('timeChart'), {
+  type: 'bar',
+  data: {{ stats.time_chart|tojson }},
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true, title: { display: true, text: 'seconds' } } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+new Chart(document.getElementById('tokenChart'), {
+  type: 'bar',
+  data: {{ stats.token_chart|tojson }},
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true } },
+    plugins: { legend: { display: false } }
+  }
+});
+
+// Per-bucket head-to-head charts
+{% for bucket in ["easy", "medium", "hard"] %}
+{% if bucket in stats.head_to_head_charts %}
+new Chart(document.getElementById('h2h-{{ bucket }}'), {
+  type: 'bar',
+  data: {{ stats.head_to_head_charts[bucket]|tojson }},
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    maintainAspectRatio: false,
+    scales: {
+      x: { beginAtZero: true, max: 100, title: { display: true, text: 'partial credit %' } },
+    },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endif %}
+{% endfor %}
+
+// Difficulty filter
+function filterBucket(bucket) {
+  document.querySelectorAll('.diff-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.diff === bucket);
+  });
+  document.querySelectorAll('#samplesTable tbody tr').forEach(row => {
+    if (bucket === 'all') {
+      row.style.display = '';
+    } else {
+      row.style.display = row.dataset.bucket === bucket ? '' : 'none';
+    }
+  });
+}
+</script>
+{% endblock %}
