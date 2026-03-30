@@ -63,12 +63,14 @@ def stats(
     seed = ranseed if ranseed is not None else cfg.ranseed
     n = num_samples if num_samples is not None else cfg.num_samples
 
-    results = aggregate_logs(log_dir=log_dir)
+    results, eval_ts = aggregate_logs(log_dir=log_dir)
     if not results:
         typer.echo("No results found.")
         raise typer.Exit(1)
 
-    out = write_results_toml(results, ranseed=seed, num_samples=n)
+    out = write_results_toml(
+        results, ranseed=seed, num_samples=n, eval_timestamp=eval_ts
+    )
     typer.echo(f"Wrote {out}")
 
 

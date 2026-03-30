@@ -19,7 +19,7 @@ console = Console()
 # Resolve lake-template relative to the benchmark root
 BENCHMARK_ROOT = Path(__file__).resolve().parents[4]
 LAKE_TEMPLATE = BENCHMARK_ROOT / "lake-template"
-REPORT_PATH = BENCHMARK_ROOT / "docs" / "postproduction" / "VALIDATION_REPORT.md"
+REPORT_DIR = BENCHMARK_ROOT / "docs" / "postproduction"
 
 # Error categories checked in priority order; first match wins
 CATEGORY_PATTERNS: list[tuple[str, list[str]]] = [
@@ -581,6 +581,8 @@ def write_report(
     w()
 
     report_text = "\n".join(lines) + "\n"
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(report_text)
-    return REPORT_PATH
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
+    report_path = REPORT_DIR / f"VALIDATION_REPORT_{timestamp}.md"
+    report_path.write_text(report_text)
+    return report_path
