@@ -88,6 +88,7 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
         "git_commit": _get_git_commit(),
         "model": model,
         "run_timestamp": run_timestamp,
+        "lean_toolchain": _get_lean_toolchain(),
     }
 
     # Combine all data
@@ -121,6 +122,23 @@ def _get_git_commit() -> str | None:
         except (subprocess.CalledProcessError, FileNotFoundError):
             _cached_git_commit = ""
     return _cached_git_commit or None
+
+
+_cached_lean_toolchain: str | None = None
+
+
+def _get_lean_toolchain() -> str | None:
+    """Read lean-toolchain from lake-template, cached for the process lifetime."""
+    global _cached_lean_toolchain
+    if _cached_lean_toolchain is None:
+        toolchain_file = (
+            Path(__file__).resolve().parents[4] / "lake-template" / "lean-toolchain"
+        )
+        try:
+            _cached_lean_toolchain = toolchain_file.read_text().strip()
+        except FileNotFoundError:
+            _cached_lean_toolchain = ""
+    return _cached_lean_toolchain or None
 
 
 def merge_runs_to_jsonl(
