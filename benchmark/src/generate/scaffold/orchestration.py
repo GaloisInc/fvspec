@@ -529,6 +529,11 @@ def fvspec(
     Returns:
         Task configured with unified formalization orchestration
     """
+    if isinstance(timestamp, str):
+        try:
+            timestamp = datetime.fromisoformat(timestamp)
+        except ValueError:
+            timestamp = None
     now = timestamp or datetime.now()
 
     # Resolve variant
