@@ -12,6 +12,7 @@
     "dev": "concurrently -n api,web -c blue,magenta \"npm run dev:api\" \"npm run dev:web\"",
     "dev:web": "next dev",
     "dev:api": "tsx watch server/index.ts",
+    "prebuild": "tsx scripts/precompute-dataset.ts",
     "build": "next build",
     "start": "next start",
     "start:api": "tsx server/index.ts",
