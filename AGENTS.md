@@ -30,7 +30,7 @@ See subdirectory `CLAUDE.md` and `README.md` files for details.
 
 ## Development
 
-Requires: `uv`, `elan`, `lefthook`, `pnpm`
+Requires: `uv`, `elan`, `lefthook`, `npm`
 
 ## Code Style
 

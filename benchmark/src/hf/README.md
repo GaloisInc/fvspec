@@ -9,18 +9,20 @@ size_categories:
 - 10K<n<100K
 ---
 
-# `fvspec` DRAFT
+# `fvspec`
 
-Based on [RealPBT](https://huggingface.co/datasets/Benchify/realpbt)
+Based on [RealPBT](https://huggingface.co/datasets/Benchify/realpbt).
 
-Scraping `hypothesis` tests from the real world and transpiling them into Lean challenge problems. 
+Scraping `hypothesis` property-based tests from the real world and transpiling them into Lean 4 challenge problems. Each sample pairs an `Impl.lean` (computable definitions) with a `Spec.lean` (theorem statements containing `sorry` for models to discharge).
 
-THIS IS A ROUGH DRAFT SNEAK PEAK PLEASE DO NOT POST ANYWHERE. MORE SAMPLES AND MORE METRICS TO COME. 
+THIS IS A ROUGH DRAFT SNEAK PEAK PLEASE DO NOT POST ANYWHERE. MORE SAMPLES AND MORE METRICS TO COME.
 
-## TODO: Usage
+Browse the dataset at [fvspec.galois.com](https://fvspec.galois.com).
 
-1. paste `lean-toolchain`, `lakefile.toml`, `lake-manifest.json` in here.
-2. show the `datasets.load_dataset` call that appends `Spec.lean` to `Impl.lean`
+## TODO Usage
+
+1. Place `lean-toolchain`, `lakefile.toml`, and `lake-manifest.json` from `benchmark/lake-template/` alongside the generated files.
+2. Load via `datasets.load_dataset("quinn-dougherty/fvspec")`; concatenate `Spec.lean` after `Impl.lean` to form a single compilation unit.
 
 ## Acknowledgements
 

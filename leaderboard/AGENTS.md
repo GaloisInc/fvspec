@@ -17,7 +17,7 @@ Single Next.js package with an embedded Hono API:
 - `server/index.ts` — Standalone Hono server (imports `src/lib/api.ts`, for local dev on port 3001)
 - `src/lib/common.ts` — Barrel re-export replacing old `@fvspec/common` package
 
-**No database required.** Dataset loaded from JSONL file (`DATASET_PATH`) or S3 URL at startup, held in-memory.
+**No database required.** Dataset is pre-computed at build time via `npm run prebuild` (`scripts/precompute-dataset.ts`) from `DATASET_PATH` (local JSONL) or `DATASET_URL` (S3), then served from the bundled artifact. This avoids loading the full JSONL on every Vercel cold start.
 
 ### Web — Frontend
 
