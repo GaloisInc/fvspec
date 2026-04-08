@@ -13,6 +13,7 @@ from scripts.postproduction.grader import app as grader_app
 from scripts.postproduction.merge import main as merge_main
 from scripts.postproduction.metrics import main as metrics_main
 from scripts.postproduction.turncount import main as turncount_main
+from scripts.postproduction.unify import main as unify_main
 from scripts.postproduction.validate import main as validate_main
 
 app = typer.Typer(
@@ -25,6 +26,7 @@ app = typer.Typer(
 app.command(name="merge")(merge_main)
 app.command(name="metrics")(metrics_main)
 app.command(name="turncount")(turncount_main)
+app.command(name="unify")(unify_main)
 app.command(name="validate")(validate_main)
 
 # Multi-command tools registered as sub-typers
