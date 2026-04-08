@@ -63,6 +63,14 @@ def main(
         "--filter-impl-autoform/--no-filter-impl-autoform",
         help="Only validate samples with impl_autoform_success >= 1.0",
     ),
+    resume: bool = typer.Option(
+        True,
+        "--resume/--no-resume",
+        help=(
+            "Resume from `<output>.checkpoint.jsonl` if present (default). "
+            "--no-resume deletes the checkpoint and re-validates from scratch."
+        ),
+    ),
 ) -> None:
     """Validate that dataset samples actually compile with `lake build`.
 
@@ -73,6 +81,10 @@ def main(
     in their original full form (drop-in replacement for the input dataset). Failures
     are dropped from the JSONL but still summarized in the markdown report and
     console analysis (compilation rate, turn count correlation, error categories).
+
+    Retry-safe: each completed compilation is appended to a checkpoint file
+    (`<output>.checkpoint.jsonl`) with flush+fsync. If the run is interrupted,
+    re-running the same command picks up where it left off.
     """
     run_validation(
         input_jsonl=input_jsonl,
@@ -83,4 +95,5 @@ def main(
         output=output,
         timeout=timeout,
         filter_impl_autoform=filter_impl_autoform,
+        resume=resume,
     )

@@ -1,6 +1,7 @@
 """Core validation logic: compile samples with lake build."""
 
 import json
+import os
 import random
 import shutil
 import subprocess
@@ -258,6 +259,102 @@ def _wilson_ci(failures: int, total: int) -> tuple[float, float]:
     return center, margin
 
 
+def _checkpoint_path(output: Path) -> Path:
+    """Sidecar checkpoint file alongside the final output JSONL.
+
+    Holds one JSON-encoded ValidationResult per line, appended as workers
+    complete. Survives crashes / Ctrl-C and is read on the next run to skip
+    samples that have already been validated.
+    """
+    return output.with_suffix(output.suffix + ".checkpoint.jsonl")
+
+
+def _load_checkpoint(path: Path, eligible_ids: set[int]) -> dict[int, ValidationResult]:
+    """Load prior ValidationResults from a checkpoint file.
+
+    Only entries whose sample_id is in `eligible_ids` are returned — this lets
+    a re-run with a different `--seed` or `--sample-size` silently ignore
+    out-of-scope checkpoint entries instead of crashing.
+
+    Tolerates malformed lines (most realistically: a truncated final line from
+    a process kill mid-write). They're counted and reported, not raised.
+    """
+    if not path.exists():
+        return {}
+    done: dict[int, ValidationResult] = {}
+    out_of_scope = 0
+    malformed = 0
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                r = ValidationResult(**d)
+            except Exception:
+                malformed += 1
+                continue
+            if r.sample_id in eligible_ids:
+                done[r.sample_id] = r
+            else:
+                out_of_scope += 1
+    if done:
+        console.print(
+            f"  [green]Resuming {len(done)} samples from checkpoint[/green] "
+            f"({path.name})"
+        )
+    if out_of_scope:
+        console.print(
+            f"  [dim]Ignored {out_of_scope} checkpoint entries outside current "
+            f"selection (different seed or sample size).[/dim]"
+        )
+    if malformed:
+        console.print(
+            f"  [yellow]Skipped {malformed} malformed checkpoint lines "
+            f"(likely truncated by an earlier kill).[/yellow]"
+        )
+    return done
+
+
+def _append_checkpoint(handle, result: ValidationResult) -> None:
+    """Durably append a single ValidationResult to the checkpoint file.
+
+    flush() pushes Python's buffer to the OS; fsync() pushes the OS buffer to
+    disk. Together they make the line survive a kill -9 of either Python or
+    the parent shell. (Won't survive a power loss without journaling, but
+    that's fine for our use case.)
+    """
+    handle.write(json.dumps(result.model_dump()) + "\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+
+
+def _atomic_write_jsonl(path: Path, rows: list[dict]) -> None:
+    """Write rows to `path` atomically via temp-file + os.replace.
+
+    Guarantees the destination is either the previous successful state or
+    fully written — never half. Uses the same parent dir so the rename stays
+    on one filesystem.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            for row in rows:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+
 def run_validation(
     input_jsonl: Path,
     sample_size: int,
@@ -267,8 +364,15 @@ def run_validation(
     output: Path | None,
     timeout: int,
     filter_impl_autoform: bool,
+    resume: bool = True,
 ) -> None:
-    """Main validation pipeline."""
+    """Main validation pipeline.
+
+    Retry-safe: each completed compilation is appended to a sidecar checkpoint
+    file (`<output>.checkpoint.jsonl`) with flush+fsync. On a re-run with the
+    same `--output` (and matching seed/sample-size), already-validated samples
+    are skipped. Pass `resume=False` to start fresh.
+    """
     console.print("[bold]Post-production: Compilation Validation[/bold]\n")
 
     # Load dataset
@@ -310,60 +414,91 @@ def run_validation(
             "Run `lake build` in lake-template/ first.[/yellow]"
         )
 
-    # Output path
+    # Output + checkpoint paths
     if output is None:
         output = input_jsonl.with_suffix(".validated.jsonl")
+    checkpoint = _checkpoint_path(output)
+
+    # Resume from checkpoint, scoped to currently-eligible sample_ids
+    eligible_ids = {s["sample_id"] for s in samples}
+    if resume:
+        done_results = _load_checkpoint(checkpoint, eligible_ids)
+    else:
+        done_results = {}
+        if checkpoint.exists():
+            console.print(
+                f"  [yellow]--no-resume: removing existing checkpoint "
+                f"{checkpoint.name}[/yellow]"
+            )
+            checkpoint.unlink()
+
+    samples_to_run = [s for s in samples if s["sample_id"] not in done_results]
 
     console.print(f"\nValidating with parallelism={parallelism}, timeout={timeout}s")
-    console.print(f"Output: {output}\n")
+    console.print(f"Output:     {output}")
+    console.print(f"Checkpoint: {checkpoint}")
+    console.print(
+        f"  to run: {len(samples_to_run)}  already done: {len(done_results)}\n"
+    )
 
-    # Run compilations
-    results: list[ValidationResult] = []
-    args_list = [(sample, str(LAKE_TEMPLATE), timeout) for sample in samples]
+    # Run compilations, appending each result to the checkpoint as it lands.
+    new_results: list[ValidationResult] = []
+    args_list = [(sample, str(LAKE_TEMPLATE), timeout) for sample in samples_to_run]
 
-    with Progress(console=console) as progress:
-        task = progress.add_task("Compiling...", total=len(samples))
+    if args_list:
+        # Append mode: prior checkpoint lines are preserved, new ones go after.
+        # We don't truncate even on --no-resume because we already unlinked above.
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        with open(checkpoint, "a") as cp_handle, Progress(console=console) as progress:
+            task = progress.add_task("Compiling...", total=len(samples_to_run))
 
-        with ProcessPoolExecutor(max_workers=parallelism) as executor:
-            futures = {
-                executor.submit(_compile_worker, args): i
-                for i, args in enumerate(args_list)
-            }
+            with ProcessPoolExecutor(max_workers=parallelism) as executor:
+                futures = {
+                    executor.submit(_compile_worker, args): i
+                    for i, args in enumerate(args_list)
+                }
 
-            for future in as_completed(futures):
-                try:
-                    result_dict = future.result()
-                    results.append(ValidationResult(**result_dict))
-                except Exception as e:
-                    idx = futures[future]
-                    console.print(f"[red]Worker error for index {idx}: {e}[/red]")
-                progress.advance(task)
+                for future in as_completed(futures):
+                    try:
+                        result_dict = future.result()
+                        result = ValidationResult(**result_dict)
+                        new_results.append(result)
+                        _append_checkpoint(cp_handle, result)
+                    except Exception as e:
+                        idx = futures[future]
+                        console.print(f"[red]Worker error for index {idx}: {e}[/red]")
+                    progress.advance(task)
+    else:
+        console.print(
+            "[green]Nothing to do — all samples already in checkpoint.[/green]"
+        )
 
-    # Write filtered dataset: only samples that successfully compiled, in their
-    # original full form (datapoint+qa+spec+impl+provenance). Per-sample failure
-    # details are still summarized in the markdown report and console analysis
-    # below — they just don't live in the JSONL anymore.
+    # Combine resumed + freshly-computed results for the final output and report.
+    all_results = list(done_results.values()) + new_results
+
+    # Write filtered dataset atomically: only samples that successfully compiled,
+    # in their original full form (datapoint+qa+spec+impl+provenance). Per-sample
+    # failure details are still summarized in the markdown report and console
+    # analysis below — they just don't live in the JSONL anymore.
     samples_by_id = {s["sample_id"]: s for s in samples}
     passing_samples = [
         samples_by_id[r.sample_id]
-        for r in sorted(results, key=lambda x: x.sample_id)
+        for r in sorted(all_results, key=lambda x: x.sample_id)
         if r.compiles and r.sample_id in samples_by_id
     ]
-    with open(output, "w") as f:
-        for sample in passing_samples:
-            f.write(json.dumps(sample) + "\n")
+    _atomic_write_jsonl(output, passing_samples)
 
     console.print(
         f"\n[green]Wrote {len(passing_samples)} passing samples to {output}[/green]"
-        f" [dim](dropped {len(results) - len(passing_samples)} failures)[/dim]\n"
+        f" [dim](dropped {len(all_results) - len(passing_samples)} failures)[/dim]\n"
     )
 
     # Analyze and print to console
-    print_analysis(results)
+    print_analysis(all_results)
 
     # Write markdown report
     report_path = write_report(
-        results=results,
+        results=all_results,
         input_jsonl=input_jsonl,
         total_loaded=total_loaded,
         eligible=eligible,
