@@ -13,7 +13,15 @@ from pathlib import Path
 
 from pydantic import BaseModel
 from rich.console import Console
-from rich.progress import Progress
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 console = Console()
 
@@ -449,8 +457,29 @@ def run_validation(
         # Append mode: prior checkpoint lines are preserved, new ones go after.
         # We don't truncate even on --no-resume because we already unlinked above.
         checkpoint.parent.mkdir(parents=True, exist_ok=True)
-        with open(checkpoint, "a") as cp_handle, Progress(console=console) as progress:
-            task = progress.add_task("Compiling...", total=len(samples_to_run))
+        # Custom columns: description carries the resume framing so the user can
+        # see both "this invocation" progress and "overall" progress at a glance;
+        # MofN + TimeElapsed + TimeRemaining give a full picture of pace. ETA is
+        # still jittery on short runs because compilation latency is bimodal
+        # (fast success vs. slow timeout), but stabilizes well on long runs.
+        if done_results:
+            desc = f"Compiling (resumed {len(done_results)}/{len(samples)})"
+        else:
+            desc = "Compiling"
+        progress_columns = (
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
+        with (
+            open(checkpoint, "a") as cp_handle,
+            Progress(*progress_columns, console=console) as progress,
+        ):
+            task = progress.add_task(desc, total=len(samples_to_run))
 
             with ProcessPoolExecutor(max_workers=parallelism) as executor:
                 futures = {
