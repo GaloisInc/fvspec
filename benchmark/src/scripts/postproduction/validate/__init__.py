@@ -48,7 +48,10 @@ def main(
         None,
         "--output",
         "-o",
-        help="Output JSONL path (default: <input>.validated.jsonl)",
+        help=(
+            "Output JSONL path (default: <input>.validated.jsonl). "
+            "Contains only samples that successfully compiled, in their original form."
+        ),
     ),
     timeout: int = typer.Option(
         60,
@@ -64,10 +67,12 @@ def main(
     """Validate that dataset samples actually compile with `lake build`.
 
     Copies lake-template into temporary directories, writes Spec.lean and Impl.lean
-    from the dataset, and runs `lake build`. Records pass/fail with error details.
+    from the dataset, and runs `lake build`.
 
-    Outputs a JSONL with validation results and prints a correlation analysis
-    of compilation success vs. turn counts.
+    Outputs a filtered JSONL containing only the samples that compiled successfully,
+    in their original full form (drop-in replacement for the input dataset). Failures
+    are dropped from the JSONL but still summarized in the markdown report and
+    console analysis (compilation rate, turn count correlation, error categories).
     """
     run_validation(
         input_jsonl=input_jsonl,

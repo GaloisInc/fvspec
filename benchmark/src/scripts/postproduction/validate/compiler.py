@@ -339,13 +339,24 @@ def run_validation(
                     console.print(f"[red]Worker error for index {idx}: {e}[/red]")
                 progress.advance(task)
 
-    # Write JSONL results
-    results_sorted = sorted(results, key=lambda x: x.sample_id)
+    # Write filtered dataset: only samples that successfully compiled, in their
+    # original full form (datapoint+qa+spec+impl+provenance). Per-sample failure
+    # details are still summarized in the markdown report and console analysis
+    # below — they just don't live in the JSONL anymore.
+    samples_by_id = {s["sample_id"]: s for s in samples}
+    passing_samples = [
+        samples_by_id[r.sample_id]
+        for r in sorted(results, key=lambda x: x.sample_id)
+        if r.compiles and r.sample_id in samples_by_id
+    ]
     with open(output, "w") as f:
-        for r in results_sorted:
-            f.write(r.model_dump_json() + "\n")
+        for sample in passing_samples:
+            f.write(json.dumps(sample) + "\n")
 
-    console.print(f"\n[green]Results written to {output}[/green]\n")
+    console.print(
+        f"\n[green]Wrote {len(passing_samples)} passing samples to {output}[/green]"
+        f" [dim](dropped {len(results) - len(passing_samples)} failures)[/dim]\n"
+    )
 
     # Analyze and print to console
     print_analysis(results)
