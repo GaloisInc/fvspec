@@ -112,7 +112,7 @@ def aggregate_logs(
 
         model = _extract_model_name(data)
         if model not in model_results:
-            model_results[model] = {"easy": [], "medium": [], "hard": []}
+            model_results[model] = {"easy": [], "hard": []}
 
         # Extract per-sample results from the eval log
         for sample in data.get("samples", []):
@@ -144,7 +144,7 @@ def aggregate_logs(
         total_n = 0
         total_partial = 0.0
 
-        for bucket_name in ["easy", "medium", "hard"]:
+        for bucket_name in ["easy", "hard"]:
             results = buckets[bucket_name]
             n = len(results)
             proved = sum(1 for r in results if r["proved"])
@@ -223,10 +223,6 @@ def write_results_toml(
             "easy_n": run.easy.n,
             "easy_rate": run.easy.rate,
             "easy_partial_credit_avg": run.easy.partial_credit_avg,
-            "medium_proved": run.medium.proved,
-            "medium_n": run.medium.n,
-            "medium_rate": run.medium.rate,
-            "medium_partial_credit_avg": run.medium.partial_credit_avg,
             "hard_proved": run.hard.proved,
             "hard_n": run.hard.n,
             "hard_rate": run.hard.rate,

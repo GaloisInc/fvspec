@@ -6,7 +6,7 @@ Baseline implementations for measuring benchmark performance.
 2. Write a solver with `inspect-ai` that uses `lean-lsp-mcp` tools and the `lake-template` boilerplate dir in tmpdirs.
 3. Write outcome stats to `.toml` and `.json` in timestamped subdirectories under `artifacts/results/<eval-timestamp>/` for automatic loading into `typst` in `./../comms/paper/*.typ`
 4. The task is to actually write the proof-- to fill in the sorry in `Spec.lean`
-5. Equal bucket weights: pick 25 easy, 25 medium, 25 hard (based on haiku's difficulty estimate, thresholds: easy [0,4), medium [4,7), hard [7,∞)). Ranseed fixes the shuffle within buckets.
+5. Binary difficulty buckets: pick 50% easy, 50% hard. Uses `difficulty_binary` (v2 grader, few-shot calibrated Haiku) when available, falls back to `difficulty_subjective_haiku` with threshold at 4.0. Ranseed fixes the shuffle within buckets.
 6. We have `OPENAI_API_KEY` and `ANTHROPIC_API_KEY` in monorepo root `.env`. Use inspect-ai primitives for parallelism.
 
 ## Scoring

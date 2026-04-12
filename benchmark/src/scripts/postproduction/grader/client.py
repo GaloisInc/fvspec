@@ -182,7 +182,7 @@ class AnthropicGraderClient:
     def grade_difficulty(
         self, system_prompt: str, difficulty_prompt: str
     ) -> tuple[Any, int, float]:
-        """Grade difficulty using structured output.
+        """Grade difficulty using structured output (v1: 0-10 scale).
 
         Args:
             system_prompt: System prompt
@@ -197,4 +197,24 @@ class AnthropicGraderClient:
             system_prompt=system_prompt,
             user_message=difficulty_prompt,
             output_schema=DifficultyGrade,
+        )
+
+    def grade_difficulty_v2(
+        self, system_prompt: str, difficulty_prompt: str
+    ) -> tuple[Any, int, float]:
+        """Grade difficulty using binary classification (v2: easy/hard).
+
+        Args:
+            system_prompt: System prompt
+            difficulty_prompt: Rendered difficulty assessment prompt
+
+        Returns:
+            Tuple of (DifficultyGradeV2 or None, tokens used, time taken)
+        """
+        from scripts.postproduction.grader.models import DifficultyGradeV2
+
+        return self.call_with_structured_output(
+            system_prompt=system_prompt,
+            user_message=difficulty_prompt,
+            output_schema=DifficultyGradeV2,
         )

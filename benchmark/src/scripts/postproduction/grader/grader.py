@@ -9,10 +9,16 @@ from typing import Any
 from rich.console import Console
 
 from scripts.postproduction.grader.client import AnthropicGraderClient
-from scripts.postproduction.grader.models import DifficultyGrade, GraderMetadata
+from scripts.postproduction.grader.models import (
+    DifficultyGrade,
+    DifficultyGradeV2,
+    GraderMetadata,
+)
 from scripts.postproduction.grader.prompts import (
     load_system_prompt,
+    load_system_prompt_v2,
     render_difficulty_prompt,
+    render_difficulty_prompt_v2,
 )
 
 console = Console()
@@ -83,6 +89,66 @@ def grade_sample(
     return graded_sample
 
 
+def grade_sample_v2(
+    sample: dict[str, Any],
+    client: AnthropicGraderClient,
+) -> dict[str, Any]:
+    """Grade a single sample using binary difficulty classification (v2).
+
+    Args:
+        sample: Sample dictionary from merged JSONL
+        client: Anthropic client for API calls
+
+    Returns:
+        Sample dictionary augmented with binary grading fields
+    """
+    start_time = time.time()
+    grade: DifficultyGradeV2 | None = None
+    grader_error: str | None = None
+
+    system_prompt = load_system_prompt_v2()
+
+    try:
+        user_prompt = render_difficulty_prompt_v2(sample)
+        grade, tokens, _ = client.grade_difficulty_v2(system_prompt, user_prompt)
+
+        if grade is None:
+            grader_error = "V2 difficulty grading failed (API error or no response)"
+    except Exception as e:
+        grader_error = f"V2 difficulty grading error: {str(e)}"
+        console.print(f"[red]{grader_error}[/red]")
+        tokens = 0
+
+    elapsed = time.time() - start_time
+
+    metadata = GraderMetadata(
+        model=client.model,
+        timestamp=datetime.now().isoformat(),
+        tokens_used=tokens,
+        grading_time_seconds=elapsed,
+        version="2.0.0",
+    )
+
+    graded_sample = {
+        **sample,
+        "grader_metadata": metadata.model_dump(),
+    }
+
+    if grade:
+        graded_sample["difficulty_binary"] = grade.classification
+        graded_sample["difficulty_binary_confidence"] = grade.confidence
+        graded_sample["difficulty_binary_reasoning"] = grade.reasoning
+    else:
+        graded_sample["difficulty_binary"] = None
+        graded_sample["difficulty_binary_confidence"] = None
+        graded_sample["difficulty_binary_reasoning"] = None
+
+    if grader_error:
+        graded_sample["grader_error"] = grader_error
+
+    return graded_sample
+
+
 def process_jsonl(
     input_file: Path,
     output_file: Path,
@@ -91,6 +157,7 @@ def process_jsonl(
     start_idx: int | None = None,
     stop_idx: int | None = None,
     retry_failed: bool = False,
+    version: str = "v1",
 ) -> dict[str, int]:
     """Process a JSONL file, grading each sample for difficulty and writing to output.
 
@@ -107,6 +174,7 @@ def process_jsonl(
         start_idx: Start grading from this index (0-based, inclusive)
         stop_idx: Stop grading at this index (0-based, exclusive)
         retry_failed: Only grade samples with grader_error field
+        version: Grader version ("v1" for 0-10 scale, "v2" for binary easy/hard)
 
     Returns:
         Statistics about the grading operation
@@ -128,8 +196,13 @@ def process_jsonl(
                 if line.strip():
                     sample = json.loads(line)
                     sample_id = sample.get("sample_id")
-                    # Only reuse if successfully graded (has difficulty field, no error)
-                    has_grade = "difficulty_subjective_haiku" in sample
+                    # Only reuse if successfully graded (has relevant difficulty field, no error)
+                    grade_field = (
+                        "difficulty_binary"
+                        if version == "v2"
+                        else "difficulty_subjective_haiku"
+                    )
+                    has_grade = grade_field in sample
                     has_error = "grader_error" in sample
                     if sample_id and has_grade and (not has_error or not retry_failed):
                         existing_graded[sample_id] = sample
@@ -147,6 +220,11 @@ def process_jsonl(
 
     stats["total_read"] = len(all_samples)
 
+    # Determine which difficulty field to check based on version
+    grade_field = (
+        "difficulty_binary" if version == "v2" else "difficulty_subjective_haiku"
+    )
+
     # Helper to check if sample needs grading
     def needs_grading(sample: dict[str, Any]) -> bool:
         sample_id = sample.get("sample_id")
@@ -154,7 +232,7 @@ def process_jsonl(
         if sample_id and sample_id in existing_graded:
             return False
         # Grade if missing difficulty fields in input
-        if "difficulty_subjective_haiku" not in sample:
+        if grade_field not in sample or sample[grade_field] is None:
             return True
         # Grade if has error and retry_failed is set
         if retry_failed and "grader_error" in sample:
@@ -208,7 +286,8 @@ def process_jsonl(
                 )
 
                 try:
-                    graded_sample = grade_sample(
+                    grade_fn = grade_sample_v2 if version == "v2" else grade_sample
+                    graded_sample = grade_fn(
                         sample,
                         client,
                     )
@@ -234,15 +313,24 @@ def process_jsonl(
                     stats["errors"] += 1
             elif sample_id and sample_id in existing_graded:
                 # Reuse existing grade from output file (merge into current sample)
-                graded_fields = {
-                    k: v
-                    for k, v in existing_graded[sample_id].items()
-                    if k
-                    in (
+                reuse_fields = (
+                    (
+                        "difficulty_binary",
+                        "difficulty_binary_confidence",
+                        "difficulty_binary_reasoning",
+                        "grader_metadata",
+                    )
+                    if version == "v2"
+                    else (
                         "difficulty_subjective_haiku",
                         "difficulty_subjective_haiku_takes",
                         "grader_metadata",
                     )
+                )
+                graded_fields = {
+                    k: v
+                    for k, v in existing_graded[sample_id].items()
+                    if k in reuse_fields
                 }
                 merged = {**sample, **graded_fields}
                 outfile.write(json.dumps(merged) + "\n")

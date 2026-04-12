@@ -18,7 +18,9 @@ from scripts.postproduction.grader.client import AnthropicGraderClient
 from scripts.postproduction.grader.grader import process_jsonl
 from scripts.postproduction.grader.prompts import (
     load_system_prompt,
+    load_system_prompt_v2,
     render_difficulty_prompt,
+    render_difficulty_prompt_v2,
 )
 
 app = typer.Typer(help="Grade benchmark samples for difficulty")
@@ -71,6 +73,12 @@ def main(
         "-p",
         help="Number of parallel workers (not yet implemented)",
     ),
+    version: str = typer.Option(
+        "v2",
+        "--version",
+        "-V",
+        help="Grader version: v1 (0-10 scale) or v2 (binary easy/hard)",
+    ),
 ) -> None:
     """Grade benchmark samples for difficulty using Claude Haiku.
 
@@ -85,9 +93,16 @@ def main(
     **Output behavior**: The output is a COMPLETE COPY of the input file.
     All samples are written to output. Successfully graded samples pass through unchanged.
 
-    Each graded sample is augmented with:
+    Each graded sample is augmented with (v1):
     - difficulty_subjective_haiku: Difficulty score (0-10)
     - difficulty_subjective_haiku_takes: Prose justification
+
+    Or (v2, default):
+    - difficulty_binary: "easy" or "hard"
+    - difficulty_binary_confidence: Confidence (0-1)
+    - difficulty_binary_reasoning: Brief reasoning
+
+    Both versions include:
     - grader_metadata: Grading metadata (model, tokens, time)
     - grader_error: Error message (if grading failed)
 
@@ -103,6 +118,10 @@ def main(
     )
 
     # Validate arguments
+    if version not in ("v1", "v2"):
+        console.print("[red]Error: --version must be 'v1' or 'v2'[/red]")
+        raise typer.Exit(1)
+
     if limit and (start_idx is not None or stop_idx is not None):
         console.print(
             "[red]Error: Cannot use --limit with --start-idx/--stop-idx[/red]"
@@ -131,6 +150,7 @@ def main(
     console.print(f"Input file: {input_file}")
     console.print(f"Output file: {output_path}")
     console.print(f"Model: {model}")
+    console.print(f"Version: {version}")
 
     if limit:
         console.print(f"Sample limit: {limit}")
@@ -163,6 +183,7 @@ def main(
         start_idx=start_idx,
         stop_idx=stop_idx,
         retry_failed=retry_failed,
+        version=version,
     )
 
     # Display summary
@@ -198,6 +219,12 @@ def preview_prompt(
         "--start-idx",
         help="Start from this sample index",
     ),
+    version: str = typer.Option(
+        "v2",
+        "--version",
+        "-V",
+        help="Grader version: v1 (0-10 scale) or v2 (binary easy/hard)",
+    ),
 ) -> None:
     """Test prompt rendering without making API calls.
 
@@ -205,7 +232,8 @@ def preview_prompt(
     Useful for debugging and testing prompt changes.
 
     Examples:
-        uv run grader test-prompt input.jsonl  # Show first sample
+        uv run grader test-prompt input.jsonl  # Show first sample (v2)
+        uv run grader test-prompt input.jsonl --version v1  # Show v1 prompt
         uv run grader test-prompt input.jsonl --limit 3  # Show first 3
         uv run grader test-prompt input.jsonl --start-idx 100 --limit 2  # Samples 100-101
     """
@@ -227,10 +255,16 @@ def preview_prompt(
 
     console.print(f"Input file: {input_file}")
     console.print(f"Total samples: {len(all_samples)}")
+    console.print(f"Version: {version}")
     console.print(f"Rendering prompts for samples {start} to {end - 1}\n")
 
-    # Load system prompt
-    system_prompt = load_system_prompt()
+    # Load system prompt based on version
+    if version == "v2":
+        system_prompt = load_system_prompt_v2()
+        render_fn = render_difficulty_prompt_v2
+    else:
+        system_prompt = load_system_prompt()
+        render_fn = render_difficulty_prompt
 
     # Render each sample
     for i, sample in enumerate(samples_to_render, start=start):
@@ -241,7 +275,7 @@ def preview_prompt(
         console.print(f"[bold cyan]{'=' * 80}[/bold cyan]\n")
 
         # Render difficulty prompt
-        difficulty_prompt = render_difficulty_prompt(sample)
+        difficulty_prompt = render_fn(sample)
 
         console.print("[bold yellow]SYSTEM PROMPT:[/bold yellow]")
         console.print(f"[dim]{system_prompt}[/dim]\n")

@@ -1,0 +1,74 @@
+Predict whether an AI theorem-proving agent will prove all theorems in this Lean 4 formalization.
+
+## Calibration Examples
+
+These are real samples with known outcomes from baseline evaluations.
+
+### Example 1: EASY (proved by 2/2 models)
+- Sorries: 1 | Theorems: 2 | Spec lines: 16
+- Why easy: Single trivial theorem (`True`), tiny spec, no complex proof obligations.
+
+### Example 2: EASY (proved by 2/2 models)
+- Sorries: 4 | Theorems: 2 | Spec lines: 70
+- Why easy: Structural properties about graph models. Existentials with straightforward witness construction. Moderate size within agent budget.
+
+### Example 3: EASY (proved by 2/2 models)
+- Sorries: 16 | Theorems: 6 | Spec lines: 165
+- Why easy despite size: All theorems are structural properties about finite types (Device, Config) with BEq/Repr derivations. Proofs likely close with `simp`, `decide`, or `rfl`. Many sorries but each proof is mechanical.
+
+### Example 4: HARD (proved by 0/2 models)
+- Sorries: 1 | Theorems: 1 | Spec lines: 14
+- Why hard despite small size: Single existential proof about graph context construction. Requires building a specific witness satisfying type constraints. The proof obligation is non-trivial even though there's only one sorry.
+
+### Example 5: HARD (proved by 0/2 models)
+- Sorries: 5 | Theorems: 5 | Spec lines: 37
+- Why hard: Five existential proofs about graph operations. Each requires constructing witnesses for GraphContext/Value types. Multiple non-trivial proof obligations compound difficulty.
+
+### Example 6: EASY (proved by 2/2 models)
+- Sorries: 8 | Theorems: 4 | Spec lines: 112
+- Why easy despite high haiku score (9.0): The spec looked complex (LSTM workspace, blobs, tensor shapes) but the theorems have structural proofs. Domain complexity didn't translate to proof difficulty.
+
+### Example 7: HARD (proved by 0/2 models)
+- Sorries: 1 | Theorems: 2 | Spec lines: 49
+- Why hard: Uses `axiom` declarations for core types (Tensor, QuantizedTensor). Opaque/axiomatized types provide no computational content — proofs about them are often impossible.
+
+### Example 8: HARD (proved by 0/2 models)
+- Sorries: 15 | Theorems: 9 | Spec lines: 288
+- Why hard: Very large spec with many proof obligations. Implementation is a stub. Agent would exhaust its turn budget before completing all proofs.
+
+## Target Sample
+
+**Structural Metadata:**
+- Number of sorries: {{ num_sorries }}
+- Number of theorems: {{ num_theorems }}
+- Spec lines: {{ lines_spec }}
+- Impl lines: {{ lines_impl }}
+
+{% if impl_code %}
+**Implementation (Impl.lean)**:
+```lean
+{{ impl_code }}
+```
+{% else %}
+**Implementation**: *Not available*
+{% endif %}
+
+{% if spec_code %}
+**Specification (Spec.lean)**:
+```lean
+{{ spec_code }}
+```
+{% else %}
+**Specification**: *Not available*
+{% endif %}
+
+## Your Task
+
+Based on the calibration examples and the target sample above, classify this sample:
+
+1. **Classification**: `easy` or `hard` — will the AI agent prove ALL theorems?
+2. **Confidence**: 0.0 to 1.0 — how confident are you in this classification?
+3. **Reasoning**: Brief explanation (2-3 sentences) focusing on:
+   - Number and nature of proof obligations
+   - Whether proofs are structural/decidable vs. require construction/deep reasoning
+   - Any red flags (axiom types, Float arithmetic, stub implementations, very large spec)

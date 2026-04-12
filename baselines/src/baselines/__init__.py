@@ -97,13 +97,13 @@ def sample_info(
 
     samples = load_and_sample(ranseed=seed, num_samples=n, data_source=ds)
 
-    buckets: dict[str, list[str]] = {"easy": [], "medium": [], "hard": []}
+    buckets: dict[str, list[str]] = {"easy": [], "hard": []}
     for s in samples:
         bucket = s.difficulty_bucket
         if bucket in buckets:
             buckets[bucket].append(s.sample_id)
 
-    for bucket_name in ["easy", "medium", "hard"]:
+    for bucket_name in ["easy", "hard"]:
         ids = buckets[bucket_name]
         typer.echo(f"{bucket_name}: {len(ids)} samples")
         if len(ids) <= 10:

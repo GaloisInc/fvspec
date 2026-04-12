@@ -15,18 +15,18 @@ from baselines.prompts import render_user_prompt
 
 logger = logging.getLogger(__name__)
 
-# Equal bucket weights: 1/3 each
-BUCKET_RATIOS = {"easy": 1 / 3, "medium": 1 / 3, "hard": 1 / 3}
+# Equal bucket weights: 1/2 each (binary easy/hard)
+BUCKET_RATIOS = {"easy": 1 / 2, "hard": 1 / 2}
 
 
 def bucket_sizes(num_samples: int) -> dict[str, int]:
     """Compute per-bucket sizes from total sample count and ratios.
 
-    Distributes any rounding remainder to the medium bucket by convention.
+    Distributes any rounding remainder to the hard bucket by convention.
     """
     raw = {k: int(v * num_samples) for k, v in BUCKET_RATIOS.items()}
     remainder = num_samples - sum(raw.values())
-    raw["medium"] += remainder
+    raw["hard"] += remainder
     return raw
 
 
@@ -48,6 +48,7 @@ def load_samples_from_jsonl(path: str | Path) -> list[FvspecSample]:
                     realpbt_summary=row.get("realpbt_summary"),
                     num_theorems=row.get("num_theorems") or 0,
                     difficulty_subjective_haiku=row.get("difficulty_subjective_haiku"),
+                    difficulty_binary=row.get("difficulty_binary"),
                 )
             )
     return samples
@@ -69,6 +70,7 @@ def load_samples_from_hf() -> list[FvspecSample]:
                 realpbt_summary=row["realpbt_summary"],
                 num_theorems=row["num_theorems"] or 0,
                 difficulty_subjective_haiku=row["difficulty_subjective_haiku"],
+                difficulty_binary=row.get("difficulty_binary"),
             )
         )
     return samples
@@ -93,7 +95,7 @@ def load_and_sample(
 ) -> list[FvspecSample]:
     """Load dataset and apply stratified sampling by difficulty bucket.
 
-    Splits *num_samples* across easy/medium/hard using equal bucket ratios,
+    Splits *num_samples* across easy/hard using equal bucket ratios,
     shuffled within each bucket using a fixed random seed.
     """
     import random
@@ -101,8 +103,8 @@ def load_and_sample(
     all_samples = load_samples(data_source)
     sizes = bucket_sizes(num_samples)
 
-    # Group by bucket
-    buckets: dict[str, list[FvspecSample]] = {"easy": [], "medium": [], "hard": []}
+    # Group by bucket (binary: easy/hard)
+    buckets: dict[str, list[FvspecSample]] = {"easy": [], "hard": []}
     for sample in all_samples:
         bucket = sample.difficulty_bucket
         if bucket in buckets:
@@ -127,10 +129,9 @@ def load_and_sample(
             selected.extend(pool[:target_size])
 
     logger.info(
-        "Sampled %d total: easy=%d, medium=%d, hard=%d",
+        "Sampled %d total: easy=%d, hard=%d",
         len(selected),
         min(len(buckets["easy"]), sizes["easy"]),
-        min(len(buckets["medium"]), sizes["medium"]),
         min(len(buckets["hard"]), sizes["hard"]),
     )
     return selected
