@@ -59,9 +59,18 @@ def main(
         help="Timeout per lake build in seconds",
     ),
     filter_impl_autoform: bool = typer.Option(
-        True,
+        False,
         "--filter-impl-autoform/--no-filter-impl-autoform",
         help="Only validate samples with impl_autoform_success >= 1.0",
+    ),
+    only_incomputable: bool = typer.Option(
+        False,
+        "--only-incomputable",
+        help=(
+            "Only validate samples with impl_autoform_success < 1.0 "
+            "(incomputable functions under test that may still compile with sorries). "
+            "Overrides --filter-impl-autoform."
+        ),
     ),
     resume: bool = typer.Option(
         True,
@@ -95,5 +104,6 @@ def main(
         output=output,
         timeout=timeout,
         filter_impl_autoform=filter_impl_autoform,
+        only_incomputable=only_incomputable,
         resume=resume,
     )

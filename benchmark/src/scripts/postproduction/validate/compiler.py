@@ -372,6 +372,7 @@ def run_validation(
     output: Path | None,
     timeout: int,
     filter_impl_autoform: bool,
+    only_incomputable: bool = False,
     resume: bool = True,
 ) -> None:
     """Main validation pipeline.
@@ -394,7 +395,13 @@ def run_validation(
     console.print(f"  Loaded {total_loaded} total samples")
 
     # Filter
-    if filter_impl_autoform:
+    if only_incomputable:
+        samples = [s for s in samples if s.get("impl_autoform_success", 0) < 1.0]
+        console.print(
+            f"  After incomputable filter (impl_autoform_success < 1.0): "
+            f"{len(samples)} samples"
+        )
+    elif filter_impl_autoform:
         samples = [s for s in samples if s.get("impl_autoform_success", 0) >= 1.0]
         console.print(f"  After impl_autoform filter: {len(samples)} samples")
 
@@ -536,6 +543,7 @@ def run_validation(
         parallelism=parallelism,
         timeout=timeout,
         filter_impl_autoform=filter_impl_autoform,
+        only_incomputable=only_incomputable,
         output_jsonl=output,
     )
     console.print(f"[green]Report written to {report_path}[/green]")
@@ -627,6 +635,7 @@ def write_report(
     parallelism: int,
     timeout: int,
     filter_impl_autoform: bool,
+    only_incomputable: bool,
     output_jsonl: Path,
 ) -> Path:
     """Write a markdown validation report."""
@@ -650,7 +659,13 @@ def write_report(
     w(f"- **Input**: `{input_jsonl.name}`")
     w(f"- **Total records loaded**: {total_loaded}")
     w(f"- **Eligible after filtering**: {eligible}")
-    w(f"  - `impl_autoform_success >= 1.0`: {'yes' if filter_impl_autoform else 'no'}")
+    if only_incomputable:
+        w("  - `impl_autoform_success < 1.0` (incomputable only)")
+    else:
+        w(
+            f"  - `impl_autoform_success >= 1.0`: "
+            f"{'yes' if filter_impl_autoform else 'no'}"
+        )
     w("  - Has both `spec` and `impl`")
     w(f"- **Sample size**: {sample_size} (seed={seed})")
     w(f"- **Parallelism**: {parallelism}")
