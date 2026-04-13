@@ -9,6 +9,8 @@ Usage (from benchmark/ directory):
 
 import typer
 
+from scripts.postproduction.dedup import main as dedup_main
+from scripts.postproduction.enrich import main as enrich_main
 from scripts.postproduction.grader import app as grader_app
 from scripts.postproduction.merge import main as merge_main
 from scripts.postproduction.metrics import main as metrics_main
@@ -23,6 +25,8 @@ app = typer.Typer(
 )
 
 # Single-command tools registered directly as subcommands
+app.command(name="dedup")(dedup_main)
+app.command(name="enrich")(enrich_main)
 app.command(name="merge")(merge_main)
 app.command(name="metrics")(metrics_main)
 app.command(name="turncount")(turncount_main)
