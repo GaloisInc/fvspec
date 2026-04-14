@@ -60,7 +60,7 @@ Each row represents one **formalization** of a Python PBT into Lean 4. The same 
 
 ## Multiple Formalizations
 
-A single Python PBT may have 2--15 formalizations from different pipeline runs. These are **not noise** — they represent genuinely different approaches to formalization with distinct strengths:
+A single Python PBT may have 2--15 formalizations from different pipeline runs. 
 
 - Some formalizations produce **more theorems** (broader coverage of test behavior)
 - Others score higher on **structural faithfulness** (tighter correspondence to the Python source)
@@ -108,10 +108,10 @@ Each sample is graded for proof difficulty by Claude Haiku 4.5:
 
 Two pipeline runs contribute to this dataset:
 
-| Run | Samples | Model | Date |
-|-----|---------|-------|------|
-| `feb03` | 5,979 | Claude Sonnet | Feb 2025 |
-| `apr08` | 3,436 | Claude Sonnet 4.6 | Mar--Apr 2025 |
+| Run     | Samples | Model             | Date          |
+|---------|---------|-------------------|---------------|
+| `feb03` | 5,979   | Claude Sonnet     | Feb 2026      |
+| `apr08` | 3,436   | Claude Sonnet 4.6 | Mar--Apr 2026 |
 
 The `apr08` run produces higher structural faithfulness on average; `feb03` tends toward higher theorem counts and dependency coverage.
 
@@ -120,10 +120,10 @@ The `apr08` run produces higher structural faithfulness on average; `feb03` tend
 If you use FVSpec, please cite:
 
 ```bibtex
-@misc{fvspec2025,
-  title={FVSpec: A Benchmark for Formal Verification of Property-Based Tests},
-  author={Dougherty, Quinn and others},
-  year={2025},
+@misc{fvspec2026,
+  title={Real-World PBTs as Lean Specs},
+  author={Dougherty, Quinn and Shackleton, Hazel and von Hippel, Max and Dodds, Mike},
+  year={2026},
   url={https://fvspec.galois.com}
 }
 ```
