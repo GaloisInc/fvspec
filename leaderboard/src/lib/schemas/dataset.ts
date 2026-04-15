@@ -13,6 +13,9 @@ export const DatasetSampleListItemSchema = z.object({
   difficulty_binary: DifficultyBinarySchema.nullable().optional(),
 })
 
+/** Raw schema for a sample in the JSONL: `sample_name` is derived from
+ * `realpbt_sample_name` when absent (fvspec-hf.jsonl format). */
+
 /**
  * Lean code structure metrics (lines, counts).
  */
@@ -42,30 +45,31 @@ const LeanMetricsSchema = z
  * Full dataset sample with all code and metadata.
  * Used for detailed sample view.
  */
-export const DatasetSampleDetailSchema = z.object({
-  // Identifiers
-  sample_id: z.number(),
-  sample_name: z.string(),
+export const DatasetSampleDetailSchema = z
+  .object({
+    sample_id: z.number(),
+    sample_name: z.string().optional(),
+    realpbt_sample_name: z.string().optional(),
 
-  // Code content (Lean)
-  spec: z.string(),
-  impl: z.string(),
+    spec: z.string(),
+    impl: z.string(),
 
-  // Original PBT source
-  realpbt_code: z.string().optional(),
-  realpbt_summary: z.string().nullable().optional(),
-  realpbt_repo_id: z.number().optional(),
-  realpbt_lines_pbt: z.number().nullable().optional(),
-  realpbt_sample_name: z.string().optional(),
+    realpbt_code: z.string().optional(),
+    realpbt_summary: z.string().nullable().optional(),
+    realpbt_repo_id: z.number().optional(),
+    realpbt_lines_pbt: z.number().nullable().optional(),
 
-  // Metrics
-  num_theorems: z.number().optional(),
-  lean_metrics: LeanMetricsSchema.nullable().optional(),
-  structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
-  difficulty_binary: DifficultyBinarySchema.nullable().optional(),
-  difficulty_binary_confidence: z.number().nullable().optional(),
-  difficulty_binary_reasoning: z.string().nullable().optional(),
-})
+    num_theorems: z.number().optional(),
+    lean_metrics: LeanMetricsSchema.nullable().optional(),
+    structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
+    difficulty_binary: DifficultyBinarySchema.nullable().optional(),
+    difficulty_binary_confidence: z.number().nullable().optional(),
+    difficulty_binary_reasoning: z.string().nullable().optional(),
+  })
+  .transform(d => ({
+    ...d,
+    sample_name: d.sample_name ?? d.realpbt_sample_name ?? `sample-${d.sample_id}`,
+  }))
 
 /**
  * Response wrapper for dataset list endpoint.
