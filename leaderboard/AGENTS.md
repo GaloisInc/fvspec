@@ -10,75 +10,49 @@ Public dataset explorer for Lean 4 formal verification benchmarks (like SWEBench
 
 ## Architecture
 
-Single Next.js project with a separate API server:
-
-| App     | Stack                     | Deployment |
-| ------- | ------------------------- | ---------- |
-| **web** | Next.js 16, static export | nginx/EC2  |
-| **api** | Hono, in-memory dataset   | systemd    |
-
-**Flow:** Frontend fetches dataset samples from API → API loads JSONL file at startup → serves via REST endpoints
-
-**Structure:**
+Single Next.js package with an embedded Hono API:
 
 - `src/` — Next.js app (app/, components/, lib/)
-- `server/` — Hono API server (outside src/ so Next.js ignores it)
+- `src/lib/api.ts` — Hono API mounted at `/api` via Next.js route handler (`src/app/api/[...path]/route.ts`)
+- `server/index.ts` — Standalone Hono server (imports `src/lib/api.ts`, for local dev on port 3001)
 - `src/lib/common.ts` — Barrel re-export replacing old `@fvspec/common` package
+
+**No database required.** Dataset is pre-computed at build time via `npm run prebuild` (`scripts/precompute-dataset.ts`) from `DATASET_PATH` (local JSONL) or `DATASET_URL` (S3), then served from the bundled artifact. This avoids loading the full JSONL on every Vercel cold start.
 
 ### Web — Frontend
 
-Next.js 16, Tailwind v4, shadcn/ui. Static export.
+Next.js 16, Tailwind v4, shadcn/ui.
 
 **Routes:** `/` (landing), `/paper`, `/dataset` (explorer), `/dataset/[id]` (322 samples)
 
-**Development:** `npm run dev:web` (port 3000)
+### API — Endpoints
 
-### API — REST Server
+Hono, Zod. Embedded in Next.js via route handler, also runnable standalone.
 
-Hono, Zod. No database required. Lives in `server/`.
+**Endpoints:** `/api/dataset/list`, `/api/dataset/stats`, `/api/dataset/:id`
 
-**Endpoints:** `/dataset/list`, `/dataset/stats`, `/dataset/:id`
-
-**Dataset:** Loads `fvspec.jsonl` (322 samples, 4.1MB) at startup, in-memory Map for O(1) lookups
-
-**Development:** `npm run dev:api` (port 3001)
-
-**Environment:** `PORT`, `DATASET_PATH`, `NEXT_PUBLIC_API_URL`
+**Environment:** `PORT`, `DATASET_PATH`, `DATASET_URL`, `NEXT_PUBLIC_API_URL`
 
 ## Development
 
 ```bash
-# Quick start
 cp .env.example .env
 npm install
-npm run dev  # Runs both web (port 3000) + api (port 3001) in parallel
+npm run dev        # Runs both web (port 3000) + standalone api (port 3001) via concurrently
 
-# Individual services (run in separate terminals)
-npm run dev:api  # API server on port 3001
-npm run dev:web  # Next.js dev server on port 3000
+# Individual services
+npm run dev:web    # Next.js dev server on port 3000 (API embedded at /api)
+npm run dev:api   # Standalone Hono server on port 3001
 
 # Other commands
 npm run build / lint / typecheck
 ```
 
-**Ports:**
-
-- API: http://localhost:3001
-- Web: http://localhost:3000 (connects to API at 3001)
-
 ## Deployment
 
-**Production:** https://fvspec-benchmark.galois.com (EC2, `/home/quinnd/fvspec/`)
+Deploys as a standard Next.js app. The Hono API is embedded via the Next.js route handler — no separate API process needed in production.
 
-**Architecture:** nginx (:80) → static files + API proxy (:3001)
-
-**Config files:** `operations/` (nginx/systemd, symlinked to system)
-
-**Update:** `git pull && npm install && npm run build && sudo systemctl restart fvspec-{api,web} && sudo nginx -t && sudo systemctl reload nginx`
-
-**Infrastructure:** nginx, Node.js 20+
-
-See `operations/DEPLOYMENT.md` for details (if exists).
+**Production:** https://fvspec-benchmark.galois.com
 
 ## Code Style
 
@@ -93,6 +67,6 @@ See `operations/DEPLOYMENT.md` for details (if exists).
 
 ## Status
 
-**Completed:** Frontend, dataset explorer/API
-**Removed:** Submission system, worker infrastructure, PostgreSQL, Redis, BullMQ
+**Completed:** Frontend, dataset explorer, embedded API
+**Removed:** Submission system, worker infrastructure, PostgreSQL, Redis, BullMQ, separate API server for production, `operations/` infra configs
 **Future:** Full leaderboard with submission system will be implemented as separate service

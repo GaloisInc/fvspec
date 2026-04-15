@@ -1,0 +1,24 @@
+## Lean LSP Tools
+
+You have access to executable tools for interactive Lean development.
+
+**File writing tools:**
+- `write_lean_impl` - Write implementation code to `Fvspec/Impl.lean`
+- `write_lean_spec` - Write specification code to `Fvspec/Spec.lean`
+  - Write files FIRST before using diagnostic tools
+
+**LSP analysis tools:**
+- `lean_diagnostic_messages(file_path)` - Get structured diagnostics (errors, warnings, info)
+- `lean_goal(file_path, line, column?)` - View proof state at a specific location
+- `lean_multi_attempt(file_path, line, snippets)` - Try multiple tactics in parallel
+- `lean_local_search(query)` - Search for definitions/theorems in local project and stdlib
+
+**Workflow:**
+1. Write implementation using `write_lean_impl`
+2. Use `lean_diagnostic_messages(file_path: "Fvspec/Impl.lean")` to check for errors
+3. Fix and rewrite until Impl.lean compiles with zero sorry
+4. Write theorems using `write_lean_spec`
+5. Use `lean_diagnostic_messages(file_path: "Fvspec/Spec.lean")` to check for errors
+6. Fix and rewrite until Spec.lean compiles
+
+Use these tools iteratively to refine your code and ensure type correctness.

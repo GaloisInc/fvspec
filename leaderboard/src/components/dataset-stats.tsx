@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +31,17 @@ function formatInteger(value: number | null): string {
 }
 
 export function DatasetStats({ stats }: DatasetStatsProps) {
+  const [firstSampleId, setFirstSampleId] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch(`${API_URL}/dataset/list?limit=1`)
+      .then(res => (res.ok ? res.json() : null))
+      .then((data: { samples: { sample_id: number }[] } | null) => {
+        if (data?.samples?.[0]) setFirstSampleId(data.samples[0].sample_id)
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -51,11 +65,16 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Mean Difficulty</CardDescription>
+            <CardDescription>Difficulty Split</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatNumber(stats.difficulty.mean)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Haiku subjective (1-10)</p>
+            <div className="text-3xl font-bold">
+              {stats.difficulty.easy} / {stats.difficulty.hard}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Easy / Hard
+              {stats.difficulty.unknown > 0 ? ` (${stats.difficulty.unknown} ungraded)` : ''}
+            </p>
           </CardContent>
         </Card>
 
@@ -111,17 +130,6 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
             </TableHeader>
             <TableBody>
               <TableRow>
-                <TableCell className="font-medium">Difficulty (Haiku)</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.min)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.q1)}</TableCell>
-                <TableCell className="text-right">
-                  {formatNumber(stats.difficulty.median)}
-                </TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.q3)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.max)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.mean)}</TableCell>
-              </TableRow>
-              <TableRow>
                 <TableCell className="font-medium">Faithfulness Score</TableCell>
                 <TableCell className="text-right">{formatNumber(stats.faithfulness.min)}</TableCell>
                 <TableCell className="text-right">{formatNumber(stats.faithfulness.q1)}</TableCell>
@@ -169,8 +177,10 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dataset/1">
-            <Button size="lg">Browse Samples →</Button>
+          <Link href={firstSampleId != null ? `/dataset/${firstSampleId}` : '/dataset'}>
+            <Button size="lg" disabled={firstSampleId == null}>
+              Browse Samples →
+            </Button>
           </Link>
         </CardContent>
       </Card>

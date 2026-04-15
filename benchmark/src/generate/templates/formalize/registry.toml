@@ -1,0 +1,12 @@
+# fvspec unified formalization prompt variant registry
+# Master index of all available prompt variants for A/B testing
+
+[meta]
+default_variant = "control-functional"
+description = "Registry of unified formalization prompt variants"
+
+[variants.control-functional]
+path = "variants/control-functional"
+style = "functional"
+description = "Unified formalization agent — functional style (control)"
+tags = ["functional", "stable", "control"]

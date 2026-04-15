@@ -301,14 +301,12 @@ def _extract_parameter_counts(lean_code: str) -> list[int]:
 def extract_all_metrics(
     spec_code: str | None = None,
     impl_code: str | None = None,
-    tests_code: str | None = None,
 ) -> dict[str, Any]:
     """Extract all metrics from Lean code files.
 
     Args:
         spec_code: Spec.lean content
         impl_code: Impl.lean content
-        tests_code: Tests.lean content
 
     Returns:
         Dict with structure and complexity metrics for each file
@@ -323,16 +321,12 @@ def extract_all_metrics(
         result["impl_structure"] = extract_structure_metrics(impl_code)
         result["impl_complexity"] = extract_complexity_metrics(impl_code)
 
-    if tests_code:
-        result["tests_structure"] = extract_structure_metrics(tests_code)
-        result["tests_complexity"] = extract_complexity_metrics(tests_code)
-
     # Compute aggregate metrics
     total_lines = 0
     total_sorries = 0
     total_axioms = 0
 
-    for code in [spec_code, impl_code, tests_code]:
+    for code in [spec_code, impl_code]:
         if code:
             metrics = extract_structure_metrics(code)
             total_lines += metrics.total_lines

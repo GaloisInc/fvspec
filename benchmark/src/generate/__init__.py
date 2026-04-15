@@ -3,6 +3,7 @@
 import atexit
 import os
 import signal
+import subprocess
 from datetime import datetime
 from pathlib import Path
 
@@ -22,7 +23,7 @@ if _env_path.exists():
 from generate.scaffold.orchestration import fvspec
 from generate.scaffold.tools import utilio
 from generate.scaffold.wandb_logger import init_wandb_logger
-from generate.templates.spec import VariantRegistry
+from generate.templates.formalize import FormalizationVariantRegistry as VariantRegistry
 
 cfg = load_config()
 
@@ -37,7 +38,7 @@ app = Typer(no_args_is_help=False, invoke_without_command=True)
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
+    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
     variant: str = Option(
         None,
         "-v",
@@ -97,6 +98,12 @@ def main_callback(
         "--wandb-tag",
         help="Additional tags for wandb run (can be specified multiple times).",
     ),
+    model: str = Option(
+        None,
+        "-m",
+        "--model",
+        help="Model identifier (e.g., 'anthropic/claude-sonnet-4-6'). Overrides config.toml.",
+    ),
 ) -> None:
     """Run the fvspec benchmark with a single variant.
 
@@ -117,6 +124,7 @@ def main_callback(
         wandb_project: wandb project name (overrides config.toml).
         wandb_entity: wandb entity/team name (overrides config.toml).
         wandb_tags: Additional tags for wandb run.
+        model: Model identifier string (overrides config.toml).
     """
     # If a subcommand was invoked, don't run the default behavior
     if ctx.invoked_subcommand is not None:
@@ -150,6 +158,15 @@ def main_callback(
 
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
+    use_model = model if model is not None else cfg.agent.model
+
+    # Capture git commit at generation time for artifact provenance
+    try:
+        git_commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"], text=True
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        git_commit = None
 
     # Configure wandb settings: CLI flag > config
     # --wandb-disable flag explicitly disables, otherwise use config.toml setting
@@ -167,7 +184,7 @@ def main_callback(
     now = datetime.now()
     timestamp = now.strftime("%Y-%m-%dT%H-%M-%S")
     log_dir_name = utilio.mk_run_path(
-        timestamp, use_variant, use_ranseed, start_idx, end_idx
+        timestamp, utilio.model_slug(use_model), use_ranseed, start_idx, end_idx
     )
     log_dir = Path("artifacts") / "runs" / log_dir_name
     log_dir.mkdir(parents=True, exist_ok=True)
@@ -192,7 +209,7 @@ def main_callback(
 
         wandb_logger.init_run(
             variant=use_variant or "default",
-            model=cfg.agent.model,
+            model=use_model,
             sample_size=use_sample_size,
             ranseed=use_ranseed,
             timestamp=timestamp,
@@ -210,8 +227,10 @@ def main_callback(
                 timestamp=now,
                 start_idx=start_idx,
                 end_idx=end_idx,
+                git_commit=git_commit,
+                model=utilio.model_slug(use_model),
             ),
-            model=cfg.agent.model,
+            model=use_model,
             log_dir=str(log_dir),
             max_samples=use_parallelism,
             display=use_display,
@@ -226,7 +245,7 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("pbts_full.db", help="Path to test data JSONL file"),
+    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
     variant: list[str] = Option(
         None,
         "-v",
@@ -422,11 +441,10 @@ def compare_variants(
         raise
 
 
-@app.command(name="retry-all")
-def retry_all(
-    artifacts_dir: str = Option(
-        "artifacts",
-        help="Directory to search for .eval files (default: artifacts/)",
+@app.command(name="retry")
+def retry(
+    eval_file: str = typer.Argument(
+        help="Path to a .eval file or directory containing .eval files to retry.",
     ),
     parallelism: int = Option(
         None,
@@ -439,40 +457,42 @@ def retry_all(
         help="Display mode: full, conversation, rich, plain, log, none. Overrides config.toml.",
     ),
 ) -> None:
-    """Retry all .eval files found in artifacts directory.
+    """Retry failed/incomplete samples from a .eval file or directory.
 
-    This command finds all .eval files and retries them using inspect eval-retry,
-    automatically using the model and settings from config.toml.
+    Reuses completed samples from the original run — only retries samples
+    that failed or were never started. Creates a new .eval log file.
 
-    Args:
-        artifacts_dir: Directory to search for .eval files.
-        parallelism: Number of samples to evaluate in parallel (overrides config.toml).
-        display: Display mode for eval logs (overrides config.toml).
+    Examples:
+        uv run fvspec retry artifacts/runs/2026-03-28/.../log.eval
+        uv run fvspec retry artifacts/runs/2026-03-28/
     """
-    # Find all .eval files
-    artifacts_path = Path(artifacts_dir)
-    if not artifacts_path.exists():
-        print(f"Error: Directory {artifacts_dir} does not exist")
-        return
+    eval_path = Path(eval_file)
+    if not eval_path.exists():
+        print(f"Error: {eval_file} does not exist")
+        raise typer.Exit(1)
 
-    eval_files = sorted(artifacts_path.rglob("*.eval"))
+    # Collect .eval files
+    if eval_path.is_file() and eval_path.suffix == ".eval":
+        eval_files = [eval_path]
+    elif eval_path.is_dir():
+        eval_files = sorted(eval_path.rglob("*.eval"))
+    else:
+        print(f"Error: {eval_file} is not a .eval file or directory")
+        raise typer.Exit(1)
 
     if not eval_files:
-        print(f"No .eval files found in {artifacts_dir}")
-        return
+        print(f"No .eval files found in {eval_file}")
+        raise typer.Exit(1)
 
-    print(f"Found {len(eval_files)} .eval files")
-    print("Note: Will use the model stored in each .eval file")
-
-    # Use config settings
     use_parallelism = parallelism if parallelism is not None else cfg.meta.parallelism
     use_display = display if display is not None else cfg.meta.display
 
-    print(f"Parallelism: {use_parallelism}")
-    print(f"Display: {use_display}")
+    print(f"Retrying {len(eval_files)} .eval file(s)")
+    print("  Model: from .eval file(s)")
+    print(f"  Parallelism: {use_parallelism}")
+    print(f"  Display: {use_display}")
     print()
 
-    # Retry all files (model comes from .eval files, not config)
     eval_retry(
         [str(f) for f in eval_files],
         max_samples=use_parallelism,

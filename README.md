@@ -12,7 +12,7 @@ The website
 
 ### `./benchmark`
 
-The benchmark generation pipeline and postproduction tools. Includes three-agent orchestration (impl, spec, units), quality assessment, and post-processing (merge, grading, analysis). Requires `ANTHROPIC_API_KEY` in `.env`, requires [`pbts_full.db`](https://www.dropbox.com/scl/fi/n8245no2aao5rjkk46bw7/pbts_full.db?rlkey=teccs61td980bmdsvr5empcib&e=1&st=ec2beuz2&dl=0) to be placed in `./benchmark/data`.
+The benchmark generation pipeline and postproduction tools. Includes unified formalization agent (produces both `Impl.lean` and `Spec.lean`), quality assessment, and post-processing (turncount, merge, metrics, grading). Requires `ANTHROPIC_API_KEY` in `.env`, and `realpbt2.jsonl` in `./benchmark/data` (PBTs scraped by Benchify; contact max@benchify.com for access).
 
 ### `./baselines`
 

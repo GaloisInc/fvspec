@@ -56,7 +56,7 @@ function setCaches(cache: Map<number, DatasetSampleDetail>): void {
     samples.push({
       sample_id: sampleId,
       sample_name: sample.sample_name,
-      difficulty_subjective_haiku: sample.difficulty_subjective_haiku ?? null,
+      difficulty_binary: sample.difficulty_binary ?? null,
     })
   }
 
@@ -128,7 +128,7 @@ export function getAllSamples(): DatasetSampleListItem[] {
     samples.push({
       sample_id: sampleId,
       sample_name: sample.sample_name,
-      difficulty_subjective_haiku: sample.difficulty_subjective_haiku ?? null,
+      difficulty_binary: sample.difficulty_binary ?? null,
     })
   }
 
@@ -207,13 +207,19 @@ export function getDatasetStats(): DatasetStats {
   )
   const theorems = samples.map(s => s.num_theorems)
   const leanLines = samples.map(s => s.lean_metrics?.total_lean_lines)
-  const difficulty = samples.map(s => s.difficulty_subjective_haiku)
+
+  const difficulty = { easy: 0, hard: 0, unknown: 0 }
+  for (const s of samples) {
+    if (s.difficulty_binary === 'easy') difficulty.easy++
+    else if (s.difficulty_binary === 'hard') difficulty.hard++
+    else difficulty.unknown++
+  }
 
   return {
     total: samples.length,
     faithfulness: calculateDistribution(faithfulnessScores),
     theorems: calculateDistribution(theorems),
     lean_lines: calculateDistribution(leanLines),
-    difficulty: calculateDistribution(difficulty),
+    difficulty,
   }
 }

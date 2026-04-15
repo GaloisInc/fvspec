@@ -1,0 +1,18 @@
+# Suppress type errors in standalone DB-analysis scripts pending JSONL migration.
+# These scripts still import from the old SQLite/SQLModel interface (connection.py,
+# queries with Session params, removed model classes). They need their own migration.
+[[overrides]]
+include = [
+    "src/scripts/analyze_deps.py",
+    "src/scripts/analyze_deps_regex.py",
+    "src/scripts/classify_unit_tests.py",
+    "src/scripts/compute_radon_metrics.py",
+    "src/scripts/data_explorer.py",
+    "src/scripts/import_radon_metrics.py",
+    "src/scripts/unit_test_dashboard.py",
+]
+
+[overrides.rules]
+unresolved-import = "ignore"
+unresolved-attribute = "ignore"
+possibly-missing-attribute = "ignore"

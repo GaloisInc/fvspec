@@ -42,6 +42,7 @@ def proof_solver() -> Solver:
     async def solve(state: TaskState, generate: Generate) -> TaskState:
         system_prompt = load_system_prompt()
         state.messages.insert(0, ChatMessageSystem(content=system_prompt))
+        state.tools = baselines_tools()
         state = await generate(state, tool_calls="loop")
         return state
 
@@ -50,7 +51,12 @@ def proof_solver() -> Solver:
 
 @scorer(metrics=[])
 def lake_build_scorer():
-    """Score by counting remaining sorry and running lake build."""
+    """Score by counting remaining sorry and running lake build.
+
+    Returns both a binary proved score and partial credit based on sorry removal.
+    Note: sorry count can increase when a proof is closer to solved (each sorry
+    becomes less load-bearing), so partial credit clamps at 0.
+    """
 
     async def score(state: TaskState, target: Target) -> Score:
         workspace_path = state.metadata.get("workspace")
@@ -80,7 +86,10 @@ def lake_build_scorer():
 
         # Run lake build
         compiles = False
+        has_sorry_warnings = False
         build_error = None
+        build_stdout = ""
+        build_stderr = ""
         try:
             result = subprocess.run(
                 ["lake", "build"],
@@ -90,21 +99,40 @@ def lake_build_scorer():
                 timeout=120,
             )
             compiles = result.returncode == 0
+            build_stdout = result.stdout
+            build_stderr = result.stderr
+            # Check for sorry warnings in output (lake may compile but warn)
+            combined_output = build_stdout + build_stderr
+            has_sorry_warnings = "declaration uses 'sorry'" in combined_output
             if not compiles:
-                build_error = result.stderr[:500]
+                build_error = build_stderr[:500]
         except subprocess.TimeoutExpired:
             build_error = "lake build timed out (120s)"
         except Exception as e:
             build_error = str(e)
 
-        proved = sorries == 0 and compiles
+        # Binary: proved iff zero sorry in source AND compiles AND no sorry warnings
+        proved = sorries == 0 and compiles and not has_sorry_warnings
+
+        # Partial credit: fraction of sorries removed (clamped to [0, 1])
+        sorries_removed = sorries_original - sorries
+        if sorries_original > 0:
+            partial_credit = max(0.0, sorries_removed / sorries_original)
+        else:
+            # No sorries to begin with — full credit if it compiles
+            partial_credit = 1.0 if compiles else 0.0
+
+        # Binary score as the primary value
         value = 1.0 if proved else 0.0
 
         metadata = {
             "sorries_remaining": sorries,
             "sorries_original": sorries_original,
-            "sorries_removed": sorries_original - sorries,
+            "sorries_removed": sorries_removed,
+            "sorries_increased": sorries > sorries_original,
+            "partial_credit": round(partial_credit, 4),
             "compiles": compiles,
+            "has_sorry_warnings": has_sorry_warnings,
             "proved": proved,
             "difficulty_bucket": state.metadata.get("difficulty_bucket", "unknown"),
         }
@@ -113,7 +141,8 @@ def lake_build_scorer():
 
         explanation = (
             f"sorry: {sorries}/{sorries_original}, "
-            f"compiles: {compiles}, proved: {proved}"
+            f"compiles: {compiles}, sorry_warnings: {has_sorry_warnings}, "
+            f"proved: {proved}, partial_credit: {partial_credit:.2f}"
         )
 
         return Score(value=value, explanation=explanation, metadata=metadata)
@@ -129,17 +158,24 @@ async def cleanup_fn(state: TaskState) -> None:
 
 
 @task
-def fvspec_baselines(ranseed: int = 42, num_samples: int = 1000) -> Task:
+def fvspec_baselines(
+    ranseed: int = 42,
+    num_samples: int = 75,
+    data_source: str = "data/fvspec-mar27.jsonl",
+) -> Task:
     """Create the fvspec baselines evaluation task.
 
     Args:
         ranseed: Random seed for stratified sampling
-        num_samples: Total number of samples (split across buckets by ratio)
+        num_samples: Total number of samples (split equally across buckets)
+        data_source: Path to JSONL file or "huggingface"
 
     Returns:
         Task configured with proof-writing agent and lake build scorer
     """
-    samples = load_and_sample(ranseed=ranseed, num_samples=num_samples)
+    samples = load_and_sample(
+        ranseed=ranseed, num_samples=num_samples, data_source=data_source
+    )
     dataset = to_inspect_dataset(samples)
 
     return Task(
@@ -147,6 +183,6 @@ def fvspec_baselines(ranseed: int = 42, num_samples: int = 1000) -> Task:
         setup=[workspace_setup()],
         solver=[proof_solver()],
         scorer=lake_build_scorer(),
-        tools=baselines_tools(),
         cleanup=cleanup_fn,
+        message_limit=50,
     )

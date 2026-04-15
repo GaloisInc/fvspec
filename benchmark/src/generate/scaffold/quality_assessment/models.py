@@ -3,17 +3,14 @@
 import logging
 import re
 from enum import Enum
-from importlib import import_module
 from typing import TYPE_CHECKING, Any, cast
 
 from inspect_ai.scorer import Score
 from inspect_ai.solver import TaskState
 from pydantic import BaseModel, Field
-from sqlmodel import Session, create_engine, select
 
 logger = logging.getLogger(__name__)
 
-from generate.config import DATA_DIR
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.formalize.plausible_runner import Plausibility
 from generate.scaffold.quality_assessment.lean_parsing import (
@@ -205,6 +202,9 @@ class QualityAssessment(BaseModel):
     datetime: str
     variant: str = Field(description="Prompt variant name")
     model: str
+    git_commit: str | None = Field(
+        None, description="Repo git commit hash at generation time"
+    )
     token_usage: int = Field(
         description="Total tokens used (aggregate for backward compatibility)"
     )
@@ -239,14 +239,6 @@ class QualityAssessment(BaseModel):
     # Objective metrics (computed from code structure)
     structural_faithfulness: StructuralFaithfulness | None = Field(
         None, description="Objective structural metrics"
-    )
-    # Unit test metrics
-    has_unit_tests: bool = Field(
-        False, description="Whether unit tests were extracted from PBT"
-    )
-    num_unit_tests: int = Field(0, description="Number of unit tests extracted")
-    unit_tests_available: bool = Field(
-        False, description="Whether unit tests are available for evaluation"
     )
     # Plausible property testing metrics
     plausibility: Plausibility = Field(
@@ -324,11 +316,14 @@ class QualityAssessment(BaseModel):
             spec_sig_success = spec_result_data.success and spec_result_data.compiles
             code_snippet = spec_result_data.lean_code or ""
         else:
-            # Fallback: extract code from message (legacy path)
-            pattern = r"(?s)<code>(.*?)</code>"
-            mtch = re.search(pattern, state.messages[-1].text)
-            spec_sig_success = mtch is not None
-            code_snippet = mtch.group(1) if mtch else ""
+            # No spec_result in store — compilation was never verified.
+            # Mark as failed rather than guessing from message content.
+            logger.warning(
+                f"No spec_result in store for sample {datapoint.id} — "
+                "marking spec_sig_success=False"
+            )
+            spec_sig_success = False
+            code_snippet = ""
 
         # Extract code metrics from spec code
         if code_snippet:
@@ -398,15 +393,6 @@ class QualityAssessment(BaseModel):
                 )
                 pass
 
-        # Extract unit test information from store
-        unit_tests_lspec = state.store.get("unit_tests_lspec")
-        has_unit_tests = unit_tests_lspec is not None
-        num_unit_tests = 0
-        if has_unit_tests and unit_tests_lspec:
-            # Count number of test cases in the LSpec code
-            # Each test is a line containing 'test "'
-            num_unit_tests = unit_tests_lspec.count('test "')
-
         # Extract plausibility metrics from store
         plausibility = state.store.get("plausibility", Plausibility())
         # Ensure it's a Plausibility object (may be dict from JSON deserialization)
@@ -458,67 +444,21 @@ class QualityAssessment(BaseModel):
         # Extract function discovery metadata from store
         function_discovery = state.store.get("function_discovery")
 
-        # Query radon code complexity metrics from database
-        radon_metrics = {}
-        try:
-            # Import RadonMetricsDB from import script
-            # Use lazy import to avoid circular dependencies
-            # Try to import RadonMetricsDB
-            try:
-                radon_module = import_module("scripts.import_radon_metrics")
-                RadonMetricsDB = radon_module.RadonMetricsDB
-
-                # Connect to database
-                dataset_path = (DATA_DIR / "pbts_full.db").resolve()
-                if dataset_path.exists():
-                    engine = create_engine(f"sqlite:///{dataset_path}")
-                    with Session(engine) as session:
-                        result = session.exec(
-                            select(RadonMetricsDB).where(
-                                RadonMetricsDB.pbt_id == datapoint.id
-                            )
-                        ).first()
-
-                        if result:
-                            radon_metrics = {
-                                "loc": result.loc,
-                                "sloc": result.sloc,
-                                "lloc": result.lloc,
-                                "comments": result.comments,
-                                "blank": result.blank,
-                                "multi": result.multi,
-                                "single_comments": result.single_comments,
-                                "num_functions": result.num_functions,
-                                "avg_complexity": result.avg_complexity,
-                                "max_complexity": result.max_complexity,
-                                "total_complexity": result.total_complexity,
-                                "complexity_rank": result.complexity_rank,
-                                "maintainability_index": result.maintainability_index,
-                                "maintainability_rank": result.maintainability_rank,
-                                "halstead_vocabulary": result.halstead_vocabulary,
-                                "halstead_length": result.halstead_length,
-                                "halstead_volume": result.halstead_volume,
-                                "halstead_difficulty": result.halstead_difficulty,
-                                "halstead_effort": result.halstead_effort,
-                                "halstead_time": result.halstead_time,
-                                "halstead_bugs": result.halstead_bugs,
-                            }
-            except (ImportError, ModuleNotFoundError):
-                # RadonMetricsDB not available (script not in path)
-                logger.debug("RadonMetricsDB not available for import")
-                pass
-
-        except Exception as e:
-            # Radon metrics query failed - log but don't fail the entire QA
-            logger.debug(
-                f"Failed to query radon metrics for sample {datapoint.id}: {e}"
-            )
-            pass
-
-        # Create Radon object from metrics (None if not found)
+        # Read radon metrics from embedded datapoint metrics
         radon_obj = None
-        if radon_metrics:
-            radon_obj = Radon(**radon_metrics)
+        if datapoint.metrics is not None:
+            m = datapoint.metrics
+            radon_obj = Radon(
+                loc=m.loc,
+                sloc=m.sloc,
+                lloc=m.lloc,
+                comments=m.comments,
+                avg_complexity=m.avg_complexity,
+                max_complexity=m.max_complexity,
+                maintainability_index=m.maintainability_index,
+                halstead_difficulty=m.halstead_difficulty,
+                halstead_effort=m.halstead_effort,
+            )
 
         # Extract #eval violation metrics from metadata
         # Only spec violations are tracked (impl #eval usage is now encouraged)
@@ -543,17 +483,13 @@ class QualityAssessment(BaseModel):
         if spec_usage:
             token_breakdown.append(spec_usage)
 
-        # Add units token usage (if units agent ran)
-        units_usage = state.store.get("units_token_usage")
-        if units_usage:
-            token_breakdown.append(units_usage)
-
         return cls(
             sample_id=datapoint.id,
             sample_name=datapoint.name,
             datetime=date_time,
             variant=variant,
             model=state.output.model,
+            git_commit=state.metadata.get("git_commit"),
             token_usage=state.token_usage,
             token_usage_breakdown=token_breakdown if token_breakdown else None,
             time=state.output.time if state.output.time is not None else 0.0,
@@ -572,9 +508,6 @@ class QualityAssessment(BaseModel):
             faithfulness_subjective=faithfulness_subj,
             interest_subjective=interest_subj,
             structural_faithfulness=structural,
-            has_unit_tests=has_unit_tests,
-            num_unit_tests=num_unit_tests,
-            unit_tests_available=has_unit_tests,
             plausibility=plausibility,
             percent_plausible=percent_plausible,
             impl_autoform_success=impl_autoform_success,
@@ -698,22 +631,6 @@ class QualityAssessment(BaseModel):
             scores["assertion_theorem_difference"] = Score(
                 value=sf.assertion_theorem_difference,
                 explanation=f"Difference between Lean theorems and Python asserts: {sf.assertion_theorem_difference} (zero is perfect, positive = more theorems, negative = fewer theorems)",
-            )
-
-        # Unit test metrics
-        if self.has_unit_tests:
-            scores["has_unit_tests"] = Score(
-                value=1.0,
-                explanation=f"Unit tests extracted: {self.num_unit_tests} test(s) available for evaluation",
-            )
-            scores["num_unit_tests"] = Score(
-                value=self.num_unit_tests,
-                explanation=f"Number of extracted unit tests: {self.num_unit_tests}",
-            )
-        else:
-            scores["has_unit_tests"] = Score(
-                value=0.0,
-                explanation="No unit tests could be extracted from the PBT",
             )
 
         # Plausible property testing metrics
@@ -849,15 +766,10 @@ class QualityAssessment(BaseModel):
             spec_total = sum(
                 a["tokens_spent"] for a in token_breakdown if a["subagent"] == "spec"
             )
-            units_total = sum(
-                a["tokens_spent"] for a in token_breakdown if a["subagent"] == "units"
-            )
 
             if impl_total > 0:
                 metrics["token_usage/impl_total"] = impl_total
             if spec_total > 0:
                 metrics["token_usage/spec"] = spec_total
-            if units_total > 0:
-                metrics["token_usage/units"] = units_total
 
         return metrics

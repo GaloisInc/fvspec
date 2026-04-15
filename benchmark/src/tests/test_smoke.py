@@ -5,6 +5,7 @@ due to basic software engineering errors (import issues, type errors, etc).
 They use mocked LLM responses to avoid API costs and provide fast feedback.
 """
 
+import json
 import tempfile
 from pathlib import Path
 
@@ -13,64 +14,69 @@ from inspect_ai.model import ChatMessageAssistant
 
 from generate.scaffold.dataset import Datapoint
 from generate.scaffold.orchestration import fvspec
-from generate.templates.spec import get_variant_prompts
+from generate.templates.formalize import get_formalization_prompts
+
+
+def _make_datapoint(**overrides):
+    """Create a Datapoint with sensible defaults."""
+    defaults = {
+        "id": 1,
+        "name": "test_simple_add",
+        "code": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(x=st.integers(), y=st.integers())\ndef test_simple_add(x: int, y: int):\n    assert x + y == y + x",
+        "language": "python",
+        "source_file": "/test/test_simple.py",
+        "summary": "Test addition commutativity",
+        "repo": {
+            "name": "test-repo",
+            "url": "https://github.com/test/repo",
+            "license": "MIT",
+            "stars": 10,
+            "forks": 2,
+        },
+        "metrics": {
+            "loc": 5,
+            "sloc": 4,
+            "lloc": 3,
+            "comments": 0,
+            "avg_complexity": 1.0,
+            "max_complexity": 1,
+            "maintainability_index": 80.0,
+            "halstead_difficulty": 2.0,
+            "halstead_effort": 10.0,
+        },
+        "dependencies": [],
+    }
+    defaults.update(overrides)
+    return defaults
 
 
 @pytest.fixture
 def minimal_test_data():
     """Create a minimal test dataset with 2 samples."""
     return [
-        {
-            "id": 1,
-            "repo_id": 1,
-            "name": "test_simple_add",
-            "code": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(x=st.integers(), y=st.integers())\ndef test_simple_add(x: int, y: int):\n    assert x + y == y + x",
-            "dep_names": "[]",
-            "deps": "[]",
-            "source": "/test/test_simple.py",
-            "summary": "Test addition commutativity",
-            "hash": "abc123",
-            "summary_vector": None,
-        },
-        {
-            "id": 2,
-            "repo_id": 1,
-            "name": "test_list_append",
-            "code": "from hypothesis import given\nfrom hypothesis import strategies as st\n@given(lst=st.lists(st.integers()), val=st.integers())\ndef test_list_append(lst: list, val: int):\n    original_len = len(lst)\n    lst.append(val)\n    assert len(lst) == original_len + 1",
-            "dep_names": "[]",
-            "deps": "[]",
-            "source": "/test/test_list.py",
-            "summary": "Test list append increases length",
-            "hash": "def456",
-            "summary_vector": None,
-        },
+        _make_datapoint(id=1, name="test_simple_add"),
+        _make_datapoint(
+            id=2,
+            name="test_list_append",
+            code="from hypothesis import given\nfrom hypothesis import strategies as st\n@given(lst=st.lists(st.integers()), val=st.integers())\ndef test_list_append(lst: list, val: int):\n    original_len = len(lst)\n    lst.append(val)\n    assert len(lst) == original_len + 1",
+            source_file="/test/test_list.py",
+            summary="Test list append increases length",
+        ),
     ]
 
 
 @pytest.fixture
 def temp_data_file(minimal_test_data):
-    """Create a temporary SQLite DB file with test data."""
-    from sqlmodel import Session, create_engine
+    """Create a temporary JSONL file with test data."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".jsonl", delete=False) as tmp:
+        for record in minimal_test_data:
+            tmp.write(json.dumps(record) + "\n")
+        data_path = Path(tmp.name)
 
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".db", delete=False) as tmp:
-        db_path = Path(tmp.name)
-
-    # Create DB and populate with test data
-    engine = create_engine(f"sqlite:///{db_path}")
-    from generate.scaffold.dataset.models import Datapoint
-
-    Datapoint.metadata.create_all(engine)
-
-    with Session(engine) as session:
-        for data in minimal_test_data:
-            dp = Datapoint(**data)
-            session.add(dp)
-        session.commit()
-
-    yield db_path
+    yield data_path
 
     # Cleanup
-    db_path.unlink(missing_ok=True)
+    data_path.unlink(missing_ok=True)
 
 
 @pytest.fixture
@@ -99,7 +105,7 @@ async def test_smoke_task_creation(temp_data_file):
     - Tool registration works
     - No import errors, type errors, or missing dependencies
     """
-    # Just create the task - don't run it (uses actual temp DB)
+    # Just create the task - don't run it (uses actual temp JSONL)
     task = fvspec(datafile=str(temp_data_file), sample_size=1)
 
     # Verify task was created properly
@@ -159,37 +165,34 @@ def anyio_backend(request):
 def test_smoke_prompt_rendering():
     """Smoke test: Verify prompt templates can be rendered."""
     # Test functional variant
-    functional_system, functional_initial = get_variant_prompts("control-functional")
+    functional_system, functional_initial = get_formalization_prompts(
+        "control-functional"
+    )
     assert isinstance(functional_system, str)
     assert len(functional_system) > 0
-
-    # Test mvcgen variant
-    mvcgen_system, mvcgen_initial = get_variant_prompts("control-mvcgen")
-    assert isinstance(mvcgen_system, str)
-    assert len(mvcgen_system) > 0
-    assert "mvcgen" in mvcgen_system
 
     # Test initial prompt rendering with sample data
     initial_prompt = functional_initial.render(
         pbt_code="def test(): pass",
-        pbt_name="test_add",
         function_name="add",
-        impl_signatures={"add": "def add (x y : Nat) : Nat"},
+        function_code="def add(x, y): return x + y",
+        pbt_summary="Test addition",
+        dependencies={},
     )
     assert isinstance(initial_prompt, str)
     assert "def test(): pass" in initial_prompt
-    assert "def add (x y : Nat) : Nat" in initial_prompt
+    assert "def add(x, y): return x + y" in initial_prompt
 
 
 def test_smoke_tool_registration():
     """Smoke test: Verify MCP tools can be created."""
-    from generate.scaffold.tools.declaration import lean_diagnostic_messages, lean_goal
+    from generate.scaffold.tools.declaration import lean_hover_info, lean_local_search
 
     # MCP tools for interactive agent use
-    diag_tool = lean_diagnostic_messages()
-    goal_tool = lean_goal()
-    assert callable(diag_tool)
-    assert callable(goal_tool)
+    hover_tool = lean_hover_info()
+    search_tool = lean_local_search()
+    assert callable(hover_tool)
+    assert callable(search_tool)
 
 
 def test_smoke_quality_assessment_from_mock_state():
@@ -207,6 +210,8 @@ def test_smoke_quality_assessment_from_mock_state():
     mock_output.model = "mock/model"
     mock_output.time = 1.5
 
+    lean_code = "def test : Nat := sorry"
+
     state = TaskState(
         model=ModelName("mock/model"),
         sample_id="00001_test",
@@ -215,7 +220,7 @@ def test_smoke_quality_assessment_from_mock_state():
         messages=[
             ChatMessageUser(content="test", source="input"),
             ChatMessageAssistant(
-                content="<code>def test : Nat := sorry</code>\nFaithfulness: 7/10\nInterest: 3/10",
+                content=f"<code>{lean_code}</code>\nFaithfulness: 7/10\nInterest: 3/10",
                 source="generate",
             ),
         ],
@@ -223,18 +228,23 @@ def test_smoke_quality_assessment_from_mock_state():
         metadata={
             "datapoint": Datapoint(
                 id=1,
-                repo_id=1,
                 name="test",
                 code="def test():\n    pass",
-                dep_names="[]",
-                deps="[]",
-                source="/test.py",
                 summary="Test",
-                hash="abc",
-                summary_vector=None,
             ),
             "date_time": "2025-01-01T00-00-00",
             "variant": "control-functional",
+        },
+    )
+
+    # Set spec_result in store (QA requires validated compilation, no legacy fallback)
+    state.store.set(
+        "spec_result",
+        {
+            "success": True,
+            "lean_code": lean_code,
+            "compiles": True,
+            "has_statements": True,
         },
     )
 

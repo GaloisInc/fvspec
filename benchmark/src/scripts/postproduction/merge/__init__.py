@@ -4,7 +4,7 @@ This CLI tool merges sample data from multiple runs listed in runs.txt
 into a single JSONL file where each line contains all data for one sample:
 - datapoint.json fields
 - qa.json fields
-- Lean code (spec, impl, tests)
+- Lean code (spec, impl)
 - Run provenance
 
 The output is automatically deduplicated by sample_id, keeping the highest
@@ -17,6 +17,7 @@ Usage (from benchmark/ directory):
 """
 
 import json
+import subprocess
 from pathlib import Path
 from typing import Any
 
@@ -74,11 +75,21 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
     # Read Lean code files
     spec_file = sample_dir / "Spec.lean"
     impl_file = sample_dir / "Impl.lean"
-    tests_file = sample_dir / "Tests.lean"
 
     spec_code = spec_file.read_text() if spec_file.exists() else None
     impl_code = impl_file.read_text() if impl_file.exists() else None
-    tests_code = tests_file.read_text() if tests_file.exists() else None
+
+    # Build provenance from sample metadata and run name
+    model = qa.get("model") or datapoint.get("model")
+    # Run names look like "2025-12-18T14-48-17__idx43000-43500__control-functional"
+    # Extract the timestamp prefix (everything before the first "__")
+    run_timestamp = run_name.split("__")[0] if "__" in run_name else None
+    provenance = {
+        "git_commit": _get_git_commit(),
+        "model": model,
+        "run_timestamp": run_timestamp,
+        "lean_toolchain": _get_lean_toolchain(),
+    }
 
     # Combine all data
     combined = {
@@ -86,11 +97,48 @@ def process_sample(sample_dir: Path, run_name: str) -> dict[str, Any] | None:
         **qa,  # All fields from qa.json
         "spec": spec_code,
         "impl": impl_code,
-        "tests": tests_code,
         "run_provenance": run_name,  # Which run this sample came from
+        "provenance": provenance,
     }
 
     return combined
+
+
+_cached_git_commit: str | None = None
+
+
+def _get_git_commit() -> str | None:
+    """Get the current git commit hash, cached for the process lifetime."""
+    global _cached_git_commit
+    if _cached_git_commit is None:
+        try:
+            _cached_git_commit = (
+                subprocess.check_output(
+                    ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL
+                )
+                .decode()
+                .strip()
+            )
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            _cached_git_commit = ""
+    return _cached_git_commit or None
+
+
+_cached_lean_toolchain: str | None = None
+
+
+def _get_lean_toolchain() -> str | None:
+    """Read lean-toolchain from lake-template, cached for the process lifetime."""
+    global _cached_lean_toolchain
+    if _cached_lean_toolchain is None:
+        toolchain_file = (
+            Path(__file__).resolve().parents[4] / "lake-template" / "lean-toolchain"
+        )
+        try:
+            _cached_lean_toolchain = toolchain_file.read_text().strip()
+        except FileNotFoundError:
+            _cached_lean_toolchain = ""
+    return _cached_lean_toolchain or None
 
 
 def merge_runs_to_jsonl(
@@ -181,7 +229,7 @@ def main(
     a JSONL file where each line contains all data for one sample:
     - All fields from datapoint.json
     - All fields from qa.json
-    - Lean code (spec, impl, tests) as string fields
+    - Lean code (spec, impl) as string fields
     - run_provenance field indicating which run it came from
 
     When duplicate sample_ids are found across runs, automatically keeps

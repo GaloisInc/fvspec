@@ -1,6 +1,7 @@
 """Core validation logic: compile samples with lake build."""
 
 import json
+import os
 import random
 import shutil
 import subprocess
@@ -12,14 +13,22 @@ from pathlib import Path
 
 from pydantic import BaseModel
 from rich.console import Console
-from rich.progress import Progress
+from rich.progress import (
+    BarColumn,
+    MofNCompleteColumn,
+    Progress,
+    TaskProgressColumn,
+    TextColumn,
+    TimeElapsedColumn,
+    TimeRemainingColumn,
+)
 
 console = Console()
 
 # Resolve lake-template relative to the benchmark root
 BENCHMARK_ROOT = Path(__file__).resolve().parents[4]
 LAKE_TEMPLATE = BENCHMARK_ROOT / "lake-template"
-REPORT_PATH = BENCHMARK_ROOT / "docs" / "postproduction" / "VALIDATION_REPORT.md"
+REPORT_DIR = BENCHMARK_ROOT / "docs" / "postproduction"
 
 # Error categories checked in priority order; first match wins
 CATEGORY_PATTERNS: list[tuple[str, list[str]]] = [
@@ -149,10 +158,6 @@ def compile_sample(
             impl if impl else "-- No implementation\n"
         )
         (fvspec_dir / "Spec.lean").write_text(spec if spec else "-- No specification\n")
-        # Stub Tests.lean so the root import doesn't fail
-        (fvspec_dir / "Tests.lean").write_text(
-            "import Fvspec.Spec\n-- No tests for validation\n"
-        )
 
         try:
             result = subprocess.run(
@@ -262,6 +267,102 @@ def _wilson_ci(failures: int, total: int) -> tuple[float, float]:
     return center, margin
 
 
+def _checkpoint_path(output: Path) -> Path:
+    """Sidecar checkpoint file alongside the final output JSONL.
+
+    Holds one JSON-encoded ValidationResult per line, appended as workers
+    complete. Survives crashes / Ctrl-C and is read on the next run to skip
+    samples that have already been validated.
+    """
+    return output.with_suffix(output.suffix + ".checkpoint.jsonl")
+
+
+def _load_checkpoint(path: Path, eligible_ids: set[int]) -> dict[int, ValidationResult]:
+    """Load prior ValidationResults from a checkpoint file.
+
+    Only entries whose sample_id is in `eligible_ids` are returned — this lets
+    a re-run with a different `--seed` or `--sample-size` silently ignore
+    out-of-scope checkpoint entries instead of crashing.
+
+    Tolerates malformed lines (most realistically: a truncated final line from
+    a process kill mid-write). They're counted and reported, not raised.
+    """
+    if not path.exists():
+        return {}
+    done: dict[int, ValidationResult] = {}
+    out_of_scope = 0
+    malformed = 0
+    with open(path) as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+                r = ValidationResult(**d)
+            except Exception:
+                malformed += 1
+                continue
+            if r.sample_id in eligible_ids:
+                done[r.sample_id] = r
+            else:
+                out_of_scope += 1
+    if done:
+        console.print(
+            f"  [green]Resuming {len(done)} samples from checkpoint[/green] "
+            f"({path.name})"
+        )
+    if out_of_scope:
+        console.print(
+            f"  [dim]Ignored {out_of_scope} checkpoint entries outside current "
+            f"selection (different seed or sample size).[/dim]"
+        )
+    if malformed:
+        console.print(
+            f"  [yellow]Skipped {malformed} malformed checkpoint lines "
+            f"(likely truncated by an earlier kill).[/yellow]"
+        )
+    return done
+
+
+def _append_checkpoint(handle, result: ValidationResult) -> None:
+    """Durably append a single ValidationResult to the checkpoint file.
+
+    flush() pushes Python's buffer to the OS; fsync() pushes the OS buffer to
+    disk. Together they make the line survive a kill -9 of either Python or
+    the parent shell. (Won't survive a power loss without journaling, but
+    that's fine for our use case.)
+    """
+    handle.write(json.dumps(result.model_dump()) + "\n")
+    handle.flush()
+    os.fsync(handle.fileno())
+
+
+def _atomic_write_jsonl(path: Path, rows: list[dict]) -> None:
+    """Write rows to `path` atomically via temp-file + os.replace.
+
+    Guarantees the destination is either the previous successful state or
+    fully written — never half. Uses the same parent dir so the rename stays
+    on one filesystem.
+    """
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(
+        prefix=f".{path.name}.", suffix=".tmp", dir=str(path.parent)
+    )
+    tmp = Path(tmp_name)
+    try:
+        with os.fdopen(fd, "w") as f:
+            for row in rows:
+                f.write(json.dumps(row) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except Exception:
+        if tmp.exists():
+            tmp.unlink()
+        raise
+
+
 def run_validation(
     input_jsonl: Path,
     sample_size: int,
@@ -271,8 +372,16 @@ def run_validation(
     output: Path | None,
     timeout: int,
     filter_impl_autoform: bool,
+    only_incomputable: bool = False,
+    resume: bool = True,
 ) -> None:
-    """Main validation pipeline."""
+    """Main validation pipeline.
+
+    Retry-safe: each completed compilation is appended to a sidecar checkpoint
+    file (`<output>.checkpoint.jsonl`) with flush+fsync. On a re-run with the
+    same `--output` (and matching seed/sample-size), already-validated samples
+    are skipped. Pass `resume=False` to start fresh.
+    """
     console.print("[bold]Post-production: Compilation Validation[/bold]\n")
 
     # Load dataset
@@ -286,7 +395,13 @@ def run_validation(
     console.print(f"  Loaded {total_loaded} total samples")
 
     # Filter
-    if filter_impl_autoform:
+    if only_incomputable:
+        samples = [s for s in samples if s.get("impl_autoform_success", 0) < 1.0]
+        console.print(
+            f"  After incomputable filter (impl_autoform_success < 1.0): "
+            f"{len(samples)} samples"
+        )
+    elif filter_impl_autoform:
         samples = [s for s in samples if s.get("impl_autoform_success", 0) >= 1.0]
         console.print(f"  After impl_autoform filter: {len(samples)} samples")
 
@@ -314,49 +429,112 @@ def run_validation(
             "Run `lake build` in lake-template/ first.[/yellow]"
         )
 
-    # Output path
+    # Output + checkpoint paths
     if output is None:
         output = input_jsonl.with_suffix(".validated.jsonl")
+    checkpoint = _checkpoint_path(output)
+
+    # Resume from checkpoint, scoped to currently-eligible sample_ids
+    eligible_ids = {s["sample_id"] for s in samples}
+    if resume:
+        done_results = _load_checkpoint(checkpoint, eligible_ids)
+    else:
+        done_results = {}
+        if checkpoint.exists():
+            console.print(
+                f"  [yellow]--no-resume: removing existing checkpoint "
+                f"{checkpoint.name}[/yellow]"
+            )
+            checkpoint.unlink()
+
+    samples_to_run = [s for s in samples if s["sample_id"] not in done_results]
 
     console.print(f"\nValidating with parallelism={parallelism}, timeout={timeout}s")
-    console.print(f"Output: {output}\n")
+    console.print(f"Output:     {output}")
+    console.print(f"Checkpoint: {checkpoint}")
+    console.print(
+        f"  to run: {len(samples_to_run)}  already done: {len(done_results)}\n"
+    )
 
-    # Run compilations
-    results: list[ValidationResult] = []
-    args_list = [(sample, str(LAKE_TEMPLATE), timeout) for sample in samples]
+    # Run compilations, appending each result to the checkpoint as it lands.
+    new_results: list[ValidationResult] = []
+    args_list = [(sample, str(LAKE_TEMPLATE), timeout) for sample in samples_to_run]
 
-    with Progress(console=console) as progress:
-        task = progress.add_task("Compiling...", total=len(samples))
+    if args_list:
+        # Append mode: prior checkpoint lines are preserved, new ones go after.
+        # We don't truncate even on --no-resume because we already unlinked above.
+        checkpoint.parent.mkdir(parents=True, exist_ok=True)
+        # Custom columns: description carries the resume framing so the user can
+        # see both "this invocation" progress and "overall" progress at a glance;
+        # MofN + TimeElapsed + TimeRemaining give a full picture of pace. ETA is
+        # still jittery on short runs because compilation latency is bimodal
+        # (fast success vs. slow timeout), but stabilizes well on long runs.
+        if done_results:
+            desc = f"Compiling (resumed {len(done_results)}/{len(samples)})"
+        else:
+            desc = "Compiling"
+        progress_columns = (
+            TextColumn("[progress.description]{task.description}"),
+            BarColumn(),
+            MofNCompleteColumn(),
+            TaskProgressColumn(),
+            TimeElapsedColumn(),
+            TextColumn("eta"),
+            TimeRemainingColumn(),
+        )
+        with (
+            open(checkpoint, "a") as cp_handle,
+            Progress(*progress_columns, console=console) as progress,
+        ):
+            task = progress.add_task(desc, total=len(samples_to_run))
 
-        with ProcessPoolExecutor(max_workers=parallelism) as executor:
-            futures = {
-                executor.submit(_compile_worker, args): i
-                for i, args in enumerate(args_list)
-            }
+            with ProcessPoolExecutor(max_workers=parallelism) as executor:
+                futures = {
+                    executor.submit(_compile_worker, args): i
+                    for i, args in enumerate(args_list)
+                }
 
-            for future in as_completed(futures):
-                try:
-                    result_dict = future.result()
-                    results.append(ValidationResult(**result_dict))
-                except Exception as e:
-                    idx = futures[future]
-                    console.print(f"[red]Worker error for index {idx}: {e}[/red]")
-                progress.advance(task)
+                for future in as_completed(futures):
+                    try:
+                        result_dict = future.result()
+                        result = ValidationResult(**result_dict)
+                        new_results.append(result)
+                        _append_checkpoint(cp_handle, result)
+                    except Exception as e:
+                        idx = futures[future]
+                        console.print(f"[red]Worker error for index {idx}: {e}[/red]")
+                    progress.advance(task)
+    else:
+        console.print(
+            "[green]Nothing to do — all samples already in checkpoint.[/green]"
+        )
 
-    # Write JSONL results
-    results_sorted = sorted(results, key=lambda x: x.sample_id)
-    with open(output, "w") as f:
-        for r in results_sorted:
-            f.write(r.model_dump_json() + "\n")
+    # Combine resumed + freshly-computed results for the final output and report.
+    all_results = list(done_results.values()) + new_results
 
-    console.print(f"\n[green]Results written to {output}[/green]\n")
+    # Write filtered dataset atomically: only samples that successfully compiled,
+    # in their original full form (datapoint+qa+spec+impl+provenance). Per-sample
+    # failure details are still summarized in the markdown report and console
+    # analysis below — they just don't live in the JSONL anymore.
+    samples_by_id = {s["sample_id"]: s for s in samples}
+    passing_samples = [
+        samples_by_id[r.sample_id]
+        for r in sorted(all_results, key=lambda x: x.sample_id)
+        if r.compiles and r.sample_id in samples_by_id
+    ]
+    _atomic_write_jsonl(output, passing_samples)
+
+    console.print(
+        f"\n[green]Wrote {len(passing_samples)} passing samples to {output}[/green]"
+        f" [dim](dropped {len(all_results) - len(passing_samples)} failures)[/dim]\n"
+    )
 
     # Analyze and print to console
-    print_analysis(results)
+    print_analysis(all_results)
 
     # Write markdown report
     report_path = write_report(
-        results=results,
+        results=all_results,
         input_jsonl=input_jsonl,
         total_loaded=total_loaded,
         eligible=eligible,
@@ -365,6 +543,7 @@ def run_validation(
         parallelism=parallelism,
         timeout=timeout,
         filter_impl_autoform=filter_impl_autoform,
+        only_incomputable=only_incomputable,
         output_jsonl=output,
     )
     console.print(f"[green]Report written to {report_path}[/green]")
@@ -456,6 +635,7 @@ def write_report(
     parallelism: int,
     timeout: int,
     filter_impl_autoform: bool,
+    only_incomputable: bool,
     output_jsonl: Path,
 ) -> Path:
     """Write a markdown validation report."""
@@ -479,7 +659,13 @@ def write_report(
     w(f"- **Input**: `{input_jsonl.name}`")
     w(f"- **Total records loaded**: {total_loaded}")
     w(f"- **Eligible after filtering**: {eligible}")
-    w(f"  - `impl_autoform_success >= 1.0`: {'yes' if filter_impl_autoform else 'no'}")
+    if only_incomputable:
+        w("  - `impl_autoform_success < 1.0` (incomputable only)")
+    else:
+        w(
+            f"  - `impl_autoform_success >= 1.0`: "
+            f"{'yes' if filter_impl_autoform else 'no'}"
+        )
     w("  - Has both `spec` and `impl`")
     w(f"- **Sample size**: {sample_size} (seed={seed})")
     w(f"- **Parallelism**: {parallelism}")
@@ -585,6 +771,8 @@ def write_report(
     w()
 
     report_text = "\n".join(lines) + "\n"
-    REPORT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    REPORT_PATH.write_text(report_text)
-    return REPORT_PATH
+    REPORT_DIR.mkdir(parents=True, exist_ok=True)
+    timestamp = datetime.now(UTC).strftime("%Y-%m-%dT%H-%M-%S")
+    report_path = REPORT_DIR / f"VALIDATION_REPORT_{timestamp}.md"
+    report_path.write_text(report_text)
+    return report_path

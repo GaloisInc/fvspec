@@ -1,5 +1,5 @@
 [agent]
-model = "anthropic/claude-sonnet-4-5-20250929"
+model = "anthropic/claude-sonnet-4-6" # "anthropic/claude-sonnet-4-5-20250929"
 max_tokens = -1
 
 [meta]
@@ -33,6 +33,6 @@ upload_samples = true
 
 [plausible]
 # Enable plausible property testing during generation
-enabled = true
+enabled = false
 # Timeout in seconds for plausible runs per sample
 timeout = 60

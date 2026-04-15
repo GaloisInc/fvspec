@@ -48,7 +48,10 @@ def main(
         None,
         "--output",
         "-o",
-        help="Output JSONL path (default: <input>.validated.jsonl)",
+        help=(
+            "Output JSONL path (default: <input>.validated.jsonl). "
+            "Contains only samples that successfully compiled, in their original form."
+        ),
     ),
     timeout: int = typer.Option(
         60,
@@ -56,18 +59,41 @@ def main(
         help="Timeout per lake build in seconds",
     ),
     filter_impl_autoform: bool = typer.Option(
-        True,
+        False,
         "--filter-impl-autoform/--no-filter-impl-autoform",
         help="Only validate samples with impl_autoform_success >= 1.0",
+    ),
+    only_incomputable: bool = typer.Option(
+        False,
+        "--only-incomputable",
+        help=(
+            "Only validate samples with impl_autoform_success < 1.0 "
+            "(incomputable functions under test that may still compile with sorries). "
+            "Overrides --filter-impl-autoform."
+        ),
+    ),
+    resume: bool = typer.Option(
+        True,
+        "--resume/--no-resume",
+        help=(
+            "Resume from `<output>.checkpoint.jsonl` if present (default). "
+            "--no-resume deletes the checkpoint and re-validates from scratch."
+        ),
     ),
 ) -> None:
     """Validate that dataset samples actually compile with `lake build`.
 
     Copies lake-template into temporary directories, writes Spec.lean and Impl.lean
-    from the dataset, and runs `lake build`. Records pass/fail with error details.
+    from the dataset, and runs `lake build`.
 
-    Outputs a JSONL with validation results and prints a correlation analysis
-    of compilation success vs. turn counts.
+    Outputs a filtered JSONL containing only the samples that compiled successfully,
+    in their original full form (drop-in replacement for the input dataset). Failures
+    are dropped from the JSONL but still summarized in the markdown report and
+    console analysis (compilation rate, turn count correlation, error categories).
+
+    Retry-safe: each completed compilation is appended to a checkpoint file
+    (`<output>.checkpoint.jsonl`) with flush+fsync. If the run is interrupted,
+    re-running the same command picks up where it left off.
     """
     run_validation(
         input_jsonl=input_jsonl,
@@ -78,4 +104,6 @@ def main(
         output=output,
         timeout=timeout,
         filter_impl_autoform=filter_impl_autoform,
+        only_incomputable=only_incomputable,
+        resume=resume,
     )

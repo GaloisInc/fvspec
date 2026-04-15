@@ -15,20 +15,15 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 /** Default page size for the sample list API */
 const PAGE_LIMIT = 50
 
-/** Difficulty filter presets based on bimodal distribution of haiku scores */
-type DifficultyPreset = 'easy' | 'medium' | 'hard'
-const DIFFICULTY_RANGES: Record<DifficultyPreset, [number, number]> = {
-  easy: [0, 3],
-  medium: [4, 6],
-  hard: [7, 10],
-}
+/** Binary difficulty buckets from the grader */
+type DifficultyPreset = 'easy' | 'hard'
 
 interface SampleSelectorProps {
   activeSampleId?: number
   activeSampleName?: string
 }
 
-const DIFFICULTY_PRESETS: DifficultyPreset[] = ['easy', 'medium', 'hard']
+const DIFFICULTY_PRESETS: DifficultyPreset[] = ['easy', 'hard']
 
 function parseDifficultyParam(param: string | null): Set<DifficultyPreset> {
   if (!param) return new Set()
@@ -145,12 +140,9 @@ export function SampleSelector({ activeSampleId, activeSampleName }: SampleSelec
 
     if (difficultyFilters.size > 0) {
       result = result.filter(s => {
-        const d = s.difficulty_subjective_haiku
+        const d = s.difficulty_binary
         if (d == null) return false
-        return Array.from(difficultyFilters).some(preset => {
-          const [min, max] = DIFFICULTY_RANGES[preset]
-          return d >= min && d <= max
-        })
+        return difficultyFilters.has(d)
       })
     }
 
@@ -305,7 +297,7 @@ export function SampleSelector({ activeSampleId, activeSampleName }: SampleSelec
                 return next
               })
             }
-            title={`Filter by ${preset} difficulty (${DIFFICULTY_RANGES[preset][0]}-${DIFFICULTY_RANGES[preset][1]})`}
+            title={`Filter by ${preset} difficulty`}
           >
             {preset.charAt(0).toUpperCase() + preset.slice(1)}
           </Button>

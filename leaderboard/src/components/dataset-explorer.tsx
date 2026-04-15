@@ -89,12 +89,17 @@ export function DatasetExplorer({ initialSample }: DatasetExplorerProps) {
 
           {/* Metrics */}
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-5">
-            {initialSample.difficulty_subjective_haiku != null && (
+            {initialSample.difficulty_binary != null && (
               <div>
                 <div className="text-muted-foreground text-sm">Difficulty</div>
-                <div className="text-2xl font-bold">
-                  {initialSample.difficulty_subjective_haiku.toFixed(1)}
+                <div className="text-2xl font-bold capitalize">
+                  {initialSample.difficulty_binary}
                 </div>
+                {initialSample.difficulty_binary_confidence != null && (
+                  <div className="text-muted-foreground text-xs">
+                    {(initialSample.difficulty_binary_confidence * 100).toFixed(0)}% confidence
+                  </div>
+                )}
               </div>
             )}
             {initialSample.realpbt_lines_pbt != null && (

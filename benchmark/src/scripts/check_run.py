@@ -134,7 +134,7 @@ def compile_sample(
 
     # Check for required files
     required_files = ["Spec.lean"]
-    optional_files = ["Impl.lean", "Tests.lean"]
+    optional_files = ["Impl.lean"]
     missing_files = [f for f in required_files if not (sample_path / f).exists()]
 
     if missing_files:

@@ -1,0 +1,198 @@
+{% extends "base.html.j2" %}
+
+{% block title %}Trajectories{% endblock %}
+
+{% block content %}
+<div class="hero" style="padding-bottom:1.5rem">
+  <div class="hero-label">trajectory viewer</div>
+  <h1>Sample trajectories</h1>
+  <p>Compare model trajectories side by side. Pick a sample, then switch between models to see each conversation trace.</p>
+</div>
+
+<!-- Difficulty filter -->
+<div class="diff-filters">
+  <button class="diff-filter-btn active" data-diff="all" onclick="filterNav('all')">All ({{ stats.n_samples }})</button>
+  <button class="diff-filter-btn" data-diff="easy" onclick="filterNav('easy')">Easy ({{ stats.sample_ids_by_bucket.easy|length }})</button>
+  <button class="diff-filter-btn" data-diff="medium" onclick="filterNav('medium')">Medium ({{ stats.sample_ids_by_bucket.medium|length }})</button>
+  <button class="diff-filter-btn" data-diff="hard" onclick="filterNav('hard')">Hard ({{ stats.sample_ids_by_bucket.hard|length }})</button>
+</div>
+
+<!-- Sample selector grouped by bucket -->
+{% for bucket in ["easy", "medium", "hard"] %}
+{% set bucket_ids = stats.sample_ids_by_bucket[bucket] %}
+{% if bucket_ids %}
+<div class="bucket-group" data-bucket-group="{{ bucket }}">
+  <div class="bucket-group-header {{ bucket }}">
+    <span class="bucket-label">{{ bucket }}</span>
+    <span class="bucket-count">{{ bucket_ids|length }} samples</span>
+  </div>
+  <div class="sample-nav">
+    {% for sid in bucket_ids %}
+    {% set first_sample = namespace(s=none) %}
+    {% for s in model_samples[models[0]] %}{% if s.id == sid %}{% set first_sample.s = s %}{% endif %}{% endfor %}
+    <button class="sample-btn bucket-{{ bucket }} {{ 'active' if bucket == 'easy' and loop.first else '' }}"
+            data-sample="{{ sid }}"
+            data-bucket="{{ bucket }}"
+            onclick="showSample('{{ sid }}')">
+      {{ sid }}
+      {% for m in models %}
+        {% set ms = namespace(s=none) %}
+        {% for s in model_samples[m] %}{% if s.id == sid %}{% set ms.s = s %}{% endif %}{% endfor %}
+        {% if ms.s %}
+          {% if ms.s.proved %}<span style="color:var(--accent-green);font-size:.7rem">&#10003;</span>
+          {% elif ms.s.compiles %}<span style="color:var(--accent-amber);font-size:.7rem">~</span>
+          {% else %}<span style="color:var(--accent-red);font-size:.7rem">&#10007;</span>{% endif %}
+        {% endif %}
+      {% endfor %}
+    </button>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+{% endfor %}
+
+<!-- Sample panels -->
+{% for sid in stats.sample_ids %}
+{% set is_first = (sid == stats.sample_ids_by_bucket.easy[0]) if stats.sample_ids_by_bucket.easy else false %}
+<div class="sample-panel {{ 'active' if is_first else '' }}" id="sample-{{ sid }}">
+
+  <!-- Model tabs for this sample -->
+  <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
+    {% for m in models %}
+    {% set found = namespace(s=none) %}
+    {% for s in model_samples[m] %}{% if s.id == sid %}{% set found.s = s %}{% endif %}{% endfor %}
+    <button class="sample-btn {{ 'active' if loop.first else '' }} {{ 'proved' if found.s and found.s.proved else 'failed' }}"
+            data-model-tab="{{ sid }}"
+            data-model="{{ m }}"
+            onclick="showModel('{{ sid }}', '{{ m }}')">
+      {{ m }}
+      {% if found.s %}
+        {% if found.s.proved %}<span style="color:var(--accent-green)">&#10003;</span>
+        {% elif found.s.compiles %}<span style="color:var(--accent-amber)">~</span>
+        {% else %}<span style="color:var(--accent-red)">&#10007;</span>{% endif %}
+      {% endif %}
+    </button>
+    {% endfor %}
+  </div>
+
+  <!-- Per-model trajectory panels -->
+  {% for m in models %}
+  {% set found = namespace(s=none) %}
+  {% for s in model_samples[m] %}{% if s.id == sid %}{% set found.s = s %}{% endif %}{% endfor %}
+  <div class="model-panel {{ 'active' if loop.first else '' }}"
+       id="panel-{{ sid }}-{{ m }}"
+       data-sample-model="{{ sid }}">
+    {% if found.s %}
+    {% set s = found.s %}
+
+    <!-- Sample header card -->
+    <div class="card" style="margin-bottom:1rem;border-left:3px solid var(--diff-{{ s.difficulty_bucket }})">
+      <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
+        <span style="font-size:1.5rem;font-weight:700;font-family:var(--font-mono)">{{ sid }}</span>
+        <span class="badge accent">{{ m }}</span>
+        {% if s.proved %}<span class="pill pill-green" style="font-size:.85rem;padding:.3rem .8rem">Proved</span>
+        {% elif s.compiles %}<span class="pill pill-amber" style="font-size:.85rem;padding:.3rem .8rem">Compiles</span>
+        {% else %}<span class="pill pill-red" style="font-size:.85rem;padding:.3rem .8rem">Build failed</span>{% endif %}
+        {% if s.difficulty_bucket == 'easy' %}<span class="pill pill-green">easy</span>
+        {% elif s.difficulty_bucket == 'medium' %}<span class="pill pill-blue">medium</span>
+        {% else %}<span class="pill pill-red">hard</span>{% endif %}
+        {% if s.difficulty_score is not none %}<span class="badge">haiku: {{ s.difficulty_score }}</span>{% endif %}
+        <span class="badge">{{ s.num_theorems }} theorems</span>
+      </div>
+      <div style="margin-top:.75rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;font-size:.85rem;color:var(--text-muted)">
+        <div>Sorries: <span style="color:var(--text)">{{ s.sorries_removed }}/{{ s.sorries_original }} removed</span></div>
+        <div>Partial credit: <span style="color:var(--text)">{{ (s.partial_credit * 100)|round(1) }}%</span></div>
+        <div>Time: <span style="color:var(--text)">{{ s.total_time }}s</span></div>
+        <div>Messages: <span style="color:var(--text)">{{ s.message_count }}</span></div>
+        <div>Tokens: <span style="color:var(--text)">{{ "{:,}".format(s.total_tokens) }}</span></div>
+      </div>
+      {% if s.explanation %}
+      <div style="margin-top:.75rem;font-family:var(--font-mono);font-size:.82rem;color:var(--text-dim);padding:.5rem .75rem;background:var(--bg-card-2);border-radius:var(--radius)">
+        {{ s.explanation }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Messages -->
+    {% for msg in s.messages %}
+    <div class="message {{ 'auto-open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">
+      <div class="message-header">
+        <span class="role {{ msg.role }}">{{ msg.role }}</span>
+        {% if msg.function %}<span class="fn-name">{{ msg.function }}</span>{% endif %}
+        {% if msg.tool_calls %}
+          <span class="fn-name">
+            {% for tc in msg.tool_calls %}{{ tc.function }}{% if not loop.last %}, {% endif %}{% endfor %}
+          </span>
+        {% endif %}
+        <span style="color:var(--text-dim);font-size:.72rem">#{{ loop.index }}</span>
+        <span class="toggle">{{ '[ - ]' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '[ + ]' }}</span>
+      </div>
+      <div class="message-body {{ 'open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">{{ msg.content | e }}{% if msg.tool_calls %}{% for tc in msg.tool_calls %}
+<div class="tool-calls">
+  <div class="fn">{{ tc.function }}()</div>
+  <div class="tool-call-args">{{ tc.arguments | tojson }}</div>
+</div>{% endfor %}{% endif %}</div>
+    </div>
+    {% endfor %}
+
+    {% else %}
+    <div class="card"><p style="color:var(--text-muted)">No data for this model on sample {{ sid }}.</p></div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endfor %}
+
+<style>
+  .model-panel { display: none; }
+  .model-panel.active { display: block; }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function showSample(id) {
+  document.querySelectorAll('.sample-btn[data-sample]').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.sample === id);
+  });
+  document.querySelectorAll('.sample-panel').forEach(panel => {
+    panel.classList.toggle('active', panel.id === 'sample-' + id);
+  });
+  const panel = document.getElementById('sample-' + id);
+  if (panel) panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function showModel(sampleId, model) {
+  document.querySelectorAll(`[data-model-tab="${sampleId}"]`).forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.model === model);
+  });
+  document.querySelectorAll(`[data-sample-model="${sampleId}"]`).forEach(panel => {
+    panel.classList.toggle('active', panel.id === `panel-${sampleId}-${model}`);
+  });
+}
+
+function filterNav(bucket) {
+  document.querySelectorAll('.diff-filter-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.diff === bucket);
+  });
+  document.querySelectorAll('.bucket-group').forEach(group => {
+    if (bucket === 'all') {
+      group.style.display = '';
+    } else {
+      group.style.display = group.dataset.bucketGroup === bucket ? '' : 'none';
+    }
+  });
+}
+
+// Handle hash navigation
+function handleHash() {
+  const hash = window.location.hash;
+  if (hash && hash.startsWith('#sample-')) {
+    const id = hash.replace('#sample-', '');
+    showSample(id);
+  }
+}
+window.addEventListener('hashchange', handleHash);
+handleHash();
+</script>
+{% endblock %}

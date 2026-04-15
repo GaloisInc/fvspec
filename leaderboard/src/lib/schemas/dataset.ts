@@ -4,11 +4,17 @@ import { z } from 'zod'
  * Minimal dataset sample for list view (dropdown).
  * Contains only identifiers needed for sample selection.
  */
+export const DifficultyBinarySchema = z.enum(['easy', 'hard'])
+export type DifficultyBinary = z.infer<typeof DifficultyBinarySchema>
+
 export const DatasetSampleListItemSchema = z.object({
   sample_id: z.number(),
   sample_name: z.string(),
-  difficulty_subjective_haiku: z.number().nullable().optional(),
+  difficulty_binary: DifficultyBinarySchema.nullable().optional(),
 })
+
+/** Raw schema for a sample in the JSONL: `sample_name` is derived from
+ * `realpbt_sample_name` when absent (fvspec-hf.jsonl format). */
 
 /**
  * Lean code structure metrics (lines, counts).
@@ -39,28 +45,31 @@ const LeanMetricsSchema = z
  * Full dataset sample with all code and metadata.
  * Used for detailed sample view.
  */
-export const DatasetSampleDetailSchema = z.object({
-  // Identifiers
-  sample_id: z.number(),
-  sample_name: z.string(),
+export const DatasetSampleDetailSchema = z
+  .object({
+    sample_id: z.number(),
+    sample_name: z.string().optional(),
+    realpbt_sample_name: z.string().optional(),
 
-  // Code content (Lean)
-  spec: z.string(),
-  impl: z.string(),
+    spec: z.string(),
+    impl: z.string(),
 
-  // Original PBT source
-  realpbt_code: z.string().optional(),
-  realpbt_summary: z.string().nullable().optional(),
-  realpbt_repo_id: z.number().optional(),
-  realpbt_lines_pbt: z.number().nullable().optional(),
-  realpbt_sample_name: z.string().optional(),
+    realpbt_code: z.string().optional(),
+    realpbt_summary: z.string().nullable().optional(),
+    realpbt_repo_id: z.number().optional(),
+    realpbt_lines_pbt: z.number().nullable().optional(),
 
-  // Metrics
-  num_theorems: z.number().optional(),
-  lean_metrics: LeanMetricsSchema.nullable().optional(),
-  structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
-  difficulty_subjective_haiku: z.number().nullable().optional(),
-})
+    num_theorems: z.number().optional(),
+    lean_metrics: LeanMetricsSchema.nullable().optional(),
+    structural_faithfulness: z.record(z.string(), z.unknown()).nullable().optional(),
+    difficulty_binary: DifficultyBinarySchema.nullable().optional(),
+    difficulty_binary_confidence: z.number().nullable().optional(),
+    difficulty_binary_reasoning: z.string().nullable().optional(),
+  })
+  .transform(d => ({
+    ...d,
+    sample_name: d.sample_name ?? d.realpbt_sample_name ?? `sample-${d.sample_id}`,
+  }))
 
 /**
  * Response wrapper for dataset list endpoint.
@@ -88,12 +97,18 @@ export const DistributionStatsSchema = z.object({
 /**
  * Aggregate statistics for the entire dataset.
  */
+export const DifficultyCountsSchema = z.object({
+  easy: z.number(),
+  hard: z.number(),
+  unknown: z.number(),
+})
+
 export const DatasetStatsSchema = z.object({
   total: z.number(),
   faithfulness: DistributionStatsSchema,
   theorems: DistributionStatsSchema,
   lean_lines: DistributionStatsSchema,
-  difficulty: DistributionStatsSchema,
+  difficulty: DifficultyCountsSchema,
 })
 
 // Export TypeScript types
@@ -101,4 +116,5 @@ export type DatasetSampleListItem = z.infer<typeof DatasetSampleListItemSchema>
 export type DatasetSampleDetail = z.infer<typeof DatasetSampleDetailSchema>
 export type DatasetListResponse = z.infer<typeof DatasetListResponseSchema>
 export type DistributionStats = z.infer<typeof DistributionStatsSchema>
+export type DifficultyCounts = z.infer<typeof DifficultyCountsSchema>
 export type DatasetStats = z.infer<typeof DatasetStatsSchema>

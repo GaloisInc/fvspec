@@ -3,6 +3,7 @@
 Usage (from benchmark/ directory):
     uv run postprod turncount artifacts/runs/
     uv run postprod turncount artifacts/runs/<run-dir>/
+    uv run postprod turncount src/scripts/postproduction/merge/runs.txt
     uv run postprod turncount artifacts/runs/ --force
 """
 
@@ -13,6 +14,7 @@ import typer
 from rich.console import Console
 from rich.progress import Progress
 
+from scripts.postproduction.merge import load_runs_file
 from scripts.postproduction.turncount.extractor import (
     extract_turn_counts_from_eval,
     find_eval_files,
@@ -27,7 +29,7 @@ console = Console()
 def main(
     runs_dir: Path = typer.Argument(
         ...,
-        help="Path to runs directory (or a specific run directory)",
+        help="Path to runs directory, a specific run directory, or a runs.txt file",
         exists=True,
     ),
     force: bool = typer.Option(
@@ -45,22 +47,44 @@ def main(
     Use --force to re-compute all.
 
     Examples (from benchmark/ directory):
-        uv run postprod turncount artifacts/runs/                    # All runs
-        uv run postprod turncount artifacts/runs/<specific-run>/     # Single run
-        uv run postprod turncount artifacts/runs/ --force            # Re-compute all
+        uv run postprod turncount artifacts/runs/                            # All runs
+        uv run postprod turncount artifacts/runs/<specific-run>/             # Single run
+        uv run postprod turncount src/scripts/postproduction/merge/runs.txt  # From runs.txt
+        uv run postprod turncount artifacts/runs/ --force                    # Re-compute all
     """
     console.print("[bold]Post-production: Enriching qa.json with turn counts[/bold]\n")
 
-    # Determine if this is a single run dir or a parent of many
-    eval_files = find_eval_files(runs_dir)
-    if eval_files:
-        # Single run directory
-        run_dirs = [runs_dir]
+    # Determine input mode: runs.txt file, single run dir, or parent of many
+    if runs_dir.is_file():
+        console.print(f"Loading runs from: {runs_dir}")
+        run_names = load_runs_file(runs_dir)
+        artifacts_runs = Path("artifacts") / "runs"
+        if not artifacts_runs.exists():
+            console.print(
+                f"[red]Error: Artifacts directory not found: {artifacts_runs}[/red]"
+            )
+            console.print("Make sure you're running from the benchmark/ directory")
+            raise typer.Exit(1)
+        run_dirs = []
+        for name in run_names:
+            d = artifacts_runs / name
+            if not d.exists():
+                console.print(f"[yellow]Warning: Run directory not found: {d}[/yellow]")
+                continue
+            if not find_eval_files(d):
+                console.print(f"[yellow]Warning: No .eval files in: {d}[/yellow]")
+                continue
+            run_dirs.append(d)
     else:
-        # Parent directory containing multiple runs
-        run_dirs = sorted(
-            d for d in runs_dir.iterdir() if d.is_dir() and find_eval_files(d)
-        )
+        eval_files = find_eval_files(runs_dir)
+        if eval_files:
+            # Single run directory
+            run_dirs = [runs_dir]
+        else:
+            # Parent directory containing multiple runs
+            run_dirs = sorted(
+                d for d in runs_dir.iterdir() if d.is_dir() and find_eval_files(d)
+            )
 
     if not run_dirs:
         console.print("[red]No .eval files found.[/red]")

@@ -118,112 +118,22 @@ def call_lean_lsp_mcp(
 
 
 @tool  # type: ignore[arg-type]
-def lean_diagnostic_messages() -> Callable[[str, ToolCallView], Awaitable[str]]:
-    """Get diagnostic messages for a Lean file using per-sample workspace."""
-
-    async def execute(file_path: str, view: ToolCallView) -> str:
-        # view: Required by inspect_ai but not used in this tool
-        """Get all diagnostic messages (infos, warnings, errors) for a Lean file.
-
-        Args:
-            file_path: Path to the Lean file (relative to workspace or absolute)
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Diagnostic messages as formatted text
-        """
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        # Get workspace path
-        workspace_path = state.metadata.get("workspace")
-        if not workspace_path:
-            raise ToolError("No workspace path found in metadata")
-
-        workspace = Path(workspace_path)
-
-        # Call lean-lsp-mcp with this sample's workspace
-        result = call_lean_lsp_mcp(
-            workspace=workspace,
-            tool_name="lean_diagnostic_messages",
-            arguments={"file_path": file_path},
-        )
-
-        content = result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No diagnostics"))
-        return "No diagnostics"
-
-    return execute
-
-
-@tool  # type: ignore[arg-type]
-def lean_goal() -> Callable[[str, int, int | None, ToolCallView], Awaitable[str]]:
-    """Get proof goal at a specific location in a Lean file."""
+def lean_hover_info() -> Callable[[str, int, int, ToolCallView], Awaitable[str]]:
+    """Get type signature and documentation for a Lean identifier at a position."""
 
     async def execute(
-        file_path: str, line: int, column: int | None, view: ToolCallView
+        file_path: str, line: int, column: int, view: ToolCallView
     ) -> str:
-        """Get the proof goal at a specific location.
+        """Get hover information (type signature + docs) for an identifier.
 
         Args:
             file_path: Path to the Lean file
-            line: Line number
-            column: Optional column number
+            line: Line number (1-indexed)
+            column: Column number at the start of the identifier (0-indexed)
             view: Tool call context (provided by inspect_ai)
 
         Returns:
-            Goal state information
-        """
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        workspace_path = state.metadata.get("workspace")
-        if not workspace_path:
-            raise ToolError("No workspace path found in metadata")
-
-        workspace = Path(workspace_path)
-
-        arguments = {"file_path": file_path, "line": line}
-        if column is not None:
-            arguments["column"] = column
-
-        result = call_lean_lsp_mcp(
-            workspace=workspace, tool_name="lean_goal", arguments=arguments
-        )
-
-        content = result.get("content", [])
-        if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No goal information"))
-        return "No goal information"
-
-    return execute
-
-
-@tool  # type: ignore[arg-type]
-def lean_multi_attempt() -> Callable[
-    [str, int, list[str], ToolCallView], Awaitable[str]
-]:
-    """Try multiple proof tactics and return goal states for each."""
-
-    async def execute(
-        file_path: str, line: int, snippets: list[str], view: ToolCallView
-    ) -> str:
-        """Attempt multiple Lean code snippets at a line and return diagnostics.
-
-        This tool is useful to screen different proof attempts before committing
-        to the most promising one.
-
-        Args:
-            file_path: Path to the Lean file
-            line: Line number where to attempt the snippets
-            snippets: List of Lean code snippets to try
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Goal states and diagnostics for each snippet
+            Type signature and documentation for the identifier
         """
         state = sample_state()
         if not state:
@@ -237,14 +147,14 @@ def lean_multi_attempt() -> Callable[
 
         result = call_lean_lsp_mcp(
             workspace=workspace,
-            tool_name="lean_multi_attempt",
-            arguments={"file_path": file_path, "line": line, "snippets": snippets},
+            tool_name="lean_hover_info",
+            arguments={"file_path": file_path, "line": line, "column": column},
         )
 
         content = result.get("content", [])
         if content and isinstance(content, list) and len(content) > 0:
-            return str(content[0].get("text", "No results"))
-        return "No results"
+            return str(content[0].get("text", "No hover information"))
+        return "No hover information"
 
     return execute
 
@@ -286,6 +196,48 @@ def lean_local_search() -> Callable[[str, ToolCallView], Awaitable[str]]:
         if content and isinstance(content, list) and len(content) > 0:
             return str(content[0].get("text", "No results found"))
         return "No results found"
+
+    return execute
+
+
+@tool  # type: ignore[arg-type]
+def lean_build() -> Callable[[ToolCallView], Awaitable[str]]:
+    """Run `lake build` on the workspace to verify full compilation."""
+
+    async def execute(view: ToolCallView) -> str:
+        """Build the Lean project with `lake build` and return the result.
+
+        Use this after writing files to verify they compile correctly.
+        LSP diagnostics can miss errors that only appear during a full build.
+
+        Args:
+            view: Tool call context (provided by inspect_ai)
+
+        Returns:
+            Build output (errors/warnings) or success message
+        """
+        state = sample_state()
+        if not state:
+            raise ToolError("No task state available")
+
+        workspace_path = state.metadata.get("workspace")
+        if not workspace_path:
+            raise ToolError("No workspace path found in metadata")
+
+        workspace = Path(workspace_path)
+
+        result = subprocess.run(
+            ["lake", "build"],
+            cwd=workspace,
+            capture_output=True,
+            text=True,
+            timeout=120,
+        )
+
+        output = (result.stdout + result.stderr).strip()
+        if result.returncode == 0:
+            return output or "Build succeeded"
+        return output or "Build failed"
 
     return execute
 
@@ -401,7 +353,7 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
                 f"#eval statements should NOT be included in Spec.lean because:\n"
                 f"1. Spec.lean should only contain theorem declarations (with sorry), not executable code\n"
                 f"2. If you're including Impl definitions here, they belong in Impl.lean instead\n"
-                f"3. #eval indicates testing behavior which belongs in Tests.lean\n\n"
+                f"3. #eval indicates executable testing behavior, not theorem declarations\n\n"
                 f"Found:\n"
             )
             for stmt in eval_statements:
@@ -416,86 +368,31 @@ def write_lean_spec() -> Callable[[str, ToolCallView], Awaitable[str]]:
     return execute
 
 
-@tool  # type: ignore[arg-type]
-def write_lean_tests() -> Callable[[str, ToolCallView], Awaitable[str]]:
-    """Write Lean test code to Tests.lean in the workspace for LSP analysis.
-
-    This tool allows the units agent to iteratively develop LSpec test code by
-    writing it to the workspace where MCP tools (lean_diagnostic_messages, etc.)
-    can analyze it. The agent should:
-
-    1. Write initial test code using this tool
-    2. Use lean_diagnostic_messages to check for errors
-    3. Refine and rewrite the code as needed
-    4. Repeat until satisfied
-
-    The final code will be extracted from <code>...</code> tags during cleanup.
-    """
-
-    async def execute(code: str, view: ToolCallView) -> str:
-        """Write Lean test code to the workspace Tests.lean file.
-
-        Args:
-            code: The Lean test code to write to Fvspec/Tests.lean
-            view: Tool call context (provided by inspect_ai)
-
-        Returns:
-            Success message with file path and size
-        """
-        state = sample_state()
-        if not state:
-            raise ToolError("No task state available")
-
-        workspace_path = state.metadata.get("workspace")
-        if not workspace_path:
-            raise ToolError("No workspace path found in metadata")
-
-        workspace = Path(workspace_path)
-        tests_file = workspace / "Fvspec" / "Tests.lean"
-
-        # Ensure the directory exists
-        tests_file.parent.mkdir(parents=True, exist_ok=True)
-
-        # Write the code
-        tests_file.write_text(code)
-
-        return f"Wrote {len(code)} characters to {tests_file.relative_to(workspace)}"
-
-    return execute
-
-
 def workspace_utility_tools() -> list:
     """Construct workspace utility tools for file writing.
 
     These tools allow agents to write Lean files to the workspace for iterative
     development. They don't interact with LSP/MCP - they just write files.
 
-    Each agent gets all three tools, but should only use their designated file:
-    - Impl agent: write_lean_impl() -> Impl.lean
-    - Spec agent: write_lean_spec() -> Spec.lean
-    - Units agent: write_lean_tests() -> Tests.lean
+    - write_lean_impl() -> Impl.lean
+    - write_lean_spec() -> Spec.lean
     """
     return [
         write_lean_impl(),
         write_lean_spec(),
-        write_lean_tests(),
     ]
 
 
 def lean_lsp_mcp_tools() -> list:
     """Construct Lean LSP tools that wrap lean-lsp-mcp server.
 
-    These tools spawn lean-lsp-mcp as a subprocess per call, setting the
-    LEAN_PROJECT_PATH environment variable to the sample's workspace.
-    This allows parallel execution while maintaining LSP functionality.
-
-    These are wrappers around the actual MCP server tools.
+    Only lean_hover_info and lean_local_search are routed through lean-lsp-mcp.
+    lean_build runs lake directly via subprocess.
     """
     return [
-        lean_diagnostic_messages(),
-        lean_goal(),
-        lean_multi_attempt(),
+        lean_hover_info(),
         lean_local_search(),
+        lean_build(),
     ]
 
 
@@ -512,7 +409,7 @@ def write_datapoint_to_disk(
     date_time: str,
     sample_id: str,
     datapoint: Datapoint,
-    variant: str,
+    model: str,
     ranseed: int | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
@@ -523,7 +420,7 @@ def write_datapoint_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         datapoint: The datapoint from the metadata of the current sample.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
         end_idx: Ending index for sequential sampling (optional).
@@ -535,7 +432,7 @@ def write_datapoint_to_disk(
         date_time,
         sample_id,
         "datapoint.json",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -547,7 +444,7 @@ def write_code_to_disk(
     date_time: str,
     sample_id: str,
     text: str,
-    variant: str,
+    model: str,
     workspace: Path | None = None,
     ranseed: int | None = None,
     start_idx: int | None = None,
@@ -565,7 +462,7 @@ def write_code_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         text: The output text possibly containing <code>...</code>.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         workspace: Optional workspace tmpdir path for fallback.
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
@@ -596,7 +493,7 @@ def write_code_to_disk(
         date_time,
         sample_id,
         "Spec.lean",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -610,7 +507,7 @@ def write_qa_to_disk(
     date_time: str,
     sample_id: str,
     state: TaskState,
-    variant: str,
+    model: str,
     ranseed: int | None = None,
     start_idx: int | None = None,
     end_idx: int | None = None,
@@ -621,7 +518,7 @@ def write_qa_to_disk(
         date_time: datetime string used in directory structue.
         sample_id: Identifier for the current sample.
         state: The task state after completion.
-        variant: Prompt variant name.
+        model: Model slug (e.g., "claude-sonnet-4-6").
         ranseed: Random seed used for sampling (optional, included in path when provided).
         start_idx: Starting index for sequential sampling (optional).
         end_idx: Ending index for sequential sampling (optional).
@@ -636,156 +533,12 @@ def write_qa_to_disk(
         date_time,
         sample_id,
         "qa.json",
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
     )
     return utilio.writeit(qa_file, qa.model_dump_json(indent=4))
-
-
-def _strip_imports(lean_code: str) -> str:
-    """Strip import statements from the beginning of generated Lean code.
-
-    Removes lines starting with 'import' from the start of the code to avoid
-    duplicate imports when prepending template imports.
-
-    Args:
-        lean_code: Generated Lean code potentially containing imports
-
-    Returns:
-        Code with import statements removed
-    """
-    lines = lean_code.split("\n")
-    # Skip import lines at the beginning
-    non_import_start = 0
-    for i, line in enumerate(lines):
-        stripped = line.strip()
-        if (
-            stripped
-            and not stripped.startswith("import")
-            and not stripped.startswith("--")
-        ):
-            non_import_start = i
-            break
-    else:
-        # All lines are imports or comments
-        non_import_start = len(lines)
-
-    return "\n".join(lines[non_import_start:]).lstrip()
-
-
-def write_unit_tests_to_disk(
-    date_time: str,
-    sample_id: str,
-    state: TaskState,
-    variant: str,
-    workspace: Path | None = None,
-    ranseed: int | None = None,
-    start_idx: int | None = None,
-    end_idx: int | None = None,
-) -> str:
-    """Write generated unit tests to `Tests.lean` for the sample.
-
-    Unit tests are generated by the LLM-based units agent from Python PBTs.
-    This replaces the deprecated AST extraction system.
-
-    Always writes Tests.lean even if empty (lake-template expects it).
-
-    Args:
-        date_time: datetime string used in directory structure.
-        sample_id: Identifier for the current sample.
-        state: The task state containing units_result in store.
-        variant: Prompt variant name.
-        workspace: Optional workspace tmpdir path for MCP tools.
-        ranseed: Random seed used for sampling (optional, included in path when provided).
-        start_idx: Starting index for sequential sampling (optional).
-        end_idx: Ending index for sequential sampling (optional).
-
-    Returns:
-        A message describing whether the write succeeded.
-    """
-    # Extract units result from store (generated by units agent)
-    units_result_data = state.store.get("units_result", {})
-    units_result_lean = (
-        units_result_data.get("lean_code")
-        if isinstance(units_result_data, dict)
-        else None
-    )
-    datapoint = cast(Datapoint, state.metadata.get("datapoint"))
-
-    # Generate Tests.lean content
-    # Note: Imports are provided by lake-template/Fvspec/Tests.lean
-    if units_result_lean:
-        # We have generated tests from units agent - add metadata
-        func_name = datapoint.name.removeprefix("test_")
-
-        # Count tests in generated code
-        num_tests = (
-            units_result_data.get("test_count", 0)
-            if isinstance(units_result_data, dict)
-            else 0
-        )
-
-        # Strip imports from units agent output to avoid duplicates
-        # (template_imports will be prepended)
-        units_code_without_imports = _strip_imports(units_result_lean)
-
-        tests_content = f"""-- Unit tests generated by LLM from property-based test
--- Function: {func_name}
--- Generation method: LLM-based units agent
--- Tests: {num_tests}
-
-{units_code_without_imports}
-"""
-    else:
-        # No tests generated - write explanation
-        error_msg = (
-            units_result_data.get("error", "Unknown error")
-            if isinstance(units_result_data, dict)
-            else "No units result"
-        )
-        tests_content = f"""-- No unit tests could be generated from the property-based test
--- Reason: {error_msg}
---
--- The units agent was unable to extract or generate meaningful test cases.
--- This may be because:
---   - The test uses only Hypothesis strategies (no concrete examples)
---   - The test logic is too complex to translate
---   - The LLM was unable to infer appropriate test cases
-"""
-
-    # Write to artifacts directory (permanent storage)
-    # For artifacts, prepend the template imports since we're writing from scratch
-    template_imports = """import LSpec
-import Fvspec.Spec
-
-"""
-    tests_file = utilio.get_output_filepath(
-        date_time,
-        sample_id,
-        "Tests.lean",
-        variant=variant,
-        ranseed=ranseed,
-        start_idx=start_idx,
-        end_idx=end_idx,
-    )
-    result = utilio.writeit(tests_file, template_imports + tests_content)
-
-    # Also write to workspace if provided (for potential MCP usage)
-    # For workspace, append to existing template file to preserve imports
-    if workspace:
-        workspace_tests = workspace / "Fvspec" / "Tests.lean"
-        if workspace_tests.exists():
-            # Append to existing template content
-            existing = workspace_tests.read_text()
-            workspace_tests.write_text(existing + "\n" + tests_content)
-        else:
-            # Template not copied yet, write with imports
-            workspace_tests.parent.mkdir(parents=True, exist_ok=True)
-            workspace_tests.write_text(template_imports + tests_content)
-
-    return result
 
 
 def _qa_to_scores(qa: QualityAssessment) -> dict[str, Score]:
@@ -826,7 +579,7 @@ async def write_to_disk(state: TaskState) -> None:
     """
     date_time = cast(str, state.metadata.get("date_time"))
     datapoint = cast(Datapoint, state.metadata.get("datapoint"))
-    variant = cast(str, state.metadata.get("variant"))
+    model = cast(str, state.metadata.get("model"))
     ranseed = state.metadata.get("ranseed")  # May be None
     start_idx = state.metadata.get("start_idx")  # May be None
     end_idx = state.metadata.get("end_idx")  # May be None
@@ -841,7 +594,7 @@ async def write_to_disk(state: TaskState) -> None:
         date_time,
         sample_id,
         datapoint,
-        variant=variant,
+        model=model,
         ranseed=ranseed,
         start_idx=start_idx,
         end_idx=end_idx,
@@ -854,7 +607,7 @@ async def write_to_disk(state: TaskState) -> None:
             date_time,
             sample_id,
             state.output.message.text,
-            variant=variant,
+            model=model,
             workspace=workspace,
             ranseed=ranseed,
             start_idx=start_idx,
@@ -870,31 +623,19 @@ async def write_to_disk(state: TaskState) -> None:
                     date_time,
                     sample_id,
                     "Impl.lean",
-                    variant=variant,
+                    model=model,
                     ranseed=ranseed,
                     start_idx=start_idx,
                     end_idx=end_idx,
                 )
                 _ = utilio.writeit(impl_file, impl_code)
 
-        # Write extracted unit tests (return value available for future logging)
-        _ = write_unit_tests_to_disk(
-            date_time,
-            sample_id,
-            state,
-            variant=variant,
-            workspace=workspace,
-            ranseed=ranseed,
-            start_idx=start_idx,
-            end_idx=end_idx,
-        )
-
         # Write quality assessment report (return value available for future logging)
         _ = write_qa_to_disk(
             date_time,
             sample_id,
             state,
-            variant=variant,
+            model=model,
             ranseed=ranseed,
             start_idx=start_idx,
             end_idx=end_idx,

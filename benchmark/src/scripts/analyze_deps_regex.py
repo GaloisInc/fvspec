@@ -25,9 +25,9 @@ import re
 from collections import Counter
 from pathlib import Path
 
+from generate.scaffold.dataset.connection import get_session
 from sqlmodel import select
 
-from generate.scaffold.dataset.connection import get_session
 from generate.scaffold.dataset.models import Datapoint
 
 BASE_DIR = Path(__file__).resolve().parents[2]

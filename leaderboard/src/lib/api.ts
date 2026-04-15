@@ -1,66 +1,79 @@
 import { Hono } from 'hono'
-import {
-  loadDataset,
-  loadDatasetFromUrl,
-  searchSamples,
-  getSampleById,
-  getDatasetStats,
-} from './dataset'
+import type { DatasetSampleListItem, DatasetStats } from './schemas/dataset'
 
 const app = new Hono().basePath('/api')
 
-// Dataset loading: DATASET_PATH (local file) > DATASET_URL (remote) > S3 default
-const DATASET_URL_DEFAULT = 'https://fvspec-vercel-assets.s3.us-west-2.amazonaws.com/fvspec.jsonl'
+// Pre-computed data loaded from build-time JSON files
+let statsCache: DatasetStats | null = null
+let listCache: DatasetSampleListItem[] | null = null
+let dataDir: string | null = null
 
-let datasetInitPromise: Promise<void> | null = null
+async function loadPrecomputedData(): Promise<void> {
+  if (statsCache && listCache) return
 
-function ensureDataset(): Promise<void> {
-  if (!datasetInitPromise) {
-    datasetInitPromise = (async () => {
-      try {
-        if (process.env.DATASET_PATH) {
-          await loadDataset(process.env.DATASET_PATH)
-        } else {
-          const url = process.env.DATASET_URL || DATASET_URL_DEFAULT
-          await loadDatasetFromUrl(url)
-        }
-        console.log('[api] Dataset loaded successfully')
-      } catch (error) {
-        console.error('[api] Failed to load dataset:', error)
-        datasetInitPromise = null
-        throw error
-      }
-    })()
+  const fs = await import('node:fs')
+  const path = await import('node:path')
+
+  dataDir = path.resolve(process.cwd(), 'data')
+  const statsPath = path.join(dataDir, 'stats.json')
+  const listPath = path.join(dataDir, 'list.json')
+
+  if (!fs.existsSync(statsPath) || !fs.existsSync(listPath)) {
+    throw new Error('Pre-computed data not found. Run `tsx scripts/precompute-dataset.ts` first.')
   }
-  return datasetInitPromise
-}
 
-// Ensure dataset is loaded before handling requests
-app.use('*', async (_c, next) => {
-  await ensureDataset()
-  await next()
-})
+  statsCache = JSON.parse(fs.readFileSync(statsPath, 'utf-8'))
+  listCache = JSON.parse(fs.readFileSync(listPath, 'utf-8'))
+  console.log(`[api] Loaded pre-computed stats and list (${listCache!.length} samples)`)
+}
 
 // Health check
 app.get('/', c => c.json({ ok: true, service: 'fvspec-leaderboard-api' }))
 
 /**
+ * GET /api/dataset/stats
+ * Returns aggregate statistics for the entire dataset (pre-computed at build time)
+ */
+app.get('/dataset/stats', async c => {
+  try {
+    await loadPrecomputedData()
+    return c.json(statsCache)
+  } catch (error) {
+    console.error('GET /api/dataset/stats error:', error)
+    if (error instanceof Error) {
+      return c.json({ error: error.message }, 500)
+    }
+    return c.json({ error: 'Failed to load statistics' }, 500)
+  }
+})
+
+/**
  * GET /api/dataset/list
- * Returns paginated list of dataset samples with optional search.
+ * Returns paginated list of dataset samples with optional search (pre-computed at build time).
  *
  * Query params:
  *   q     - substring search on sample_name (case-insensitive)
  *   page  - 1-indexed page number (default 1)
  *   limit - results per page (default 50, max 200)
  */
-app.get('/dataset/list', c => {
+app.get('/dataset/list', async c => {
   try {
+    await loadPrecomputedData()
+
     const q = c.req.query('q') || undefined
     const page = Math.max(1, parseInt(c.req.query('page') || '1', 10) || 1)
     const limit = Math.min(200, Math.max(1, parseInt(c.req.query('limit') || '50', 10) || 50))
 
-    const result = searchSamples(q, page, limit)
-    return c.json(result)
+    const all = listCache!
+    const filtered = q
+      ? all.filter(s => s.sample_name.toLowerCase().includes(q.toLowerCase()))
+      : all
+
+    const total = filtered.length
+    const start = (page - 1) * limit
+    const samples = filtered.slice(start, start + limit)
+
+    return c.json({ samples, total, page, limit })
   } catch (error) {
     console.error('GET /api/dataset/list error:', error)
     if (error instanceof Error) {
@@ -71,28 +84,13 @@ app.get('/dataset/list', c => {
 })
 
 /**
- * GET /api/dataset/stats
- * Returns aggregate statistics for the entire dataset
- */
-app.get('/dataset/stats', c => {
-  try {
-    const stats = getDatasetStats()
-    return c.json(stats)
-  } catch (error) {
-    console.error('GET /api/dataset/stats error:', error)
-    if (error instanceof Error) {
-      return c.json({ error: error.message }, 500)
-    }
-    return c.json({ error: 'Failed to calculate statistics' }, 500)
-  }
-})
-
-/**
  * GET /api/dataset/:id
- * Returns full sample by ID
+ * Returns full sample by ID from pre-computed individual sample files.
  */
-app.get('/dataset/:id', c => {
+app.get('/dataset/:id', async c => {
   try {
+    await loadPrecomputedData()
+
     const idParam = c.req.param('id')
     const id = parseInt(idParam, 10)
 
@@ -100,12 +98,15 @@ app.get('/dataset/:id', c => {
       return c.json({ error: 'Invalid sample ID' }, 400)
     }
 
-    const sample = getSampleById(id)
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const samplePath = path.join(dataDir!, 'samples', `${id}.json`)
 
-    if (!sample) {
+    if (!fs.existsSync(samplePath)) {
       return c.json({ error: 'Sample not found' }, 404)
     }
 
+    const sample = JSON.parse(fs.readFileSync(samplePath, 'utf-8'))
     return c.json(sample)
   } catch (error) {
     console.error('GET /api/dataset/:id error:', error)

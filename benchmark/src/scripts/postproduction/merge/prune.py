@@ -26,9 +26,6 @@ from typing import Any
 
 # Fields to remove from the final output
 FIELDS_TO_REMOVE = {
-    # Tests.lean field - mostly vacuous (94.8% have no real tests)
-    # Only 5.2% have actual test code, 21.5% are LLM hallucinations with .done stubs
-    "tests",
     "run_provenance",
     # not informative
     "has_unit_tests",
@@ -58,7 +55,7 @@ FIELDS_TO_REMOVE = {
     "percent_lines_added",  # float64, -1--1
     "spec_sig_success",  # bool, 1 class
     "unit_tests_available",  # bool, 1 class
-    "model",  # all sonnet 4.5
+    "model",  # redundant with provenance.model
     "variant",  # all `control-functional`
     # Null/empty fields (no data)
     "faithfulness_subjective",  # null
@@ -69,6 +66,8 @@ FIELDS_TO_REMOVE = {
     "datetime",  # temporal metadata, not useful
     "function_discovery",
     "sample_name",
+    # Process metadata - not useful for benchmark consumers
+    "grader_metadata",
 }
 
 # Field renames: old_name -> new_name
@@ -111,6 +110,8 @@ FIELD_ORDER = [
     "realpbt_summary",
     # Results
     "num_theorems",
+    # Provenance
+    "provenance",
     # Metadata fields follow alphabetically
 ]
 
