@@ -17,7 +17,7 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { DatasetSampleDetailSchema } from '../src/lib/schemas/dataset'
+import { DatasetSampleDetailSchema, type DifficultyBinary } from '../src/lib/schemas/dataset'
 import { calculateDistribution } from '../src/lib/stats'
 
 const DEFAULT_DATASET_URL = 'https://fvspec-vercel-assets.s3.us-west-2.amazonaws.com/fvspec.jsonl'
@@ -65,12 +65,12 @@ console.log(`Parsing ${lines.length} samples...`)
 const list: Array<{
   sample_id: number
   sample_name: string
-  difficulty_subjective_haiku: number | null
+  difficulty_binary: DifficultyBinary | null
 }> = []
 const faithfulnessScores: (number | undefined)[] = []
 const theorems: (number | undefined)[] = []
 const leanLines: (number | undefined)[] = []
-const difficulty: (number | null | undefined)[] = []
+const difficultyCounts = { easy: 0, hard: 0, unknown: 0 }
 
 let parsed = 0
 let skipped = 0
@@ -100,13 +100,15 @@ for (let i = 0; i < lines.length; i++) {
     list.push({
       sample_id: sample.sample_id,
       sample_name: sample.sample_name,
-      difficulty_subjective_haiku: sample.difficulty_subjective_haiku ?? null,
+      difficulty_binary: sample.difficulty_binary ?? null,
     })
 
     faithfulnessScores.push(sample.structural_faithfulness?.overall as number | undefined)
     theorems.push(sample.num_theorems)
     leanLines.push(sample.lean_metrics?.total_lean_lines)
-    difficulty.push(sample.difficulty_subjective_haiku)
+    if (sample.difficulty_binary === 'easy') difficultyCounts.easy++
+    else if (sample.difficulty_binary === 'hard') difficultyCounts.hard++
+    else difficultyCounts.unknown++
 
     validatedSamples.push({ sample_id: sample.sample_id, data: result.data })
   } catch {
@@ -124,7 +126,7 @@ const stats = {
   faithfulness: calculateDistribution(faithfulnessScores),
   theorems: calculateDistribution(theorems),
   lean_lines: calculateDistribution(leanLines),
-  difficulty: calculateDistribution(difficulty),
+  difficulty: difficultyCounts,
 }
 
 const outDir = path.resolve(import.meta.dirname, '..', 'data')

@@ -51,11 +51,16 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
 
         <Card>
           <CardHeader className="pb-2">
-            <CardDescription>Mean Difficulty</CardDescription>
+            <CardDescription>Difficulty Split</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{formatNumber(stats.difficulty.mean)}</div>
-            <p className="mt-1 text-xs text-muted-foreground">Haiku subjective (1-10)</p>
+            <div className="text-3xl font-bold">
+              {stats.difficulty.easy} / {stats.difficulty.hard}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Easy / Hard
+              {stats.difficulty.unknown > 0 ? ` (${stats.difficulty.unknown} ungraded)` : ''}
+            </p>
           </CardContent>
         </Card>
 
@@ -110,17 +115,6 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
               </TableRow>
             </TableHeader>
             <TableBody>
-              <TableRow>
-                <TableCell className="font-medium">Difficulty (Haiku)</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.min)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.q1)}</TableCell>
-                <TableCell className="text-right">
-                  {formatNumber(stats.difficulty.median)}
-                </TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.q3)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.max)}</TableCell>
-                <TableCell className="text-right">{formatNumber(stats.difficulty.mean)}</TableCell>
-              </TableRow>
               <TableRow>
                 <TableCell className="font-medium">Faithfulness Score</TableCell>
                 <TableCell className="text-right">{formatNumber(stats.faithfulness.min)}</TableCell>
