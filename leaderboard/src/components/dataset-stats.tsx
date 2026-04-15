@@ -1,7 +1,10 @@
 'use client'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import type { DatasetStats as DatasetStatsType } from '@fvspec/common'
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || '/api'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import {
@@ -28,6 +31,17 @@ function formatInteger(value: number | null): string {
 }
 
 export function DatasetStats({ stats }: DatasetStatsProps) {
+  const [firstSampleId, setFirstSampleId] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch(`${API_URL}/dataset/list?limit=1`)
+      .then(res => (res.ok ? res.json() : null))
+      .then((data: { samples: { sample_id: number }[] } | null) => {
+        if (data?.samples?.[0]) setFirstSampleId(data.samples[0].sample_id)
+      })
+      .catch(() => {})
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Page header */}
@@ -163,8 +177,10 @@ export function DatasetStats({ stats }: DatasetStatsProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Link href="/dataset/1">
-            <Button size="lg">Browse Samples →</Button>
+          <Link href={firstSampleId != null ? `/dataset/${firstSampleId}` : '/dataset'}>
+            <Button size="lg" disabled={firstSampleId == null}>
+              Browse Samples →
+            </Button>
           </Link>
         </CardContent>
       </Card>
