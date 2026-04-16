@@ -93,3 +93,5 @@ next-env.d.ts
 # context documents
 comms/paper/context
 comms/paper/main.pdf
+
+!comms/graphs/out/

@@ -1,67 +1,70 @@
 from pathlib import Path
-import json
 
+from datasets import load_dataset
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
 import pandas as pd
 import seaborn as sns
 
-DATA_PATH = Path(__file__).resolve().parents[2] / "data" / "fvspec.jsonl"
+HF_REPO = "quinn-dougherty/fvspec"
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
+
+SF_KEYS = [
+    "parameter_coverage",
+    "type_correspondence",
+    "strategy_coverage",
+    "assertion_coverage",
+    "dependency_coverage",
+    "overall",
+]
+
+
+def _flatten(d: dict) -> dict:
+    sf = d.get("structural_faithfulness") or {}
+    lm = d.get("lean_metrics") or {}
+    spec_s = lm.get("spec_structure") or {}
+    spec_c = lm.get("spec_complexity") or {}
+    radon = d.get("realpbt_radon") or {}
+    tc = d.get("turn_counts") or {}
+
+    flat: dict = {
+        "sample_id": d["sample_id"],
+        "difficulty": d["difficulty_binary"],
+        "difficulty_confidence": d["difficulty_binary_confidence"],
+        "implementation_level": d["implementation_level"],
+        "num_theorems": d["num_theorems"],
+        "actually_invokes_given": d["actually_invokes_given"],
+        "impl_autoform_success": d["impl_autoform_success"],
+        "realpbt_lines_pbt": d["realpbt_lines_pbt"],
+        "time": d["time"],
+        "token_usage": d["token_usage"],
+        "total_lean_lines": lm.get("total_lean_lines", 0),
+        "total_sorries": lm.get("total_sorries", 0),
+        "total_axioms": lm.get("total_axioms", 0),
+        "spec_theorems": spec_s.get("num_theorems", 0),
+        "spec_defs": spec_s.get("num_defs", 0),
+        "spec_halstead_volume": spec_c.get("halstead_volume", 0),
+        "spec_halstead_difficulty": spec_c.get("halstead_difficulty", 0),
+        "py_complexity": radon.get("avg_complexity"),
+        "py_maintainability": radon.get("maintainability_index"),
+        "py_loc": radon.get("loc"),
+        "total_turns": tc.get("total_turns", 0),
+        "total_tool_calls": tc.get("total_tool_calls", 0),
+    }
+    for k in SF_KEYS:
+        flat[f"sf_{k}"] = sf.get(k)
+    return flat
 
 
 def load() -> pd.DataFrame:
-    records = []
-    with open(DATA_PATH) as f:
-        for line in f:
-            d = json.loads(line)
-            flat: dict = {
-                "sample_id": d["sample_id"],
-                "difficulty": d["difficulty_binary"],
-                "difficulty_confidence": d["difficulty_binary_confidence"],
-                "implementation_level": d["implementation_level"],
-                "num_theorems": d["num_theorems"],
-                "actually_invokes_given": d["actually_invokes_given"],
-                "impl_autoform_success": d["impl_autoform_success"],
-                "realpbt_lines_pbt": d["realpbt_lines_pbt"],
-                "time": d["time"],
-                "token_usage": d["token_usage"],
-            }
-            sf = d.get("structural_faithfulness", {})
-            for k in [
-                "parameter_coverage",
-                "type_correspondence",
-                "strategy_coverage",
-                "assertion_coverage",
-                "dependency_coverage",
-                "overall",
-            ]:
-                flat[f"sf_{k}"] = sf.get(k)
-
-            lm = d.get("lean_metrics", {})
-            flat["total_lean_lines"] = lm.get("total_lean_lines", 0)
-            flat["total_sorries"] = lm.get("total_sorries", 0)
-            flat["total_axioms"] = lm.get("total_axioms", 0)
-
-            spec_s = lm.get("spec_structure", {})
-            flat["spec_theorems"] = spec_s.get("num_theorems", 0)
-            flat["spec_defs"] = spec_s.get("num_defs", 0)
-
-            spec_c = lm.get("spec_complexity", {})
-            flat["spec_halstead_volume"] = spec_c.get("halstead_volume", 0)
-            flat["spec_halstead_difficulty"] = spec_c.get("halstead_difficulty", 0)
-
-            radon = d.get("realpbt_radon", {})
-            flat["py_complexity"] = radon.get("avg_complexity")
-            flat["py_maintainability"] = radon.get("maintainability_index")
-            flat["py_loc"] = radon.get("loc")
-
-            tc = d.get("turn_counts") or {}
-            flat["total_turns"] = tc.get("total_turns", 0)
-            flat["total_tool_calls"] = tc.get("total_tool_calls", 0)
-
-            records.append(flat)
-    return pd.DataFrame(records)
+    try:
+        ds = load_dataset(HF_REPO, split="train")
+    except Exception as e:
+        print(f"  HF load failed ({e.__class__.__name__}), trying local symlink...")
+        local = Path(__file__).resolve().parents[2] / "data" / "fvspec.jsonl"
+        ds = load_dataset("json", data_files=str(local.resolve()), split="train")
+    print(f"  {len(ds)} samples loaded")
+    return pd.DataFrame([_flatten(row) for row in ds])
 
 
 def _save(fig: plt.Figure, name: str) -> None:
@@ -255,7 +258,7 @@ def main() -> None:
     sns.set_theme(style="whitegrid", font_scale=0.95)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading data from {DATA_PATH}...")
+    print(f"Loading data from HuggingFace ({HF_REPO})...")
     df = load()
     print(f"Loaded {len(df):,} samples.")
 
