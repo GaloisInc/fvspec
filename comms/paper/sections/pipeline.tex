@@ -1,0 +1,74 @@
+\section{Pipeline}
+Our generation pipeline is modelled on FVAPPS \cite{dougherty2025proving}, but starts from real-world Hypothesis property-based tests (PBTs) rather than synthetic programming puzzles. For each sample, we (i) recover the Python function under test (FUT) and dependencies, (ii) translate the code to a computable Lean implementation, (iii) translate the PBTs into Lean theorems, and (iv) score and filter the resulting artifacts (Figure~\ref{fig:pipeline}).
+
+\begin{figure}[t]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+    font=\footnotesize,
+    node distance=6mm and 12mm,
+    box/.style={
+      draw,
+      rounded corners=2pt,
+      align=center,
+      inner sep=4pt,
+      line width=0.4pt
+    },
+    wide/.style={box, minimum width=0.92\linewidth},
+    half/.style={box, minimum width=0.45\linewidth},
+    arr/.style={-Latex, line width=0.5pt}
+  ]
+    \node[wide] (realpbt) {RealPBT sample (\TODO cite; dataset size)};
+    \node[wide, below=of realpbt] (discover) {Function discovery (tree-sitter): FUT + dependencies};
+    \node[wide, below=of discover] (impl) {Implementation agent: computable Lean (no \texttt{sorry})\\\texttt{Impl.lean} + extracted type signatures};
+
+    \node[half, below left=10mm and 0mm of impl] (spec)
+      {Specification agent: Hypothesis $\rightarrow$ Lean theorems\\\texttt{Spec.lean} (proofs as \texttt{sorry})};
+    \node[half, below right=10mm and 0mm of impl] (units)
+      {Units agent: Python unit tests $\rightarrow$ Lean/LSpec checks\\(\TODO data source)};
+
+    \node[wide, below=12mm of spec] (post) {Postproduction: deduplicate; strip problematic \texttt{\#eval}; \texttt{lake build}};
+    \node[wide, below=of post] (score) {Scoring/filtering: structural faithfulness + difficulty judge (\TODO model)};
+
+    \draw[arr] (realpbt) -- (discover);
+    \draw[arr] (discover) -- node[right, align=left] {\scriptsize success: \TODO\%\\ \scriptsize failure: stub FUT} (impl);
+    \draw[arr] (impl) -- (spec);
+    \draw[arr] (impl) -- (units);
+    \draw[arr] (spec) -- (post);
+    \draw[arr] (units) -- (post);
+    \draw[arr] (post) -- (score);
+
+    \node[draw, dashed, rounded corners=2pt, inner sep=5pt, fit=(impl) (spec) (units)] (loopbox) {};
+    \node[
+      fill=white,
+      inner sep=2pt,
+      font=\scriptsize,
+      align=center,
+      text width=0.85\textwidth
+    ] at ($(loopbox.north)+(0,3.5mm)$)
+      {Iterative repair: compile via Lean LSP (MCP), feed diagnostics back, retry until typechecks or budget};
+  \end{tikzpicture}
+  }%
+  \caption{\FVSpec pipeline: discover FUT+deps, translate to computable Lean, generate specs, repair via Lean LSP, then postprocess and score.}
+  \label{fig:pipeline}
+\end{figure}
+
+\subsection{Function discovery}
+For each PBT, we use tree-sitter to extract the Python source code of the FUT and any locally-defined dependencies. This function discovery step succeeds for \TODO\% of samples; when it fails, we generate a stub FUT with generic type parameters to avoid producing trivial theorems.
+
+\subsection{LLM-based transpilation}
+We translate each sample using three agents.
+
+\paragraph{Implementation agent}
+The implementation agent runs first, translating the FUT and its dependencies into fully computable Lean definitions. No \texttt{sorry} placeholders are permitted, so the output must typecheck and evaluate. Dependencies are formalized separately and then merged with deduplication into a single \texttt{Impl.lean} file. On success, we additionally extract Lean type signatures for all formalized functions and provide them as context to downstream agents. If the agent exhausts its retry budget without producing typechecking code, downstream stages still run, but without a verified implementation to build on.
+
+\paragraph{Specification and units agents}
+Next, the specification agent and units agent run in parallel. The specification agent translates Hypothesis tests into Lean theorems that import the formalized implementation; proofs are left as \texttt{sorry}. The units agent translates any available Python unit tests into Lean/LSpec checks. The units output is included as auxiliary validation, but does not gate inclusion of the specification (\TODO confirm policy).
+
+\subsection{Iterative repair against Lean}
+All agents operate in an iterative repair loop. At each step, we check the generated Lean code against the compiler via the Lean LSP (accessed through an MCP tool server). If the code does not typecheck, we feed the compiler diagnostics back to the agent and prompt for a revised translation. This loop continues until the code typechecks or a retry budget is exhausted. We validate final compilation with a full \texttt{lake build}.
+
+\subsection{Cleanup and quality evaluation}
+We apply postproduction passes to remove known failure modes (e.g., stray \texttt{\#eval} fragments that can pass in isolation but break a project build) and to merge/deduplicate translated dependencies across files.
+
+The resulting specification/implementation pairs are then scored and filtered. We compute \emph{structural faithfulness} programmatically by comparing the generated Lean artifacts to the source PBTs. The metric decomposes into sub-scores for parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage, producing an overall score (\TODO define weights; add exact formula). We also assign a \emph{difficulty} rating using an LLM judge (\TODO specify model and prompt), intended to approximate the proof effort required on a 1--10 scale.

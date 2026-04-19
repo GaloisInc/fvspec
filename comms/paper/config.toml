@@ -1,3 +1,0 @@
-fvspec_file = "dummy.jsonl"
-generation_metadata_file = "fvspec_metadata_file.toml"
-baseline_experiment_results = "results.toml"

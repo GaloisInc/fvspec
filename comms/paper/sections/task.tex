@@ -1,0 +1,66 @@
+\section{Task Definition}
+
+Each problem in the \FVSpec benchmark consists of three components: (1) the original Python property-based test, (2) a Lean theorem corresponding to the PBT, with a sorry placeholder where the proof should go, and (3) a Lean implementation of the functions referenced in the theorem. The AI's task is to complete the proof by replacing sorry with a valid Lean proof term. Each problem also includes a URL pointing to the original source code and license information.
+
+\subsection{Running Example}
+
+Consider a Hypothesis test asserting the Pythagorean trigonometric identity
+$\sin^2(x) + \cos^2(x) = 1$, for a trigonometric library \texttt{trg}:
+\begin{lstlisting}[style=code, language=Python]
+from hypothesis import given, strategies
+
+@given(x=strategies.floats(
+    min_value=-sys.float_info.max / 4,
+    max_value=sys.float_info.max / 4,
+    allow_infinity=False))
+def test_property(x):
+    assert trg.sine(x) ** 2 + trg.cosine(x) ** 2 == pytest.approx(1)
+\end{lstlisting}
+
+Our pipeline translates this into a Lean implementation:
+\begin{lstlisting}[style=code, language=Lean]
+namespace Fvspec.Impl
+
+def to_radians (degrees : Float) : Float :=
+  degrees * Float.pi / 180.0
+
+def sine (theta : Float) : Float :=
+  Float.sin (to_radians theta)
+
+end Fvspec.Impl
+\end{lstlisting}
+
+And a corresponding Lean specification:
+\begin{lstlisting}[style=code, language=Lean]
+import Fvspec.Impl
+open Fvspec.Impl
+
+def cosine (theta : Float) : Float := sorry
+
+theorem sine_cosine_pythagorean (x : Float) :
+  (sine x) * (sine x) + (cosine x) * (cosine x) = 1 := sorry
+\end{lstlisting}
+
+The AI must fill in both \texttt{sorry} placeholders with valid Lean proof terms.
+
+\TODO -- Explain how we do not faithfully translate the original \texttt{trg} library into Lean, with all dependencies and so forth, rather, we utilize Lean's built-in \texttt{sine} and \texttt{cosine} functions. This is representative of our general attitude which is that our primary goal is to produce equally interesting, realistic problems to benchmark AI on, while actually proving properties about this real-world software to help these specific code authors is just a secondary goal.
+
+
+
+\subsection{PBT vs. Proof}
+In PBT, a property is checked by randomly generating inputs and testing them---the process is push-button but provides only statistical confidence. In FV, the property is proved using computer-aided symbolic logic, providing near-perfect confidence but requiring proof engineering.
+
+Translating a PBT into a formal specification thus involves a shift from input/output testing to proofs over the structure of the program. Our pipeline filters nonsensical theorems, but any discrepancies that remain will not affect the usefulness of the dataset. Because the Lean theorem prover provides a 'perfect' oracle, every theorem we generate is a useful challenge problem, even if it differs from the original PBT. In fact, some PBTs in our input dataset will be naturally false due to undetected edge cases.
+
+\TODO - Explain what we mean by nonsensical theorems.
+
+\TODO - Explain to what degree Lean can be viewed as a perfect oracle.
+
+\subsection{Challenges}
+Formal verification is unusually difficult to benchmark for two reasons. First, just as with advanced mathematics, formal verification tasks are highly varied, and constructing interesting problems requires considerable expertise. FV tasks also vary in difficulty---they can be as shallow as checking the type-safety of simple functions, or as deep as proving an unsolved mathematical theorem such as the Collatz Conjecture. Our benchmark avoids the need to select and hand-build challenge problems by translating naturally occurring PBT problems written by real-world engineers.
+
+Second, formal verification is little-used outside academia. As a result, there are few natural datasets, and those that exist are fragmented between multiple FV tools (e.g. SAW/Cryptol for cryptographic systems, ACL2/Coq for traditional software verification, Lean for mathematics, SPIN/TLA+ for protocol analysis)---or are privately held, closely guarded corporate IP (such as the FV work done by companies like Intel or Synopsys). Public FV examples are often pedagogical exercises for which the proof exists in many different forms in the training set. Our benchmark solves this problem by translating from a 'close sibling' domain, PBT, where many more datapoints exist outside of pedagogy or academic research. As a result, most theorems in our benchmark will have never been verified by anyone.
+
+\TODO - A reviewer will ask us to substantiate this claim.
+
+Beyond these structural challenges, AI-driven translation at scale introduces practical difficulties. Each failed pipeline run is expensive---a single sample may require multiple LLM calls with iterative repair, and a bug in the pipeline infrastructure can invalidate an entire batch. Quality improvements must therefore be targeted: we identify specific failure modes in the output (e.g. type restrictions, missing dependencies, trivial stub theorems) and address them incrementally rather than re-running the full dataset. We initially considered extending the benchmark to TypeScript PBTs, but found that the PBT ecosystem in TypeScript is far less mature, and the additional coverage would not justify the engineering effort.
