@@ -1,0 +1,136 @@
+\section{Dataset Characterization}
+\label{sec:dataset}
+
+\subsection{Input corpus: scraping and deduplication}
+\label{sec:dataset-scraping}
+
+\paragraph{Scraping.}
+Source PBTs come from the \texttt{Benchify/realpbt} dataset~\cite{benchify2024realpbt}, assembled by a custom Python scraper that operates on the GitHub dependency graph of the Hypothesis library.
+The scraper takes a pre-collected list of $\approx$54k dependent repositories, iterates over them asynchronously with rate-limit-aware GitHub REST API backoff, shallow-clones each repository, and uses ripgrep to locate files containing the \texttt{@given} decorator.
+For each such file, it parses the Python AST to extract all PBT functions---identified as function definitions whose decorator list includes a call to \texttt{given}---and performs a transitive static call-graph traversal to recover the minimal closure of locally-defined helpers called by each PBT.
+Repository metadata (name, URL, license, stars, forks, commit hash) and extracted PBTs (source code, dependency names and their source) are persisted to PostgreSQL; repos whose commit hash was already processed are skipped, enabling incremental re-scraping.
+Only repositories whose license matches a permissive allowlist (MIT, Apache-2.0, BSD variants, ISC, Unlicense, CC0, BlueOak-1.0.0) contribute PBTs to the released dataset.
+
+\paragraph{Fork deduplication.}
+The raw scrape yielded 54,345 PBTs, but GitHub's dependency graph surfaces many forks of the same upstream (e.g., hundreds of forks of \texttt{pytorch} each carrying an identical Hypothesis test suite).
+We deduplicate by grouping repositories whose names share the same base component, selecting a canonical representative per group (highest star count, breaking ties by PBT count), and retaining PBTs from canonical repos plus any PBTs unique to forks (identified by SHA-256 of whitespace-normalized code).
+After fork deduplication the corpus contains 11,039 PBTs across 333 repositories.
+
+\subsection{Post-production pipeline}
+\label{sec:dataset-postprod}
+
+After the formalization agent produces Lean artifacts, a multi-stage post-production pipeline processes the raw run outputs into a final curated dataset.
+The stages are: merge $\to$ validate $\to$ unify $\to$ dedup $\to$ enrich $\to$ grade $\to$ metrics.
+Each stage is an independent CLI command (\texttt{uv run postprod <stage>}) and the full pipeline state is checkpointed so it can be resumed after interruption.
+
+\paragraph{Merge.}
+Multiple independent benchmark runs (identified by timestamped run directories) are merged into a single JSONL file.
+Each sample directory contains \texttt{datapoint.json} (source PBT metadata), \texttt{qa.json} (agent outputs and metrics), and \texttt{Spec.lean}/\texttt{Impl.lean} (generated Lean artifacts).
+When the same \texttt{sample\_id} appears in multiple runs, the merge step keeps the highest-quality copy, scored by: (1)~success flag, (2)~overall structural faithfulness, (3)~theorem count, (4)~presence of unit tests, (5)~implementation autoformalization success, (6)~specification signature success.
+Git commit hash, model, run timestamp, and Lean toolchain version are recorded as provenance fields.
+
+\paragraph{Validate.}
+Because an agent can produce code that typechecks in isolation but fails under a full project build, we validate compiled samples by instantiating each \texttt{Spec.lean}/\texttt{Impl.lean} pair into a \texttt{lake build} project and running the Lean compiler.
+Validation runs up to 400 samples by default (yielding $\pm$5\% accuracy at 95\% CI) or all samples with \texttt{--all}.
+Only samples that pass \texttt{lake build} are retained in the dataset; failures are logged but dropped.
+
+\paragraph{Unify.}
+Our dataset was produced in two pipeline generations (\emph{feb03} and \emph{apr08}) with schema drift between them.
+The unify step resolves these differences: it renames \texttt{radon} $\to$ \texttt{realpbt\_radon}, backfills the structured \texttt{dependencies} list from feb03's legacy parallel JSON-stringified arrays (filling \texttt{null} for fields not captured in that schema), drops 100\%-null dead fields (\texttt{lean\_metrics.tests\_structure}, \texttt{lean\_metrics.tests\_complexity}, \texttt{metrics\_metadata.tests\_available}), and reassigns fresh monotone \texttt{sample\_id}s 1..N with feb03 rows first.
+Each row carries a \texttt{run} tag indicating its source generation.
+
+\paragraph{Code-level deduplication.}
+The same PBT may have been formalized in multiple runs (e.g., because sampling overlap exists between run index ranges, or because a PBT appeared in both feb03 and apr08).
+This step groups samples by SHA-256 of \texttt{realpbt\_code} and keeps the single best representative per group (using the same quality scoring as the merge step), separately tracking cross-run vs.~within-run duplicates for audit.
+
+\paragraph{Enrich.}
+Every sample is annotated with:
+\texttt{code\_hash} (SHA-256 of \texttt{realpbt\_code}),
+\texttt{is\_canonical} (whether it is the best formalization of its PBT),
+\texttt{formalization\_rank} (1-based rank within the group, 1 = canonical),
+\texttt{num\_formalizations} (how many runs produced a formalization of this PBT), and
+\texttt{pareto\_dominated} (whether a strictly better sample exists on all five structural faithfulness sub-metrics: parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage).
+Stale v1 grader fields with inconsistent coverage are also stripped here, and columns are reordered for clean HuggingFace presentation.
+
+\paragraph{Difficulty grading.}
+Each sample is scored for formalization difficulty by Claude Haiku, producing a binary easy/hard label (\texttt{difficulty\_binary}) with a calibrated confidence score and a brief reasoning trace.
+The grader uses a structured prompt including the PBT source code, the generated Lean spec, and contextual information about the formalization strategy.
+Grading is resumable: a checkpoint file accumulates completed grades so a killed run restarts where it left off.
+
+\paragraph{Lean metrics.}
+A final metrics pass runs radon on the Python source and a custom Lean AST analyzer on \texttt{Spec.lean}/\texttt{Impl.lean} to populate \texttt{lean\_metrics} (total lines, sorry count, axiom count, spec structure and complexity fields including Halstead volume and difficulty, theorem/def counts).
+
+\subsection{Corpus statistics}
+\label{sec:dataset-stats}
+
+Table~\ref{tab:dataset-stats} summarizes the post-deduplication input corpus.
+The star and fork distributions are heavily right-skewed: the median repository has 0~stars, reflecting that most real-world Hypothesis users work on small or private-to-GitHub projects.
+The median PBT is 13 lines with a cyclomatic complexity of 2, consistent with the concise, assertion-focused style typical of Hypothesis tests.
+
+\begin{table}[t]
+  \centering
+  \caption{Summary statistics for the post-deduplication RealPBT input corpus.}
+  \label{tab:dataset-stats}
+  \begin{tabular}{lr}
+    \toprule
+    \textbf{Metric} & \textbf{Value} \\
+    \midrule
+    PBTs (pre-dedup, HuggingFace)  & 54,345 \\
+    PBTs (post-dedup, working set) & 11,039 \\
+    Unique repositories            & 333    \\
+    Median PBTs per repo           & 6      \\
+    Mean PBTs per repo             & 33.2   \\
+    Max PBTs in a single repo      & 956    \\
+    Repos with only 1 PBT          & 61     \\
+    \midrule
+    Median repo stars              & 0      \\
+    Mean repo stars                & 39     \\
+    Repos with $\geq$100 stars    & 10     \\
+    Repos with $\geq$1{,}000 stars& 1      \\
+    \midrule
+    Median PBT LOC                 & 13     \\
+    Mean PBT LOC                   & 17.2   \\
+    Median cyclomatic complexity   & 2.0    \\
+    Mean cyclomatic complexity     & 3.3    \\
+    \midrule
+    MIT-licensed repos             & 148    \\
+    Apache-2.0-licensed repos      & 66     \\
+    BSD-3-Clause-licensed repos    & 25     \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Figures illustrating the distributions of PBTs per repo, stars, forks, and complexity are generated by \texttt{comms/graphs/src/graphs/realpbt.py} and are reproducible via \texttt{make realpbt} in \texttt{comms/graphs/}.
+
+Table~\ref{tab:dataset-comparison} compares the RealPBT input corpus with the contemporaneous Hypothesis Corpus of DeVoe et al.~\cite{devoe2026hypothesis} (see also Section~\ref{sec:related}).
+
+\begin{table}[t]
+  \centering
+  \setlength{\tabcolsep}{4pt}
+  \caption{Comparison of the \FVSpec RealPBT corpus with the Hypothesis Corpus 2026~\cite{devoe2026hypothesis}. Both datasets deduplicate repositories but differ in method and granularity.}
+  \label{tab:dataset-comparison}
+  \begin{tabular}{lcc}
+    \toprule
+    & \textbf{Ours (RealPBT)} & \textbf{Hypothesis Corpus 2026} \\
+    \midrule
+    Collection method              & dependency graph      & API string search \\
+    PBTs (before test-level dedup) & 54{,}345 & 28{,}928 \\
+    PBTs (after test-level dedup)  & 11{,}039 & not performed \\
+    Repositories                   & 333      & 1{,}529 \\
+    Repo dedup method              & fork/name grouping & MinHash ($J{>}0.75$, 30\% files) \\
+    Test-level dedup               & SHA-256 of PBT code & none \\
+    License filter                 & permissive only & none \\
+    \midrule
+    Dependency source code         & \checkmark & \texttimes \\
+    Radon code metrics             & \checkmark & \texttimes \\
+    NL summary                     & \checkmark & \checkmark \\
+    Abstract pattern / domain tag  & \texttimes & \checkmark \\
+    \texttt{@settings} config     & \texttimes & \checkmark \\
+    Runtime \& entropy data       & \texttimes & \checkmark \\
+    Line coverage                  & \texttimes & \checkmark \\
+    Execution traces (500 runs)    & \texttimes & \checkmark \\
+    \midrule
+    Storage format                 & JSONL & SQLite (3 DBs, $\sim$1.4\,GB) \\
+    \bottomrule
+  \end{tabular}
+\end{table}

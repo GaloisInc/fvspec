@@ -6,6 +6,8 @@ import matplotlib.ticker as ticker
 import pandas as pd
 import seaborn as sns
 
+from graphs import realpbt as _realpbt
+
 HF_REPO = "quinn-dougherty/fvspec"
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
 
@@ -258,7 +260,15 @@ def main() -> None:
     sns.set_theme(style="whitegrid", font_scale=0.95)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print(f"Loading data from HuggingFace ({HF_REPO})...")
+    # --- RealPBT dataset characterization plots ---
+    print("Generating RealPBT dataset characterization figures...")
+    try:
+        _realpbt.main()
+    except FileNotFoundError as exc:
+        print(f"Skipping RealPBT dataset characterization figures: {exc}")
+
+    # --- FVSpec results plots ---
+    print(f"Loading FVSpec data from HuggingFace ({HF_REPO})...")
     df = load()
     print(f"Loaded {len(df):,} samples.")
 
