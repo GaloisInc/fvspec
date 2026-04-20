@@ -95,3 +95,6 @@ comms/paper/context
 comms/paper/main.pdf
 
 !comms/graphs/out/
+slate.json
+package-lock.json
+cmd*_output.txt

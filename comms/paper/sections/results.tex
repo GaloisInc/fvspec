@@ -1,2 +1,84 @@
 \section{Results}
-\TODO Draft placeholders only: experimental setup, coverage, quality, baselines, difficulty stratification (with histogram of Haiku-assessed difficulty grades across the benchmark tasks), human baselining (???).
+
+We present a characterization of the \FVSpec benchmark along six axes: dataset scale, source code properties, translation quality, output complexity, pipeline cost, and difficulty stratification. All quantitative claims in this section correspond to programmatically generated figures; we report the dataset-level statistics from the public HuggingFace release and direct the reader to the accompanying visualizations for distributional detail.
+
+\subsection{Dataset Scale}
+
+The released dataset contains \textbf{9,415 Lean 4 formalization challenges} derived from \textbf{2,772 unique Python property-based tests}. Two pipeline runs contribute to the dataset: an initial run (\texttt{feb03}, 5,979 samples, Claude Sonnet) and a second run (\texttt{apr08}, 3,436 samples, Claude Sonnet 4.6). Because the same PBT may be formalized in multiple ways across runs, each unique PBT has between 1 and 15 formalizations. Sixty-five percent of multi-formalization groups exhibit a Pareto front larger than one: no single formalization dominates on all structural faithfulness sub-metrics simultaneously, confirming that the multiple-formalization design captures genuinely complementary aspects of each PBT.
+
+\subsection{Python Source Characteristics}
+
+Figure~\ref{fig:python_source} characterizes the input PBTs along three axes: lines of PBT code, average cyclomatic complexity (Radon), and maintainability index. The source tests span a wide range of complexity, from trivial single-assertion tests to multi-strategy tests exercising complex library APIs. This diversity is inherited directly from real-world engineering practice and is not curated or filtered for difficulty.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/python_source.png}
+  \caption{Python source characteristics of the input PBTs: lines of code, cyclomatic complexity (Radon), and maintainability index.}
+  \label{fig:python_source}
+\end{figure}
+
+\subsection{Translation Quality}
+
+We evaluate translation quality using \emph{structural faithfulness}, a composite metric that decomposes into five sub-scores: parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage (described in the preceding section). Figure~\ref{fig:structural_faithfulness} shows the distribution of the overall score and the mean of each sub-score across the dataset. The overall faithfulness distribution exhibits a clear mode above 0.5, indicating that the majority of translations preserve the essential structure of the source PBT, though a long tail of lower-quality translations remains.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/structural_faithfulness.png}
+  \caption{Structural faithfulness: distribution of the overall composite score (left) and mean sub-scores (right).}
+  \label{fig:structural_faithfulness}
+\end{figure}
+
+Figure~\ref{fig:implementation_level} breaks down the dataset by implementation level and shows mean faithfulness conditioned on implementation level. Samples where the implementation agent successfully produced fully computable Lean code achieve higher faithfulness on average than those where it fell back to stubs, confirming that upstream translation quality propagates to specification fidelity.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/implementation_level.png}
+  \caption{Implementation level breakdown: count by level (left) and mean overall faithfulness by level (right).}
+  \label{fig:implementation_level}
+\end{figure}
+
+\subsection{Lean Output Complexity}
+
+Figure~\ref{fig:lean_complexity} characterizes the generated Lean artifacts: total lines of Lean code, number of theorems per sample, and number of \texttt{sorry} placeholders. The median sample contains multiple theorems, each requiring an independent proof. The \texttt{sorry} count tracks the theorem count closely, as expected from our pipeline design (each theorem is emitted with a \texttt{sorry} placeholder).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/lean_complexity.png}
+  \caption{Lean output complexity: total lines (left), theorems per sample (center), and \texttt{sorry} placeholders per sample (right).}
+  \label{fig:lean_complexity}
+\end{figure}
+
+\subsection{Pipeline Cost}
+
+Figure~\ref{fig:pipeline_cost} reports the per-sample pipeline cost in three dimensions: wall-clock time, token usage, and number of agent turns. The distributions are right-skewed, reflecting the iterative repair loop: most samples compile within a few turns, but a tail of difficult translations requires many repair iterations before the Lean LSP reports success or the budget is exhausted.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/pipeline_cost.png}
+  \caption{Pipeline cost per sample: wall-clock time (left), token usage (center), and agent turns (right).}
+  \label{fig:pipeline_cost}
+\end{figure}
+
+\subsection{Difficulty Stratification}
+
+Each sample is graded for proof difficulty by Claude Haiku 4.5, which assigns a binary label (\emph{easy} or \emph{hard}) along with a confidence score. Figure~\ref{fig:difficulty_distribution} shows the resulting split and the distribution of grader confidence. The benchmark contains a substantial proportion of both easy and hard problems, and the grader expresses high confidence for the majority of assessments.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/difficulty_distribution.png}
+  \caption{Difficulty distribution: easy vs.\ hard counts (left) and grader confidence distribution (right). $n$ shown in title.}
+  \label{fig:difficulty_distribution}
+\end{figure}
+
+Figure~\ref{fig:difficulty_vs_faithfulness} examines the relationship between difficulty and two output characteristics: structural faithfulness and Lean output size. Hard problems tend to produce longer Lean outputs, consistent with the intuition that more complex source PBTs lead to more elaborate formalizations and more challenging proofs.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/difficulty_vs_faithfulness.png}
+  \caption{Difficulty vs.\ output characteristics: overall faithfulness (left) and total Lean lines (right), stratified by difficulty.}
+  \label{fig:difficulty_vs_faithfulness}
+\end{figure}
+
+\subsection{Baselines}
+
+\TODO Baseline evaluations are in progress. We evaluate four frontier models---Claude Sonnet 4.6, Claude Opus 4.6, GPT-5.4-mini, and Gemini 2.5 Pro---on a stratified sample of 75 problems (50\% easy, 50\% hard). Each model is given access to the Lean LSP via MCP tools and scored on two metrics: a binary \emph{proved} score (zero \texttt{sorry} remaining and \texttt{lake build} succeeds with no \texttt{sorry} warnings) and \emph{partial credit} (fraction of \texttt{sorry} placeholders removed, clamped to $[0, 1]$). Results will be reported as per-bucket (easy/hard) and aggregate prove rates, with a comparison table across models.

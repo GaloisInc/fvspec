@@ -72,3 +72,6 @@ All agents operate in an iterative repair loop. At each step, we check the gener
 We apply postproduction passes to remove known failure modes (e.g., stray \texttt{\#eval} fragments that can pass in isolation but break a project build) and to merge/deduplicate translated dependencies across files.
 
 The resulting specification/implementation pairs are then scored and filtered. We compute \emph{structural faithfulness} programmatically by comparing the generated Lean artifacts to the source PBTs. The metric decomposes into sub-scores for parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage, producing an overall score (\TODO define weights; add exact formula). We also assign a \emph{difficulty} rating using an LLM judge (\TODO specify model and prompt), intended to approximate the proof effort required on a 1--10 scale.
+
+\subsection{Input PBT corpus}
+Source PBTs are drawn from the \texttt{Benchify/realpbt} dataset~\cite{benchify2024realpbt}; Section~\ref{sec:dataset} describes how the corpus was scraped, fork-deduplicated, and cleaned in detail. The working set after deduplication is 11,039 PBTs across 333 repositories.
