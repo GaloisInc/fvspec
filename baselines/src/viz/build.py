@@ -161,7 +161,7 @@ def process_sample(sample: dict[str, Any]) -> dict[str, Any]:
         "difficulty_bucket": meta.get(
             "difficulty_bucket", sample_meta.get("difficulty_bucket", "?")
         ),
-        "difficulty_score": sample_meta.get("difficulty_subjective_haiku"),
+        "difficulty_score": None,
         "num_theorems": sample_meta.get("num_theorems", 0),
         "total_time": round(sample.get("total_time", 0), 1),
         "working_time": round(sample.get("working_time", 0), 1),

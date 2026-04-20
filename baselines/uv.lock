@@ -231,7 +231,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "anthropic", specifier = ">=0.84.0" },
-    { name = "datasets", specifier = ">=4.6.0" },
+    { name = "datasets", specifier = ">=4.8.4" },
     { name = "inspect-ai", specifier = ">=0.3.188" },
     { name = "jinja2", specifier = ">=3.1.6" },
     { name = "openai", specifier = ">=2.30.0" },
@@ -363,7 +363,7 @@ wheels = [
 
 [[package]]
 name = "datasets"
-version = "4.6.0"
+version = "4.8.4"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "dill" },
@@ -381,9 +381,9 @@ dependencies = [
     { name = "tqdm" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/b1/b7/1ba26c4ffcea6e8f408f664a7bbcadb69826be6db2bb718ff9ef68f2014e/datasets-4.6.0.tar.gz", hash = "sha256:e1a5c2504b7d1311099b3fce453791d1400159a03c18f708e26cbf596b445e5a", size = 593780, upload-time = "2026-02-25T11:57:48.766Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/22/22/73e46ac7a8c25e7ef0b3bd6f10da3465021d90219a32eb0b4d2afea4c56e/datasets-4.8.4.tar.gz", hash = "sha256:a1429ed853275ce7943a01c6d2e25475b4501eb758934362106a280470df3a52", size = 604382, upload-time = "2026-03-23T14:21:17.987Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/0e/9caa51e659d7417374788800bdedc9dcb8db918dc3ad4759a0294bbc55ac/datasets-4.6.0-py3-none-any.whl", hash = "sha256:7f21d9dfca00e702fd42af878c6839f17c82de291dc0827ae3bfed718b168caf", size = 520672, upload-time = "2026-02-25T11:57:46.884Z" },
+    { url = "https://files.pythonhosted.org/packages/b0/e5/247d094108e42ac26363ab8dc57f168840cf7c05774b40ffeb0d78868fcc/datasets-4.8.4-py3-none-any.whl", hash = "sha256:cdc8bee4698e549d78bf1fed6aea2eebc760b22b084f07e6fc020c6577a6ce6d", size = 526991, upload-time = "2026-03-23T14:21:15.89Z" },
 ]
 
 [[package]]

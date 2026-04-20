@@ -24,7 +24,7 @@ class TestUserPrompt:
             realpbt_code="def test_foo(): assert foo() == 1",
             realpbt_summary="foo returns 1",
             num_theorems=1,
-            difficulty_subjective_haiku=3.0,
+            difficulty_binary="easy",
         )
         rendered = render_user_prompt(sample)
         assert "theorem foo" in rendered
