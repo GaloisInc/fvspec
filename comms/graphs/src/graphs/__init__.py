@@ -262,7 +262,10 @@ def main() -> None:
 
     # --- RealPBT dataset characterization plots ---
     print("Generating RealPBT dataset characterization figures...")
-    _realpbt.main()
+    try:
+        _realpbt.main()
+    except FileNotFoundError as exc:
+        print(f"Skipping RealPBT dataset characterization figures: {exc}")
 
     # --- FVSpec results plots ---
     print(f"Loading FVSpec data from HuggingFace ({HF_REPO})...")
