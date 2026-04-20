@@ -16,12 +16,9 @@ Usage:
 from __future__ import annotations
 
 import json
-from collections import defaultdict
 from pathlib import Path
-import statistics
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
