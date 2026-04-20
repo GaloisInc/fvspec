@@ -1,6 +1,6 @@
 """Dataset characterization and comparison analysis for the RealPBT dataset.
 
-Loads from benchmark/artifacts/realpbt2/pbts.jsonl (local) and computes:
+Loads from comms/graphs/data/realpbt2.jsonl (local) and computes:
   - Repository distribution (PBTs per repo, stars, forks)
   - License breakdown
   - PBT complexity metrics
@@ -24,9 +24,7 @@ import pandas as pd
 import seaborn as sns
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
-# Local copy of the dataset (relative to comms/graphs/)
-_REPO_ROOT = Path(__file__).resolve().parents[4]  # fvspec root
-_PBTS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt2" / "pbts.jsonl"
+_PBTS_PATH = Path(__file__).resolve().parents[2] / "data" / "realpbt2.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -120,7 +118,7 @@ def plot_pbts_per_repo(repo_df: pd.DataFrame) -> None:
         repo_df["pbt_count"].median(),
         color="#c44",
         ls="--",
-        label=f'median={repo_df["pbt_count"].median():.0f}',
+        label=f"median={repo_df['pbt_count'].median():.0f}",
     )
     axes[1].legend()
 
@@ -148,7 +146,9 @@ def plot_stars_forks(repo_df: pd.DataFrame) -> None:
         )
         axes[0].set_xlabel("log10(stars + 1)")
     else:
-        axes[0].text(0.5, 0.5, "No repos with stars", ha="center", transform=axes[0].transAxes)
+        axes[0].text(
+            0.5, 0.5, "No repos with stars", ha="center", transform=axes[0].transAxes
+        )
     axes[0].set_ylabel("Number of repositories")
     axes[0].set_title(
         f"Stars distribution\n({sum(repo_df['stars'] == 0):,} repos with 0 stars omitted)"
@@ -164,7 +164,9 @@ def plot_stars_forks(repo_df: pd.DataFrame) -> None:
         )
         axes[1].set_xlabel("log10(forks + 1)")
     else:
-        axes[1].text(0.5, 0.5, "No repos with forks", ha="center", transform=axes[1].transAxes)
+        axes[1].text(
+            0.5, 0.5, "No repos with forks", ha="center", transform=axes[1].transAxes
+        )
     axes[1].set_ylabel("Number of repositories")
     axes[1].set_title(
         f"Forks distribution\n({sum(repo_df['forks'] == 0):,} repos with 0 forks omitted)"
@@ -200,7 +202,12 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
     loc_data = pbt_df["loc"].dropna()
     axes[0].hist(loc_data.clip(upper=80), bins=40, color="#5ba3cf", edgecolor="white")
-    axes[0].axvline(loc_data.median(), color="#c44", ls="--", label=f"median={loc_data.median():.0f}")
+    axes[0].axvline(
+        loc_data.median(),
+        color="#c44",
+        ls="--",
+        label=f"median={loc_data.median():.0f}",
+    )
     axes[0].set_xlabel("Lines of code (clipped at 80)")
     axes[0].set_ylabel("Count")
     axes[0].set_title("PBT size (LOC)")
@@ -208,7 +215,9 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
     cc_data = pbt_df["avg_complexity"].dropna()
     axes[1].hist(cc_data.clip(upper=15), bins=30, color="#e07b54", edgecolor="white")
-    axes[1].axvline(cc_data.median(), color="#c44", ls="--", label=f"median={cc_data.median():.1f}")
+    axes[1].axvline(
+        cc_data.median(), color="#c44", ls="--", label=f"median={cc_data.median():.1f}"
+    )
     axes[1].set_xlabel("Avg cyclomatic complexity (clipped at 15)")
     axes[1].set_ylabel("Count")
     axes[1].set_title("Cyclomatic complexity")
@@ -216,7 +225,9 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
     mi_data = pbt_df["maintainability_index"].dropna()
     axes[2].hist(mi_data, bins=30, color="#7a7a7a", edgecolor="white")
-    axes[2].axvline(mi_data.median(), color="#c44", ls="--", label=f"median={mi_data.median():.0f}")
+    axes[2].axvline(
+        mi_data.median(), color="#c44", ls="--", label=f"median={mi_data.median():.0f}"
+    )
     axes[2].set_xlabel("Maintainability index")
     axes[2].set_ylabel("Count")
     axes[2].set_title("Python maintainability index")
@@ -240,7 +251,9 @@ def print_comparison_table() -> None:
     print("% --- LaTeX comparison table ---")
     print(r"\begin{table}[t]")
     print(r"  \centering")
-    print(r"  \caption{Comparison of \FVSpec's RealPBT corpus with the Hypothesis Corpus~\cite{devoe2026hypothesis}.}")
+    print(
+        r"  \caption{Comparison of \FVSpec's RealPBT corpus with the Hypothesis Corpus~\cite{devoe2026hypothesis}.}"
+    )
     print(r"  \label{tab:dataset-comparison}")
     print(r"  \begin{tabular}{lrr}")
     print(r"    \toprule")
@@ -258,7 +271,9 @@ def print_comparison_table() -> None:
     print(r"    Line coverage           & \texttimes & \checkmark \\")
     print(r"    Filter: permissive license only & \checkmark & \texttimes \\")
     print(r"    \midrule")
-    print(r"    Repo overlap            & \multicolumn{2}{c}{not computed (corpus gated)} \\")
+    print(
+        r"    Repo overlap            & \multicolumn{2}{c}{not computed (corpus gated)} \\"
+    )
     print(r"    \bottomrule")
     print(r"  \end{tabular}")
     print(r"\end{table}")

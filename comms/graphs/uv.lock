@@ -354,6 +354,7 @@ dependencies = [
     { name = "matplotlib" },
     { name = "pandas" },
     { name = "seaborn" },
+    { name = "typer" },
 ]
 
 [package.dev-dependencies]
@@ -370,6 +371,7 @@ requires-dist = [
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "pandas", specifier = ">=3.0.2" },
     { name = "seaborn", specifier = ">=0.13.2" },
+    { name = "typer", specifier = ">=0.24.1" },
 ]
 
 [package.metadata.requires-dev]
