@@ -5,6 +5,7 @@ import logging
 import re
 import zipfile
 from datetime import datetime
+from math import comb
 from pathlib import Path
 
 import tomli_w
@@ -77,6 +78,16 @@ def _extract_eval_timestamp(eval_data: dict) -> str | None:
     return created.replace(":", "-")
 
 
+def _pass_at_k_unbiased(n: int, c: int, k: int) -> float:
+    """Chen et al. unbiased pass@k estimator (arXiv:2107.03374).
+
+    n: total epochs for the sample; c: epochs where the sample passed; k: target k.
+    """
+    if n - c < k:
+        return 1.0
+    return 1.0 - comb(n - c, k) / comb(n, k)
+
+
 def aggregate_logs(
     log_dir: str = "artifacts",
 ) -> tuple[dict[str, RunStats], str | None]:
@@ -95,8 +106,9 @@ def aggregate_logs(
         logger.warning("No .eval files found in %s", log_dir)
         return {}, None
 
-    # Collect per-model results
-    model_results: dict[str, dict[str, list[dict]]] = {}
+    # Collect per-model, per-bucket, per-sample_id attempts across epochs.
+    # Shape: model -> bucket -> sample_id -> list of {proved, partial_credit}
+    model_results: dict[str, dict[str, dict[str, list[dict]]]] = {}
     eval_timestamps: list[str] = []
 
     for eval_file in eval_files:
@@ -112,69 +124,97 @@ def aggregate_logs(
 
         model = _extract_model_name(data)
         if model not in model_results:
-            model_results[model] = {"easy": [], "hard": []}
+            model_results[model] = {"easy": {}, "hard": {}}
 
-        # Extract per-sample results from the eval log
         for sample in data.get("samples", []):
             scores = sample.get("scores", {})
-            # inspect_ai stores scorer results under the scorer name
             score_data = scores.get("lake_build_scorer", {})
             if not score_data:
-                # Try first available scorer
                 score_data = next(iter(scores.values()), {})
 
             metadata = score_data.get("metadata", {})
             bucket = metadata.get("difficulty_bucket", "unknown")
-            proved = metadata.get("proved", False)
+            proved = bool(metadata.get("proved", False))
             partial_credit = metadata.get("partial_credit", 0.0)
+            sample_id = str(sample.get("id", ""))
 
-            if bucket in model_results[model]:
-                model_results[model][bucket].append(
-                    {
-                        "proved": proved,
-                        "partial_credit": partial_credit,
-                    }
-                )
+            if bucket not in model_results[model]:
+                continue
+            model_results[model][bucket].setdefault(sample_id, []).append(
+                {"proved": proved, "partial_credit": partial_credit}
+            )
 
-    # Build RunStats
+    # Build RunStats with pass@k metrics derived per sample_id.
     stats: dict[str, RunStats] = {}
     for model, buckets in model_results.items():
         run = RunStats(model=model)
-        total_proved = 0
-        total_n = 0
-        total_partial = 0.0
+        totals = {
+            "proved": 0,
+            "n": 0,
+            "partial_sum": 0.0,
+            "pass1_sum": 0.0,
+            "passk_sum": 0.0,
+            "k": 1,
+        }
 
         for bucket_name in ["easy", "hard"]:
-            results = buckets[bucket_name]
-            n = len(results)
-            proved = sum(1 for r in results if r["proved"])
-            partial_sum = sum(r["partial_credit"] for r in results)
+            per_sample = buckets[bucket_name]
+            n = len(per_sample)
+            # Per-sample k is the number of epochs (attempts) recorded.
+            # We take the max across samples in the bucket as the reported k.
+            k_bucket = max((len(v) for v in per_sample.values()), default=1)
+
+            proved = 0
+            partial_sum = 0.0
+            pass1_sum = 0.0
+            passk_sum = 0.0
+            for attempts in per_sample.values():
+                epochs = len(attempts)
+                correct = sum(1 for a in attempts if a["proved"])
+                # "proved" counter: sample counts as proved if any epoch passed
+                proved += 1 if correct > 0 else 0
+                # partial credit: take the best attempt
+                partial_sum += max((a["partial_credit"] for a in attempts), default=0.0)
+                pass1_sum += _pass_at_k_unbiased(epochs, correct, 1)
+                passk_sum += _pass_at_k_unbiased(epochs, correct, min(k_bucket, epochs))
+
             rate = proved / n if n > 0 else 0.0
             partial_avg = partial_sum / n if n > 0 else 0.0
+            pass_at_1 = pass1_sum / n if n > 0 else 0.0
+            pass_at_k = passk_sum / n if n > 0 else 0.0
 
             bucket_stats = BucketStats(
                 proved=proved,
                 n=n,
                 rate=round(rate, 4),
                 partial_credit_avg=round(partial_avg, 4),
+                k=k_bucket,
+                pass_at_1=round(pass_at_1, 4),
+                pass_at_k=round(pass_at_k, 4),
             )
             setattr(run, bucket_name, bucket_stats)
 
-            total_proved += proved
-            total_n += n
-            total_partial += partial_sum
+            totals["proved"] += proved
+            totals["n"] += n
+            totals["partial_sum"] += partial_sum
+            totals["pass1_sum"] += pass1_sum
+            totals["passk_sum"] += passk_sum
+            totals["k"] = max(totals["k"], k_bucket)
 
+        total_n = totals["n"]
         run.total = BucketStats(
-            proved=total_proved,
+            proved=totals["proved"],
             n=total_n,
-            rate=round(total_proved / total_n, 4) if total_n > 0 else 0.0,
-            partial_credit_avg=round(total_partial / total_n, 4)
+            rate=round(totals["proved"] / total_n, 4) if total_n > 0 else 0.0,
+            partial_credit_avg=round(totals["partial_sum"] / total_n, 4)
             if total_n > 0
             else 0.0,
+            k=totals["k"],
+            pass_at_1=round(totals["pass1_sum"] / total_n, 4) if total_n > 0 else 0.0,
+            pass_at_k=round(totals["passk_sum"] / total_n, 4) if total_n > 0 else 0.0,
         )
         stats[model] = run
 
-    # Use the latest eval timestamp
     eval_ts = max(eval_timestamps) if eval_timestamps else None
     return stats, eval_ts
 
@@ -223,14 +263,23 @@ def write_results_toml(
             "easy_n": run.easy.n,
             "easy_rate": run.easy.rate,
             "easy_partial_credit_avg": run.easy.partial_credit_avg,
+            "easy_k": run.easy.k,
+            "easy_pass_at_1": run.easy.pass_at_1,
+            "easy_pass_at_k": run.easy.pass_at_k,
             "hard_proved": run.hard.proved,
             "hard_n": run.hard.n,
             "hard_rate": run.hard.rate,
             "hard_partial_credit_avg": run.hard.partial_credit_avg,
+            "hard_k": run.hard.k,
+            "hard_pass_at_1": run.hard.pass_at_1,
+            "hard_pass_at_k": run.hard.pass_at_k,
             "total_proved": run.total.proved,
             "total_n": run.total.n,
             "total_rate": run.total.rate,
             "total_partial_credit_avg": run.total.partial_credit_avg,
+            "total_k": run.total.k,
+            "total_pass_at_1": run.total.pass_at_1,
+            "total_pass_at_k": run.total.pass_at_k,
         }
 
     out = results_dir / "results.toml"

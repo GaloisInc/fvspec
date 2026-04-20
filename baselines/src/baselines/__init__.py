@@ -20,8 +20,17 @@ def run(
     data_source: str | None = typer.Option(
         None, "--data-source", help="Path to JSONL or 'huggingface'"
     ),
+    k: int | None = typer.Option(
+        None, "--k", help="pass@k: number of epochs per sample (default 1)"
+    ),
+    temperature: float | None = typer.Option(
+        None,
+        "--temperature",
+        help="Sampling temperature (auto-set to 0.7 if k>1 and unset)",
+    ),
 ) -> None:
     """Run the baselines evaluation for a given model."""
+    from inspect_ai import Epochs
     from inspect_ai import eval as inspect_eval
 
     from baselines.config import load_config
@@ -34,14 +43,33 @@ def run(
     par = parallelism if parallelism is not None else cfg.parallelism
     n = num_samples if num_samples is not None else cfg.num_samples
     ds = data_source if data_source is not None else cfg.data_source
+    k_val = k if k is not None else cfg.k
+    temp_val = temperature if temperature is not None else cfg.temperature
+
+    eval_kwargs: dict = {}
+    if k_val > 1:
+        eval_kwargs["epochs"] = Epochs(k_val, ["pass_at_1", f"pass_at_{k_val}", "mean"])
+        if temp_val is None:
+            temp_val = 0.7
+            logging.getLogger(__name__).info(
+                "pass@%d run: defaulting temperature to 0.7", k_val
+            )
+    if temp_val is not None:
+        eval_kwargs["temperature"] = temp_val
 
     model_cfg = cfg.get_model(model)
-    task = fvspec_baselines(ranseed=seed, num_samples=n, data_source=ds)
+    task = fvspec_baselines(
+        ranseed=seed,
+        num_samples=n,
+        data_source=ds,
+        name=f"fvspec-baselines-{model_cfg.human_name}",
+    )
     inspect_eval(
         task,
         model=model_cfg.inspect_model,
         max_tasks=par,
         log_dir="artifacts",
+        **eval_kwargs,
     )
 
 

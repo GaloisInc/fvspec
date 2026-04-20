@@ -162,6 +162,7 @@ def fvspec_baselines(
     ranseed: int = 42,
     num_samples: int = 75,
     data_source: str = "data/fvspec-mar27.jsonl",
+    name: str | None = None,
 ) -> Task:
     """Create the fvspec baselines evaluation task.
 
@@ -169,6 +170,7 @@ def fvspec_baselines(
         ranseed: Random seed for stratified sampling
         num_samples: Total number of samples (split equally across buckets)
         data_source: Path to JSONL file or "huggingface"
+        name: Optional task name override (used to include model in .eval filename)
 
     Returns:
         Task configured with proof-writing agent and lake build scorer
@@ -179,6 +181,7 @@ def fvspec_baselines(
     dataset = to_inspect_dataset(samples)
 
     return Task(
+        name=name,
         dataset=dataset,
         setup=[workspace_setup()],
         solver=[proof_solver()],

@@ -31,6 +31,8 @@ class Config(BaseModel):
     parallelism: int = 10
     num_samples: int = 75
     data_source: str = "huggingface"
+    k: int = 1
+    temperature: float | None = None
     model: list[ModelConfig]
 
     def get_model(self, name: str) -> ModelConfig:

@@ -2,6 +2,8 @@ ranseed = 0
 parallelism = 10
 num_samples = 75
 data_source = "huggingface"
+k = 1
+# temperature unset => provider default (use --temperature for pass@k runs)
 
 [[model]]
 human_name = "snt46"

@@ -41,6 +41,9 @@ class BucketStats(BaseModel):
     n: int = 0
     rate: float = 0.0
     partial_credit_avg: float = 0.0
+    k: int = 1
+    pass_at_1: float = 0.0
+    pass_at_k: float = 0.0
 
 
 class RunStats(BaseModel):
