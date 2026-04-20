@@ -38,7 +38,7 @@ _PALETTE = [
     "rgba(239,68,68,0.85)",
 ]
 
-_BUCKET_ORDER = {"easy": 0, "medium": 1, "hard": 2}
+_BUCKET_ORDER = {"easy": 0, "hard": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -190,7 +190,7 @@ def _model_stats(model_name: str, samples: list[dict[str, Any]]) -> dict[str, An
 
     # Per-bucket stats
     bucket_stats: dict[str, dict[str, Any]] = {}
-    for bucket in ["easy", "medium", "hard"]:
+    for bucket in ["easy", "hard"]:
         bs = [s for s in samples if s["difficulty_bucket"] == bucket]
         bn = len(bs)
         bp = sum(1 for s in bs if s["proved"])
@@ -226,13 +226,12 @@ def _build_prove_rate_chart(
     models: list[str], model_data: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Grouped bar: prove rate by bucket, one dataset per model."""
-    labels = ["Easy", "Medium", "Hard", "Total"]
+    labels = ["Easy", "Hard", "Total"]
     datasets = []
     for i, m in enumerate(models):
         ms = model_data[m]
         data = [
             ms["buckets"]["easy"]["rate"],
-            ms["buckets"]["medium"]["rate"],
             ms["buckets"]["hard"]["rate"],
             ms["prove_rate"],
         ]
@@ -250,13 +249,12 @@ def _build_partial_credit_chart(
     models: list[str], model_data: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Grouped bar: mean partial credit by bucket, one dataset per model."""
-    labels = ["Easy", "Medium", "Hard", "Total"]
+    labels = ["Easy", "Hard", "Total"]
     datasets = []
     for i, m in enumerate(models):
         ms = model_data[m]
         data = [
             ms["buckets"]["easy"]["partial_credit"],
-            ms["buckets"]["medium"]["partial_credit"],
             ms["buckets"]["hard"]["partial_credit"],
             round(ms["mean_partial_credit"] * 100, 1),
         ]
@@ -343,7 +341,7 @@ def _build_head_to_head_charts(
         lookup[m] = {s["id"]: s for s in samples}
 
     charts: dict[str, dict[str, Any]] = {}
-    for bucket in ["easy", "medium", "hard"]:
+    for bucket in ["easy", "hard"]:
         sids = sample_ids_by_bucket.get(bucket, [])
         if not sids:
             continue
@@ -399,7 +397,7 @@ def compute_stats(
     )
 
     # Group sample IDs by bucket
-    sample_ids_by_bucket: dict[str, list[str]] = {"easy": [], "medium": [], "hard": []}
+    sample_ids_by_bucket: dict[str, list[str]] = {"easy": [], "hard": []}
     for sid in sample_ids:
         b = bucket_map.get(sid, "unknown")
         if b in sample_ids_by_bucket:

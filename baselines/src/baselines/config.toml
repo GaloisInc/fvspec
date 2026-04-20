@@ -1,7 +1,7 @@
 ranseed = 0
 parallelism = 10
 num_samples = 75
-data_source = "data/fvspec-mar27.jsonl"
+data_source = "huggingface"
 
 [[model]]
 human_name = "snt46"
@@ -13,6 +13,12 @@ dollars_per_output_millitoken = 15
 human_name = "ops46"
 provider = "anthropic"
 model_pin = "claude-opus-4-6"
+dollars_per_output_millitoken = 25
+
+[[model]]
+human_name = "ops47"
+provider = "anthropic"
+model_pin = "claude-opus-4-7"
 dollars_per_output_millitoken = 25
 
 [[model]]

@@ -13,12 +13,11 @@
 <div class="diff-filters">
   <button class="diff-filter-btn active" data-diff="all" onclick="filterNav('all')">All ({{ stats.n_samples }})</button>
   <button class="diff-filter-btn" data-diff="easy" onclick="filterNav('easy')">Easy ({{ stats.sample_ids_by_bucket.easy|length }})</button>
-  <button class="diff-filter-btn" data-diff="medium" onclick="filterNav('medium')">Medium ({{ stats.sample_ids_by_bucket.medium|length }})</button>
   <button class="diff-filter-btn" data-diff="hard" onclick="filterNav('hard')">Hard ({{ stats.sample_ids_by_bucket.hard|length }})</button>
 </div>
 
 <!-- Sample selector grouped by bucket -->
-{% for bucket in ["easy", "medium", "hard"] %}
+{% for bucket in ["easy", "hard"] %}
 {% set bucket_ids = stats.sample_ids_by_bucket[bucket] %}
 {% if bucket_ids %}
 <div class="bucket-group" data-bucket-group="{{ bucket }}">
@@ -94,7 +93,6 @@
         {% elif s.compiles %}<span class="pill pill-amber" style="font-size:.85rem;padding:.3rem .8rem">Compiles</span>
         {% else %}<span class="pill pill-red" style="font-size:.85rem;padding:.3rem .8rem">Build failed</span>{% endif %}
         {% if s.difficulty_bucket == 'easy' %}<span class="pill pill-green">easy</span>
-        {% elif s.difficulty_bucket == 'medium' %}<span class="pill pill-blue">medium</span>
         {% else %}<span class="pill pill-red">hard</span>{% endif %}
         {% if s.difficulty_score is not none %}<span class="badge">haiku: {{ s.difficulty_score }}</span>{% endif %}
         <span class="badge">{{ s.num_theorems }} theorems</span>

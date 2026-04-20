@@ -30,7 +30,7 @@ class Config(BaseModel):
     ranseed: int = 42
     parallelism: int = 10
     num_samples: int = 75
-    data_source: str = "data/fvspec-mar27.jsonl"
+    data_source: str = "huggingface"
     model: list[ModelConfig]
 
     def get_model(self, name: str) -> ModelConfig:

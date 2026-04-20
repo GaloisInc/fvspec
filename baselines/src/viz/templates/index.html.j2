@@ -9,7 +9,7 @@
   <p>Formal verification benchmark: translating Python property-based tests into Lean 4 proofs.</p>
   <div class="hero-meta">
     {% for m in models %}<span class="badge accent">{{ m }}</span>{% endfor %}
-    <span class="badge">{{ stats.n_samples }} samples ({{ stats.sample_ids_by_bucket.easy|length }}E / {{ stats.sample_ids_by_bucket.medium|length }}M / {{ stats.sample_ids_by_bucket.hard|length }}H)</span>
+    <span class="badge">{{ stats.n_samples }} samples ({{ stats.sample_ids_by_bucket.easy|length }}E / {{ stats.sample_ids_by_bucket.hard|length }}H)</span>
     {% if stats.created %}<span class="badge">{{ stats.created[:10] }}</span>{% endif %}
     {% if stats.message_limit %}<span class="badge">msg limit: {{ stats.message_limit }}</span>{% endif %}
     {% if stats.revision.commit %}<span class="badge">{{ stats.revision.commit }}</span>{% endif %}
@@ -32,11 +32,6 @@
         <td>{{ md.buckets.easy.rate }}%</td>
       </tr>
       <tr>
-        <td><span class="diff-indicator medium"></span>Medium</td>
-        <td>{{ md.buckets.medium.proved }}/{{ md.buckets.medium.n }}</td>
-        <td>{{ md.buckets.medium.rate }}%</td>
-      </tr>
-      <tr>
         <td><span class="diff-indicator hard"></span>Hard</td>
         <td>{{ md.buckets.hard.proved }}/{{ md.buckets.hard.n }}</td>
         <td>{{ md.buckets.hard.rate }}%</td>
@@ -51,10 +46,6 @@
       <tr>
         <td><span class="diff-indicator easy"></span>Easy</td>
         <td>{{ md.buckets.easy.partial_credit }}%</td>
-      </tr>
-      <tr>
-        <td><span class="diff-indicator medium"></span>Medium</td>
-        <td>{{ md.buckets.medium.partial_credit }}%</td>
       </tr>
       <tr>
         <td><span class="diff-indicator hard"></span>Hard</td>
@@ -110,7 +101,7 @@
 <!-- Per-bucket head-to-head -->
 <h2 class="section-title">Head-to-head by difficulty</h2>
 
-{% for bucket in ["easy", "medium", "hard"] %}
+{% for bucket in ["easy", "hard"] %}
 {% if bucket in stats.head_to_head_charts %}
 <div class="card">
   <div class="card-title">
@@ -131,7 +122,6 @@
 <div class="diff-filters">
   <button class="diff-filter-btn active" data-diff="all" onclick="filterBucket('all')">All ({{ stats.n_samples }})</button>
   <button class="diff-filter-btn" data-diff="easy" onclick="filterBucket('easy')">Easy ({{ stats.sample_ids_by_bucket.easy|length }})</button>
-  <button class="diff-filter-btn" data-diff="medium" onclick="filterBucket('medium')">Medium ({{ stats.sample_ids_by_bucket.medium|length }})</button>
   <button class="diff-filter-btn" data-diff="hard" onclick="filterBucket('hard')">Hard ({{ stats.sample_ids_by_bucket.hard|length }})</button>
 </div>
 
@@ -172,7 +162,6 @@
               {% if s.id == sid and m == models[0] %}
           <td>
             {% if s.difficulty_bucket == 'easy' %}<span class="pill pill-green">easy</span>
-            {% elif s.difficulty_bucket == 'medium' %}<span class="pill pill-blue">medium</span>
             {% else %}<span class="pill pill-red">hard</span>{% endif %}
           </td>
           <td class="num">{{ s.num_theorems }}</td>
@@ -210,7 +199,6 @@
         <tr>
           <th>Model</th>
           <th>Easy</th>
-          <th>Medium</th>
           <th>Hard</th>
           <th>Total</th>
           <th>Prove rate</th>
@@ -222,7 +210,6 @@
         <tr>
           <td class="mono">{{ model_key }}</td>
           <td class="num">{{ r.easy_proved }}/{{ r.easy_n }}</td>
-          <td class="num">{{ r.medium_proved }}/{{ r.medium_n }}</td>
           <td class="num">{{ r.hard_proved }}/{{ r.hard_n }}</td>
           <td class="num">{{ r.total_proved }}/{{ r.total_n }}</td>
           <td class="num">{{ (r.total_rate * 100)|round(1) }}%</td>
@@ -280,7 +267,7 @@ new Chart(document.getElementById('tokenChart'), {
 });
 
 // Per-bucket head-to-head charts
-{% for bucket in ["easy", "medium", "hard"] %}
+{% for bucket in ["easy", "hard"] %}
 {% if bucket in stats.head_to_head_charts %}
 new Chart(document.getElementById('h2h-{{ bucket }}'), {
   type: 'bar',

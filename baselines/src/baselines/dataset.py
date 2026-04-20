@@ -76,7 +76,7 @@ def load_samples_from_hf() -> list[FvspecSample]:
     return samples
 
 
-def load_samples(data_source: str = "data/fvspec-mar27.jsonl") -> list[FvspecSample]:
+def load_samples(data_source: str = "huggingface") -> list[FvspecSample]:
     """Load samples from the configured data source.
 
     Args:
@@ -91,7 +91,7 @@ def load_samples(data_source: str = "data/fvspec-mar27.jsonl") -> list[FvspecSam
 def load_and_sample(
     ranseed: int = 42,
     num_samples: int = 75,
-    data_source: str = "data/fvspec-mar27.jsonl",
+    data_source: str = "huggingface",
 ) -> list[FvspecSample]:
     """Load dataset and apply stratified sampling by difficulty bucket.
 
