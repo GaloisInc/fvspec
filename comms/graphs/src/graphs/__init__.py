@@ -112,12 +112,14 @@ def plot_structural_faithfulness(df: pd.DataFrame) -> None:
     axes[0].legend()
 
     sub_means = [df[c].mean() for c in sf_cols]
-    bars = axes[1].barh(nice, sub_means, color="#5ba3cf")
-    axes[1].set_xlim(0, 1)
-    axes[1].set_xlabel("Mean score")
+    bars = axes[1].bar(range(len(nice)), sub_means, color="#5ba3cf", edgecolor="white")
+    axes[1].set_ylim(0, 1)
+    axes[1].set_ylabel("Mean score")
     axes[1].set_title("Faithfulness sub-scores (mean)")
+    axes[1].set_xticks(range(len(nice)))
+    axes[1].set_xticklabels(nice, rotation=30, ha="right", fontsize=8)
     for bar, val in zip(bars, sub_means):
-        axes[1].text(val + 0.01, bar.get_y() + bar.get_height() / 2, f"{val:.2f}", va="center", fontsize=8)
+        axes[1].text(bar.get_x() + bar.get_width() / 2, val + 0.01, f"{val:.2f}", ha="center", va="bottom", fontsize=8)
 
     fig.suptitle("Structural faithfulness", fontsize=13)
     fig.tight_layout()
@@ -127,79 +129,94 @@ def plot_structural_faithfulness(df: pd.DataFrame) -> None:
 def plot_lean_complexity(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
-    axes[0].hist(df["total_lean_lines"].clip(upper=500), bins=40, color="#5ba3cf", edgecolor="white")
-    axes[0].set_xlabel("Total Lean lines (clipped at 500)")
-    axes[0].set_ylabel("Count")
-    axes[0].set_title("Lean output size")
-
-    axes[1].hist(df["num_theorems"].clip(upper=20), bins=range(0, 22), color="#e07b54", edgecolor="white")
-    axes[1].set_xlabel("Number of theorems per sample")
-    axes[1].set_ylabel("Count")
-    axes[1].set_title("Theorems per sample")
-
-    axes[2].hist(df["total_sorries"].clip(upper=20), bins=range(0, 22), color="#7a7a7a", edgecolor="white")
-    axes[2].set_xlabel("sorry count per sample")
-    axes[2].set_ylabel("Count")
-    axes[2].set_title("Sorry placeholders per sample")
+    for ax, col, color, label, title in [
+        (axes[0], "total_lean_lines", "#5ba3cf", "Total Lean lines", "Lean output size"),
+        (axes[1], "num_theorems",     "#e07b54", "Theorems per sample", "Theorems per sample"),
+        (axes[2], "total_sorries",    "#7a7a7a", "sorry count per sample", "Sorry placeholders"),
+    ]:
+        data = df[col].dropna()
+        ax.hist(data, bins=50, color=color, edgecolor="white")
+        ax.set_yscale("log")
+        ax.axvline(data.median(), color="#333", ls="--", lw=1,
+                   label=f"median={data.median():.0f}")
+        ax.set_xlabel(label)
+        ax.set_ylabel("Count (log scale)")
+        ax.set_title(title)
+        ax.legend()
 
     fig.suptitle("Lean output complexity", fontsize=13)
     fig.tight_layout()
     _save(fig, "lean_complexity")
 
-
 def plot_python_source(df: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
-    axes[0].hist(df["realpbt_lines_pbt"].clip(upper=100), bins=40, color="#5ba3cf", edgecolor="white")
-    axes[0].set_xlabel("Lines of PBT code (clipped at 100)")
-    axes[0].set_ylabel("Count")
+    loc = df["realpbt_lines_pbt"].dropna()
+    axes[0].hist(loc, bins=50, color="#5ba3cf", edgecolor="white")
+    axes[0].set_yscale("log")
+    axes[0].axvline(loc.median(), color="#333", ls="--", lw=1,
+                    label=f"median={loc.median():.0f}")
+    axes[0].set_xlabel("Lines of PBT code")
+    axes[0].set_ylabel("Count (log scale)")
     axes[0].set_title("Source PBT size")
+    axes[0].legend()
 
     cc = df["py_complexity"].dropna()
-    axes[1].hist(cc.clip(upper=15), bins=30, color="#e07b54", edgecolor="white")
+    axes[1].hist(cc, bins=range(1, min(int(cc.max()) + 2, 40)), color="#e07b54", edgecolor="white")
+    axes[1].set_yscale("log")
+    axes[1].axvline(cc.median(), color="#333", ls="--", lw=1,
+                    label=f"median={cc.median():.0f}")
     axes[1].set_xlabel("Avg cyclomatic complexity")
-    axes[1].set_ylabel("Count")
+    axes[1].set_ylabel("Count (log scale)")
     axes[1].set_title("Python source complexity")
-
-    mi = df["py_maintainability"].dropna()
-    axes[2].hist(mi, bins=30, color="#7a7a7a", edgecolor="white")
-    axes[2].set_xlabel("Maintainability index")
-    axes[2].set_ylabel("Count")
-    axes[2].set_title("Python maintainability index")
+    axes[1].legend()
 
     fig.suptitle("Python source characteristics", fontsize=13)
     fig.tight_layout()
     _save(fig, "python_source")
 
-
 def plot_pipeline_cost(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
-    axes[0].hist(df["time"].clip(upper=2000), bins=40, color="#5ba3cf", edgecolor="white")
-    axes[0].set_xlabel("Wall-clock time (s, clipped at 2000)")
-    axes[0].set_ylabel("Count")
+    time_data = df["time"].dropna()
+    axes[0].hist(time_data, bins=50, color="#5ba3cf", edgecolor="white")
+    axes[0].set_yscale("log")
+    axes[0].axvline(time_data.median(), color="#333", ls="--", lw=1,
+                    label=f"median={time_data.median():.0f}s")
+    axes[0].set_xlabel("Wall-clock time (s)")
+    axes[0].set_ylabel("Count (log scale)")
     axes[0].set_title("Pipeline time per sample")
+    axes[0].legend()
 
-    axes[1].hist(df["token_usage"].clip(upper=500_000), bins=40, color="#e07b54", edgecolor="white")
-    axes[1].set_xlabel("Token usage (clipped at 500k)")
-    axes[1].set_ylabel("Count")
+    tok = df["token_usage"].dropna()
+    axes[1].hist(tok, bins=50, color="#e07b54", edgecolor="white")
+    axes[1].set_yscale("log")
+    axes[1].axvline(tok.median(), color="#333", ls="--", lw=1,
+                    label=f"median={tok.median()/1000:.0f}k")
+    axes[1].set_xlabel("Token usage")
+    axes[1].set_ylabel("Count (log scale)")
     axes[1].set_title("Token cost per sample")
     axes[1].xaxis.set_major_formatter(ticker.FuncFormatter(lambda x, _: f"{x/1000:.0f}k"))
+    axes[1].legend()
 
-    axes[2].hist(df["total_turns"].clip(upper=30), bins=range(0, 32), color="#7a7a7a", edgecolor="white")
+    turns = df["total_turns"].dropna()
+    axes[2].hist(turns, bins=range(0, int(turns.max()) + 2), color="#7a7a7a", edgecolor="white")
+    axes[2].set_yscale("log")
+    axes[2].axvline(turns.median(), color="#333", ls="--", lw=1,
+                    label=f"median={turns.median():.0f}")
     axes[2].set_xlabel("Total agent turns")
-    axes[2].set_ylabel("Count")
+    axes[2].set_ylabel("Count (log scale)")
     axes[2].set_title("Agent turns per sample")
+    axes[2].legend()
 
     fig.suptitle("Pipeline cost", fontsize=13)
     fig.tight_layout()
     _save(fig, "pipeline_cost")
 
-
 def plot_difficulty_vs_faithfulness(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
 
-    for diff, color in [("easy", "#5ba3cf"), ("hard", "#e07b54")]:
+    for diff, color in [("hard", "#e07b54"), ("easy", "#5ba3cf")]:
         subset = df[df["difficulty"] == diff]
         axes[0].hist(
             subset["sf_overall"].dropna(),
@@ -214,28 +231,21 @@ def plot_difficulty_vs_faithfulness(df: pd.DataFrame) -> None:
     axes[0].set_title("Faithfulness by difficulty")
     axes[0].legend()
 
-    for diff, color in [("easy", "#5ba3cf"), ("hard", "#e07b54")]:
-        subset = df[df["difficulty"] == diff]
-        axes[1].hist(
-            subset["total_lean_lines"].clip(upper=500).dropna(),
-            bins=30,
-            alpha=0.6,
-            color=color,
-            label=diff,
-            edgecolor="white",
-        )
-    axes[1].set_xlabel("Total Lean lines (clipped at 500)")
-    axes[1].set_ylabel("Count")
+    for diff, color in [("hard", "#e07b54"), ("easy", "#5ba3cf")]:
+        subset = df[df["difficulty"] == diff]["total_lean_lines"].dropna()
+        axes[1].hist(subset, bins=50, alpha=0.6, color=color, label=diff, edgecolor="white")
+    axes[1].set_yscale("log")
+    axes[1].set_xlabel("Total Lean lines")
+    axes[1].set_ylabel("Count (log scale)")
     axes[1].set_title("Lean output size by difficulty")
     axes[1].legend()
-
     fig.suptitle("Difficulty vs. output characteristics", fontsize=13)
     fig.tight_layout()
     _save(fig, "difficulty_vs_faithfulness")
 
 
 def plot_implementation_level(df: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(7, 2.5))
 
     counts = df["implementation_level"].value_counts()
     axes[0].bar(counts.index, counts.values, color=["#5ba3cf", "#e07b54"])
@@ -276,7 +286,6 @@ def main() -> None:
         ("python_source", plot_python_source),
         ("pipeline_cost", plot_pipeline_cost),
         ("difficulty_vs_faithfulness", plot_difficulty_vs_faithfulness),
-        ("implementation_level", plot_implementation_level),
     ]
 
     for name, fn in plots:

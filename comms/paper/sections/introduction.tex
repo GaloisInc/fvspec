@@ -1,4 +1,5 @@
 \section{Introduction}
+\Secl{intro}
 
 Several AI safety proposals are premised on AI-driven formal verification (FV); this is a core hypothesis of the ARIA Safeguarding AI program and the related Guaranteed Safe AI agenda \cite{dalrymple2024guaranteed}. If FV is to play this role, it must scale to the complexities of real-world code, but today we have little evidence that such capabilities are possible. Relevant benchmarks are mostly small datasets crafted by hand~\cite{loughridge2024dafnybench}, larger datasets extracted from expert-driven verification projects~\cite{chakraborty2024neural}, or are focused on advanced mathematics rather than engineering~\cite{glazer2024frontiermath}. None of these are likely to be representative of the formal verification tasks required to verify real-world AI-generated software at scale.
 
@@ -12,4 +13,9 @@ We use AI-driven translation to generate Lean programs and theorems at scale. LL
 Although in some cases the translations may be imperfect, lessening the importance of any proof or refutation of the resultant theorem from the perspective of the author of the originating PBT, it is nevertheless the case that we produce high-quality and realistic FV challenges for AI benchmarking.
 The result is tens of thousands of verification challenges, each consisting of (1) a program and (2) a desired specification, both written in Lean. Unlike existing FV benchmarks, each problem corresponds to properties of real-world software written by engineers with no guaranteed formal verification experience.
 
-\TODO: Summary of results.
+\TODO{}: Summary of results.
+The rest of the paper is organized as follows.
+We formalize the task in \Secr{task}.
+We describe our generation pipeline---dependency extraction, LLM-based transpilation with iterative Lean LSP repair, and post-production cleaning---in \Secr{pipeline}.
+We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k permissively-licensed Hypothesis tests from open-source repositories, in \Secr{dataset}; we also compare against the concurrently released Hypothesis Corpus~2026 there.
+We present results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.
