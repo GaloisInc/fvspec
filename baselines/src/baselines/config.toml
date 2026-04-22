@@ -30,6 +30,12 @@ model_pin = "gpt-5.4-mini-2026-03-17"
 dollars_per_output_millitoken = 4.5
 
 [[model]]
+human_name = "gpt54"
+provider = "openai"
+model_pin = "gpt-5.4"
+dollars_per_output_millitoken = 15
+
+[[model]]
 human_name = "gemini25pro"
 provider = "google"
 model_pin = "gemini-2.5-pro"
