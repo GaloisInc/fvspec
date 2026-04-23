@@ -89,20 +89,28 @@
       <div style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap">
         <span style="font-size:1.5rem;font-weight:700;font-family:var(--font-mono)">{{ sid }}</span>
         <span class="badge accent">{{ m }}</span>
-        {% if s.proved %}<span class="pill pill-green" style="font-size:.85rem;padding:.3rem .8rem">Proved</span>
-        {% elif s.compiles %}<span class="pill pill-amber" style="font-size:.85rem;padding:.3rem .8rem">Compiles</span>
-        {% else %}<span class="pill pill-red" style="font-size:.85rem;padding:.3rem .8rem">Build failed</span>{% endif %}
+        {% if s.num_epochs > 1 %}
+          {% if s.all_proved %}<span class="pill pill-green" style="font-size:.85rem;padding:.3rem .8rem">Proved {{ s.proved_count }}/{{ s.num_epochs }}</span>
+          {% elif s.any_proved %}<span class="pill pill-amber" style="font-size:.85rem;padding:.3rem .8rem">Proved {{ s.proved_count }}/{{ s.num_epochs }}</span>
+          {% else %}<span class="pill pill-red" style="font-size:.85rem;padding:.3rem .8rem">0/{{ s.num_epochs }} proved</span>{% endif %}
+          <span class="badge">pass@1 = {{ (s.pass_at_1 * 100)|round(1) }}%</span>
+          <span class="badge">pass@{{ s.num_epochs }} = {{ (s.pass_at_5 * 100)|round(0)|int }}%</span>
+        {% else %}
+          {% if s.proved %}<span class="pill pill-green" style="font-size:.85rem;padding:.3rem .8rem">Proved</span>
+          {% elif s.compiles %}<span class="pill pill-amber" style="font-size:.85rem;padding:.3rem .8rem">Compiles</span>
+          {% else %}<span class="pill pill-red" style="font-size:.85rem;padding:.3rem .8rem">Build failed</span>{% endif %}
+        {% endif %}
         {% if s.difficulty_bucket == 'easy' %}<span class="pill pill-green">easy</span>
         {% else %}<span class="pill pill-red">hard</span>{% endif %}
         {% if s.difficulty_score is not none %}<span class="badge">haiku: {{ s.difficulty_score }}</span>{% endif %}
         <span class="badge">{{ s.num_theorems }} theorems</span>
       </div>
       <div style="margin-top:.75rem;display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;font-size:.85rem;color:var(--text-muted)">
-        <div>Sorries: <span style="color:var(--text)">{{ s.sorries_removed }}/{{ s.sorries_original }} removed</span></div>
-        <div>Partial credit: <span style="color:var(--text)">{{ (s.partial_credit * 100)|round(1) }}%</span></div>
-        <div>Time: <span style="color:var(--text)">{{ s.total_time }}s</span></div>
-        <div>Messages: <span style="color:var(--text)">{{ s.message_count }}</span></div>
-        <div>Tokens: <span style="color:var(--text)">{{ "{:,}".format(s.total_tokens) }}</span></div>
+        <div>Sorries: <span style="color:var(--text)">{{ s.sorries_removed }}/{{ s.sorries_original }} removed{% if s.num_epochs > 1 %} (best){% endif %}</span></div>
+        <div>Partial credit: <span style="color:var(--text)">{{ (s.mean_partial_credit * 100)|round(1) }}%{% if s.num_epochs > 1 %} (mean){% endif %}</span></div>
+        <div>Time: <span style="color:var(--text)">{{ s.total_time }}s{% if s.num_epochs > 1 %} (Σ){% endif %}</span></div>
+        <div>Messages: <span style="color:var(--text)">{{ s.message_count }}{% if s.num_epochs > 1 %} (best){% endif %}</span></div>
+        <div>Tokens: <span style="color:var(--text)">{{ "{:,}".format(s.total_tokens) }}{% if s.num_epochs > 1 %} (Σ){% endif %}</span></div>
       </div>
       {% if s.explanation %}
       <div style="margin-top:.75rem;font-family:var(--font-mono);font-size:.82rem;color:var(--text-dim);padding:.5rem .75rem;background:var(--bg-card-2);border-radius:var(--radius)">
@@ -111,25 +119,56 @@
       {% endif %}
     </div>
 
-    <!-- Messages -->
-    {% for msg in s.messages %}
-    <div class="message {{ 'auto-open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">
-      <div class="message-header">
-        <span class="role {{ msg.role }}">{{ msg.role }}</span>
-        {% if msg.function %}<span class="fn-name">{{ msg.function }}</span>{% endif %}
-        {% if msg.tool_calls %}
-          <span class="fn-name">
-            {% for tc in msg.tool_calls %}{{ tc.function }}{% if not loop.last %}, {% endif %}{% endfor %}
-          </span>
-        {% endif %}
-        <span style="color:var(--text-dim);font-size:.72rem">#{{ loop.index }}</span>
-        <span class="toggle">{{ '[ - ]' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '[ + ]' }}</span>
+    {% if s.num_epochs > 1 %}
+    <!-- Epoch selector -->
+    <div style="display:flex;gap:.4rem;margin-bottom:1rem;flex-wrap:wrap;align-items:center">
+      <span style="font-size:.78rem;color:var(--text-dim);text-transform:uppercase;letter-spacing:.08em">Epoch:</span>
+      {% for ep in s.epochs %}
+      <button class="sample-btn {{ 'active' if loop.first else '' }} {{ 'proved' if ep.proved else 'failed' }}"
+              data-epoch-tab="{{ sid }}-{{ m }}"
+              data-epoch="{{ ep.epoch }}"
+              onclick="showEpoch('{{ sid }}', '{{ m }}', {{ ep.epoch }})">
+        #{{ ep.epoch }}
+        {% if ep.proved %}<span style="color:var(--accent-green)">&#10003;</span>
+        {% elif ep.compiles %}<span style="color:var(--accent-amber)">~</span>
+        {% else %}<span style="color:var(--accent-red)">&#10007;</span>{% endif %}
+        <span style="color:var(--text-dim);font-size:.72rem">{{ (ep.partial_credit * 100)|round(0)|int }}%</span>
+      </button>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- Per-epoch messages -->
+    {% for ep in s.epochs %}
+    <div class="epoch-panel {{ 'active' if loop.first else '' }}"
+         data-sample-model-epoch="{{ sid }}-{{ m }}"
+         id="epoch-{{ sid }}-{{ m }}-{{ ep.epoch }}">
+      {% if s.num_epochs > 1 %}
+      <div style="font-size:.78rem;color:var(--text-muted);margin-bottom:.5rem;padding:.4rem .75rem;background:var(--bg-card-2);border-radius:var(--radius);font-family:var(--font-mono)">
+        Epoch #{{ ep.epoch }} · {{ ep.total_time }}s · {{ ep.message_count }} msgs · {{ "{:,}".format(ep.total_tokens) }} tokens
+        {% if ep.explanation %} · {{ ep.explanation }}{% endif %}
       </div>
-      <div class="message-body {{ 'open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">{{ msg.content | e }}{% if msg.tool_calls %}{% for tc in msg.tool_calls %}
+      {% endif %}
+      {% for msg in ep.messages %}
+      <div class="message {{ 'auto-open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">
+        <div class="message-header">
+          <span class="role {{ msg.role }}">{{ msg.role }}</span>
+          {% if msg.function %}<span class="fn-name">{{ msg.function }}</span>{% endif %}
+          {% if msg.tool_calls %}
+            <span class="fn-name">
+              {% for tc in msg.tool_calls %}{{ tc.function }}{% if not loop.last %}, {% endif %}{% endfor %}
+            </span>
+          {% endif %}
+          <span style="color:var(--text-dim);font-size:.72rem">#{{ loop.index }}</span>
+          <span class="toggle">{{ '[ - ]' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '[ + ]' }}</span>
+        </div>
+        <div class="message-body {{ 'open' if loop.first or (msg.role == 'assistant' and not msg.tool_calls) else '' }}">{{ msg.content | e }}{% if msg.tool_calls %}{% for tc in msg.tool_calls %}
 <div class="tool-calls">
   <div class="fn">{{ tc.function }}()</div>
   <div class="tool-call-args">{{ tc.arguments | tojson }}</div>
 </div>{% endfor %}{% endif %}</div>
+      </div>
+      {% endfor %}
     </div>
     {% endfor %}
 
@@ -144,6 +183,8 @@
 <style>
   .model-panel { display: none; }
   .model-panel.active { display: block; }
+  .epoch-panel { display: none; }
+  .epoch-panel.active { display: block; }
 </style>
 {% endblock %}
 
@@ -166,6 +207,16 @@ function showModel(sampleId, model) {
   });
   document.querySelectorAll(`[data-sample-model="${sampleId}"]`).forEach(panel => {
     panel.classList.toggle('active', panel.id === `panel-${sampleId}-${model}`);
+  });
+}
+
+function showEpoch(sampleId, model, epoch) {
+  const key = `${sampleId}-${model}`;
+  document.querySelectorAll(`[data-epoch-tab="${key}"]`).forEach(btn => {
+    btn.classList.toggle('active', String(btn.dataset.epoch) === String(epoch));
+  });
+  document.querySelectorAll(`[data-sample-model-epoch="${key}"]`).forEach(panel => {
+    panel.classList.toggle('active', panel.id === `epoch-${key}-${epoch}`);
   });
 }
 

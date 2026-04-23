@@ -19,8 +19,43 @@
 <!-- Per-model stat cards with bucket breakdown -->
 {% for m in models %}
 {% set md = stats.model_data[m] %}
-<h2 class="section-title" style="margin-top:{% if loop.first %}0{% else %}2{% endif %}rem">{{ m }}</h2>
+<h2 class="section-title" style="margin-top:{% if loop.first %}0{% else %}2{% endif %}rem">
+  {{ m }}
+  {% if md.multi_epoch %}<span class="badge accent" style="font-size:.7rem;vertical-align:middle">k = {{ md.num_epochs }}</span>{% endif %}
+</h2>
 <div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
+  {% if md.multi_epoch %}
+  <div class="stat-card accent-blue">
+    <div class="label">pass@1</div>
+    <div class="value">{{ md.pass_at_1_rate }}%</div>
+    <div class="sub">mean per-sample prove prob.</div>
+    <table class="bucket-breakdown">
+      <tr>
+        <td><span class="diff-indicator easy"></span>Easy</td>
+        <td>{{ md.buckets.easy.pass_at_1 }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator hard"></span>Hard</td>
+        <td>{{ md.buckets.hard.pass_at_1 }}%</td>
+      </tr>
+    </table>
+  </div>
+  <div class="stat-card accent-green">
+    <div class="label">pass@{{ md.num_epochs }}</div>
+    <div class="value">{{ md.pass_at_5_rate }}%</div>
+    <div class="sub">≥1 of {{ md.num_epochs }} epochs proved</div>
+    <table class="bucket-breakdown">
+      <tr>
+        <td><span class="diff-indicator easy"></span>Easy</td>
+        <td>{{ md.buckets.easy.pass_at_5 }}%</td>
+      </tr>
+      <tr>
+        <td><span class="diff-indicator hard"></span>Hard</td>
+        <td>{{ md.buckets.hard.pass_at_5 }}%</td>
+      </tr>
+    </table>
+  </div>
+  {% else %}
   <div class="stat-card accent-green">
     <div class="label">Proved</div>
     <div class="value">{{ md.proved }}/{{ md.n_samples }}</div>
@@ -38,10 +73,11 @@
       </tr>
     </table>
   </div>
+  {% endif %}
   <div class="stat-card accent-teal">
     <div class="label">Mean partial credit</div>
     <div class="value">{{ (md.mean_partial_credit * 100)|round(1) }}%</div>
-    <div class="sub">sorry removal ratio</div>
+    <div class="sub">sorry removal ratio{% if md.multi_epoch %} · averaged over {{ md.num_epochs }} epochs{% endif %}</div>
     <table class="bucket-breakdown">
       <tr>
         <td><span class="diff-indicator easy"></span>Easy</td>
@@ -64,6 +100,48 @@
   </div>
 </div>
 {% endfor %}
+
+{% if stats.any_multi_epoch %}
+<h2 class="section-title">pass@k comparison</h2>
+<div class="chart-grid-2">
+  <div class="card">
+    <div class="card-title">pass@1 vs pass@{{ stats.max_k }} (%)</div>
+    <div class="chart-wrap">
+      <canvas id="passAtKChart"></canvas>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">pass@1 by difficulty (%)</div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>Model</th>
+            <th>k</th>
+            <th>Easy pass@1</th>
+            <th>Hard pass@1</th>
+            <th>Easy pass@k</th>
+            <th>Hard pass@k</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in models %}
+          {% set md = stats.model_data[m] %}
+          <tr>
+            <td class="mono">{{ m }}</td>
+            <td class="num">{{ md.num_epochs }}</td>
+            <td class="num">{{ md.buckets.easy.pass_at_1 }}%</td>
+            <td class="num">{{ md.buckets.hard.pass_at_1 }}%</td>
+            <td class="num">{{ md.buckets.easy.pass_at_5 }}%</td>
+            <td class="num">{{ md.buckets.hard.pass_at_5 }}%</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 
 <!-- Cross-model comparison charts -->
 <h2 class="section-title">Comparison by difficulty</h2>
@@ -133,10 +211,17 @@
           <th data-col="0">ID</th>
           <th data-col="1">Bucket</th>
           <th data-col="2">Theorems</th>
+          {% set cols_per_model = 4 if stats.any_multi_epoch else 3 %}
           {% for m in models %}
-          <th data-col="{{ 3 + loop.index0 * 3 }}">{{ m }} score</th>
-          <th data-col="{{ 4 + loop.index0 * 3 }}">{{ m }} partial</th>
-          <th data-col="{{ 5 + loop.index0 * 3 }}">{{ m }} time</th>
+          <th data-col="{{ 3 + loop.index0 * cols_per_model }}">{{ m }} score</th>
+          {% if stats.any_multi_epoch %}
+          <th data-col="{{ 4 + loop.index0 * cols_per_model }}">{{ m }} proved/k</th>
+          <th data-col="{{ 5 + loop.index0 * cols_per_model }}">{{ m }} partial</th>
+          <th data-col="{{ 6 + loop.index0 * cols_per_model }}">{{ m }} time</th>
+          {% else %}
+          <th data-col="{{ 4 + loop.index0 * cols_per_model }}">{{ m }} partial</th>
+          <th data-col="{{ 5 + loop.index0 * cols_per_model }}">{{ m }} time</th>
+          {% endif %}
           {% endfor %}
         </tr>
       </thead>
@@ -147,7 +232,7 @@
           {% if bucket != current_bucket.val %}
             {% set current_bucket.val = bucket %}
         <tr class="bucket-divider {{ bucket }}" data-bucket="{{ bucket }}">
-          <td colspan="{{ 3 + models|length * 3 }}">
+          <td colspan="{{ 3 + models|length * (4 if stats.any_multi_epoch else 3) }}">
             <span class="diff-indicator {{ bucket }}"></span>
             {{ bucket | upper }} ({{ stats.sample_ids_by_bucket[bucket]|length }} samples)
           </td>
@@ -177,10 +262,25 @@
             {% elif found.s.compiles %}<span class="pill pill-amber">{{ found.s.score_value }}</span>
             {% else %}<span class="pill pill-red">{{ found.s.score_value }}</span>{% endif %}
           </td>
+          {% if stats.any_multi_epoch %}
+          <td class="num" data-val="{{ found.s.pass_at_1 if found.s.num_epochs > 1 else (1 if found.s.proved else 0) }}">
+            {% if found.s.num_epochs > 1 %}
+              {% set pc = found.s.proved_count %}
+              {% set k = found.s.num_epochs %}
+              {% if pc == k %}<span class="pill pill-green">{{ pc }}/{{ k }}</span>
+              {% elif pc > 0 %}<span class="pill pill-amber">{{ pc }}/{{ k }}</span>
+              {% else %}<span class="pill pill-red">0/{{ k }}</span>{% endif %}
+            {% else %}
+              <span class="mono" style="color:var(--text-dim)">k=1</span>
+            {% endif %}
+          </td>
+          <td class="num" data-val="{{ found.s.mean_partial_credit }}">{{ (found.s.mean_partial_credit * 100)|round(1) }}%</td>
+          {% else %}
           <td class="num" data-val="{{ found.s.partial_credit }}">{{ (found.s.partial_credit * 100)|round(1) }}%</td>
+          {% endif %}
           <td class="num" data-val="{{ found.s.total_time }}">{{ found.s.total_time }}s</td>
             {% else %}
-          <td class="mono">-</td><td class="mono">-</td><td class="mono">-</td>
+          <td class="mono">-</td><td class="mono">-</td><td class="mono">-</td>{% if stats.any_multi_epoch %}<td class="mono">-</td>{% endif %}
             {% endif %}
           {% endfor %}
         </tr>
@@ -226,6 +326,18 @@
 
 {% block scripts %}
 <script>
+{% if stats.any_multi_epoch %}
+new Chart(document.getElementById('passAtKChart'), {
+  type: 'bar',
+  data: {{ stats.pass_at_k_chart|tojson }},
+  options: {
+    responsive: true,
+    scales: { y: { beginAtZero: true, max: 100, title: { display: true, text: '%' } } },
+    plugins: { legend: { position: 'bottom' } }
+  }
+});
+{% endif %}
+
 new Chart(document.getElementById('proveRateChart'), {
   type: 'bar',
   data: {{ stats.prove_rate_chart|tojson }},
