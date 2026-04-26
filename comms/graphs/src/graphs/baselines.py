@@ -36,6 +36,22 @@ _PALETTE = ["#5ba3cf", "#e07b54", "#7a7a7a", "#a67ac4", "#4db88c"]
 # ---------------------------------------------------------------------------
 
 
+_PRETTY_MODEL = {
+    "snt46": "Sonnet 4.6",
+    "gpt54": "GPT-5.4",
+    "gpt54mini": "GPT-5.4 mini",
+}
+
+
+def _pretty(label: str) -> str:
+    """Map an internal run label like `snt46_n-200_k-5` to `Sonnet 4.6`.
+
+    Falls back to the original label if no model code is recognized.
+    """
+    head = label.split("_", 1)[0]
+    return _PRETTY_MODEL.get(head, label)
+
+
 def _label_from_path(path: Path) -> str:
     """Build a display label from a symlink filename.
 
@@ -214,9 +230,14 @@ def _iter_models(
 def plot_prove_rate(model_data: dict[str, dict[str, Any]]) -> None:
     """Grouped bar: proved-ever rate by bucket and overall, per model.
 
-    For multi-epoch runs this equals pass@k (at least one epoch proved).
+    Restricted to the n=200, pass@5 runs so the headline number reflects
+    the full benchmark with multi-epoch coverage.
     """
-    models_list = _iter_models(model_data)
+    filtered = {m: d for m, d in model_data.items() if "n-200_k-5" in m}
+    if not filtered:
+        print("    skip baselines_prove_rate: no n-200_k-5 runs found")
+        return
+    models_list = _iter_models(filtered)
     buckets = ["easy", "hard", "overall"]
     x = np.arange(len(buckets))
     width = 0.8 / max(len(models_list), 1)
@@ -234,7 +255,7 @@ def plot_prove_rate(model_data: dict[str, dict[str, Any]]) -> None:
                 sum(s["any_proved"] for s in sub) / len(sub) * 100 if sub else 0
             )
 
-        label = f"{model}" + (f" (k={k})" if k > 1 else "")
+        label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
         offset = (i - (len(models_list) - 1) / 2) * width
         bars = ax.bar(x + offset, rates, width * 0.9, label=label, color=color)
         for bar, rate in zip(bars, rates):
@@ -270,7 +291,7 @@ def plot_partial_credit(model_data: dict[str, dict[str, Any]]) -> None:
                 if s["difficulty_bucket"] == bucket
             ]
             if sub:
-                label = f"{model}" + (f" (k={k})" if k > 1 else "")
+                label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
                 ax.hist(
                     sub,
                     bins=15,
@@ -401,7 +422,7 @@ def plot_sorry_removal(model_data: dict[str, dict[str, Any]]) -> None:
         )
         ax.set_xlabel("Sorries original")
         ax.set_ylabel("Sorries removed (best epoch)")
-        ax.set_title(f"{model}" + (f" (k={k})" if k > 1 else ""))
+        ax.set_title(f"{_pretty(model)}" + (f" (k={k})" if k > 1 else ""))
         ax.legend(fontsize=8)
 
     fig.suptitle("Sorry removal per sample", fontsize=13)
@@ -421,7 +442,7 @@ def plot_prove_rate_by_theorems(model_data: dict[str, dict[str, Any]]) -> None:
         xs = sorted(by_n)
         ys = [sum(by_n[x]) / len(by_n[x]) * 100 for x in xs]
         sizes = [len(by_n[x]) * 20 for x in xs]
-        label = f"{model}" + (f" (k={k})" if k > 1 else "")
+        label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
         ax.scatter(xs, ys, s=sizes, color=color, alpha=0.7, label=label)
 
     ax.set_xlabel("Number of theorems")
@@ -463,7 +484,7 @@ def plot_pass_at_k_curve(model_data: dict[str, dict[str, Any]]) -> None:
         xs_plot = [ki for ki in ks if ki <= k]
         ax.plot(
             xs_plot, ys, marker="o", color=color,
-            label=f"{model} (n_epochs={k})", linewidth=2, markersize=7,
+            label=f"{_pretty(model)} (n_epochs={k})", linewidth=2, markersize=7,
         )
         for ki, y in zip(xs_plot, ys):
             if ki in (1, k):
@@ -494,7 +515,7 @@ def plot_pass_at_k_curve(model_data: dict[str, dict[str, Any]]) -> None:
                 xs_plot, ys,
                 linestyle=linestyles[bucket], marker="o",
                 color=color, alpha=0.9,
-                label=f"{model} · {bucket}",
+                label=f"{_pretty(model)} · {bucket}",
                 linewidth=1.8, markersize=5,
             )
     ax.set_xticks(ks)
@@ -590,7 +611,7 @@ def plot_success_count_histogram(model_data: dict[str, dict[str, Any]]) -> None:
         )
         ax.set_xticks(range(k + 1))
         ax.set_xlabel(f"# epochs proved (0..{k})")
-        ax.set_title(f"{model} (k={k})")
+        ax.set_title(f"{_pretty(model)} (k={k})")
         ax.legend()
 
     axes[0][0].set_ylabel("# samples")
@@ -623,7 +644,7 @@ def plot_coverage_vs_k(model_data: dict[str, dict[str, Any]]) -> None:
         ys = [_pass_at_k_for_model(samples, ki) * 100 for ki in ks]
         ax.plot(
             ks, ys, marker="o", color=color,
-            label=f"{model} (k={k})", linewidth=2,
+            label=f"{_pretty(model)} (k={k})", linewidth=2,
         )
         # Marginal gain annotation
         if k >= 2:
@@ -690,7 +711,7 @@ def plot_sample_success_heatmap(model_data: dict[str, dict[str, Any]]) -> None:
         ax.set_yticklabels([f"ep{i + 1}" for i in range(k)])
         ax.set_xlabel("samples (sorted by proved_count ↓)")
         ax.set_title(
-            f"{model} — proved: "
+            f"{_pretty(model)} — proved: "
             f"{sum(s['any_proved'] for s in samples)}/{len(samples)} "
             f"(pass@{k}), consistent: "
             f"{sum(s['all_proved'] for s in samples)}/{len(samples)}"
@@ -728,7 +749,7 @@ def plot_pass_at_k_vs_compute(model_data: dict[str, dict[str, Any]]) -> None:
         ys = [_pass_at_k_for_model(samples, ki) * 100 for ki in ks]
         ax.plot(
             xs, ys, marker="o", color=color, linewidth=2,
-            label=f"{model} (k={k})",
+            label=f"{_pretty(model)} (k={k})",
         )
         for ki, x, y in zip(ks, xs, ys):
             if ki in (1, k):
