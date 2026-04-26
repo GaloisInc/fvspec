@@ -1,55 +1,135 @@
 \section{Pipeline}
-Our generation pipeline is modelled on FVAPPS \cite{dougherty2025proving}, but starts from real-world Hypothesis property-based tests (PBTs) rather than synthetic programming puzzles. For each sample, we (i) recover the Python function under test (FUT) and dependencies, (ii) translate the code to a computable Lean implementation, (iii) translate the PBTs into Lean theorems, and (iv) score and filter the resulting artifacts (Figure~\ref{fig:pipeline}).
+\Secl{pipeline}
+Our generation pipeline is modelled on FVAPPS \cite{dougherty2025proving}, but starts from real-world Hypothesis property-based tests (PBTs) rather than synthetic programming puzzles. As shown in Figure~\ref{fig:pipeline}, the pipeline has three phases: (i)~corpus building, which crawls the Hypothesis GitHub dependency graph, extracts PBTs via AST parsing, and deduplicates at the fork and code level; (ii)~per-sample formalization, which recovers the function under test and dependencies, translates them to computable Lean, and generates \texttt{sorry}-carrying theorem specifications via an iterative LSP repair loop; and (iii)~post-production, which merges, validates, deduplicates, enriches with structural-faithfulness metrics, and difficulty-grades the raw agent outputs.
+
+\subsection{Input PBT corpus}
+Source PBTs are drawn from our RealPBT dataset (citation omitted for double-blind review); \Secr{dataset} describes how the corpus was scraped, fork-deduplicated, and cleaned in detail. The working set after deduplication is 11,039 PBTs across 333 repositories.
 
 \begin{figure}[t]
   \centering
   \resizebox{\linewidth}{!}{%
   \begin{tikzpicture}[
-    font=\footnotesize,
-    node distance=6mm and 12mm,
+    font=\small,
+    node distance=3.5mm and 22mm,
     box/.style={
-      draw,
-      rounded corners=2pt,
-      align=center,
-      inner sep=4pt,
-      line width=0.4pt
+      draw=black!30, rounded corners=2pt, fill=white,
+      line width=0.4pt, align=center, inner sep=4pt,
+      text width=34mm, minimum height=9mm
     },
-    wide/.style={box, minimum width=0.92\linewidth},
-    half/.style={box, minimum width=0.45\linewidth},
-    arr/.style={-Latex, line width=0.5pt}
+    repbox/.style={
+      draw=orange!65, rounded corners=2pt, fill=orange!18,
+      line width=0.7pt, align=center, inner sep=4pt,
+      text width=34mm, minimum height=9mm
+    },
+    hdr/.style={font=\small\bfseries, align=center},
+    arr/.style={-Latex, line width=0.5pt, draw=black!45},
+    parr/.style={-Latex, line width=2.5pt, draw=black!60},
+    phase/.style={rounded corners=5pt, inner sep=4mm, line width=0.6pt},
   ]
-    \node[wide] (realpbt) {RealPBT sample (\TODO cite; dataset size)};
-    \node[wide, below=of realpbt] (discover) {Function discovery (tree-sitter): FUT + dependencies};
-    \node[wide, below=of discover] (impl) {Implementation agent: computable Lean (no \texttt{sorry})\\\texttt{Impl.lean} + extracted type signatures};
 
-    \node[half, below left=10mm and 0mm of impl] (spec)
-      {Specification agent: Hypothesis $\rightarrow$ Lean theorems\\\texttt{Spec.lean} (proofs as \texttt{sorry})};
-    \node[half, below right=10mm and 0mm of impl] (units)
-      {Units agent: Python unit tests $\rightarrow$ Lean/LSpec checks\\(\TODO data source)};
+  %%--- COLUMN 1: CORPUS BUILDING ---%%
+  \node[hdr, text=blue!60!black] (h1) {Corpus Building};
 
-    \node[wide, below=12mm of spec] (post) {Postproduction: deduplicate; strip problematic \texttt{\#eval}; \texttt{lake build}};
-    \node[wide, below=of post] (score) {Scoring/filtering: structural faithfulness + difficulty judge (\TODO model)};
+  \node[box, below=8mm of h1] (c1a)
+    {GitHub dep-graph crawl\\[2pt]{\scriptsize\color{black!55}19,808 candidate repos}};
+  \node[box, below=of c1a] (c1b)
+    {Shallow clone\\+ ripgrep \texttt{@given}};
+  \node[box, below=of c1b] (c1c)
+    {Python AST parse\\extract PBTs + deps};
+  \node[box, below=of c1c] (c1d)
+    {License filter\\[2pt]{\scriptsize\color{black!55}MIT · Apache · BSD · ISC}};
+  \node[box, below=of c1d] (c1e)
+    {Fork deduplication\\[2pt]{\scriptsize\color{black!55}SHA-256}};
 
-    \draw[arr] (realpbt) -- (discover);
-    \draw[arr] (discover) -- node[right, align=left] {\scriptsize success: \TODO\%\\ \scriptsize failure: stub FUT} (impl);
-    \draw[arr] (impl) -- (spec);
-    \draw[arr] (impl) -- (units);
-    \draw[arr] (spec) -- (post);
-    \draw[arr] (units) -- (post);
-    \draw[arr] (post) -- (score);
+  \node[draw=blue!50!black, fill=blue!12, rounded corners=3pt, line width=0.8pt,
+        align=center, inner sep=5pt, text width=34mm, below=5mm of c1e] (out1)
+    {\textbf{\color{blue!55!black}11,039 PBTs}\\
+     {\scriptsize 333 repos · 281 users}};
 
-    \node[draw, dashed, rounded corners=2pt, inner sep=5pt, fit=(impl) (spec) (units)] (loopbox) {};
-    \node[
-      fill=white,
-      inner sep=2pt,
-      font=\scriptsize,
-      align=center,
-      text width=0.85\textwidth
-    ] at ($(loopbox.north)+(0,3.5mm)$)
-      {Iterative repair: compile via Lean LSP (MCP), feed diagnostics back, retry until typechecks or budget};
+  \foreach \a/\b in {c1a/c1b, c1b/c1c, c1c/c1d, c1d/c1e, c1e/out1}
+    \draw[arr] (\a) -- (\b);
+
+  \begin{scope}[on background layer]
+    \node[phase, draw=blue!30, fill=blue!5,
+          fit=(h1)(c1a)(c1b)(c1c)(c1d)(c1e)(out1)] (ph1) {};
+  \end{scope}
+
+  %%--- COLUMN 2: FORMALIZATION ---%%
+  \node[hdr, text=orange!65!black] (h2) at ($(h1)+(78mm,0)$)
+    {Per-sample Formalization};
+
+  \node[box, below=8mm of h2] (c2a)
+    {Function discovery\\[2pt]{\scriptsize\color{black!55}tree-sitter: FUT + local deps}};
+  \node[box, below=of c2a] (c2b)
+    {Implementation agent\\[2pt]{\scriptsize\color{black!55}Impl.lean (no \texttt{sorry})}};
+  \node[box, below=of c2b] (c2c)
+    {Specification agent\\[2pt]{\scriptsize\color{black!55}Spec.lean (\texttt{sorry} proofs)}};
+  \node[repbox, below=of c2c] (c2d)
+    {Lean LSP repair loop\\[2pt]{\scriptsize\color{black!55}MCP~·~\texttt{lake build}~·~retry budget}};
+
+  \node[draw=orange!55!black, fill=orange!12, rounded corners=3pt, line width=0.8pt,
+        align=center, inner sep=5pt, text width=34mm, below=5mm of c2d] (out2)
+    {\textbf{\color{orange!60!black}formalized artifact}\\
+     {\scriptsize per PBT, per run}};
+
+  \foreach \a/\b in {c2a/c2b, c2b/c2c, c2c/c2d, c2d/out2}
+    \draw[arr] (\a) -- (\b);
+
+  %% Repair back-edge: tight right-side loop from repair box back to impl agent
+  \draw[-Latex, line width=1.2pt, draw=orange!80, dashed]
+    (c2d.east) to[out=0,in=0,looseness=1.1] (c2b.east);
+
+  \begin{scope}[on background layer]
+    \node[phase, draw=orange!35, fill=orange!5,
+          fit=(h2)(c2a)(c2b)(c2c)(c2d)(out2)] (ph2) {};
+  \end{scope}
+
+  %%--- COLUMN 3: POST-PRODUCTION ---%%
+  \node[hdr, text=green!55!black] (h3) at ($(h1)+(156mm,0)$)
+    {Post-production};
+
+  \node[box, below=8mm of h3] (c3a)
+    {Merge runs\\[2pt]{\scriptsize\color{black!55}best formalization per PBT}};
+  \node[box, below=of c3a] (c3b)
+    {Validate: \texttt{lake build}\\[2pt]{\scriptsize\color{black!55}drop failures}};
+  \node[box, below=of c3b] (c3c)
+    {Unify schema + dedup\\[2pt]{\scriptsize\color{black!55}SHA-256 code hash}};
+  \node[box, below=of c3c] (c3d)
+    {Enrich: structural\\faithfulness metrics};
+  \node[box, below=of c3d] (c3e)
+    {Difficulty grade\\[2pt]{\scriptsize\color{black!55}Claude Haiku (easy / hard)}};
+
+  \node[draw=green!50!black, fill=green!12, rounded corners=3pt, line width=0.8pt,
+        align=center, inner sep=5pt, text width=34mm, below=5mm of c3e] (out3)
+    {\textbf{\color{green!50!black}9,415 benchmark samples}\\
+     {\scriptsize\ttfamily quinn-dougherty/fvspec}};
+
+  \foreach \a/\b in {c3a/c3b, c3b/c3c, c3c/c3d, c3d/c3e, c3e/out3}
+    \draw[arr] (\a) -- (\b);
+
+  \begin{scope}[on background layer]
+    \node[phase, draw=green!30, fill=green!5,
+          fit=(h3)(c3a)(c3b)(c3c)(c3d)(c3e)(out3)] (ph3) {};
+  \end{scope}
+
+  %%--- INTER-PHASE ARROWS ---%%
+  \draw[parr] (ph1.east) -- (ph2.west);
+  \draw[parr] (ph2.east) -- (ph3.west);
+
   \end{tikzpicture}
   }%
-  \caption{\FVSpec pipeline: discover FUT+deps, translate to computable Lean, generate specs, repair via Lean LSP, then postprocess and score.}
+  \caption{\FVSpec end-to-end pipeline.
+    \emph{Left}: the RealPBT corpus is assembled by crawling the Hypothesis
+    GitHub dependency graph, cloning repositories, extracting
+    \texttt{@given}-decorated PBTs via AST parsing, and deduplicating at
+    both the fork and code level.
+    \emph{Centre}: each PBT is formalized by an LLM agent producing a
+    computable Lean implementation (\texttt{Impl.lean}) and a
+    theorem specification (\texttt{Spec.lean}); the dashed loop indicates
+    iterative repair against the Lean LSP until the artifact compiles or
+    the retry budget is exhausted.
+    \emph{Right}: raw outputs are merged, compiled, deduplicated, enriched
+    with structural-faithfulness metrics, and difficulty-graded.}
   \label{fig:pipeline}
 \end{figure}
 
@@ -69,9 +149,46 @@ Next, the specification agent and units agent run in parallel. The specification
 All agents operate in an iterative repair loop. At each step, we check the generated Lean code against the compiler via the Lean LSP (accessed through an MCP tool server). If the code does not typecheck, we feed the compiler diagnostics back to the agent and prompt for a revised translation. This loop continues until the code typechecks or a retry budget is exhausted. We validate final compilation with a full \texttt{lake build}.
 
 \subsection{Cleanup and quality evaluation}
-We apply postproduction passes to remove known failure modes (e.g., stray \texttt{\#eval} fragments that can pass in isolation but break a project build) and to merge/deduplicate translated dependencies across files.
+\label{sec:pipeline-postprod}
+After the formalization agent produces Lean artifacts, a multi-stage post-production pipeline processes the raw run outputs into a final curated dataset.
+The stages are: merge $\to$ validate $\to$ unify $\to$ dedup $\to$ enrich $\to$ grade $\to$ metrics.
+Each stage is an independent CLI command (\texttt{uv run postprod <stage>}) and the full pipeline state is checkpointed so it can be resumed after interruption.
+
+\paragraph{Merge.}
+Multiple independent benchmark runs (identified by timestamped run directories) are merged into a single JSONL file.
+Each sample directory contains \texttt{datapoint.json} (source PBT metadata), \texttt{qa.json} (agent outputs and metrics), and \texttt{Spec.lean}/\texttt{Impl.lean} (generated Lean artifacts).
+When the same \texttt{sample\_id} appears in multiple runs, the merge step keeps the highest-quality copy, scored by: (1)~success flag, (2)~overall structural faithfulness, (3)~theorem count, (4)~presence of unit tests, (5)~implementation autoformalization success, (6)~specification signature success.
+Git commit hash, model, run timestamp, and Lean toolchain version are recorded as provenance fields.
+
+\paragraph{Validate.}
+Because an agent can produce code that typechecks in isolation but fails under a full project build, we validate compiled samples by instantiating each \texttt{Spec.lean}/\texttt{Impl.lean} pair into a \texttt{lake build} project and running the Lean compiler.
+Validation runs up to 400 samples by default (yielding $\pm$5\% accuracy at 95\% CI) or all samples with \texttt{--all}.
+Only samples that pass \texttt{lake build} are retained in the dataset; failures are logged but dropped.
+
+\paragraph{Unify.}
+Our dataset was produced in two pipeline generations (\emph{feb03} and \emph{apr08}) with schema drift between them.
+The unify step resolves these differences: it renames \texttt{radon} $\to$ \texttt{realpbt\_radon}, backfills the structured \texttt{dependencies} list from feb03's legacy parallel JSON-stringified arrays (filling \texttt{null} for fields not captured in that schema), drops 100\%-null dead fields (\texttt{lean\_metrics.tests\_structure}, \texttt{lean\_metrics.tests\_complexity}, \texttt{metrics\_metadata.tests\_available}), and reassigns fresh monotone \texttt{sample\_id}s 1..N with feb03 rows first.
+Each row carries a \texttt{run} tag indicating its source generation.
+
+\paragraph{Code-level deduplication.}
+The same PBT may have been formalized in multiple runs (e.g., because sampling overlap exists between run index ranges, or because a PBT appeared in both feb03 and apr08).
+This step groups samples by SHA-256 of \texttt{realpbt\_code} and keeps the single best representative per group (using the same quality scoring as the merge step), separately tracking cross-run vs.~within-run duplicates for audit.
+
+\paragraph{Enrich.}
+Every sample is annotated with:
+\texttt{code\_hash} (SHA-256 of \texttt{realpbt\_code}),
+\texttt{is\_canonical} (whether it is the best formalization of its PBT),
+\texttt{formalization\_rank} (1-based rank within the group, 1 = canonical),
+\texttt{num\_formalizations} (how many runs produced a formalization of this PBT), and
+\texttt{pareto\_dominated} (whether a strictly better sample exists on all five structural faithfulness sub-metrics: parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage).
+Stale v1 grader fields with inconsistent coverage are also stripped here, and columns are reordered for clean HuggingFace presentation.
+
+\paragraph{Difficulty grading.}
+Each sample is scored for formalization difficulty by Claude Haiku, producing a binary easy/hard label (\texttt{difficulty\_binary}) with a calibrated confidence score and a brief reasoning trace.
+The grader uses a structured prompt including the PBT source code, the generated Lean spec, and contextual information about the formalization strategy.
+Grading is resumable: a checkpoint file accumulates completed grades so a killed run restarts where it left off.
+
+\paragraph{Lean metrics.}
+A final metrics pass runs radon on the Python source and a custom Lean AST analyzer on \texttt{Spec.lean}/\texttt{Impl.lean} to populate \texttt{lean\_metrics} (total lines, sorry count, axiom count, spec structure and complexity fields including Halstead volume and difficulty, theorem/def counts).
 
 The resulting specification/implementation pairs are then scored and filtered. We compute \emph{structural faithfulness} programmatically by comparing the generated Lean artifacts to the source PBTs. The metric decomposes into sub-scores for parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage, producing an overall score (\TODO define weights; add exact formula). We also assign a \emph{difficulty} rating using an LLM judge (\TODO specify model and prompt), intended to approximate the proof effort required on a 1--10 scale.
-
-\subsection{Input PBT corpus}
-Source PBTs are drawn from the \texttt{Benchify/realpbt} dataset~\cite{benchify2024realpbt}; Section~\ref{sec:dataset} describes how the corpus was scraped, fork-deduplicated, and cleaned in detail. The working set after deduplication is 11,039 PBTs across 333 repositories.
