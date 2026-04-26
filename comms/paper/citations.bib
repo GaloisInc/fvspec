@@ -73,17 +73,6 @@
   month={March},
   year={2026}}
 
-@article{de2025lessons,
-  title={Lessons for interactive theorem proving researchers from a survey of Coq users},
-  author={de Almeida Borges, Ana and Casanueva Art{\'\i}s, Annal{\'\i} and Falleri, Jean-R{\'e}my and Gallego Arias, Emilio Jes{\'u}s and Martin-Dorel, {\'E}rik and Palmskog, Karl and Serebrenik, Alexander and Zimmermann, Th{\'e}o},
-  journal={Journal of Automated Reasoning},
-  volume={69},
-  number={1},
-  pages={8},
-  year={2025},
-  publisher={Springer}
-}
-
 @inproceedings{klein2009sel4,
   title={seL4: Formal verification of an OS kernel},
   author={Klein, Gerwin and Elphinstone, Kevin and Heiser, Gernot and Andronick, June and Cock, David and Derrin, Philip and Elkaduwe, Dhammika and Engelhardt, Kai and Kolanski, Rafal and Norrish, Michael and others},
@@ -101,11 +90,45 @@
 
 @misc{sfo2,
   howpublished={\url{https://foresight.org/resource/evan-miyazono-formally-scalable-ai-oversight-through-specifications/}},
-  title={Formally Scalable AI Oversight Through Specifications},
+  title={Formally Scalable {AI} Oversight Through Specifications},
   year={2024},
   author={Evan Miyazono},
   publisher={Foresight Institute},
   note={Accessed 25 April 2026}}
+
+@misc{miyazono2026slopless,
+  author       = {Evan Miyazono},
+  title        = {Lies, Damned Lies, and Proofs: Formal Methods are not Slopless},
+  howpublished = {\url{https://www.lesswrong.com/posts/rhAPh3YzhPoBNpgHg/lies-damned-lies-and-proofs-formal-methods-are-not-slopless}},
+  publisher    = {LessWrong},
+  year         = {2026},
+  month        = jan,
+  note         = {Accessed 26 April 2026}
+}
+
+@misc{gopinathan2026leanbug,
+  author       = {Kiran Gopinathan},
+  title        = {Lean Proved This Program Was Correct; Then {I} Found a Bug},
+  howpublished = {\url{https://kirancodes.me/posts/log-who-watches-the-watchers.html}},
+  year         = {2026},
+  month        = apr,
+  day          = {13},
+  note         = {Blog post; reports a heap buffer overflow in
+                  \texttt{lean\_alloc\_sarray} in the {Lean} 4 runtime,
+                  found by AFL++ fuzzing of the verified
+                  \texttt{lean-zip} library. Accessed 26 April 2026.}
+}
+
+@misc{leancomparator2026,
+  author       = {{Lean FRO}},
+  title        = {{Comparator}: A Trustworthy Judge for {Lean} Proofs},
+  howpublished = {\url{https://github.com/leanprover/comparator}},
+  year         = {2026},
+  note         = {Sandboxes the build and replays proof terms,
+                  optionally cross-checking against an
+                  independently-implemented {Rust} kernel
+                  (\texttt{nanoda}). Accessed 26 April 2026.}
+}
 
 @misc{safeguardedAI,
   howpublished={\url{https://aria.org.uk/opportunity-spaces/mathematics-for-safe-ai/safeguarded-ai/}},
@@ -153,6 +176,17 @@
   archiveprefix = {arXiv},
 }
 
+@article{dillinger2007acl2s,
+  title={ACL2s:“The ACL2 Sedan”},
+  author={Dillinger, Peter C and Manolios, Panagiotis and Vroon, Daron and Moore, J Strother},
+  journal={Electronic Notes in Theoretical Computer Science},
+  volume={174},
+  number={2},
+  pages={3--18},
+  year={2007},
+  publisher={Elsevier}
+}
+
 @inproceedings{bansal2019holist,
   title={Holist: An environment for machine learning of higher order logic theorem proving},
   author={Bansal, Kshitij and Loos, Sarah and Rabe, Markus and Szegedy, Christian and Wilcox, Stewart},
@@ -184,7 +218,7 @@
 }
 
 @article{zhang2025lean,
-  title={Lean Meets Theoretical Computer Science: Scalable Synthesis of Theorem Proving Challenges in Formal-Informal Pairs},
+  title={{L}ean Meets Theoretical Computer Science: Scalable Synthesis of Theorem Proving Challenges in Formal-Informal Pairs},
   author={Zhang, Terry Jingchen and Jiang, Wenyuan and Liu, Rongchuan and Wang, Yisong and Yang, Junran and Wang, Ning and Ni, Nicole and Huang, Yinya and Sachan, Mrinmaya},
   journal={arXiv preprint arXiv:2508.15878},
   year={2025}
@@ -236,13 +270,14 @@
 }
 
 @inproceedings{barkallah2025veribench,
-  title={VeriBench-FTP: A Formal Theorem Proving Benchmark in Lean 4 for Code Verification},
+  title={{VeriBench-FTP}: A Formal Theorem Proving Benchmark in {L}ean 4 for Code Verification},
   author={Barkallah, Slim and Daruru, Srivatsava and Miranda, Brando and Aniva, Leni and Nie, Allen and Koyejo, Sanmi},
-  booktitle={The 5th Workshop on Mathematical Reasoning and AI at NeurIPS 2025}
+  booktitle={The 5th Workshop on Mathematical Reasoning and {AI} at {NeurIPS} 2025},
+  year={2025}
 }
 
 @article{jiang2025fate,
-  title   = {FATE: A Formal Benchmark Series for Frontier Algebra of Multiple Difficulty Levels},
+  title   = {{FATE}: A Formal Benchmark Series for Frontier Algebra of Multiple Difficulty Levels},
   author  = {Jiang, Jiedong and He, Wanyi and Wang, Yuefeng and Gao, Guoxiong and Hu, Yongle
              and Wang, Jingting and Guan, Nailing and Wu, Peihao and Dai, Chunbo and Xiao, Liang
              and Dong, Bin},
@@ -268,7 +303,7 @@
 
 @article{leangeo,
   title={{LeanGeo}: Formalizing computational geometry problems in {L}ean},
-  author={Chendong Song, Zihan Wang, Frederick Pu, Haiming Wang, Xiaohan Lin, Junqi Liu, Jia Li, Zhengying Liu},
+  author={Song, Chendong and Wang, Zihan and Pu, Frederick and Wang, Haiming and Lin, Xiaohan and Liu, Junqi and Li, Jia and Liu, Zhengying},
   journal={arXiv preprint arXiv:2508.14644v1},
   year={2025}}
 
@@ -287,7 +322,7 @@
 }
 
 @article{wu2024lean,
-  title={Lean-github: Compiling github lean repositories for a versatile lean prover},
+  title={{Lean-github}: Compiling github lean repositories for a versatile {L}ean prover},
   author={Wu, Zijian and Wang, Jiayu and Lin, Dahua and Chen, Kai},
   journal={arXiv preprint arXiv:2407.17227},
   year={2024}
@@ -301,7 +336,7 @@
 }
 
 @article{ying2024lean,
-  title={Lean workbook: A large-scale lean problem set formalized from natural language math problems},
+  title={{L}ean workbook: A large-scale lean problem set formalized from natural language math problems},
   author={Ying, Huaiyuan and Wu, Zijian and Geng, Yihan and Wang, Jiayu and Lin, Dahua and Chen, Kai},
   journal={Advances in Neural Information Processing Systems},
   volume={37},
@@ -325,9 +360,9 @@
 }
 
 @inproceedings{hsiang2025leandojo,
-  title={LeanDojo-v2: A Comprehensive Library for AI-Assisted Theorem Proving in Lean},
+  title={{LeanDojo-v2}: A Comprehensive Library for {AI}-Assisted Theorem Proving in {L}ean},
   author={Hsiang, Ryan and Adkisson, William and George, Robert Joseph and Anandkumar, Anima},
-  booktitle={The 5th Workshop on Mathematical Reasoning and AI at NeurIPS 2025}
+  booktitle={The 5th Workshop on Mathematical Reasoning and {AI} at {NeurIPS} 2025}
 }
 
 @article{tsoukalas2024putnambench,
@@ -382,15 +417,6 @@
   archiveprefix = {arXiv},
 }
 
-@article{materzok2025clever,
-  author    = {Materzok, Marek and Szulc, Wojciech and Tabi{\'s}, Mateusz and Kozak, Jan and Piotrowski, Bartosz},
-  title     = {{CLEVER}: A Benchmark for Closed-Loop End-to-End Formally Verified Code Generation},
-  journal   = {arXiv preprint arXiv:2505.13938},
-  year      = {2025},
-  eprint    = {2505.13938},
-  archiveprefix = {arXiv},
-}
-
 @article{wu2025verina,
   author    = {Wu, Wen-Ding and Wang, Kangjing and Mangal, Ranjit and Dillig, Isil},
   title     = {Verina: Benchmarking Formally Verified Code Generation},
@@ -406,16 +432,6 @@
   booktitle = {AI4Math Workshop at ICML},
   year      = {2025},
   url       = {https://openreview.net/forum?id=rWkGFmnSNl},
-}
-
-@misc{bursuc2025benchmarkvericodingformallyverified,
-      title={A benchmark for vericoding: formally verified program synthesis}, 
-      author={Sergiu Bursuc and Theodore Ehrenborg and Shaowei Lin and Lacramioara Astefanoaei and Ionel Emilian Chiosa and Jure Kukovec and Alok Singh and Oliver Butterley and Adem Bizid and Quinn Dougherty and Miranda Zhao and Max Tan and Max Tegmark},
-      year={2025},
-      eprint={2509.22908},
-      archivePrefix={arXiv},
-      primaryClass={cs.SE},
-      url={https://arxiv.org/abs/2509.22908}, 
 }
 
 @article{ma2025veriequivbench,
@@ -452,24 +468,7 @@
   archiveprefix = {arXiv},
 }
 
-@article{yang2024leandojo,
-  author    = {Yang, Kaiyu and Swope, Aidan and Gu, Alex and Chalapathy, Rahul and Song, Peiyang and Lember, Shixing and Thomson, Andrew and Anandkumar, Anima},
-  title     = {{LeanDojo}: Theorem Proving with Retrieval-Augmented Language Models},
-  journal   = {Advances in Neural Information Processing Systems (NeurIPS)},
-  year      = {2024},
-  eprint    = {2306.15626},
-  archiveprefix = {arXiv},
-}
 
-@misc{thompson2025rangoadaptiveretrievalaugmentedproving,
-      title={Rango: Adaptive Retrieval-Augmented Proving for Automated Software Verification}, 
-      author={Kyle Thompson and Nuno Saavedra and Pedro Carrott and Kevin Fisher and Alex Sanchez-Stern and Yuriy Brun and João F. Ferreira and Sorin Lerner and Emily First},
-      year={2025},
-      eprint={2412.14063},
-      archivePrefix={arXiv},
-      primaryClass={cs.SE},
-      url={https://arxiv.org/abs/2412.14063}, 
-}
 
 @article{maciver2019hypothesis,
   author    = {MacIver, David R. and Hatfield-Dodds, Zac and {many other contributors}},
@@ -483,7 +482,7 @@
 }
 
 @misc{verisoftbench2026,
-      title={VeriSoftBench: Repository-Scale Formal Verification Benchmarks for Lean}, 
+      title={{VeriSoftBench}: Repository-Scale Formal Verification Benchmarks for {L}ean}, 
       author={Utopia Group},
       year={2026},
       eprint={2602.18307},

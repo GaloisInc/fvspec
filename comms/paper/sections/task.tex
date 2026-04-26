@@ -1,67 +1,122 @@
 \section{Task Definition}
 \Secl{task}
 
-Each problem in the \FVSpec benchmark consists of three components: (1) the original Python property-based test, (2) a Lean theorem corresponding to the PBT, with a sorry placeholder where the proof should go, and (3) a Lean implementation of the functions referenced in the theorem. The AI's task is to complete the proof by replacing sorry with a valid Lean proof term. Each problem also includes a URL pointing to the original source code and license information.
+Each problem in the \FVSpec benchmark consists of four components: (1) the original Python implementation of the function under test, (2) the original Python PBT exercising that implementation, (3) a Lean implementation of the same function---a fully defined, computable definition, no \texttt{sorry}---and (4) a Lean theorem corresponding to the PBT, with a \texttt{sorry} placeholder where the proof should go. The AI's task is to fill in every theorem \texttt{sorry} with a Lean proof term that compiles cleanly under \texttt{lake build}; submissions are then scored by whether the proof retains any \texttt{sorry}, \texttt{admit}, or axioms beyond Mathlib's defaults. The Lean kernel is the sole arbiter---we perform no separate semantic comparison against the original Python. Each problem also includes a URL pointing to the original source code and license information.
 
-\subsection{Running Example}
+As a running example, consider \texttt{isort(lst)}. Figure~\ref{fig:running-example}
+shows all four artifacts of a single \FVSpec problem. The left column holds
+the original Python implementation (top) and the PBT exercising it
+(bottom); the right column holds the corresponding \texttt{Impl.lean}
+(top), a complete Lean port of the function, and \texttt{Spec.lean}
+(bottom), containing two theorems---one for sortedness, one for permutation---
+each with their own \texttt{sorry}. The AI's task is to discharge both
+Lean \texttt{sorry} placeholders.
 
-Consider a Hypothesis test asserting the Pythagorean trigonometric identity
-$\sin^2(x) + \cos^2(x) = 1$, for a trigonometric library \texttt{trg}:
+\begin{lrbox}{\fvspecPyImplBox}%
+\begin{minipage}{0.40\linewidth}
+{\small\sffamily\textbf{Python: implementation of \texttt{isort}}}\par\smallskip
 \begin{lstlisting}[style=code, language=Python]
-from hypothesis import given, strategies
+from bisect import insort
 
-@given(x=strategies.floats(
-    min_value=-sys.float_info.max / 4,
-    max_value=sys.float_info.max / 4,
-    allow_infinity=False))
-def test_property(x):
-    assert trg.sine(x) ** 2 + trg.cosine(x) ** 2 == pytest.approx(1)
+def isort(lst):
+    out = []
+    for x in lst: insort(out, x)
+    return out
 \end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
 
-Our pipeline translates this into a Lean implementation:
+\begin{lrbox}{\fvspecImplBox}%
+\begin{minipage}{0.40\linewidth}
+{\small\sffamily\textbf{Lean: \texttt{Impl.lean}}}\par\smallskip
 \begin{lstlisting}[style=code, language=Lean]
 namespace Fvspec.Impl
 
-def to_radians (degrees : Float) : Float :=
-  degrees * Float.pi / 180.0
+def insert (x : Int) : List Int -> List Int
+  | []      => [x]
+  | y :: ys => if x <= y then x :: y :: ys
+               else y :: insert x ys
 
-def sine (theta : Float) : Float :=
-  Float.sin (to_radians theta)
+def isort : List Int -> List Int
+  | []      => []
+  | x :: xs => insert x (isort xs)
 
 end Fvspec.Impl
 \end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
 
-And a corresponding Lean specification:
+\begin{lrbox}{\fvspecPyPbtBox}%
+\begin{minipage}{0.40\linewidth}
+{\small\sffamily\textbf{Python: Hypothesis PBT}}\par\smallskip
+\begin{lstlisting}[style=code, language=Python]
+from hypothesis import given
+import hypothesis.strategies as st
+
+@given(st.lists(st.integers()))
+def test_isort(lst):
+    out = isort(lst)
+    assert out == sorted(out)
+    assert sorted(out) == sorted(lst)
+\end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
+
+\begin{lrbox}{\fvspecSpecBox}%
+\begin{minipage}{0.40\linewidth}
+{\small\sffamily\textbf{Lean: \texttt{Spec.lean}}}\par\smallskip
 \begin{lstlisting}[style=code, language=Lean]
 import Fvspec.Impl
 open Fvspec.Impl
 
-def cosine (theta : Float) : Float := sorry
+theorem isort_sorted (l : List Int) :
+  (isort l).Sorted LE.le := sorry
 
-theorem sine_cosine_pythagorean (x : Float) :
-  (sine x) * (sine x) + (cosine x) * (cosine x) = 1 := sorry
+theorem isort_perm (l : List Int) :
+  (isort l).Perm l := sorry
 \end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
 
-The AI must fill in both \texttt{sorry} placeholders with valid Lean proof terms.
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, inner sep=4pt, fill=gray!5},
+  arr/.style={-{Latex[length=2.5mm]}, thick, gray!50!black}
+]
+  % Top row: Python impl -> Lean impl, aligned along their bottom edges
+  \node[box, anchor=south east] (pyimpl)
+       at (-0.7cm, 0.35cm) {\usebox{\fvspecPyImplBox}};
+  \node[box, anchor=south west] (limpl)
+       at ( 0.7cm, 0.35cm) {\usebox{\fvspecImplBox}};
+  % Bottom row: Python PBT -> Lean theorem, aligned along their top edges
+  \node[box, anchor=north east] (pypbt)
+       at (-0.7cm,-0.35cm) {\usebox{\fvspecPyPbtBox}};
+  \node[box, anchor=north west] (lspec)
+       at ( 0.7cm,-0.35cm) {\usebox{\fvspecSpecBox}};
+  % Horizontal arrows on each row
+  \draw[arr] (pyimpl.east) -- (limpl.west);
+  \draw[arr] (pypbt.east)  -- (lspec.west);
+\end{tikzpicture}
+\caption{The four artifacts of a single \FVSpec problem. Top: the Python
+implementation of \texttt{isort} and its complete Lean port. Bottom: the
+Hypothesis PBT and the corresponding Lean theorems. The AI must replace
+both Lean \texttt{sorry} placeholders---one per theorem.}
+\label{fig:running-example}
+\end{figure}
 
-\TODO -- Explain how we do not faithfully translate the original \texttt{trg} library into Lean, with all dependencies and so forth, rather, we utilize Lean's built-in \texttt{sine} and \texttt{cosine} functions. This is representative of our general attitude which is that our primary goal is to produce equally interesting, realistic problems to benchmark AI on, while actually proving properties about this real-world software to help these specific code authors is just a secondary goal.
+We encounter two practical issues when translating Python PBTs into Lean implementations and (unproven) specficiations.
 
+\paragraph{Nonsensical theorems.} Our pipeline can emit well-formed but useless statements in three ways.
 
+\emph{(i) Trivial Unit-typed conjectures.} When the formalization agent cannot recover a function's true return type, it falls back on \texttt{Unit} as a placeholder. The resulting theorem is a tautology---e.g.\ for our running example, \texttt{theorem isort\_check : isort lst = () := by plausible}, which holds for any total function into \texttt{Unit} and so carries no verification value.
 
-\subsection{PBT vs. Proof}
-In PBT, a property is checked by randomly generating inputs and testing them---the process is push-button but provides only statistical confidence. In FV, the property is proved using computer-aided symbolic logic, providing near-perfect confidence but requiring proof engineering.
+\emph{(ii) Ill-typed or unresolved-symbol theorems.} The formalization agent works from the Python source and writes Lean by analogy. When it invents a Lean name that does not exist---for instance, writing \texttt{theorem isort\_perm (l : List Int) : (isort l).permutationOf l := sorry}, where \texttt{permutationOf} is not a member of \texttt{List} (the correct name is \texttt{List.Perm})---or attaches a type signature inconsistent with the surrounding code, the Lean elaborator rejects the file with errors like \emph{unknown identifier}, \emph{type mismatch}, \emph{function expected}, or \emph{failed to synthesize}.
 
-Translating a PBT into a formal specification thus involves a shift from input/output testing to proofs over the structure of the program. Our pipeline filters nonsensical theorems, but any discrepancies that remain will not affect the usefulness of the dataset. Because the Lean theorem prover provides a 'perfect' oracle, every theorem we generate is a useful challenge problem, even if it differs from the original PBT. In fact, some PBTs in our input dataset will be naturally false due to undetected edge cases.
+\emph{(iii) Spec theorems leaking into \texttt{Impl.lean}.} Our pipeline runs two separate agents: one writes \texttt{Impl.lean} (definitions only), the other writes \texttt{Spec.lean} (theorems only). The implementation agent is explicitly instructed to emit no theorems, but occasionally---when shown the \texttt{isort} source---it pre-empts the spec agent by hallucinating a \texttt{namespace Fvspec.Spec\,\dots\,theorem isort\_sorted\,\dots\,end Fvspec.Spec} block inside \texttt{Impl.lean}, which violates our file split and would silently expand the proof obligation if left in.
 
-\TODO - Explain what we mean by nonsensical theorems.
+We catch (i) by regex (\texttt{detect\_trivial\_unit\_theorems} in \texttt{lean\_parsing.py}), drop (ii) at compile time (\texttt{validate/compiler.py}), and strip (iii) with a namespace-aware filter (\texttt{impl/lean\_merger.py}). A theorem that survives all three filters is a useful challenge problem even if it has drifted from the original PBT---because Lean checks proofs against \emph{the theorem we generated}, not the informal property.
 
-\TODO - Explain to what degree Lean can be viewed as a perfect oracle.
+\paragraph{Lean as a (nearly) perfect oracle.} The Lean kernel arbitrates correctness, which is qualitatively much stronger than statistical sampling. It is not, however, adversarially perfect: an AI can satisfy the kernel by \emph{changing the question}---adding the Axiom of Choice, weakening hypotheses, or exploiting a security vulnerability in Lean itself~\cite{gopinathan2026leanbug}---and the proof will still type-check~\cite{miyazono2026slopless}. To make gaming visible, every submission is scored on two axes: a binary \emph{proved} flag (the file compiles under \texttt{lake build} \emph{and} every original \texttt{sorry} has been discharged) and partial credit (fraction of original sorrys discharged). We additionally record any axiom dependencies the proof introduces, since an AI can trivialize a goal by quietly importing strong axioms; we do not currently auto-fail on extra axioms, but report them so reviewers can flag suspicious solutions. For higher-stakes evaluations, submissions can additionally be re-checked through \texttt{leanprover/comparator}~\cite{leancomparator2026}, which sandboxes the build and cross-validates the proof term against an independently-implemented Rust kernel (\texttt{nanoda})---we do not require this today, but it is available if a future use case demands a stronger trust story. A sufficiently motivated AI can still smuggle a vacuous proof past us when the original theorem statement is itself too weak---a limit shared by every benchmark in this space.
 
-\subsection{Challenges}
-Formal verification is unusually difficult to benchmark for two reasons. First, just as with advanced mathematics, formal verification tasks are highly varied, and constructing interesting problems requires considerable expertise. FV tasks also vary in difficulty---they can be as shallow as checking the type-safety of simple functions, or as deep as proving an unsolved mathematical theorem such as the Collatz Conjecture. Our benchmark avoids the need to select and hand-build challenge problems by translating naturally occurring PBT problems written by real-world engineers.
-
-Second, formal verification is little-used outside academia. As a result, there are few natural datasets, and those that exist are fragmented between multiple FV tools (e.g. SAW/Cryptol for cryptographic systems, ACL2/Coq for traditional software verification, Lean for mathematics, SPIN/TLA+ for protocol analysis)---or are privately held, closely guarded corporate IP (such as the FV work done by companies like Intel or Synopsys). Public FV examples are often pedagogical exercises for which the proof exists in many different forms in the training set. Our benchmark solves this problem by translating from a 'close sibling' domain, PBT, where many more datapoints exist outside of pedagogy or academic research. As a result, most theorems in our benchmark will have never been verified by anyone.
-
-\TODO - A reviewer will ask us to substantiate this claim.
-
-Beyond these structural challenges, AI-driven translation at scale introduces practical difficulties. Each failed pipeline run is expensive---a single sample may require multiple LLM calls with iterative repair, and a bug in the pipeline infrastructure can invalidate an entire batch. Quality improvements must therefore be targeted: we identify specific failure modes in the output (e.g. type restrictions, missing dependencies, trivial stub theorems) and address them incrementally rather than re-running the full dataset. We initially considered extending the benchmark to TypeScript PBTs, but found that the PBT ecosystem in TypeScript is far less mature, and the additional coverage would not justify the engineering effort.
+Benchmarking FV is unusually hard: public verification artifacts are dominated by pedagogical exercises whose proofs already exist in many forms in pretraining corpora, the substantive industrial work (Intel, Synopsys, AWS, etc.) is closely held, and what remains is fragmented across tools (SAW/Cryptol, ACL2, Coq, Lean, TLA+) and small. We sidestep this by translating from PBT, a ``close sibling'' domain with abundant non-academic source material that was never written for a theorem prover. As a result, most theorems in \FVSpec have likely never been verified by anyone, and---as Table~\ref{tab:fv-benchmarks} shows---\FVSpec is by a wide margin the largest software-verification benchmark in this space and the only one whose problems originate from real-world, non-academic code authored outside of any theorem-proving context.
