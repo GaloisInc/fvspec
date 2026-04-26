@@ -76,3 +76,12 @@ Figure~\ref{fig:difficulty_vs_faithfulness} examines the relationship between di
 \subsection{Baselines}
 
 \TODO Baseline evaluations are in progress. We evaluate four frontier models---Claude Sonnet 4.6, Claude Opus 4.6, GPT-5.4-mini, and Gemini 2.5 Pro---on a stratified sample of 75 problems (50\% easy, 50\% hard). Each model is given access to the Lean LSP via MCP tools and scored on two metrics: a binary \emph{proved} score (zero \texttt{sorry} remaining and \texttt{lake build} succeeds with no \texttt{sorry} warnings) and \emph{partial credit} (fraction of \texttt{sorry} placeholders removed, clamped to $[0, 1]$). Results will be reported as per-bucket (easy/hard) and aggregate prove rates, with a comparison table across models.
+
+\begin{figure}[t]
+  \includegraphics[width=\linewidth]{figs/baselines_cost.png}
+\end{figure}
+
+\begin{figure}[t]
+  \includegraphics[width=\linewidth]{figs/baselines_prove_rate.png}
+  \caption{baseline prove rate}
+\end{figure}

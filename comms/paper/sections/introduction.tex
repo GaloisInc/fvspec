@@ -1,21 +1,127 @@
 \section{Introduction}
 \Secl{intro}
 
-Several AI safety proposals are premised on AI-driven formal verification (FV); this is a core hypothesis of the ARIA Safeguarding AI program and the related Guaranteed Safe AI agenda \cite{dalrymple2024guaranteed}. If FV is to play this role, it must scale to the complexities of real-world code, but today we have little evidence that such capabilities are possible. Relevant benchmarks are mostly small datasets crafted by hand~\cite{loughridge2024dafnybench}, larger datasets extracted from expert-driven verification projects~\cite{chakraborty2024neural}, or are focused on advanced mathematics rather than engineering~\cite{glazer2024frontiermath}. None of these are likely to be representative of the formal verification tasks required to verify real-world AI-generated software at scale.
+Several AI safety proposals are premised on implementing safeguards by way of 
+\emph{formal verification} 
+(FV)\footnote{FV forms a subset of \emph{formal methods}, which also include PBT, model checking, and abstract interpretation.} 
+-- 
+that is, software systems that can produce and 
+unequivocally certify mathematical proofs.
+These systems can be split into \emph{interactive theorem provers} (ITPs) which 
+accept and validate user-supplied proofs, and \emph{automated theorem provers} (ATPs)
+which attempt (but often fail) to prove theorems fully autonomously.
+ARIA Safeguarded AI~\cite{safeguardedAI}, Guaranteed Safe AI~\cite{dalrymple2024guaranteed}, and Scalable Formal Oversight~\cite{sfo,sfo2}, among others, all 
+suggest that in the future, all AI-generated 
+software will be be formally verified by autonomous FV agents,
+who will steer ITPs in much the same way that coding agents currently steer
+software production.
 
-We generate a new benchmark, \FVSpec, from public uses of property-based testing (PBT). While FV itself is rarely used in software development, PBT is a 'close sibling' technology which has seen significant adoption. In both FV and PBT, engineers write \emph{specifications}: logical properties that the software must obey. For example, we might require that a Python function \texttt{isort(lst)} always returns a sorted permutation of its input \texttt{lst}. The difference lies in how this property is checked. In FV, the property is proved using mathematical techniques---this results in almost-perfect confidence, but requires proof engineering by highly expert teams \cite{dodds2022formally}. In PBT, the code is randomly tested---e.g. for random values of x. This is a push-button process with no proof engineering.
 
-PBT is typically much cheaper than FV, and as a result has seen wider adoption. 
-In fact, PBTs are typically seen as the first step toward FV. 
-For example, in the interactive theorem prover ACL2s, any unproven theorem is automatically treated as a PBT (and tested against randomly generated inputs) until the author manages to supply a proof. Thus the idea of translating PBTs to theorems for FV is natural and, to an extent, industry-standard. We build on this intuition. First, we scrape $\approx$20k permissively-licensed PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. Each PBT in our dataset can be seen as a small theorem statement (or \emph{ansatz}) about a piece of Python code, which the author would like to prove or, failing that, at least test. To make it possible for an AI to prove or refute these theorems, we then translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. This approach was pioneered by Dougherty and Mehta on the FVAPPS verification benchmark \cite{dougherty2025proving}. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al \cite{hendrycks2021apps}, translated to PBTs, and then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
+The only way FV can play this role is if agents can conduct verification work
+at least as well and as quickly as they can produce code. Otherwise, FV becomes a bottleneck
+and will naturally wither under the capital pressure to iterate\footnote{The reader is referred to~\cite{rasmussen1997risk} for a detailed discussion of how socioeconomic pressures degrade safety cultures and cause predictable accidents.}.
+There is currently little evidence that such capabilities are possible.
+To achieve them, we would first need high-quality benchmarks to train on.
+Existing benchmarks (see Table~\ref{tab:fv-benchmarks}) 
+are too small~\cite{loughridge2024dafnybench},
+focused on advanced mathematics rather than engineering~\cite{glazer2024frontiermath},
+or derived from expert-driven verification projects~\cite{chakraborty2024neural} which 
+are quite different from what you would get were you to verify the average software project.
+To clarify this last point: 
+    historically, FV has been bottle-necked by the number of human expert practitioners 
+    able to write proofs in an ITP\footnote{We were unable to find any formal estimate of the number of human formal methods practitioners today. However, as a very rough proxy, \citet{de2025lessons} conducted the largest ever survey of users of any particular ITP -- in this case Coq, which is now called Rocq -- at 466 participants. As a point of contrast, that year's survey by the Rust foundation of Rust software engineers had 7,156 participants~\cite{rustParticipants}. Anecdotally, most ITP work today is in Rocq, Lean 4, or Isabelle.}, 
+    and therefore, FV was only ever applied to the most 
+    mathematically complex and safety-critical applications, such as compilers~\cite{leroy2016compcert} or
+    an OS kernel~\cite{klein2009sel4}.
+    These projects are generally monolithic, closed systems, 
+    in contrast to the average
+    software project which may have a frontend and backend, a database, 
+    reliance on several external black-box APIs 
+    such as an inference provider or a logging service, 
+    and an unnecessarily large dependency tree.
+The latter category of (normal) software is actually in many ways much more challenging 
+to verify because it necessitates reasoning about black-box external systems and 
+the interactions of several software systems, 
+potentially written in different languages 
+and operating on different chips~\cite{buro2020equational,perconti2014verifying}.
 
-We use AI-driven translation to generate Lean programs and theorems at scale. LLMs are quite good at program translation, and FVAPPS has shown that this approach is practical for constructing Lean theorems. 
-Although in some cases the translations may be imperfect, lessening the importance of any proof or refutation of the resultant theorem from the perspective of the author of the originating PBT, it is nevertheless the case that we produce high-quality and realistic FV challenges for AI benchmarking.
-The result is tens of thousands of verification challenges, each consisting of (1) a program and (2) a desired specification, both written in Lean. Unlike existing FV benchmarks, each problem corresponds to properties of real-world software written by engineers with no guaranteed formal verification experience.
 
-\TODO{}: Summary of results.
-The rest of the paper is organized as follows.
-We formalize the task in \Secr{task}.
-We describe our generation pipeline---dependency extraction, LLM-based transpilation with iterative Lean LSP repair, and post-production cleaning---in \Secr{pipeline}.
-We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k permissively-licensed Hypothesis tests from open-source repositories, in \Secr{dataset}; we also compare against the concurrently released Hypothesis Corpus~2026 there.
-We present results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.
+\begin{table}[h]
+\centering
+\small
+\setlength{\tabcolsep}{4pt}
+\begin{tabularx}{\textwidth}{@{}l X r X@{}}
+\toprule
+\textbf{Benchmark} & \textbf{ITP(s)} & \textbf{\# theorems} & \textbf{Focus} \\
+\midrule
+Minif2f~\cite{zheng2021minif2f}
+    & Metamath, Lean, Isabelle, HOL Light & 488 & math Olympiad \\
+PutnamBench~\cite{tsoukalas2024putnambench}
+    & Lean, Isabelle, Coq/Rocq & 640 & math Olympiad \\
+Fimo~\cite{liu2023fimo}
+    & Lean & 149 & math Olympiad \\
+DafnyBench~\cite{loughridge2024dafnybench}
+    & Dafny & 782 & scraped Dafny proofs \\
+ProofNet~\cite{azerbayev2023proofnet}
+    & Lean & 371 & undergraduate math \\
+RLM25~\cite{poiroux2025reliable}
+    & Lean & 619 & graduate math \\
+Lean Workbook~\cite{ying2024lean}
+    & Lean & 57{,}000 & high-school through graduate math \\
+FormalMATH~\cite{yu2025formalmath}
+    & Lean & 5{,}560 & math Olympiad \\
+LEAN-GitHub~\cite{wu2024lean}
+    & Lean & 28{,}597 & scraped Lean proofs \\
+DeepSeek-ProverBench~\cite{ren2025deepseek}
+    & Lean & 325 & math Olympiad \\
+MiniCTX~\cite{hu2024minictx}
+    & Lean & 762 & six open-source Lean projects \\
+LeanGeo~\cite{leangeo}
+    & Lean & 122 & high-school through graduate math \\
+IneqMath~\cite{lu2025solving}
+    & Lean & 1,522 & math Olympiad \\
+FATE-\{M,H,X\}~\cite{jiang2025fate}
+    & Lean & 350 & undergraduate through graduate math \\
+VeriBench~\cite{barkallah2025veribench}
+    & Lean & 857 & software verification \\
+CLEVER~\cite{thakur2025clever}
+    & Lean & 161 & software synthesis and verification \\
+Vericoding~\cite{bursuc2025benchmark}
+    & Lean, Verus, Dafny & 12,504 & software synthesis and verification \\
+MUSTARD/MUSTARDSAUCE~\cite{huang2024mustard}
+    & Lean & 5,866 & high-school through undergraduate math \\
+FormL4~\cite{lu2024process}
+    & Lean 4 & 14,510 & undergraduate math \\
+CoqStoq (Rango)~\cite{thompson2025rango}
+    & Coq & 10,396 & software verification \\
+MSC-180~\cite{li2025msc} \\
+    & Lean & 180 & undergraduate through graduate math
+HOList~\cite{bansal2019holist} \\
+    & HOL Light & 29,462 & undergraduate through graduate math   
+\bottomrule
+\end{tabularx}
+\caption{Prior ITP benchmarks. If a benchmark improved upon a prior benchmark, we excluded the prior one.}
+\label{tab:fv-benchmarks}
+\end{table}
+
+
+
+
+% If FV is to play this role, it must scale to the complexities of real-world code, but today we have little evidence that such capabilities are possible. Relevant benchmarks are mostly small datasets crafted by hand~\cite{loughridge2024dafnybench}, larger datasets extracted from expert-driven verification projects~\cite{chakraborty2024neural}, or are focused on advanced mathematics rather than engineering~\cite{glazer2024frontiermath}. None of these are likely to be representative of the formal verification tasks required to verify real-world AI-generated software at scale.
+
+% We generate a new benchmark, \FVSpec, from public uses of property-based testing (PBT). While FV itself is rarely used in software development, PBT is a 'close sibling' technology which has seen significant adoption. In both FV and PBT, engineers write \emph{specifications}: logical properties that the software must obey. For example, we might require that a Python function \texttt{isort(lst)} always returns a sorted permutation of its input \texttt{lst}. The difference lies in how this property is checked. In FV, the property is proved using mathematical techniques---this results in almost-perfect confidence, but requires proof engineering by highly expert teams \cite{dodds2022formally}. In PBT, the code is randomly tested---e.g. for random values of x. This is a push-button process with no proof engineering.
+
+% PBT is typically much cheaper than FV, and as a result has seen wider adoption. 
+% In fact, PBTs are typically seen as the first step toward FV. 
+% For example, in the interactive theorem prover ACL2s, any unproven theorem is automatically treated as a PBT (and tested against randomly generated inputs) until the author manages to supply a proof. Thus the idea of translating PBTs to theorems for FV is natural and, to an extent, industry-standard. We build on this intuition. First, we scrape $\approx$20k permissively-licensed PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. Each PBT in our dataset can be seen as a small theorem statement (or \emph{ansatz}) about a piece of Python code, which the author would like to prove or, failing that, at least test. To make it possible for an AI to prove or refute these theorems, we then translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. This approach was pioneered by Dougherty and Mehta on the FVAPPS verification benchmark \cite{dougherty2025proving}. In FVAPPS, source programs were taken from the APPS benchmark by Hendrycks et al \cite{hendrycks2021apps}, translated to PBTs, and then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
+
+% We use AI-driven translation to generate Lean programs and theorems at scale. LLMs are quite good at program translation, and FVAPPS has shown that this approach is practical for constructing Lean theorems. 
+% Although in some cases the translations may be imperfect, lessening the importance of any proof or refutation of the resultant theorem from the perspective of the author of the originating PBT, it is nevertheless the case that we produce high-quality and realistic FV challenges for AI benchmarking.
+% The result is tens of thousands of verification challenges, each consisting of (1) a program and (2) a desired specification, both written in Lean. Unlike existing FV benchmarks, each problem corresponds to properties of real-world software written by engineers with no guaranteed formal verification experience.
+
+% \TODO{}: Summary of results.
+% The rest of the paper is organized as follows.
+% We formalize the task in \Secr{task}.
+% We describe our generation pipeline---dependency extraction, LLM-based transpilation with iterative Lean LSP repair, and post-production cleaning---in \Secr{pipeline}.
+% We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k permissively-licensed Hypothesis tests from open-source repositories, in \Secr{dataset}; we also compare against the concurrently released Hypothesis Corpus~2026 there.
+% We present results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.

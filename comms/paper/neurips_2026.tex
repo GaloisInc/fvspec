@@ -3,6 +3,7 @@
 % if you need to pass options to natbib, use, e.g.:
 %     \PassOptionsToPackage{numbers, compress}{natbib}
 % before loading neurips_2026
+\PassOptionsToPackage{numbers,compress}{natbib}
 
 % The authors should use one of these tracks.
 % Before accepting by the NeurIPS conference, select one of the options below.
@@ -46,7 +47,7 @@
 
 % to avoid loading the natbib package, add option nonatbib:
 %    \usepackage[nonatbib]{neurips_2026}
-
+\usepackage{tabularx}
 \usepackage{xspace}
 \usepackage{listings}
 \lstdefinestyle{code}{
@@ -136,13 +137,13 @@
 
 \input{sections/abstract.tex}
 \input{sections/introduction.tex}
-\input{sections/task.tex}
-\input{sections/pipeline.tex}
-\input{sections/dataset.tex}
-\input{sections/results.tex}
-\input{sections/threats.tex}
-\input{sections/related.tex}
-\input{sections/conclusion.tex}
+% \input{sections/task.tex}
+% \input{sections/pipeline.tex}
+% \input{sections/dataset.tex}
+% \input{sections/results.tex}
+% \input{sections/threats.tex}
+% \input{sections/related.tex}
+% \input{sections/conclusion.tex}
 
 \bibliographystyle{abbrvnat}
 \bibliography{citations}
