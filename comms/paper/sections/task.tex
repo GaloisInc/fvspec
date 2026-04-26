@@ -5,7 +5,7 @@ Each problem in the \FVSpec benchmark consists of four components: (1) the origi
 
 As a running example, consider \texttt{isort(lst)}. Figure~\ref{fig:running-example}
 shows all four artifacts of a single \FVSpec problem. The left column holds
-the original Python implementation (top) and the PBT exercising it
+the original implementation (top) and the PBT exercising it
 (bottom); the right column holds the corresponding \texttt{Impl.lean}
 (top), a complete Lean port of the function, and \texttt{Spec.lean}
 (bottom), containing two theorems---one for sortedness, one for permutation---
@@ -13,9 +13,9 @@ each with their own \texttt{sorry}. The AI's task is to discharge both
 Lean \texttt{sorry} placeholders.
 
 \begin{lrbox}{\fvspecPyImplBox}%
-\begin{minipage}{0.40\linewidth}
+\begin{minipage}{0.38\linewidth}
 {\small\sffamily\textbf{Python: implementation of \texttt{isort}}}\par\smallskip
-\begin{lstlisting}[style=code, language=Python]
+\begin{lstlisting}[style=code, language=Python, basicstyle=\ttfamily\scriptsize]
 from bisect import insort
 
 def isort(lst):
@@ -27,9 +27,9 @@ def isort(lst):
 \end{lrbox}%
 
 \begin{lrbox}{\fvspecImplBox}%
-\begin{minipage}{0.40\linewidth}
+\begin{minipage}{0.50\linewidth}
 {\small\sffamily\textbf{Lean: \texttt{Impl.lean}}}\par\smallskip
-\begin{lstlisting}[style=code, language=Lean]
+\begin{lstlisting}[style=code, language=Lean, basicstyle=\ttfamily\scriptsize]
 namespace Fvspec.Impl
 
 def insert (x : Int) : List Int -> List Int
@@ -47,25 +47,27 @@ end Fvspec.Impl
 \end{lrbox}%
 
 \begin{lrbox}{\fvspecPyPbtBox}%
-\begin{minipage}{0.40\linewidth}
+\begin{minipage}{0.38\linewidth}
 {\small\sffamily\textbf{Python: Hypothesis PBT}}\par\smallskip
-\begin{lstlisting}[style=code, language=Python]
+\begin{lstlisting}[style=code, language=Python, basicstyle=\ttfamily\scriptsize]
+from collections import Counter
 from hypothesis import given
 import hypothesis.strategies as st
 
 @given(st.lists(st.integers()))
 def test_isort(lst):
     out = isort(lst)
-    assert out == sorted(out)
-    assert sorted(out) == sorted(lst)
+    pairs = zip(out, out[1:])
+    assert all(a <= b for a, b in pairs)
+    assert Counter(out) == Counter(lst)
 \end{lstlisting}
 \end{minipage}%
 \end{lrbox}%
 
 \begin{lrbox}{\fvspecSpecBox}%
-\begin{minipage}{0.40\linewidth}
+\begin{minipage}{0.50\linewidth}
 {\small\sffamily\textbf{Lean: \texttt{Spec.lean}}}\par\smallskip
-\begin{lstlisting}[style=code, language=Lean]
+\begin{lstlisting}[style=code, language=Lean, basicstyle=\ttfamily\scriptsize]
 import Fvspec.Impl
 open Fvspec.Impl
 
@@ -84,16 +86,16 @@ theorem isort_perm (l : List Int) :
   box/.style={draw, rounded corners, inner sep=4pt, fill=gray!5},
   arr/.style={-{Latex[length=2.5mm]}, thick, gray!50!black}
 ]
-  % Top row: Python impl -> Lean impl, aligned along their bottom edges
-  \node[box, anchor=south east] (pyimpl)
-       at (-0.7cm, 0.35cm) {\usebox{\fvspecPyImplBox}};
-  \node[box, anchor=south west] (limpl)
-       at ( 0.7cm, 0.35cm) {\usebox{\fvspecImplBox}};
-  % Bottom row: Python PBT -> Lean theorem, aligned along their top edges
-  \node[box, anchor=north east] (pypbt)
-       at (-0.7cm,-0.35cm) {\usebox{\fvspecPyPbtBox}};
-  \node[box, anchor=north west] (lspec)
-       at ( 0.7cm,-0.35cm) {\usebox{\fvspecSpecBox}};
+  % Top row: Python impl -> Lean impl, vertically centred at y = +2.2 cm
+  \node[box, anchor=east] (pyimpl)
+       at (-0.7cm,  2.2cm) {\usebox{\fvspecPyImplBox}};
+  \node[box, anchor=west] (limpl)
+       at ( 0.7cm,  2.2cm) {\usebox{\fvspecImplBox}};
+  % Bottom row: Python PBT -> Lean theorem, vertically centred at y = -2.2 cm
+  \node[box, anchor=east] (pypbt)
+       at (-0.7cm, -2.2cm) {\usebox{\fvspecPyPbtBox}};
+  \node[box, anchor=west] (lspec)
+       at ( 0.7cm, -2.2cm) {\usebox{\fvspecSpecBox}};
   % Horizontal arrows on each row
   \draw[arr] (pyimpl.east) -- (limpl.west);
   \draw[arr] (pypbt.east)  -- (lspec.west);
@@ -115,8 +117,7 @@ We encounter two practical issues when translating Python PBTs into Lean impleme
 
 \emph{(iii) Spec theorems leaking into \texttt{Impl.lean}.} Our pipeline runs two separate agents: one writes \texttt{Impl.lean} (definitions only), the other writes \texttt{Spec.lean} (theorems only). The implementation agent is explicitly instructed to emit no theorems, but occasionally---when shown the \texttt{isort} source---it pre-empts the spec agent by hallucinating a \texttt{namespace Fvspec.Spec\,\dots\,theorem isort\_sorted\,\dots\,end Fvspec.Spec} block inside \texttt{Impl.lean}, which violates our file split and would silently expand the proof obligation if left in.
 
-We catch (i) by regex (\texttt{detect\_trivial\_unit\_theorems} in \texttt{lean\_parsing.py}), drop (ii) at compile time (\texttt{validate/compiler.py}), and strip (iii) with a namespace-aware filter (\texttt{impl/lean\_merger.py}). A theorem that survives all three filters is a useful challenge problem even if it has drifted from the original PBT---because Lean checks proofs against \emph{the theorem we generated}, not the informal property.
+We catch (i) by regex, drop (ii) at compile time, and strip (iii) with a namespace-aware filter. A theorem that survives all three filters is a useful challenge problem even if it has drifted from the original PBT---because Lean checks proofs against \emph{the theorem we generated}, not the informal property.
 
-\paragraph{Lean as a (nearly) perfect oracle.} The Lean kernel arbitrates correctness, which is qualitatively much stronger than statistical sampling. It is not, however, adversarially perfect: an AI can satisfy the kernel by \emph{changing the question}---adding the Axiom of Choice, weakening hypotheses, or exploiting a security vulnerability in Lean itself~\cite{gopinathan2026leanbug}---and the proof will still type-check~\cite{miyazono2026slopless}. To make gaming visible, every submission is scored on two axes: a binary \emph{proved} flag (the file compiles under \texttt{lake build} \emph{and} every original \texttt{sorry} has been discharged) and partial credit (fraction of original sorrys discharged). We additionally record any axiom dependencies the proof introduces, since an AI can trivialize a goal by quietly importing strong axioms; we do not currently auto-fail on extra axioms, but report them so reviewers can flag suspicious solutions. For higher-stakes evaluations, submissions can additionally be re-checked through \texttt{leanprover/comparator}~\cite{leancomparator2026}, which sandboxes the build and cross-validates the proof term against an independently-implemented Rust kernel (\texttt{nanoda})---we do not require this today, but it is available if a future use case demands a stronger trust story. A sufficiently motivated AI can still smuggle a vacuous proof past us when the original theorem statement is itself too weak---a limit shared by every benchmark in this space.
+\paragraph{Lean as a (nearly) perfect oracle.} The Lean kernel arbitrates correctness, which is qualitatively much stronger than statistical sampling. It is not, however, adversarially perfect: an AI can satisfy the kernel by \emph{changing the question}---adding the Axiom of Choice, weakening hypotheses, or exploiting a security vulnerability in Lean itself~\cite{gopinathan2026leanbug}---and the proof will still type-check~\cite{miyazono2026slopless}. To make gaming visible, every submission is scored on two axes: a binary \emph{proved} flag (the file compiles under \texttt{lake build} \emph{and} every original \texttt{sorry} has been discharged) and partial credit (fraction of original \texttt{sorry}s discharged). We additionally record any axiom dependencies the proof introduces, since an AI can trivialize a goal by quietly importing strong axioms; we do not currently auto-fail on extra axioms, but report them so reviewers can flag suspicious solutions. For higher-stakes evaluations, submissions can additionally be re-checked through \texttt{leanprover/comparator}~\cite{leancomparator2026}, which sandboxes the build and cross-validates the proof term against an independently-implemented Rust kernel. Lastly, a sufficiently motivated AI can still smuggle a vacuous proof past us when the original theorem statement is itself too weak---a limit shared by every benchmark whose scale exceeds full human review capacity.
 
-Benchmarking FV is unusually hard: public verification artifacts are dominated by pedagogical exercises whose proofs already exist in many forms in pretraining corpora, the substantive industrial work (Intel, Synopsys, AWS, etc.) is closely held, and what remains is fragmented across tools (SAW/Cryptol, ACL2, Coq, Lean, TLA+) and small. We sidestep this by translating from PBT, a ``close sibling'' domain with abundant non-academic source material that was never written for a theorem prover. As a result, most theorems in \FVSpec have likely never been verified by anyone, and---as Table~\ref{tab:fv-benchmarks} shows---\FVSpec is by a wide margin the largest software-verification benchmark in this space and the only one whose problems originate from real-world, non-academic code authored outside of any theorem-proving context.

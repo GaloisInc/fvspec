@@ -94,6 +94,8 @@ FATE-\{M,H,X\}~\cite{jiang2025fate}
   & \cmk &      &      &      &      &      &      & 350      & U, G math \\
 VeriBench~\cite{barkallah2025veribench}
   & \cmk &      &      &      &      &      &      & 857      & software verification \\
+FVAPPS~\cite{dougherty2025proving}
+  & \cmk &      &      &      &      &      &      & 4{,}715  & software verification (from APPS) \\
 CLEVER~\cite{thakur2025clever}
   & \cmk &      &      &      &      &      &      & 161      & software synthesis \& verification \\
 Vericoding~\cite{bursuc2025benchmark}
@@ -143,7 +145,7 @@ our actual motivation is to build a large benchmark of realistic and high-qualit
 software verification exercises, representative of the diversity of code found in 
 ``normal'' codebases.
 Thus, we don't worry whether or not our translations are perfectly equivalent.
-The result is tens of thousands of verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): (1) the original Python implementation, (2) the original Python PBT exercising it, (3) a complete Lean implementation of the same function (no \texttt{sorry}), and (4) a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to properties of real-world software written by engineers with no guaranteed formal verification experience.
+The result is tens of thousands of verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): (1) the original Python implementation, (2) the original Python PBT exercising it, (3) a complete Lean implementation of the same function (no \texttt{sorry}), and (4) a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience: as Table~\ref{tab:fv-benchmarks} shows, prior software-verification benchmarks are scarce (the bulk of ITP benchmarks target mathematics) and small, and none derive from code that was authored outside of a theorem-proving context, putting our problems out of distribution relative to anything an AI is likely to have memorised.
 
 
 
