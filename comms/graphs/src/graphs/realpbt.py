@@ -16,6 +16,7 @@ Usage:
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -25,6 +26,8 @@ import seaborn as sns
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
 _PBTS_PATH = Path(__file__).resolve().parents[2] / "data" / "realpbt2.jsonl"
+_REPO_ROOT = Path(__file__).resolve().parents[4]  # fvspec root
+_DEPS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt_deps.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -83,6 +86,19 @@ def _build_dataframes(rows: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
         .reset_index()
     )
     return pbt_df, repo_df
+
+
+def _load_deps_data() -> list[dict]:
+    """Load the dependency-annotated dataset from realpbt_deps.jsonl."""
+    if not _DEPS_PATH.exists():
+        return []
+    rows = []
+    with open(_DEPS_PATH) as f:
+        for line in f:
+            line = line.strip()
+            if line:
+                rows.append(json.loads(line))
+    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -279,6 +295,104 @@ def print_comparison_table() -> None:
     print(r"\end{table}")
 
 
+def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
+    """Compare PBT complexity to the complexity of the code they test."""
+    records = []
+    for r in dep_rows:
+        deps = r.get("dependencies") or []
+        pbt_metrics = r.get("metrics") or {}
+        pbt_loc = pbt_metrics.get("loc")
+        pbt_cc = pbt_metrics.get("avg_complexity")
+
+        def is_local(dep):
+            qn = dep.get("qualified_name", "")
+            fp = dep.get("file_path", "")
+            if not qn and not fp:
+                return False
+            for skip in ("myenv", "site-packages", "pip", "stdlib"):
+                if skip in qn or skip in fp:
+                    return False
+            return dep.get("kind") == "function" and dep.get("depth", 99) == 1
+
+        local_fns = [d for d in deps if is_local(d)]
+        dep_locs = [len(d.get("code", "").splitlines()) for d in local_fns]
+        total_dep_loc = sum(dep_locs)
+        n_local_fns = len(local_fns)
+
+        ext_pkgs = set()
+        for d in deps:
+            qn = d.get("qualified_name", "")
+            fp = d.get("file_path", "")
+            if "site-packages" in fp or "site-packages" in qn:
+                m = re.search(r"site-packages[/\\]([^/\\]+)", fp or qn)
+                if m:
+                    pkg = m.group(1).split(".")[0].lower()
+                    if pkg not in ("_", "pip", "setuptools"):
+                        ext_pkgs.add(pkg)
+        n_ext_pkgs = len(ext_pkgs)
+
+        if pbt_loc is not None and total_dep_loc > 0 and n_local_fns > 0:
+            records.append({
+                "pbt_loc": pbt_loc,
+                "dep_loc": total_dep_loc,
+                "dep_loc_per_fn": total_dep_loc / n_local_fns,
+                "pbt_cc": pbt_cc,
+                "n_local_fns": n_local_fns,
+                "n_ext_pkgs": n_ext_pkgs,
+                "ratio_loc": total_dep_loc / pbt_loc if pbt_loc > 0 else None,
+            })
+
+    if not records:
+        print("  (no dep data available, skipping plot_pbt_vs_deps)")
+        return
+
+    df = pd.DataFrame(records)
+    n = len(df)
+
+    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+
+    ax = axes[0]
+    pbt_clip = df["pbt_loc"].clip(upper=100)
+    dep_clip = df["dep_loc"].clip(upper=500)
+    ax.scatter(pbt_clip, dep_clip, alpha=0.15, s=8, color="#5ba3cf", rasterized=True)
+    ax.axvline(df["pbt_loc"].median(), color="#c44", ls="--", lw=1,
+               label=f'PBT median={df["pbt_loc"].median():.0f}')
+    ax.axhline(df["dep_loc"].median(), color="#e07b54", ls="--", lw=1,
+               label=f'dep median={df["dep_loc"].median():.0f}')
+    ax.set_xlabel("PBT LOC (clipped at 100)")
+    ax.set_ylabel("Total dep LOC (clipped at 500)")
+    ax.set_title("PBT size vs. code under test")
+    ax.legend(fontsize=7)
+
+    ax = axes[1]
+    ratio = df["ratio_loc"].dropna()
+    ratio_pos = ratio[ratio > 0]
+    bins = np.logspace(np.log10(ratio_pos.min()), np.log10(ratio_pos.max()), 45)
+    ax.hist(ratio_pos, bins=bins, color="#7a6ea0", edgecolor="white")
+    ax.axvline(ratio_pos.median(), color="#333", ls="--", lw=1,
+               label=f"median={ratio_pos.median():.1f}×")
+    ax.set_xscale("log")
+    ax.set_xlabel("Dep LOC / PBT LOC (log scale)")
+    ax.set_ylabel("Count")
+    ax.set_title("How much larger is the tested code?")
+    ax.legend(fontsize=8)
+
+    ax = axes[2]
+    fn_counts = df["n_local_fns"].clip(upper=10).value_counts().sort_index()
+    ax.bar(fn_counts.index, fn_counts.values, color="#6a9e6a", edgecolor="white")
+    ax.axvline(df["n_local_fns"].median(), color="#333", ls="--", lw=1,
+               label=f"median={df['n_local_fns'].median():.0f}")
+    ax.set_xlabel("Local dep functions called (≥10 grouped)")
+    ax.set_ylabel("Number of PBTs")
+    ax.set_title("Direct local dependencies per PBT")
+    ax.set_xticks(range(0, 11))
+    ax.legend(fontsize=8)
+
+    fig.suptitle(f"PBT complexity vs. code under test (n={n:,})", fontsize=13)
+    fig.tight_layout()
+    _save(fig, "realpbt_pbt_vs_deps")
+
+
 def main() -> None:
     """Run all RealPBT dataset analysis plots."""
     sns.set_theme(style="whitegrid", font_scale=0.95)
@@ -291,11 +405,16 @@ def main() -> None:
     pbt_df, repo_df = _build_dataframes(rows)
     print(f"  {len(repo_df):,} unique repositories")
 
+    dep_rows = _load_deps_data()
+    if dep_rows:
+        print(f"  {len(dep_rows):,} PBTs with dependency data loaded")
+
     plots = [
         ("realpbt_pbts_per_repo", lambda: plot_pbts_per_repo(repo_df)),
         ("realpbt_stars_forks", lambda: plot_stars_forks(repo_df)),
         ("realpbt_licenses", lambda: plot_license_breakdown(repo_df)),
         ("realpbt_complexity", lambda: plot_pbt_complexity(pbt_df)),
+        ("realpbt_pbt_vs_deps", lambda: plot_pbt_vs_deps(dep_rows)),
     ]
 
     for name, fn in plots:
