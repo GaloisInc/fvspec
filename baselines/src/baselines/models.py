@@ -12,25 +12,13 @@ class FvspecSample(BaseModel):
     realpbt_code: str
     realpbt_summary: str | None = None
     num_theorems: int
-    difficulty_subjective_haiku: float | None = None
     difficulty_binary: str | None = None
 
     @computed_field
     @property
     def difficulty_bucket(self) -> str:
-        """Binary difficulty bucket (easy/hard).
-
-        Prefers the v2 binary classification when available,
-        falls back to v1 haiku score with 2-bucket mapping.
-        """
-        if self.difficulty_binary is not None:
-            return self.difficulty_binary
-        if self.difficulty_subjective_haiku is None:
-            return "unknown"
-        # Fallback: map v1 score to binary using median split at 4.0
-        if self.difficulty_subjective_haiku < 4:
-            return "easy"
-        return "hard"
+        """Binary difficulty bucket (easy/hard)."""
+        return self.difficulty_binary or "unknown"
 
 
 class SampleResult(BaseModel):
@@ -53,6 +41,9 @@ class BucketStats(BaseModel):
     n: int = 0
     rate: float = 0.0
     partial_credit_avg: float = 0.0
+    k: int = 1
+    pass_at_1: float = 0.0
+    pass_at_k: float = 0.0
 
 
 class RunStats(BaseModel):

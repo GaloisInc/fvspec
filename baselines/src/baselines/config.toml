@@ -1,7 +1,9 @@
 ranseed = 0
 parallelism = 10
 num_samples = 75
-data_source = "data/fvspec-mar27.jsonl"
+data_source = "huggingface"
+k = 1
+# temperature unset => provider default (use --temperature for pass@k runs)
 
 [[model]]
 human_name = "snt46"
@@ -16,10 +18,22 @@ model_pin = "claude-opus-4-6"
 dollars_per_output_millitoken = 25
 
 [[model]]
+human_name = "ops47"
+provider = "anthropic"
+model_pin = "claude-opus-4-7"
+dollars_per_output_millitoken = 25
+
+[[model]]
 human_name = "gpt54mini"
 provider = "openai"
 model_pin = "gpt-5.4-mini-2026-03-17"
 dollars_per_output_millitoken = 4.5
+
+[[model]]
+human_name = "gpt54"
+provider = "openai"
+model_pin = "gpt-5.4"
+dollars_per_output_millitoken = 15
 
 [[model]]
 human_name = "gemini25pro"

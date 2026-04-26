@@ -7,6 +7,7 @@ from baselines.models import BucketStats, RunStats
 from baselines.stats import (
     _extract_eval_timestamp,
     _extract_model_name,
+    _pass_at_k_unbiased,
     write_results_toml,
 )
 
@@ -93,3 +94,27 @@ class TestWriteResultsToml:
             doc = tomllib.load(f)
 
         assert len(doc["results"]) == 2
+
+
+class TestPassAtK:
+    def test_all_correct(self):
+        # n=5, c=5, k=1: always pass
+        assert _pass_at_k_unbiased(5, 5, 1) == 1.0
+        assert _pass_at_k_unbiased(5, 5, 5) == 1.0
+
+    def test_none_correct(self):
+        assert _pass_at_k_unbiased(5, 0, 1) == 0.0
+        assert _pass_at_k_unbiased(5, 0, 5) == 0.0
+
+    def test_k_equals_n_one_correct(self):
+        # k=n=5, c=1: pass@5 = 1 (any success among the 5 attempts)
+        assert _pass_at_k_unbiased(5, 1, 5) == 1.0
+
+    def test_pass_at_1_equals_fraction(self):
+        # pass@1 unbiased = c/n
+        assert _pass_at_k_unbiased(4, 1, 1) == 0.25
+        assert _pass_at_k_unbiased(4, 3, 1) == 0.75
+
+    def test_k_larger_than_remaining(self):
+        # n-c < k: always pass
+        assert _pass_at_k_unbiased(5, 3, 5) == 1.0

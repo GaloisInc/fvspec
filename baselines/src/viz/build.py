@@ -38,7 +38,7 @@ _PALETTE = [
     "rgba(239,68,68,0.85)",
 ]
 
-_BUCKET_ORDER = {"easy": 0, "medium": 1, "hard": 2}
+_BUCKET_ORDER = {"easy": 0, "hard": 1}
 
 
 # ---------------------------------------------------------------------------
@@ -47,14 +47,16 @@ _BUCKET_ORDER = {"easy": 0, "medium": 1, "hard": 2}
 
 
 def load_eval(eval_path: Path) -> dict[str, Any]:
-    """Load an inspect_ai .eval zip into a dict with 'eval' header and 'samples'."""
+    """Load an inspect_ai .eval zip into a dict with 'eval' header, 'samples',
+    and (if present) 'reductions' from reductions.json (multi-epoch pass@k runs)."""
     with zipfile.ZipFile(eval_path) as zf:
         names = zf.namelist()
+        # Prefer full header.json when available — it contains final results/stats.
         header_file = (
-            "_journal/start.json"
-            if "_journal/start.json" in names
-            else "header.json"
+            "header.json"
             if "header.json" in names
+            else "_journal/start.json"
+            if "_journal/start.json" in names
             else None
         )
         if not header_file:
@@ -67,6 +69,9 @@ def load_eval(eval_path: Path) -> dict[str, Any]:
             if name.startswith("samples/") and name.endswith(".json"):
                 samples.append(json.loads(zf.read(name)))
         header["samples"] = samples
+
+        if "reductions.json" in names:
+            header["reductions"] = json.loads(zf.read("reductions.json"))
     return header
 
 
@@ -115,8 +120,8 @@ def _extract_message_content(content: Any) -> str:
     return str(content)
 
 
-def process_sample(sample: dict[str, Any]) -> dict[str, Any]:
-    """Process a raw sample into display-ready data."""
+def process_epoch(sample: dict[str, Any]) -> dict[str, Any]:
+    """Process one raw (id, epoch) sample into display-ready per-epoch data."""
     scores = sample.get("scores", {})
     scorer = scores.get("lake_build_scorer", {})
     meta = scorer.get("metadata", {})
@@ -149,7 +154,8 @@ def process_sample(sample: dict[str, Any]) -> dict[str, Any]:
         output_tokens += model_usage.get("output_tokens", 0)
 
     return {
-        "id": sample.get("id", "?"),
+        "id": str(sample.get("id", "?")),
+        "epoch": sample.get("epoch", 1),
         "proved": meta.get("proved", False),
         "compiles": meta.get("compiles", False),
         "score_value": scorer.get("value", 0.0),
@@ -161,7 +167,6 @@ def process_sample(sample: dict[str, Any]) -> dict[str, Any]:
         "difficulty_bucket": meta.get(
             "difficulty_bucket", sample_meta.get("difficulty_bucket", "?")
         ),
-        "difficulty_score": sample_meta.get("difficulty_subjective_haiku"),
         "num_theorems": sample_meta.get("num_theorems", 0),
         "total_time": round(sample.get("total_time", 0), 1),
         "working_time": round(sample.get("working_time", 0), 1),
@@ -172,43 +177,168 @@ def process_sample(sample: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _index_reductions(
+    reductions: list[dict[str, Any]] | None,
+) -> dict[str, dict[str, dict[str, Any]]]:
+    """Index reductions.json as {reducer -> {sample_id -> entry}}."""
+    out: dict[str, dict[str, dict[str, Any]]] = {}
+    if not reductions:
+        return out
+    for r in reductions:
+        reducer = r.get("reducer", "")
+        entries: dict[str, dict[str, Any]] = {}
+        for s in r.get("samples", []):
+            sid = str(s.get("sample_id", ""))
+            entries[sid] = s
+        out[reducer] = entries
+    return out
+
+
+def aggregate_sample(
+    sid: str,
+    epochs: list[dict[str, Any]],
+    reductions_by_sid: dict[str, dict[str, dict[str, Any]]],
+) -> dict[str, Any]:
+    """Collapse N per-epoch records for one sample_id into one display-ready record.
+    Keeps per-epoch details under `epochs` and picks the best epoch as the default
+    view so templates that read `proved`, `messages`, etc. still work."""
+    epochs_sorted = sorted(epochs, key=lambda e: e["epoch"])
+    best = max(epochs_sorted, key=lambda e: (e["score_value"], e["partial_credit"]))
+
+    n = len(epochs_sorted)
+    any_proved = any(e["proved"] for e in epochs_sorted)
+    all_proved = all(e["proved"] for e in epochs_sorted)
+    proved_count = sum(1 for e in epochs_sorted if e["proved"])
+
+    # Prefer inspect's reducer values when available.
+    pass_at_1_r = reductions_by_sid.get("pass_at_1", {}).get(sid)
+    pass_at_5_r = reductions_by_sid.get("pass_at_5", {}).get(sid)
+    mean_r = reductions_by_sid.get("mean", {}).get(sid)
+
+    pass_at_1 = (
+        pass_at_1_r["value"]
+        if pass_at_1_r is not None
+        else sum(e["score_value"] for e in epochs_sorted) / n
+    )
+    pass_at_5 = (
+        pass_at_5_r["value"]
+        if pass_at_5_r is not None
+        else (1.0 if any_proved else 0.0)
+    )
+    mean_value = (
+        mean_r["value"]
+        if mean_r is not None
+        else sum(e["score_value"] for e in epochs_sorted) / n
+    )
+    mean_partial = sum(e["partial_credit"] for e in epochs_sorted) / n
+
+    return {
+        "id": sid,
+        "num_epochs": n,
+        "epochs": epochs_sorted,
+        # Best-epoch defaults (templates treat this as the "primary" view)
+        "proved": best["proved"],
+        "compiles": best["compiles"],
+        "score_value": best["score_value"],
+        "explanation": best["explanation"],
+        "sorries_original": best["sorries_original"],
+        "sorries_remaining": best["sorries_remaining"],
+        "sorries_removed": best["sorries_removed"],
+        "partial_credit": best["partial_credit"],
+        "messages": best["messages"],
+        "message_count": best["message_count"],
+        "difficulty_bucket": best["difficulty_bucket"],
+        "difficulty_score": None,
+        "num_theorems": best["num_theorems"],
+        # Aggregates across epochs
+        "any_proved": any_proved,
+        "all_proved": all_proved,
+        "proved_count": proved_count,
+        "pass_at_1": pass_at_1,
+        "pass_at_5": pass_at_5,
+        "mean_value": mean_value,
+        "mean_partial_credit": mean_partial,
+        "total_time": round(sum(e["total_time"] for e in epochs_sorted), 1),
+        "working_time": round(sum(e["working_time"] for e in epochs_sorted), 1),
+        "total_tokens": sum(e["total_tokens"] for e in epochs_sorted),
+        "output_tokens": sum(e["output_tokens"] for e in epochs_sorted),
+    }
+
+
 # ---------------------------------------------------------------------------
 # Per-model stats
 # ---------------------------------------------------------------------------
 
 
 def _model_stats(model_name: str, samples: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compute summary stats for one model's samples."""
+    """Compute summary stats for one model's aggregated samples.
+
+    `proved` / `prove_rate` reflect best-epoch proved (== any_proved == pass@k).
+    For multi-epoch runs, `pass_at_1_rate` is the mean per-sample pass@1 value
+    (equivalent to the mean scorer) and `pass_at_5_rate` is the fraction of
+    samples where at least one of k epochs fully proved."""
     n = len(samples)
-    proved = sum(1 for s in samples if s["proved"])
     compiles = sum(1 for s in samples if s["compiles"])
     total_time = sum(s["total_time"] for s in samples)
     total_tokens = sum(s["total_tokens"] for s in samples)
+
+    k = max((s.get("num_epochs", 1) for s in samples), default=1)
+    multi_epoch = k > 1
+
+    # "proved" = best epoch proved (= any_proved). For single-epoch this is the
+    # classic pass@1; for k>1 this is pass@k (equivalent when score is binary).
+    proved = sum(1 for s in samples if s.get("any_proved", s["proved"]))
+
     mean_partial = (
-        round(sum(s["partial_credit"] for s in samples) / n, 4) if n > 0 else 0
+        round(
+            sum(s.get("mean_partial_credit", s["partial_credit"]) for s in samples) / n,
+            4,
+        )
+        if n > 0
+        else 0
     )
+
+    # pass@k aggregates (fraction across samples)
+    if multi_epoch:
+        pass_at_1_rate = sum(s["pass_at_1"] for s in samples) / n if n > 0 else 0
+        pass_at_5_rate = sum(s["pass_at_5"] for s in samples) / n if n > 0 else 0
+    else:
+        pass_at_1_rate = proved / n if n > 0 else 0
+        pass_at_5_rate = pass_at_1_rate
 
     # Per-bucket stats
     bucket_stats: dict[str, dict[str, Any]] = {}
-    for bucket in ["easy", "medium", "hard"]:
+    for bucket in ["easy", "hard"]:
         bs = [s for s in samples if s["difficulty_bucket"] == bucket]
         bn = len(bs)
-        bp = sum(1 for s in bs if s["proved"])
-        bpc = sum(s["partial_credit"] for s in bs)
+        bp = sum(1 for s in bs if s.get("any_proved", s["proved"]))
+        bpc = sum(s.get("mean_partial_credit", s["partial_credit"]) for s in bs)
+        if multi_epoch:
+            b_p1 = sum(s["pass_at_1"] for s in bs) / bn if bn > 0 else 0
+            b_p5 = sum(s["pass_at_5"] for s in bs) / bn if bn > 0 else 0
+        else:
+            b_p1 = bp / bn if bn > 0 else 0
+            b_p5 = b_p1
         bucket_stats[bucket] = {
             "n": bn,
             "proved": bp,
             "rate": round(bp / bn * 100, 1) if bn > 0 else 0,
             "partial_credit": round(bpc / bn * 100, 1) if bn > 0 else 0,
+            "pass_at_1": round(b_p1 * 100, 1),
+            "pass_at_5": round(b_p5 * 100, 1),
         }
 
     return {
         "model": model_name,
         "n_samples": n,
+        "num_epochs": k,
+        "multi_epoch": multi_epoch,
         "proved": proved,
         "compiles": compiles,
         "prove_rate": round(proved / n * 100, 1) if n > 0 else 0,
         "compile_rate": round(compiles / n * 100, 1) if n > 0 else 0,
+        "pass_at_1_rate": round(pass_at_1_rate * 100, 1),
+        "pass_at_5_rate": round(pass_at_5_rate * 100, 1),
         "mean_partial_credit": mean_partial,
         "total_time": round(total_time, 1),
         "mean_time": round(total_time / n, 1) if n > 0 else 0,
@@ -222,17 +352,34 @@ def _model_stats(model_name: str, samples: list[dict[str, Any]]) -> dict[str, An
 # ---------------------------------------------------------------------------
 
 
+def _build_pass_at_k_chart(
+    models: list[str], model_data: dict[str, dict[str, Any]]
+) -> dict[str, Any]:
+    """Grouped bar: pass@1 vs pass@5 per model."""
+    labels = ["pass@1", "pass@k"]
+    datasets = []
+    for i, m in enumerate(models):
+        ms = model_data[m]
+        datasets.append(
+            {
+                "label": f"{m} (k={ms['num_epochs']})",
+                "data": [ms["pass_at_1_rate"], ms["pass_at_5_rate"]],
+                "backgroundColor": _PALETTE[i % len(_PALETTE)],
+            }
+        )
+    return {"labels": labels, "datasets": datasets}
+
+
 def _build_prove_rate_chart(
     models: list[str], model_data: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Grouped bar: prove rate by bucket, one dataset per model."""
-    labels = ["Easy", "Medium", "Hard", "Total"]
+    labels = ["Easy", "Hard", "Total"]
     datasets = []
     for i, m in enumerate(models):
         ms = model_data[m]
         data = [
             ms["buckets"]["easy"]["rate"],
-            ms["buckets"]["medium"]["rate"],
             ms["buckets"]["hard"]["rate"],
             ms["prove_rate"],
         ]
@@ -250,13 +397,12 @@ def _build_partial_credit_chart(
     models: list[str], model_data: dict[str, dict[str, Any]]
 ) -> dict[str, Any]:
     """Grouped bar: mean partial credit by bucket, one dataset per model."""
-    labels = ["Easy", "Medium", "Hard", "Total"]
+    labels = ["Easy", "Hard", "Total"]
     datasets = []
     for i, m in enumerate(models):
         ms = model_data[m]
         data = [
             ms["buckets"]["easy"]["partial_credit"],
-            ms["buckets"]["medium"]["partial_credit"],
             ms["buckets"]["hard"]["partial_credit"],
             round(ms["mean_partial_credit"] * 100, 1),
         ]
@@ -343,7 +489,7 @@ def _build_head_to_head_charts(
         lookup[m] = {s["id"]: s for s in samples}
 
     charts: dict[str, dict[str, Any]] = {}
-    for bucket in ["easy", "medium", "hard"]:
+    for bucket in ["easy", "hard"]:
         sids = sample_ids_by_bucket.get(bucket, [])
         if not sids:
             continue
@@ -399,7 +545,7 @@ def compute_stats(
     )
 
     # Group sample IDs by bucket
-    sample_ids_by_bucket: dict[str, list[str]] = {"easy": [], "medium": [], "hard": []}
+    sample_ids_by_bucket: dict[str, list[str]] = {"easy": [], "hard": []}
     for sid in sample_ids:
         b = bucket_map.get(sid, "unknown")
         if b in sample_ids_by_bucket:
@@ -419,7 +565,10 @@ def compute_stats(
         "message_limit": first_eval.get("config", {}).get("message_limit"),
         "task_args": first_eval.get("task_args", {}),
         "revision": first_eval.get("revision", {}),
+        "any_multi_epoch": any(md["multi_epoch"] for md in model_data.values()),
+        "max_k": max((md["num_epochs"] for md in model_data.values()), default=1),
         # Charts
+        "pass_at_k_chart": _build_pass_at_k_chart(models, model_data),
         "prove_rate_chart": _build_prove_rate_chart(models, model_data),
         "partial_credit_chart": _build_partial_credit_chart(models, model_data),
         "score_donut": _build_score_donut(models, model_samples),
@@ -454,11 +603,24 @@ def build_site(eval_paths: list[Path], output_dir: Path) -> None:
         model = _short_model(model_full)
 
         raw_samples = eval_data.get("samples", [])
-        console.print(f"  {model} — {len(raw_samples)} samples")
+        epochs_cfg = eval_data.get("eval", {}).get("config", {}).get("epochs", 1) or 1
+        reductions_by_sid = _index_reductions(eval_data.get("reductions"))
 
-        processed = [process_sample(s) for s in raw_samples]
+        per_epoch = [process_epoch(s) for s in raw_samples]
+        grouped: dict[str, list[dict[str, Any]]] = {}
+        for ep in per_epoch:
+            grouped.setdefault(ep["id"], []).append(ep)
+
+        processed = [
+            aggregate_sample(sid, eps, reductions_by_sid)
+            for sid, eps in grouped.items()
+        ]
         processed.sort(
             key=lambda s: (_BUCKET_ORDER.get(s["difficulty_bucket"], 9), s["id"])
+        )
+        console.print(
+            f"  {model} — {len(raw_samples)} rows → {len(processed)} samples "
+            f"(k={epochs_cfg})"
         )
 
         models.append(model)

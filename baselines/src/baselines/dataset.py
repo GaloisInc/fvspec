@@ -47,7 +47,6 @@ def load_samples_from_jsonl(path: str | Path) -> list[FvspecSample]:
                     realpbt_code=row.get("realpbt_code") or "",
                     realpbt_summary=row.get("realpbt_summary"),
                     num_theorems=row.get("num_theorems") or 0,
-                    difficulty_subjective_haiku=row.get("difficulty_subjective_haiku"),
                     difficulty_binary=row.get("difficulty_binary"),
                 )
             )
@@ -67,16 +66,15 @@ def load_samples_from_hf() -> list[FvspecSample]:
                 spec=row["spec"] or "",
                 impl=row["impl"] or "",
                 realpbt_code=row["realpbt_code"] or "",
-                realpbt_summary=row["realpbt_summary"],
-                num_theorems=row["num_theorems"] or 0,
-                difficulty_subjective_haiku=row["difficulty_subjective_haiku"],
+                realpbt_summary=row.get("realpbt_summary"),
+                num_theorems=row.get("num_theorems") or 0,
                 difficulty_binary=row.get("difficulty_binary"),
             )
         )
     return samples
 
 
-def load_samples(data_source: str = "data/fvspec-mar27.jsonl") -> list[FvspecSample]:
+def load_samples(data_source: str = "huggingface") -> list[FvspecSample]:
     """Load samples from the configured data source.
 
     Args:
@@ -91,7 +89,7 @@ def load_samples(data_source: str = "data/fvspec-mar27.jsonl") -> list[FvspecSam
 def load_and_sample(
     ranseed: int = 42,
     num_samples: int = 75,
-    data_source: str = "data/fvspec-mar27.jsonl",
+    data_source: str = "huggingface",
 ) -> list[FvspecSample]:
     """Load dataset and apply stratified sampling by difficulty bucket.
 
@@ -152,7 +150,6 @@ def to_inspect_dataset(samples: list[FvspecSample]) -> MemoryDataset:
                     "realpbt_summary": sample.realpbt_summary,
                     "num_theorems": sample.num_theorems,
                     "difficulty_bucket": sample.difficulty_bucket,
-                    "difficulty_subjective_haiku": sample.difficulty_subjective_haiku,
                 },
             )
         )

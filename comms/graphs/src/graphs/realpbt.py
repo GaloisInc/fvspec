@@ -1,6 +1,6 @@
 """Dataset characterization and comparison analysis for the RealPBT dataset.
 
-Loads from benchmark/artifacts/realpbt2/pbts.jsonl (local) and computes:
+Loads from comms/graphs/data/realpbt2.jsonl (local) and computes:
   - Repository distribution (PBTs per repo, stars, forks)
   - License breakdown
   - PBT complexity metrics
@@ -16,20 +16,18 @@ Usage:
 from __future__ import annotations
 
 import json
-from collections import defaultdict
+import re
 from pathlib import Path
-import statistics
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import pandas as pd
 import seaborn as sns
 
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
-# Local copy of the dataset (relative to comms/graphs/)
+_PBTS_PATH = Path(__file__).resolve().parents[2] / "data" / "realpbt2.jsonl"
 _REPO_ROOT = Path(__file__).resolve().parents[4]  # fvspec root
-_PBTS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt2" / "pbts.jsonl"
+_DEPS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt_deps.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -92,16 +90,16 @@ def _build_dataframes(rows: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
 
 def _load_deps_data() -> list[dict]:
     """Load the dependency-annotated dataset from realpbt_deps.jsonl."""
-    deps_path = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt_deps.jsonl"
-    if not deps_path.exists():
+    if not _DEPS_PATH.exists():
         return []
     rows = []
-    with open(deps_path) as f:
+    with open(_DEPS_PATH) as f:
         for line in f:
             line = line.strip()
             if line:
                 rows.append(json.loads(line))
     return rows
+
 
 # ---------------------------------------------------------------------------
 # Plotting helpers
@@ -136,7 +134,7 @@ def plot_pbts_per_repo(repo_df: pd.DataFrame) -> None:
         repo_df["pbt_count"].median(),
         color="#c44",
         ls="--",
-        label=f'median={repo_df["pbt_count"].median():.0f}',
+        label=f"median={repo_df['pbt_count'].median():.0f}",
     )
     axes[1].legend()
 
@@ -164,7 +162,9 @@ def plot_stars_forks(repo_df: pd.DataFrame) -> None:
         )
         axes[0].set_xlabel("log10(stars + 1)")
     else:
-        axes[0].text(0.5, 0.5, "No repos with stars", ha="center", transform=axes[0].transAxes)
+        axes[0].text(
+            0.5, 0.5, "No repos with stars", ha="center", transform=axes[0].transAxes
+        )
     axes[0].set_ylabel("Number of repositories")
     axes[0].set_title(
         f"Stars distribution\n({sum(repo_df['stars'] == 0):,} repos with 0 stars omitted)"
@@ -180,7 +180,9 @@ def plot_stars_forks(repo_df: pd.DataFrame) -> None:
         )
         axes[1].set_xlabel("log10(forks + 1)")
     else:
-        axes[1].text(0.5, 0.5, "No repos with forks", ha="center", transform=axes[1].transAxes)
+        axes[1].text(
+            0.5, 0.5, "No repos with forks", ha="center", transform=axes[1].transAxes
+        )
     axes[1].set_ylabel("Number of repositories")
     axes[1].set_title(
         f"Forks distribution\n({sum(repo_df['forks'] == 0):,} repos with 0 forks omitted)"
@@ -216,7 +218,12 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
     loc_data = pbt_df["loc"].dropna()
     axes[0].hist(loc_data.clip(upper=80), bins=40, color="#5ba3cf", edgecolor="white")
-    axes[0].axvline(loc_data.median(), color="#c44", ls="--", label=f"median={loc_data.median():.0f}")
+    axes[0].axvline(
+        loc_data.median(),
+        color="#c44",
+        ls="--",
+        label=f"median={loc_data.median():.0f}",
+    )
     axes[0].set_xlabel("Lines of code (clipped at 80)")
     axes[0].set_ylabel("Count")
     axes[0].set_title("PBT size (LOC)")
@@ -224,24 +231,22 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
     cc_data = pbt_df["avg_complexity"].dropna()
     axes[1].hist(cc_data.clip(upper=15), bins=30, color="#e07b54", edgecolor="white")
-    axes[1].axvline(cc_data.median(), color="#c44", ls="--", label=f"median={cc_data.median():.1f}")
+    axes[1].axvline(
+        cc_data.median(), color="#c44", ls="--", label=f"median={cc_data.median():.1f}"
+    )
     axes[1].set_xlabel("Avg cyclomatic complexity (clipped at 15)")
     axes[1].set_ylabel("Count")
     axes[1].set_title("Cyclomatic complexity")
     axes[1].legend()
 
-    halstead = pbt_df["halstead_effort"].dropna()
-    halstead_clipped = halstead.clip(upper=halstead.quantile(0.95))
-    axes[2].hist(halstead_clipped, bins=40, color="#6a9e6a", edgecolor="white")
+    mi_data = pbt_df["maintainability_index"].dropna()
+    axes[2].hist(mi_data, bins=30, color="#7a7a7a", edgecolor="white")
     axes[2].axvline(
-        halstead.median(),
-        color="#c44",
-        ls="--",
-        label=f"median={halstead.median():.0f}",
+        mi_data.median(), color="#c44", ls="--", label=f"median={mi_data.median():.0f}"
     )
-    axes[2].set_xlabel("Halstead effort (clipped at 95th pct)")
+    axes[2].set_xlabel("Maintainability index")
     axes[2].set_ylabel("Count")
-    axes[2].set_title("Halstead effort")
+    axes[2].set_title("Python maintainability index")
     axes[2].legend()
 
     fig.suptitle(f"PBT complexity metrics (n={len(pbt_df):,})", fontsize=13)
@@ -249,10 +254,49 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
     _save(fig, "realpbt_complexity")
 
 
+def print_comparison_table() -> None:
+    """Print a LaTeX table comparing our dataset to Liam's hypothesis-corpus."""
+    # Our dataset statistics (from pbts.jsonl + HF Benchify/realpbt)
+    our_pre_dedup = 54_345  # Benchify/realpbt HuggingFace total
+    # realpbt2/pbts.jsonl is post-dedup
+    rows = _load_local_pbts()
+    _, repo_df = _build_dataframes(rows)
+    our_post_dedup = len(rows)
+    our_repos = len(repo_df)
+
+    print("% --- LaTeX comparison table ---")
+    print(r"\begin{table}[t]")
+    print(r"  \centering")
+    print(
+        r"  \caption{Comparison of \FVSpec's RealPBT corpus with the Hypothesis Corpus~\cite{devoe2026hypothesis}.}"
+    )
+    print(r"  \label{tab:dataset-comparison}")
+    print(r"  \begin{tabular}{lrr}")
+    print(r"    \toprule")
+    print(r"    & \textbf{Ours (RealPBT)} & \textbf{Hypothesis Corpus} \\")
+    print(r"    \midrule")
+    print(f"    PBTs (pre-dedup)  & {our_pre_dedup:,} & 28,928 \\\\")
+    print(f"    PBTs (post-dedup) & {our_post_dedup:,} & n/a \\\\")
+    print(f"    Repositories (post-dedup) & {our_repos:,} & 1,529 \\\\")
+    print(r"    \midrule")
+    print(r"    Dependency source code & \checkmark & \texttimes \\")
+    print(r"    Radon code metrics      & \checkmark & \texttimes \\")
+    print(r"    NL summary              & \checkmark & \texttimes \\")
+    print(r"    @settings configuration & \texttimes & \checkmark \\")
+    print(r"    Runtime/entropy info    & \texttimes & \checkmark \\")
+    print(r"    Line coverage           & \texttimes & \checkmark \\")
+    print(r"    Filter: permissive license only & \checkmark & \texttimes \\")
+    print(r"    \midrule")
+    print(
+        r"    Repo overlap            & \multicolumn{2}{c}{not computed (corpus gated)} \\"
+    )
+    print(r"    \bottomrule")
+    print(r"  \end{tabular}")
+    print(r"\end{table}")
+
+
 def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
     """Compare PBT complexity to the complexity of the code they test."""
-    import re
-
     records = []
     for r in dep_rows:
         deps = r.get("dependencies") or []
@@ -260,8 +304,6 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
         pbt_loc = pbt_metrics.get("loc")
         pbt_cc = pbt_metrics.get("avg_complexity")
 
-        # "Code under test": local user-defined functions at depth 1
-        # Exclude stdlib / pip / myenv / site-packages resolutions
         def is_local(dep):
             qn = dep.get("qualified_name", "")
             fp = dep.get("file_path", "")
@@ -277,15 +319,11 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
         total_dep_loc = sum(dep_locs)
         n_local_fns = len(local_fns)
 
-        # External library count: count distinct top-level packages referenced
-        # by non-local deps (depth==1, kind in function/class/assignment)
         ext_pkgs = set()
         for d in deps:
             qn = d.get("qualified_name", "")
             fp = d.get("file_path", "")
-            # pip/site-packages = external
             if "site-packages" in fp or "site-packages" in qn:
-                # extract top-level package name
                 m = re.search(r"site-packages[/\\]([^/\\]+)", fp or qn)
                 if m:
                     pkg = m.group(1).split(".")[0].lower()
@@ -313,12 +351,10 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
-    # Panel 1: PBT LOC vs total dep LOC scatter (log-log), clip extremes
     ax = axes[0]
     pbt_clip = df["pbt_loc"].clip(upper=100)
     dep_clip = df["dep_loc"].clip(upper=500)
     ax.scatter(pbt_clip, dep_clip, alpha=0.15, s=8, color="#5ba3cf", rasterized=True)
-    # median lines
     ax.axvline(df["pbt_loc"].median(), color="#c44", ls="--", lw=1,
                label=f'PBT median={df["pbt_loc"].median():.0f}')
     ax.axhline(df["dep_loc"].median(), color="#e07b54", ls="--", lw=1,
@@ -328,7 +364,6 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
     ax.set_title("PBT size vs. code under test")
     ax.legend(fontsize=7)
 
-    # Panel 2: ratio distribution (dep_loc / pbt_loc), log scale
     ax = axes[1]
     ratio = df["ratio_loc"].dropna()
     ratio_pos = ratio[ratio > 0]
@@ -342,7 +377,6 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
     ax.set_title("How much larger is the tested code?")
     ax.legend(fontsize=8)
 
-    # Panel 3: local dep function count (how many project-local functions the PBT calls directly)
     ax = axes[2]
     fn_counts = df["n_local_fns"].clip(upper=10).value_counts().sort_index()
     ax.bar(fn_counts.index, fn_counts.values, color="#6a9e6a", edgecolor="white")
@@ -354,46 +388,10 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
     ax.set_xticks(range(0, 11))
     ax.legend(fontsize=8)
 
-    fig.suptitle(
-        f"PBT complexity vs. code under test (n={n:,})",
-        fontsize=13,
-    )
+    fig.suptitle(f"PBT complexity vs. code under test (n={n:,})", fontsize=13)
     fig.tight_layout()
     _save(fig, "realpbt_pbt_vs_deps")
 
-
-def print_comparison_table() -> None:
-    """Print a LaTeX table comparing our dataset to Liam's hypothesis-corpus."""
-    our_pre_dedup = 54_345
-    our_post_test_dedup = 11_039
-    our_repos = 333
-
-    print("% --- LaTeX comparison table ---")
-    print(r"\begin{table}[t]")
-    print(r"  \centering")
-    print(r"  \caption{Comparison of \FVSpec's RealPBT corpus with the Hypothesis Corpus~\cite{devoe2026hypothesis}.}")
-    print(r"  \label{tab:dataset-comparison}")
-    print(r"  \begin{tabular}{lrr}")
-    print(r"    \toprule")
-    print(r"    & \textbf{Ours (RealPBT)} & \textbf{Hypothesis Corpus} \\")
-    print(r"    \midrule")
-    print(f"    PBTs (pre-dedup)       & {our_pre_dedup:,} & n/a \\\\")
-    print(f"    PBTs (post-test-dedup) & {our_post_test_dedup:,} & 23,139 \\\\")
-    print(f"    Repositories           & {our_repos:,} & 1,504 \\\\")
-    print(r"    \midrule")
-    print(r"    Dependency source code & \checkmark & \texttimes \\")
-    print(r"    Radon code metrics     & \checkmark & \texttimes \\")
-    print(r"    NL summary             & \checkmark & \texttimes \\")
-    print(r"    @settings configuration & \texttimes & \checkmark \\")
-    print(r"    Runtime/entropy info   & \texttimes & \checkmark \\")
-    print(r"    Line coverage          & \texttimes & \checkmark \\")
-    print(r"    Test dedup             & SHA-256 & none \\")
-    print(r"    Filter: permissive license only & \checkmark & \texttimes \\")
-    print(r"    \midrule")
-    print(r"    Repo overlap           & \multicolumn{2}{c}{28 / 333 (8%)} \\")
-    print(r"    \bottomrule")
-    print(r"  \end{tabular}")
-    print(r"\end{table}")
 
 def main() -> None:
     """Run all RealPBT dataset analysis plots."""
@@ -405,10 +403,11 @@ def main() -> None:
     print(f"  {len(rows):,} PBTs loaded")
 
     pbt_df, repo_df = _build_dataframes(rows)
+    print(f"  {len(repo_df):,} unique repositories")
+
     dep_rows = _load_deps_data()
     if dep_rows:
         print(f"  {len(dep_rows):,} PBTs with dependency data loaded")
-    print(f"  {len(repo_df):,} unique repositories")
 
     plots = [
         ("realpbt_pbts_per_repo", lambda: plot_pbts_per_repo(repo_df)),
@@ -417,6 +416,7 @@ def main() -> None:
         ("realpbt_complexity", lambda: plot_pbt_complexity(pbt_df)),
         ("realpbt_pbt_vs_deps", lambda: plot_pbt_vs_deps(dep_rows)),
     ]
+
     for name, fn in plots:
         print(f"  Plotting {name}...")
         fn()
