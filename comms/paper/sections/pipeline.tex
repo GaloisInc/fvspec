@@ -1,77 +1,159 @@
-\section{Pipeline}
-Our generation pipeline is modelled on FVAPPS \cite{dougherty2025proving}, but starts from real-world Hypothesis property-based tests (PBTs) rather than synthetic programming puzzles. For each sample, we (i) recover the Python function under test (FUT) and dependencies, (ii) translate the code to a computable Lean implementation, (iii) translate the PBTs into Lean theorems, and (iv) score and filter the resulting artifacts (Figure~\ref{fig:pipeline}).
+\section{\FVSpec:PBT to \FVSpec:FV Pipeline}
+\Secl{pipeline}
+
+We lift each PBT in the \Secr{dataset} corpus (\FVSpec:PBT) into a Lean
+(\texttt{Impl.lean}, \texttt{Spec.lean}) pair (Figure~\ref{fig:pipeline},
+bottom) in three phases: function discovery, agentic transpilation, and
+post-production.
+We call the resulting FV challenge corpus \FVSpec:FV.
+ The pipeline is modeled on
+FVAPPS~\cite{dougherty2025proving} but starts from PBTs rather
+than programming puzzles, and adds an iterative LSP-repair loop.
+
+\emph{Function discovery.}\label{sec:pipeline-discovery}
+For each PBT we use tree-sitter to extract the function under test
+(FUT) and the transitive closure of its locally-defined dependencies. For
+our running example \texttt{isort}, this is just the four-line \texttt{def
+isort} body itself: \texttt{insort} comes from \texttt{bisect}, which is
+external and not in scope for transitive recovery. Larger PBTs in the
+corpus pull in tens to hundreds of lines of internal helpers
+(see Figure~\ref{fig:pbt-vs-deps}). When discovery fails---typically due
+to metaclasses, decorators, or other dynamic dispatch---we emit a stub
+FUT with generic type parameters so the formalization agent still
+receives well-formed input.
+
+\emph{Agentic transpilation.} A single formalization agent translates each sample, producing both
+\texttt{Impl.lean} (a computable port of the FUT and its dependencies, no
+\texttt{sorry}) and \texttt{Spec.lean} (one theorem per Hypothesis
+assertion, with proofs left as \texttt{sorry}). This is exemplified for \texttt{isort} in 
+Figure~\ref{fig:running-example}.
+After each generation step we type-check the output via the Lean LSP
+(over MCP) and \texttt{lake build}; on failure, the compiler diagnostics
+are fed back to the agent and a revised translation is requested. The
+loop terminates on success or after 16 tool-iterations.
+
+\emph{Post-production.} We first extract LLM turn counts from the raw
+\texttt{.eval} archives produced by the formalization agent, which runs
+as an Inspect~AI~\cite{UKAISI_inspect_2024} task. We then
+collapse runs into a single JSONL, deduplicating by sample id and
+tie-breaking with a quality score (structural faithfulness, theorem
+count, unit-tests, implementation success). Next, we re-run
+\texttt{lake build} on each retained sample and drop failures, which we
+classify into nine families: timeouts, well-founded recursion,
+unknown identifiers, failures to synthesize, type mismatches, syntax
+errors, missing functions, application errors, and declaration errors.
+We then run \texttt{radon} on the Python source and a custom AST
+analyzer on the Lean artifacts to extract line counts, theorem and
+\texttt{def} counts, residual \texttt{sorry}/\texttt{admit}s, and
+axioms. Finally, conditioning on these metrics, we assign a binary
+easy/hard label using \texttt{claude-haiku-4-5} as judge, together with
+a calibrated confidence score and a short rationale.
+
+The structural-faithfulness score used in the merge
+tie-break is a fixed weighted average of five sub-scores, each measuring
+how much of a Python-side artifact survives translation: parameter
+coverage (0.25), type correspondence (0.25), strategy coverage (0.20),
+assertion coverage (0.20), and dependency coverage (0.10). For
+\texttt{isort}, parameter coverage rewards the Lean theorem taking a
+single \texttt{List Int} matching Python's \texttt{lst}; type
+correspondence verifies that Python's \texttt{list[int]} maps to
+\texttt{List Int}; strategy coverage tracks that
+\texttt{st.lists(st.integers())} ranges over arbitrary integer lists,
+with no missing bounds in the Lean version; assertion coverage rewards
+both Python assertions producing a corresponding Lean theorem; and
+dependency coverage rewards every named helper recovered in function
+discovery surviving into \texttt{Impl.lean}. Sub-scores ship alongside
+the overall score so consumers can re-weight or filter.
+
+\subsection{Pipeline yield}
+\label{sec:pipeline-yield}
+
+The published \FVSpec:FV dataset contains
+\textbf{9{,}415 samples} drawn from \textbf{7{,}850 distinct PBTs across
+250 repositories} (Figure~\ref{fig:pipeline}, bottom right):
+formalization succeeded for $7{,}850 / 11{,}039 = 71\%$ of the input
+PBTs and $250 / 333 = 75\%$ of the input repositories, with the rest
+dropped by \texttt{lake build}. The mean sample carries 8 theorems
+(median 6, max 66) and median structural faithfulness 0.65; the full distribution and per-sub-metric means are in Figure~\ref{fig:faithfulness}. Implementation
+autoformalization succeeded for 83\% of samples; the remaining 17\% ship
+against a stub \texttt{Impl.lean}, so the theorem statement is well-typed
+but the body it constrains is opaque. The Claude Haiku grader splits the
+dataset 62\%/38\% hard/easy. Where a PBT yields multiple compiling
+formalizations (1{,}348 PBTs, mean 2.2 attempts each), all are kept; the
+\texttt{is\_canonical} field marks the highest-quality version per PBT.
 
 \begin{figure}[t]
   \centering
-  \resizebox{\linewidth}{!}{%
-  \begin{tikzpicture}[
-    font=\footnotesize,
-    node distance=6mm and 12mm,
-    box/.style={
-      draw,
-      rounded corners=2pt,
-      align=center,
-      inner sep=4pt,
-      line width=0.4pt
-    },
-    wide/.style={box, minimum width=0.92\linewidth},
-    half/.style={box, minimum width=0.45\linewidth},
-    arr/.style={-Latex, line width=0.5pt}
-  ]
-    \node[wide] (realpbt) {RealPBT sample (\TODO cite; dataset size)};
-    \node[wide, below=of realpbt] (discover) {Function discovery (tree-sitter): FUT + dependencies};
-    \node[wide, below=of discover] (impl) {Implementation agent: computable Lean (no \texttt{sorry})\\\texttt{Impl.lean} + extracted type signatures};
-
-    \node[half, below left=10mm and 0mm of impl] (spec)
-      {Specification agent: Hypothesis $\rightarrow$ Lean theorems\\\texttt{Spec.lean} (proofs as \texttt{sorry})};
-    \node[half, below right=10mm and 0mm of impl] (units)
-      {Units agent: Python unit tests $\rightarrow$ Lean/LSpec checks\\(\TODO data source)};
-
-    \node[wide, below=12mm of spec] (post) {Postproduction: deduplicate; strip problematic \texttt{\#eval}; \texttt{lake build}};
-    \node[wide, below=of post] (score) {Scoring/filtering: structural faithfulness + difficulty judge (\TODO model)};
-
-    \draw[arr] (realpbt) -- (discover);
-    \draw[arr] (discover) -- node[right, align=left] {\scriptsize success: \TODO\%\\ \scriptsize failure: stub FUT} (impl);
-    \draw[arr] (impl) -- (spec);
-    \draw[arr] (impl) -- (units);
-    \draw[arr] (spec) -- (post);
-    \draw[arr] (units) -- (post);
-    \draw[arr] (post) -- (score);
-
-    \node[draw, dashed, rounded corners=2pt, inner sep=5pt, fit=(impl) (spec) (units)] (loopbox) {};
-    \node[
-      fill=white,
-      inner sep=2pt,
-      font=\scriptsize,
-      align=center,
-      text width=0.85\textwidth
-    ] at ($(loopbox.north)+(0,3.5mm)$)
-      {Iterative repair: compile via Lean LSP (MCP), feed diagnostics back, retry until typechecks or budget};
-  \end{tikzpicture}
-  }%
-  \caption{\FVSpec pipeline: discover FUT+deps, translate to computable Lean, generate specs, repair via Lean LSP, then postprocess and score.}
-  \label{fig:pipeline}
+  \includegraphics[width=\linewidth]{figs/structural_faithfulness.pdf}
+  \caption{Structural-faithfulness scores across the published \FVSpec:FV
+    dataset. \emph{Left}: histogram of per-sample overall scores
+    (median 0.65; the multi-modal shape reflects the discrete denominators
+    of the underlying ratios). \emph{Right}: mean per-sub-metric scores.
+    Type correspondence ($1.00$) and assertion coverage ($0.97$) are
+    near-saturated---most translations preserve types and predicates---while
+    parameter coverage ($0.24$) and dependency coverage ($0.48$) are the
+    weak links, dragging the overall mean down to $0.67$. The high
+    variance in per-sample scores is exactly what the
+    \texttt{is\_canonical} flag exploits when multiple formalizations
+    of the same PBT are available.}
+  \label{fig:faithfulness}
 \end{figure}
 
-\subsection{Function discovery}
-For each PBT, we use tree-sitter to extract the Python source code of the FUT and any locally-defined dependencies. This function discovery step succeeds for \TODO\% of samples; when it fails, we generate a stub FUT with generic type parameters to avoid producing trivial theorems.
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  font=\footnotesize,
+  box/.style={draw, rounded corners=2pt, fill=gray!5, inner sep=4pt, align=center,
+              text width=22mm, minimum height=11mm, line width=0.4pt},
+  outbox/.style={draw, rounded corners=2pt, fill=blue!8, inner sep=4pt, align=center,
+              text width=22mm, minimum height=11mm, line width=0.6pt,
+              font=\footnotesize\bfseries},
+  arr/.style={-{Latex[length=2mm]}, gray!50!black, line width=0.5pt},
+  group/.style={draw, dashed, rounded corners, inner sep=4mm,
+                gray!60!black, line width=0.6pt},
+  hdr/.style={font=\small\sffamily\bfseries},
+  source/.style={font=\footnotesize\itshape},
+  node distance=4mm and 4mm,
+]
+  % --- Row 1: FVSpec:PBT extraction (top) ---
+  \node[source]                 (gh)    {GitHub};
+  \node[box, right=8mm of gh]   (disc1) {Discovery\\\scriptsize\rmfamily 19{,}808 repos};
+  \node[box, right=of disc1]    (lic)   {License filter\\\scriptsize\rmfamily copyleft~$\to$~drop};
+  \node[box, right=of lic]      (ext)   {Extract\\\scriptsize\rmfamily \texttt{@given} via ripgrep};
+  \node[outbox, right=of ext]   (pbtout){11{,}039 PBTs\\\scriptsize\rmfamily\mdseries 333 repos};
+  \draw[arr] (gh.east) -- (disc1.west);
+  \foreach \a/\b in {disc1/lic, lic/ext, ext/pbtout} \draw[arr] (\a) -- (\b);
 
-\subsection{LLM-based transpilation}
-We translate each sample using three agents.
+  % --- Row 2: FVSpec:FV generation (bottom) ---
+  \node[box, below=16mm of disc1] (disc2) {Function discovery\\\scriptsize\rmfamily tree-sitter};
+  \node[box, right=of disc2]      (form)  {Agentic transpilation\\\scriptsize\rmfamily LSP loop, $\leq$16 iter};
+  \node[box, right=of form]       (post)  {Post-production\\\scriptsize\rmfamily merge / validate};
+  \node[outbox, right=of post]    (fvout) {9{,}415 samples\\\scriptsize\rmfamily\mdseries 250 repos};
+  \foreach \a/\b in {disc2/form, form/post, post/fvout} \draw[arr] (\a) -- (\b);
 
-\paragraph{Implementation agent}
-The implementation agent runs first, translating the FUT and its dependencies into fully computable Lean definitions. No \texttt{sorry} placeholders are permitted, so the output must typecheck and evaluate. Dependencies are formalized separately and then merged with deduplication into a single \texttt{Impl.lean} file. On success, we additionally extract Lean type signatures for all formalized functions and provide them as context to downstream agents. If the agent exhausts its retry budget without producing typechecking code, downstream stages still run, but without a verified implementation to build on.
+  % LSP repair self-loop on the formalization agent (explicit Bezier so it actually renders)
+  \draw[arr] ([xshift=-2.5mm]form.north)
+        .. controls ([xshift=-2.5mm,yshift=6mm]form.north)
+                and ([xshift= 2.5mm,yshift=6mm]form.north)
+        .. ([xshift= 2.5mm]form.north);
 
-\paragraph{Specification and units agents}
-Next, the specification agent and units agent run in parallel. The specification agent translates Hypothesis tests into Lean theorems that import the formalized implementation; proofs are left as \texttt{sorry}. The units agent translates any available Python unit tests into Lean/LSpec checks. The units output is included as auxiliary validation, but does not gate inclusion of the specification (\TODO confirm policy).
+  % --- Group dashed boxes (do NOT include the GitHub source label) ---
+  \node[group, fit=(disc1)(pbtout)] (g1) {};
+  \node[group, fit=(disc2)(fvout)]  (g2) {};
 
-\subsection{Iterative repair against Lean}
-All agents operate in an iterative repair loop. At each step, we check the generated Lean code against the compiler via the Lean LSP (accessed through an MCP tool server). If the code does not typecheck, we feed the compiler diagnostics back to the agent and prompt for a revised translation. This loop continues until the code typechecks or a retry budget is exhausted. We validate final compilation with a full \texttt{lake build}.
+  % --- Left-aligned labels at the top-left of each dashed group ---
+  \node[hdr, anchor=south west, yshift=0.3mm] at (g1.north west) {\FVSpec:PBT};
+  \node[hdr, anchor=south west, yshift=0.3mm] at (g2.north west) {\FVSpec:FV};
 
-\subsection{Cleanup and quality evaluation}
-We apply postproduction passes to remove known failure modes (e.g., stray \texttt{\#eval} fragments that can pass in isolation but break a project build) and to merge/deduplicate translated dependencies across files.
-
-The resulting specification/implementation pairs are then scored and filtered. We compute \emph{structural faithfulness} programmatically by comparing the generated Lean artifacts to the source PBTs. The metric decomposes into sub-scores for parameter coverage, type correspondence, strategy coverage, assertion coverage, and dependency coverage, producing an overall score (\TODO define weights; add exact formula). We also assign a \emph{difficulty} rating using an LLM judge (\TODO specify model and prompt), intended to approximate the proof effort required on a 1--10 scale.
-
-\subsection{Input PBT corpus}
-Source PBTs are drawn from the \texttt{Benchify/realpbt} dataset~\cite{benchify2024realpbt}; Section~\ref{sec:dataset} describes how the corpus was scraped, fork-deduplicated, and cleaned in detail. The working set after deduplication is 11,039 PBTs across 333 repositories.
+  % --- Bridge arrow: from the 11,039-PBTs output box, down past the dashed group edge, then left across the inter-group gap, then down into function discovery ---
+  \draw[arr] (pbtout.south) -- ([yshift=-8mm]pbtout.south) -| (disc2.north);
+\end{tikzpicture}
+\caption{The full \FVSpec generation pipeline. \emph{Top} (\FVSpec:PBT):
+the input PBT corpus is scraped from public GitHub repositories
+(\Secr{dataset}). \emph{Bottom} (\FVSpec:FV): each PBT is lifted into a
+Lean (Impl, Spec) pair via tree-sitter--based function discovery, an
+agentic transpilation step (with the LSP-repair self-loop), and a
+deterministic post-production stage that validates, deduplicates, and
+grades the output.}
+\label{fig:pipeline}
+\end{figure}
