@@ -1,7 +1,7 @@
 \section{Task Definition}
 \Secl{task}
 
-Each problem in the \FVSpec benchmark consists of four components: (1) the original Python implementation of the function under test, (2) the original Python PBT exercising that implementation, (3) a Lean implementation of the same function---a fully defined, computable definition, no \texttt{sorry}---and (4) a Lean theorem corresponding to the PBT, with a \texttt{sorry} placeholder where the proof should go. The AI's task is to fill in every theorem \texttt{sorry} with a Lean proof term that compiles cleanly under \texttt{lake build}; submissions are then scored by whether the proof retains any \texttt{sorry}, \texttt{admit}, or axioms beyond Mathlib's defaults. The Lean kernel is the sole arbiter---we perform no separate semantic comparison against the original Python. Each problem also includes a URL pointing to the original source code and license information.
+Each problem in the \FVSpec benchmark consists of four components: (1) the original Python implementation of the function under test, (2) the original Python PBT exercising that implementation, (3) a full Lean implementation of the same function, and (4) a Lean theorem corresponding to the PBT, with a \texttt{sorry} placeholder where the proof should go. The AI's task is to fill in every theorem \texttt{sorry} with a Lean proof term that compiles cleanly under \texttt{lake build}; submissions are then scored by whether the proof retains any \texttt{sorry}, \texttt{admit}, or axioms beyond Mathlib's defaults. Each problem also includes a URL pointing to the original source code and license information.
 
 As a running example, consider \texttt{isort(lst)}. Figure~\ref{fig:running-example}
 shows all four artifacts of a single \FVSpec problem. The left column holds
@@ -53,7 +53,6 @@ end Fvspec.Impl
 from collections import Counter
 from hypothesis import given
 import hypothesis.strategies as st
-
 @given(st.lists(st.integers()))
 def test_isort(lst):
     out = isort(lst)
@@ -112,8 +111,6 @@ of the property under test. The AI must discharge both Lean \texttt{sorry}
 placeholders, one per theorem.}
 \label{fig:running-example}
 \end{figure}
-
-The \texttt{isort} example is deliberately pure; \Secr{threats} covers how the pipeline handles effectful code (and where the approach has limits).
 
 We encounter two practical issues when translating Python PBTs into Lean implementations and (unproven) specficiations.
 

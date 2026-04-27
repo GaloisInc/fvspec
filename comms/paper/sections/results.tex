@@ -53,9 +53,9 @@ Figure~\ref{fig:pipeline_cost} reports the per-sample pipeline cost in three dim
   \label{fig:pipeline_cost}
 \end{figure}
 
-\subsection{Difficulty Stratification}
+\subsection{Difficulty Grading}
 
-Each sample is graded for proof difficulty by Claude Haiku 4.5, which assigns a binary label (\emph{easy} or \emph{hard}) along with a confidence score. Figure~\ref{fig:difficulty_distribution} shows the resulting split and the distribution of grader confidence. The benchmark contains a substantial proportion of both easy and hard problems, and the grader expresses high confidence for the majority of assessments.
+Each sample is graded for proof difficulty by Claude Haiku 4.5, which assigns a binary label (\emph{easy} or \emph{hard}) along with a confidence score. Figure~\ref{fig:difficulty_distribution} shows the resulting split and the distribution of grader confidence. The benchmark contains a substantial proportion of both easy and hard problems, and the grader expresses high confidence for the majority of assessments. Difficulty is estimated here as a \textit{prediction}, where we ask the grader to predict whether or not a language model agent would be able to complete the proofs successfully (considering the problem "hard" if haiku thinks not, and "easy" if haiku thinks yes). 
 
 \begin{figure}[t]
   \centering

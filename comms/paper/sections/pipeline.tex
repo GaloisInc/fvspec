@@ -1,4 +1,4 @@
-\section{\FVSpec:PBT to \FVSpec:FV Pipeline}
+\section{\FVSpec:PBT$\to$FV Pipeline}
 \Secl{pipeline}
 
 We lift each PBT in the \Secr{dataset} corpus (\FVSpec:PBT) into a Lean
@@ -142,11 +142,11 @@ formalizations (1{,}348 PBTs, mean 2.2 attempts each), all are kept; the
   \node[group, fit=(disc2)(fvout)]  (g2) {};
 
   % --- Left-aligned labels at the top-left of each dashed group ---
-  \node[hdr, anchor=south west, yshift=0.3mm] at (g1.north west) {\FVSpec:PBT};
-  \node[hdr, anchor=south west, yshift=0.3mm] at (g2.north west) {\FVSpec:FV};
+  \node[hdr, anchor=south west, xshift=-2cm, yshift=0.3mm] at (g1.north east) {\FVSpec:PBT};
+  \node[hdr, anchor=south west, xshift=-2cm,  yshift=0.3mm] at (g2.north east) {\FVSpec:FV};
 
   % --- Bridge arrow: from the 11,039-PBTs output box, down past the dashed group edge, then left across the inter-group gap, then down into function discovery ---
-  \draw[arr] (pbtout.south) -- ([yshift=-8mm]pbtout.south) -| (disc2.north);
+  \draw[arr] ([xshift=-0.5cm] pbtout.south) -- ([xshift=-0.5cm,yshift=-8mm]pbtout.south) -| (disc2.north);
 \end{tikzpicture}
 \caption{The full \FVSpec generation pipeline. \emph{Top} (\FVSpec:PBT):
 the input PBT corpus is scraped from public GitHub repositories

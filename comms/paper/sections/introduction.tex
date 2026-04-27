@@ -23,14 +23,14 @@ and will naturally wither under the capital pressure to iterate\footnote{The rea
 There is currently little evidence that such capabilities are possible.
 To achieve them, we would first need high-quality benchmarks to train on.
 Existing benchmarks (see Table~\ref{tab:fv-benchmarks}) 
-are too small~\cite{loughridge2024dafnybench},
-focused on advanced mathematics rather than engineering~\cite{glazer2024frontiermath},
-or derived from expert-driven verification projects~\cite{chakraborty2024neural} which 
+are too small (e.g.~\cite{loughridge2024dafnybench}),
+focused on advanced mathematics rather than engineering (e.g.~\cite{glazer2024frontiermath}),
+or derived from expert-driven verification projects (as is the case in~\cite{chakraborty2024neural}) which 
 are quite different from what you would get were you to verify the average software project.
 To clarify this last point: 
     historically, FV has been bottle-necked by the number of human expert practitioners 
     able to write proofs in an ITP\footnote{We were unable to find any formal estimate of the number of human formal methods practitioners today. However, as a very rough proxy, \citet{de2025lessons} conducted the largest ever survey of users of any particular ITP -- in this case Coq, which is now called Rocq -- at 466 participants. As a point of contrast, that year's survey by the Rust foundation of Rust software engineers had 7,156 participants~\cite{rustParticipants}. Anecdotally, most ITP work today is in Rocq, Lean 4, or Isabelle.}, 
-    and therefore, FV was only ever applied to the most 
+    and therefore, outside of pedagogy or academic research, FV was only ever applied to the most 
     mathematically complex and safety-critical applications, such as compilers~\cite{leroy2016compcert} or
     an OS kernel~\cite{klein2009sel4}.
     These projects are generally monolithic, closed systems, 
@@ -45,7 +45,6 @@ the interactions of several different components,
 potentially written in different languages 
 and operating on different chips~\cite{buro2020equational,perconti2014verifying}.
 
-\mvh{A reviewer is going to ask us how we handle all this complexity. Do we have theorems that relate to external APIs? In what ways do we REALLY differ from other benchmarks? We need to substantiate this.}
 
 \begin{table}[h]
 \centering
@@ -121,13 +120,15 @@ PBT is typically much cheaper than FV, and as a result has seen wider adoption.
 In fact, PBTs are typically seen as the first step toward FV. 
 For example, in the interactive theorem prover ACL2s~\cite{dillinger2007acl2s}, any unproven theorem statement is automatically treated as a PBT until the author supplies a proof. 
 Thus the idea of translating PBTs to theorems for FV is natural and, to an extent, industry-standard. We build on this. 
-First, we scrape $\approx$20k permissively-licensed PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. 
+First, we scrape $\approx$20k PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. 
 Each PBT in our dataset can be seen as a formal conjecture about a piece of Python code, which the author would like to either substantiate (prove) or disprove. 
+We refer to our scraped PBT corpus as \FVSpec:PBT.
 To make it possible for an AI to resolve these conjectures, 
 we translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. 
+We refer to our resultant corpus of Lean translations as \FVSpec:FV.
 Once the Lean version of the conjecture is (eventually) proven, it can be called a \emph{theorem}.
 Until then, it has a \texttt{sorry} placeholder where the proof belongs.
-This approach was pioneered by \citep{dougherty2025proving} on the FVAPPS verification benchmark. In FVAPPS, source programs were taken from the APPS benchmark by \citep{hendrycks2021apps}, translated to PBTs, and then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
+This approach was pioneered by \citet{dougherty2025proving} on the FVAPPS verification benchmark. In FVAPPS, source programs were taken from the APPS benchmark by \citet{hendrycks2021apps}, translated to PBTs, and then lifted to theorems. We apply the same process at scale to PBTs found in the wild.
 
 
 
@@ -139,8 +140,8 @@ Although when applicable we consider this goal a positive secondary contribution
 our actual motivation is to build a large benchmark of realistic and high-quality
 software verification exercises, representative of the diversity of code found in 
 ``normal'' codebases.
-Thus, we don't worry whether or not our translations are perfectly equivalent.
-The result is tens of thousands of verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): (1) the original Python implementation, (2) the original Python PBT exercising it, (3) a complete Lean implementation of the same function (no \texttt{sorry}), and (4) a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience: as Table~\ref{tab:fv-benchmarks} shows, prior software-verification benchmarks are scarce (the bulk of ITP benchmarks target mathematics) and small, and none derive from code that was authored outside of a theorem-proving context, putting our problems out of distribution relative to anything an AI is likely to have memorized.
+Thus, we don't worry whether or not our translations are perfectly equivalent, so long as they are equivalently interesting.
+The result is tens of thousands of verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): first, the original Python implementation; second, the original Python PBT exercising it; third, a complete Lean implementation of the same function; and fourth, a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience: as Table~\ref{tab:fv-benchmarks} shows, prior software-verification benchmarks are scarce (the bulk of ITP benchmarks target mathematics) and small, and none derive from code that was authored outside of a theorem-proving context, putting our problems out of distribution relative to anything an AI is likely to have memorized.
 
 
 
@@ -150,7 +151,7 @@ The result is tens of thousands of verification challenges. Each consists of fou
 
 The rest of the paper is organized as follows.
 We formalize the task in \Secr{task}.
-We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k permissively-licensed Hypothesis tests from open-source repositories, in \Secr{dataset},
+We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k Hypothesis tests from open-source repositories, in \Secr{dataset},
 and discuss how that corpus compares to a similar one released by the Hypothesis team~\cite{devoe2026hypothesis}.
 Then, we describe our generation pipeline---
 scraping,
