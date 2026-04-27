@@ -120,7 +120,7 @@ PBT is typically much cheaper than FV, and as a result has seen wider adoption.
 In fact, PBTs are typically seen as the first step toward FV. 
 For example, in the interactive theorem prover ACL2s~\cite{dillinger2007acl2s}, any unproven theorem statement is automatically treated as a PBT until the author supplies a proof. 
 Thus the idea of translating PBTs to theorems for FV is natural and, to an extent, industry-standard. We build on this. 
-First, we scrape $\approx$20k PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. 
+First, we scrape 11{,}039 PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. 
 Each PBT in our dataset can be seen as a formal conjecture about a piece of Python code, which the author would like to either substantiate (prove) or disprove. 
 We refer to our scraped PBT corpus as \FVSpec:PBT.
 To make it possible for an AI to resolve these conjectures, 
@@ -141,19 +141,25 @@ our actual motivation is to build a large benchmark of realistic and high-qualit
 software verification exercises, representative of the diversity of code found in 
 ``normal'' codebases.
 Thus, we don't worry whether or not our translations are perfectly equivalent, so long as they are equivalently interesting.
-The result is tens of thousands of verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): first, the original Python implementation; second, the original Python PBT exercising it; third, a complete Lean implementation of the same function; and fourth, a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience: as Table~\ref{tab:fv-benchmarks} shows, prior software-verification benchmarks are scarce (the bulk of ITP benchmarks target mathematics) and small, and none derive from code that was authored outside of a theorem-proving context, putting our problems out of distribution relative to anything an AI is likely to have memorized.
+The result is 9{,}415 Lean 4 verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): first, the original Python implementation; second, the original Python PBT exercising it; third, a complete Lean implementation of the same function; and fourth, a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience. As Table~\ref{tab:fv-benchmarks} shows, the bulk of ITP benchmarks target mathematics rather than software. The software-verification benchmarks that are large---Vericoding~\cite{bursuc2025benchmark} (12{,}504 tasks), LEAN-GitHub~\cite{wu2024lean} (28{,}597 theorems), and CoqStoq~\cite{thompson2024rango} (10{,}396 theorems)---all derive from code that was written specifically for or in an ITP: Vericoding aggregates problems from competitive verification events (VerifyThis) and the Archive of Formal Proofs; LEAN-GitHub and CoqStoq scrape GitHub repositories where the primary artifact \emph{is} the Lean or Coq proof. FVAPPS~\cite{dougherty2025proving}, the closest methodological predecessor, starts from competitive programming puzzles (APPS~\cite{hendrycks2021apps}) translated into PBTs, not from code written in the ordinary course of software development. None of these benchmarks contain specifications authored by practicing engineers who had no formal verification goal in mind, which is precisely what ours does---putting our problems out of distribution relative to anything an AI is likely to have memorized.
 
 
 
-\mvh{\TODO: Summary of results.}
+Our main contributions are:
+\begin{enumerate}
+  \item \textbf{\FVSpec:PBT} — a corpus of 11{,}039 deduplicated Python property-based tests scraped from 333 open-source repositories, the first large, license-clean PBT dataset drawn from ordinary software development (no competition problems, no curated ITP code).
+  \item \textbf{\FVSpec:FV} — 9{,}415 Lean~4 formal verification challenges lifted from 2{,}772 of those PBTs by an agentic transpilation pipeline with iterative LSP repair, each annotated with structural faithfulness scores (median 0.65), a calibrated difficulty label (62\% hard), and full artifact metadata.
+  \item \textbf{Baseline evaluations} of Claude Sonnet~4.6 and GPT~5.4 showing that both models struggle on the hard subset, confirming the benchmark is far from saturated.
+  \item \textbf{Open-source release} of the full pipeline---scraper, dependency extractor, formalization agent, and post-production scripts---under the MIT license.\footnote{\TODO}
+\end{enumerate}
 
 
 
 The rest of the paper is organized as follows.
 We formalize the task in \Secr{task}.
-We characterize our input corpus, detailing how we scraped and deduplicated $\approx$20k Hypothesis tests from open-source repositories, in \Secr{dataset},
+We characterize our input corpus, detailing how we scraped and deduplicated 11{,}039 Hypothesis tests from open-source repositories, in \Secr{dataset},
 and discuss how that corpus compares to a similar one released by the Hypothesis team~\cite{devoe2026hypothesis}.
 Then, we describe our generation pipeline---
 scraping,
 dependency extraction, LLM-based transpilation with iterative Lean LSP repair, and post-production cleaning---in \Secr{pipeline}.
-We present baseline results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.
+We characterize the benchmark and present baseline results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.

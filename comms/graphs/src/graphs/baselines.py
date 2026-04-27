@@ -242,7 +242,7 @@ def plot_prove_rate(model_data: dict[str, dict[str, Any]]) -> None:
     x = np.arange(len(buckets))
     width = 0.8 / max(len(models_list), 1)
 
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(8, 2.5))
     for i, ((model, samples, k), color) in enumerate(zip(models_list, _PALETTE)):
         rates = []
         for bucket in buckets:
@@ -371,6 +371,7 @@ def plot_time_and_tokens(model_data: dict[str, dict[str, Any]]) -> None:
         patch.set_alpha(0.7)
     axes[0].set_ylabel("Wall-clock time (s)")
     axes[0].set_title("Time per sample (Σ over epochs)")
+    plt.setp(axes[0].get_xticklabels(), rotation=45, ha="right")
 
     bp2 = axes[1].boxplot(token_data, labels=labels, patch_artist=True)
     for patch, color in zip(bp2["boxes"], _PALETTE):
@@ -381,6 +382,7 @@ def plot_time_and_tokens(model_data: dict[str, dict[str, Any]]) -> None:
     axes[1].yaxis.set_major_formatter(
         plt.FuncFormatter(lambda x, _: f"{x / 1000:.0f}k")
     )
+    plt.setp(axes[1].get_xticklabels(), rotation=45, ha="right")
 
     fig.suptitle("Compute cost per sample", fontsize=13)
     fig.tight_layout()

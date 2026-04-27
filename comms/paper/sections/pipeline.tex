@@ -51,9 +51,12 @@ a calibrated confidence score and a short rationale.
 
 The structural-faithfulness score used in the merge
 tie-break is a fixed weighted average of five sub-scores, each measuring
-how much of a Python-side artifact survives translation: parameter
-coverage (0.25), type correspondence (0.25), strategy coverage (0.20),
-assertion coverage (0.20), and dependency coverage (0.10). For
+how much of a Python-side artifact survives translation:
+\begin{equation}
+  S = 0.25\,S_{\text{param}} + 0.25\,S_{\text{type}} + 0.20\,S_{\text{strat}} + 0.20\,S_{\text{assert}} + 0.10\,S_{\text{dep}}
+  \label{eq:faithfulness}
+\end{equation}
+where each sub-score is in $[0,1]$: $S_{\text{param}}$ (parameter coverage), $S_{\text{type}}$ (type correspondence), $S_{\text{strat}}$ (strategy coverage), $S_{\text{assert}}$ (assertion coverage), and $S_{\text{dep}}$ (dependency coverage). For
 \texttt{isort}, parameter coverage rewards the Lean theorem taking a
 single \texttt{List Int} matching Python's \texttt{lst}; type
 correspondence verifies that Python's \texttt{list[int]} maps to
@@ -69,17 +72,15 @@ the overall score so consumers can re-weight or filter.
 \label{sec:pipeline-yield}
 
 The published \FVSpec:FV dataset contains
-\textbf{9{,}415 samples} drawn from \textbf{7{,}850 distinct PBTs across
-250 repositories} (Figure~\ref{fig:pipeline}, bottom right):
-formalization succeeded for $7{,}850 / 11{,}039 = 71\%$ of the input
-PBTs and $250 / 333 = 75\%$ of the input repositories, with the rest
-dropped by \texttt{lake build}. The mean sample carries 8 theorems
-(median 6, max 66) and median structural faithfulness 0.65; the full distribution and per-sub-metric means are in Figure~\ref{fig:faithfulness}. Implementation
-autoformalization succeeded for 83\% of samples; the remaining 17\% ship
+\textbf{9{,}415 samples} drawn from \textbf{2{,}772 distinct PBTs}
+(Figure~\ref{fig:pipeline}, bottom right):
+formalization succeeded for $2{,}772$ of $11{,}039$ input PBTs ($25\%$);
+the rest were dropped by \texttt{lake build}. The mean sample carries 8 theorems
+(median 6, max 66) and median structural faithfulness 0.65 (Figure~\ref{fig:faithfulness}). A complete Lean implementation was generated for 59\% of samples; the remaining 41\% ship
 against a stub \texttt{Impl.lean}, so the theorem statement is well-typed
 but the body it constrains is opaque. The Claude Haiku grader splits the
 dataset 62\%/38\% hard/easy. Where a PBT yields multiple compiling
-formalizations (1{,}348 PBTs, mean 2.2 attempts each), all are kept; the
+formalizations (mean 3.4 formalizations per PBT, range 1--15), all are kept; the
 \texttt{is\_canonical} field marks the highest-quality version per PBT.
 
 \begin{figure}[t]
@@ -128,7 +129,7 @@ formalizations (1{,}348 PBTs, mean 2.2 attempts each), all are kept; the
   \node[box, below=16mm of disc1] (disc2) {Function discovery\\\scriptsize\rmfamily tree-sitter};
   \node[box, right=of disc2]      (form)  {Agentic transpilation\\\scriptsize\rmfamily LSP loop, $\leq$16 iter};
   \node[box, right=of form]       (post)  {Post-production\\\scriptsize\rmfamily merge / validate};
-  \node[outbox, right=of post]    (fvout) {9{,}415 samples\\\scriptsize\rmfamily\mdseries 250 repos};
+  \node[outbox, right=of post]    (fvout) {9{,}415 samples\\\scriptsize\rmfamily\mdseries 2{,}772 PBTs};
   \foreach \a/\b in {disc2/form, form/post, post/fvout} \draw[arr] (\a) -- (\b);
 
   % LSP repair self-loop on the formalization agent (explicit Bezier so it actually renders)
@@ -148,12 +149,12 @@ formalizations (1{,}348 PBTs, mean 2.2 attempts each), all are kept; the
   % --- Bridge arrow: from the 11,039-PBTs output box, down past the dashed group edge, then left across the inter-group gap, then down into function discovery ---
   \draw[arr] ([xshift=-0.5cm] pbtout.south) -- ([xshift=-0.5cm,yshift=-8mm]pbtout.south) -| (disc2.north);
 \end{tikzpicture}
-\caption{The full \FVSpec generation pipeline. \emph{Top} (\FVSpec:PBT):
+\caption{The full \FVSpec generation pipeline (FVC = FV challenge). \emph{Top} (\FVSpec:PBT):
 the input PBT corpus is scraped from public GitHub repositories
 (\Secr{dataset}). \emph{Bottom} (\FVSpec:FV): each PBT is lifted into a
 Lean (Impl, Spec) pair via tree-sitter--based function discovery, an
 agentic transpilation step (with the LSP-repair self-loop), and a
 deterministic post-production stage that validates, deduplicates, and
-grades the output.}
+grades the output; 11{,}039 PBTs enter and 9{,}415 FVCs (from 2{,}772 distinct PBTs) emerge.}
 \label{fig:pipeline}
 \end{figure}

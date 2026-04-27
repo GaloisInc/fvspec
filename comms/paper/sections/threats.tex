@@ -45,7 +45,7 @@ The axiomatization move is not a universal solvent.
 
 \emph{LLM grader.} Difficulty labels come from \texttt{claude-haiku-4-5}, itself a model whose judgments are imperfect and uncalibrated against human expert performance. We expose the grader's confidence and rationale per sample so consumers can audit or override the labels.
 
-\emph{Stub-implementation tail.} Implementation autoformalization succeeds for 83\% of samples (\Secr{pipeline}). The remaining 17\% ship against a stub \texttt{Impl.lean}, weakening the proof obligation: the theorem is well-typed, but the body it constrains is opaque. We tag these samples so consumers can filter them out.
+\emph{Stub-implementation tail.} A complete Lean implementation is generated for 59\% of samples (\Secr{pipeline}); the remaining 41\% ship against a stub, weakening the proof obligation: the theorem is well-typed but the body it constrains is opaque. These samples are tagged for easy filtering.
 
 \emph{License-detection edge cases.} Our scraper (\Secr{dataset}) skips repositories with explicitly non-permissive licenses but accepts repositories where GitHub cannot detect a license at all. Most such cases are forks of permissively-licensed upstreams (e.g., \texttt{pytorch}, \texttt{ivy}) where the LICENSE file was modified or moved during forking, but we cannot guarantee this for every retained sample.
 
