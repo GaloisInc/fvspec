@@ -1,0 +1,51 @@
+This is BibTeX, Version 0.99d (TeX Live 2025/Homebrew)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: neurips_2026.aux
+The style file: abbrvnat.bst
+Database file #1: citations.bib
+Warning--entry type for "UKAISI_inspect_2024" isn't style-file defined
+--line 388 of file citations.bib
+Warning--empty year in radon
+Warning--there's a number but no volume in mccabe1976complexity
+You've used 59 entries,
+            2773 wiz_defined-function locations,
+            883 strings with 18475 characters,
+and the built_in function-call counts, 33251 in all, are:
+= -- 2637
+> -- 3006
+< -- 26
++ -- 1017
+- -- 957
+* -- 2866
+:= -- 5384
+add.period$ -- 193
+call.type$ -- 59
+change.case$ -- 484
+chr.to.int$ -- 58
+cite$ -- 120
+duplicate$ -- 1216
+empty$ -- 2112
+format.name$ -- 1024
+if$ -- 6733
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 48
+newline$ -- 317
+num.names$ -- 236
+pop$ -- 1066
+preamble$ -- 1
+purify$ -- 427
+quote$ -- 0
+skip$ -- 1067
+stack$ -- 0
+substring$ -- 464
+swap$ -- 117
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 644
+warning$ -- 2
+while$ -- 205
+width$ -- 0
+write$ -- 758
+(There were 3 warnings)

@@ -1,0 +1,210 @@
+\relax 
+\providecommand\hyper@newdestlabel[2]{}
+\providecommand\HyField@AuxAddToFields[1]{}
+\providecommand\HyField@AuxAddToCoFields[2]{}
+\citation{safeguardedAI}
+\citation{dalrymple2024guaranteed}
+\citation{sfo,sfo2}
+\citation{rasmussen1997risk}
+\citation{loughridge2024dafnybench}
+\citation{glazer2024frontiermath}
+\citation{chakraborty2024neural}
+\citation{de2025lessons}
+\citation{rustParticipants}
+\citation{leroy2016compcert}
+\citation{klein2009sel4}
+\citation{buro2020equational,perconti2014verifying}
+\@writefile{toc}{\contentsline {section}{\numberline {1}Introduction}{1}{section.1}\protected@file@percent }
+\newlabel{sec:intro}{{1}{1}{Introduction}{section.1}{}}
+\citation{zheng2021minif2f}
+\citation{tsoukalas2024putnambench}
+\citation{liu2023fimo}
+\citation{loughridge2024dafnybench}
+\citation{azerbayev2023proofnet}
+\citation{poiroux2025reliable}
+\citation{ying2024lean}
+\citation{yu2025formalmath}
+\citation{wu2024lean}
+\citation{ren2025deepseek}
+\citation{hu2024minictx}
+\citation{leangeo}
+\citation{lu2025solving}
+\citation{jiang2025fate}
+\citation{barkallah2025veribench}
+\citation{dougherty2025proving}
+\citation{thakur2025clever}
+\citation{bursuc2025benchmark}
+\citation{huang2024mustard}
+\citation{lu2024process}
+\citation{thompson2024rango}
+\citation{li2025msc}
+\citation{bansal2019holist}
+\citation{dodds2022formally}
+\citation{dillinger2007acl2s}
+\citation{maciver2019hypothesis}
+\citation{dougherty2025proving}
+\citation{hendrycks2021apps}
+\@writefile{lot}{\contentsline {table}{\numberline {1}{\ignorespaces \textbf  {Prior ITP benchmarks.} HS = high-school, U = undergraduate, G = graduate. If one benchmark improves upon another, we exclude the lesser.}}{2}{table.1}\protected@file@percent }
+\newlabel{tab:fv-benchmarks}{{1}{2}{\textbf {Prior ITP benchmarks.} HS = high-school, U = undergraduate, G = graduate. If one benchmark improves upon another, we exclude the lesser}{table.1}{}}
+\citation{bursuc2025benchmark}
+\citation{wu2024lean}
+\citation{thompson2024rango}
+\citation{dougherty2025proving}
+\citation{hendrycks2021apps}
+\citation{devoe2026hypothesis}
+\@writefile{toc}{\contentsline {section}{\numberline {2}Task Definition}{3}{section.2}\protected@file@percent }
+\newlabel{sec:task}{{2}{3}{Task Definition}{section.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {1}{\ignorespaces The four artifacts of a single FVSpec\xspace  problem. Each problem is partitioned into the \emph  {PBT corpus} (FVSpec\xspace  :PBT, left)---the original Python implementation and Hypothesis test we scrape from GitHub---and the \emph  {formal-verification challenge} (FVSpec\xspace  :FV, right) we transpile from it: a complete Lean port of the implementation and a Lean theorem statement of the property under test. The AI must discharge both Lean \texttt  {sorry} placeholders, one per theorem.}}{4}{figure.1}\protected@file@percent }
+\newlabel{fig:running-example}{{1}{4}{The four artifacts of a single \FVSpec problem. Each problem is partitioned into the \emph {PBT corpus} (\FVSpec :PBT, left)---the original Python implementation and Hypothesis test we scrape from GitHub---and the \emph {formal-verification challenge} (\FVSpec :FV, right) we transpile from it: a complete Lean port of the implementation and a Lean theorem statement of the property under test. The AI must discharge both Lean \texttt {sorry} placeholders, one per theorem}{figure.1}{}}
+\@writefile{toc}{\contentsline {paragraph}{Nonsensical theorems.}{4}{section*.1}\protected@file@percent }
+\citation{gopinathan2026leanbug}
+\citation{vonhippel2026slopless}
+\citation{leancomparator2026}
+\citation{maciver2019hypothesis}
+\citation{pygithub}
+\citation{fastcheck}
+\citation{jimenez2024swebench}
+\@writefile{toc}{\contentsline {paragraph}{Lean as a (nearly) perfect oracle.}{5}{section*.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {3}Property-Based Test Corpus (FVSpec\xspace  :PBT)}{5}{section.3}\protected@file@percent }
+\newlabel{sec:dataset}{{3}{5}{Property-Based Test Corpus (\FVSpec :PBT)}{section.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.1}Diversity}{5}{subsection.3.1}\protected@file@percent }
+\newlabel{sec:dataset-diversity}{{3.1}{5}{Diversity}{subsection.3.1}{}}
+\citation{radon}
+\citation{mccabe1976complexity}
+\citation{halstead1977elements}
+\citation{radon}
+\citation{mccabe1976complexity}
+\citation{halstead1977elements}
+\citation{devoe2026hypothesis}
+\citation{devoe2026hypothesis}
+\@writefile{lof}{\contentsline {figure}{\numberline {2}{\ignorespaces Code-quality metrics for the 11{,}039 deduplicated PBTs, computed by Radon~\cite  {radon}. \emph  {Left}: lines of code. \emph  {Center}: cyclomatic complexity---the number of linearly independent execution paths through the function, i.e.\ one plus the number of binary branch points~\cite  {mccabe1976complexity}; higher values indicate more complex control flow. \emph  {Right}: maintainability index---a 0--100 composite of Halstead volume~\cite  {halstead1977elements}, cyclomatic complexity, and source lines, where higher is more maintainable; the spike at 100 is an artefact of Radon capping the score at that value.}}{6}{figure.2}\protected@file@percent }
+\newlabel{fig:python_source}{{2}{6}{Code-quality metrics for the 11{,}039 deduplicated PBTs, computed by Radon~\cite {radon}. \emph {Left}: lines of code. \emph {Center}: cyclomatic complexity---the number of linearly independent execution paths through the function, i.e.\ one plus the number of binary branch points~\cite {mccabe1976complexity}; higher values indicate more complex control flow. \emph {Right}: maintainability index---a 0--100 composite of Halstead volume~\cite {halstead1977elements}, cyclomatic complexity, and source lines, where higher is more maintainable; the spike at 100 is an artefact of Radon capping the score at that value}{figure.2}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {3}{\ignorespaces Three views of the relationship between PBT size and the size of the code being exercised, over the $n=6{,}912$ post-deduplication PBTs whose local dependencies were recoverable. (The remaining $4{,}127$ either exercise only standard-library or external code, or had dep extraction fail; the figure is therefore a subset of the full $11{,}039$-PBT corpus.) (a)~Per-PBT scatter of PBT LoC against the total LoC of the directly-called dependencies. (b)~Histogram of the ratio between dependency LoC and PBT LoC (log scale); the median PBT exercises code $3.3\times $ its own length. (c)~Histogram of the number of direct local function calls per PBT.}}{6}{figure.3}\protected@file@percent }
+\newlabel{fig:pbt-vs-deps}{{3}{6}{Three views of the relationship between PBT size and the size of the code being exercised, over the $n=6{,}912$ post-deduplication PBTs whose local dependencies were recoverable. (The remaining $4{,}127$ either exercise only standard-library or external code, or had dep extraction fail; the figure is therefore a subset of the full $11{,}039$-PBT corpus.) (a)~Per-PBT scatter of PBT LoC against the total LoC of the directly-called dependencies. (b)~Histogram of the ratio between dependency LoC and PBT LoC (log scale); the median PBT exercises code $3.3\times $ its own length. (c)~Histogram of the number of direct local function calls per PBT}{figure.3}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {3.2}Comparison with the Hypothesis Corpus}{6}{subsection.3.2}\protected@file@percent }
+\newlabel{sec:dataset-hc}{{3.2}{6}{Comparison with the Hypothesis Corpus}{subsection.3.2}{}}
+\citation{dougherty2025proving}
+\citation{UKAISI_inspect_2024}
+\@writefile{lot}{\contentsline {table}{\numberline {2}{\ignorespaces PBT corpus statistics.}}{7}{table.2}\protected@file@percent }
+\newlabel{tab:dataset-stats}{{2}{7}{PBT corpus statistics}{table.2}{}}
+\@writefile{lot}{\contentsline {table}{\numberline {3}{\ignorespaces Comparison with HC-2026~\cite  {devoe2026hypothesis}.}}{7}{table.3}\protected@file@percent }
+\newlabel{tab:dataset-comparison}{{3}{7}{Comparison with HC-2026~\cite {devoe2026hypothesis}}{table.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {4}FVSpec\xspace  :PBT$\to $FV Pipeline}{7}{section.4}\protected@file@percent }
+\newlabel{sec:pipeline}{{4}{7}{\FVSpec :PBT$\to $FV Pipeline}{section.4}{}}
+\newlabel{sec:pipeline-discovery}{{4}{7}{\FVSpec :PBT$\to $FV Pipeline}{section.4}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {4}{\ignorespaces Structural-faithfulness scores across the published FVSpec\xspace  :FV dataset. \emph  {Left}: histogram of per-sample overall scores (median 0.65; the multi-modal shape reflects the discrete denominators of the underlying ratios). \emph  {Right}: mean per-sub-metric scores. Type correspondence ($1.00$) and assertion coverage ($0.97$) are near-saturated---most translations preserve types and predicates---while parameter coverage ($0.24$) and dependency coverage ($0.48$) are the weak links, dragging the overall mean down to $0.67$. The high variance in per-sample scores is exactly what the \texttt  {is\_canonical} flag exploits when multiple formalizations of the same PBT are available.}}{8}{figure.4}\protected@file@percent }
+\newlabel{fig:faithfulness}{{4}{8}{Structural-faithfulness scores across the published \FVSpec :FV dataset. \emph {Left}: histogram of per-sample overall scores (median 0.65; the multi-modal shape reflects the discrete denominators of the underlying ratios). \emph {Right}: mean per-sub-metric scores. Type correspondence ($1.00$) and assertion coverage ($0.97$) are near-saturated---most translations preserve types and predicates---while parameter coverage ($0.24$) and dependency coverage ($0.48$) are the weak links, dragging the overall mean down to $0.67$. The high variance in per-sample scores is exactly what the \texttt {is\_canonical} flag exploits when multiple formalizations of the same PBT are available}{figure.4}{}}
+\newlabel{eq:faithfulness}{{1}{8}{\FVSpec :PBT$\to $FV Pipeline}{equation.1}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {4.1}Pipeline yield}{8}{subsection.4.1}\protected@file@percent }
+\newlabel{sec:pipeline-yield}{{4.1}{8}{Pipeline yield}{subsection.4.1}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {5}Benchmark Characterization}{8}{section.5}\protected@file@percent }
+\newlabel{sec:results}{{5}{8}{Benchmark Characterization}{section.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {5}{\ignorespaces The full FVSpec\xspace  generation pipeline (FVC = FV challenge). \emph  {Top} (FVSpec\xspace  :PBT): the input PBT corpus is scraped from public GitHub repositories (Section~\ref {sec:dataset}). \emph  {Bottom} (FVSpec\xspace  :FV): each PBT is lifted into a Lean (Impl, Spec) pair via tree-sitter--based function discovery, an agentic transpilation step (with the LSP-repair self-loop), and a deterministic post-production stage that validates, deduplicates, and grades the output; 11{,}039 PBTs enter and 9{,}415 FVCs (from 2{,}772 distinct PBTs) emerge.}}{9}{figure.5}\protected@file@percent }
+\newlabel{fig:pipeline}{{5}{9}{The full \FVSpec generation pipeline (FVC = FV challenge). \emph {Top} (\FVSpec :PBT): the input PBT corpus is scraped from public GitHub repositories (\Secr {dataset}). \emph {Bottom} (\FVSpec :FV): each PBT is lifted into a Lean (Impl, Spec) pair via tree-sitter--based function discovery, an agentic transpilation step (with the LSP-repair self-loop), and a deterministic post-production stage that validates, deduplicates, and grades the output; 11{,}039 PBTs enter and 9{,}415 FVCs (from 2{,}772 distinct PBTs) emerge}{figure.5}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {6}{\ignorespaces Structural faithfulness: distribution of the overall composite score (left) and mean sub-scores (right).}}{9}{figure.6}\protected@file@percent }
+\newlabel{fig:structural_faithfulness}{{6}{9}{Structural faithfulness: distribution of the overall composite score (left) and mean sub-scores (right)}{figure.6}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.1}Translation Quality}{9}{subsection.5.1}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {7}{\ignorespaces Lean output complexity: total lines (left), theorems per sample (center), and \texttt  {sorry} placeholders per sample (right). Tail counts and maxima shown in axis labels.}}{10}{figure.7}\protected@file@percent }
+\newlabel{fig:lean_complexity}{{7}{10}{Lean output complexity: total lines (left), theorems per sample (center), and \texttt {sorry} placeholders per sample (right). Tail counts and maxima shown in axis labels}{figure.7}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {8}{\ignorespaces Pipeline cost per sample: wall-clock time (left), token usage (center), and agent turns (right). Tail counts and maxima shown in axis labels.}}{10}{figure.8}\protected@file@percent }
+\newlabel{fig:pipeline_cost}{{8}{10}{Pipeline cost per sample: wall-clock time (left), token usage (center), and agent turns (right). Tail counts and maxima shown in axis labels}{figure.8}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.2}Difficulty Grading}{10}{subsection.5.2}\protected@file@percent }
+\@writefile{toc}{\contentsline {subsection}{\numberline {5.3}Baselines}{10}{subsection.5.3}\protected@file@percent }
+\@writefile{toc}{\contentsline {section}{\numberline {6}Threats to Validity}{10}{section.6}\protected@file@percent }
+\newlabel{sec:threats}{{6}{10}{Threats to Validity}{section.6}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {9}{\ignorespaces Difficulty distribution: easy vs.\ hard counts (left) and grader confidence distribution (right). $n$ shown in title.}}{11}{figure.9}\protected@file@percent }
+\newlabel{fig:difficulty_distribution}{{9}{11}{Difficulty distribution: easy vs.\ hard counts (left) and grader confidence distribution (right). $n$ shown in title}{figure.9}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {10}{\ignorespaces Difficulty vs.\ output characteristics: overall faithfulness (left) and total Lean lines (right), stratified by difficulty.}}{11}{figure.10}\protected@file@percent }
+\newlabel{fig:difficulty_vs_faithfulness}{{10}{11}{Difficulty vs.\ output characteristics: overall faithfulness (left) and total Lean lines (right), stratified by difficulty}{figure.10}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.1}Axiomatized interfaces for effectful code}{11}{subsection.6.1}\protected@file@percent }
+\newlabel{sec:threats-axioms}{{6.1}{11}{Axiomatized interfaces for effectful code}{subsection.6.1}{}}
+\@writefile{lof}{\contentsline {figure}{\numberline {11}{\ignorespaces baseline prove rate}}{12}{figure.11}\protected@file@percent }
+\@writefile{lof}{\contentsline {figure}{\numberline {12}{\ignorespaces Compute cost per sample for each baseline run: wall-clock time (left) and token usage (right), summed across all attempts for $k>1$ runs. Box plots show median, IQR, and $1.5\times $IQR whiskers.}}{12}{figure.12}\protected@file@percent }
+\newlabel{fig:baselines_cost}{{12}{12}{Compute cost per sample for each baseline run: wall-clock time (left) and token usage (right), summed across all attempts for $k>1$ runs. Box plots show median, IQR, and $1.5\times $IQR whiskers}{figure.12}{}}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.2}Where axiomatization breaks down}{12}{subsection.6.2}\protected@file@percent }
+\newlabel{sec:threats-axiom-limits}{{6.2}{12}{Where axiomatization breaks down}{subsection.6.2}{}}
+\citation{dougherty2025proving}
+\citation{hendrycks2021apps}
+\citation{brandfonbrener2024minicodeprops}
+\citation{thakur2025clever}
+\citation{wu2025verina}
+\citation{stechly2025veribench}
+\citation{bursuc2025benchmark}
+\citation{ma2025veriequivbench}
+\citation{loughridge2024dafnybench}
+\citation{chen2024verusbench}
+\citation{beyer2025svcomp}
+\citation{wu2025invbench}
+\citation{chakraborty2024neural}
+\@writefile{toc}{\contentsline {subsection}{\numberline {6.3}Other threats}{13}{subsection.6.3}\protected@file@percent }
+\newlabel{sec:threats-other}{{6.3}{13}{Other threats}{subsection.6.3}{}}
+\@writefile{toc}{\contentsline {section}{\numberline {7}Related Work}{13}{section.7}\protected@file@percent }
+\newlabel{sec:related}{{7}{13}{Related Work}{section.7}{}}
+\citation{hsiang2025leandojo}
+\citation{thompson2024rango}
+\citation{glazer2024frontiermath}
+\citation{dalrymple2024guaranteed}
+\bibstyle{abbrvnat}
+\bibdata{citations}
+\bibcite{radon}{{1}{}{{Attanasio}}{{}}}
+\bibcite{azerbayev2023proofnet}{{2}{2023}{{Azerbayev et~al.}}{{Azerbayev, Piotrowski, Schoelkopf, Ayers, Radev, and Avigad}}}
+\bibcite{bansal2019holist}{{3}{2019}{{Bansal et~al.}}{{Bansal, Loos, Rabe, Szegedy, and Wilcox}}}
+\bibcite{barkallah2025veribench}{{4}{2025}{{Barkallah et~al.}}{{Barkallah, Daruru, Miranda, Aniva, Nie, and Koyejo}}}
+\bibcite{beyer2025svcomp}{{5}{2025}{{Beyer}}{{}}}
+\bibcite{brandfonbrener2024minicodeprops}{{6}{2024}{{Brandfonbrener et~al.}}{{Brandfonbrener, Beurerkellner, Romero, Amin, and Vechev}}}
+\bibcite{buro2020equational}{{7}{2020}{{Buro et~al.}}{{Buro, Crole, and Mastroeni}}}
+\@writefile{toc}{\contentsline {section}{\numberline {8}Conclusion}{14}{section.8}\protected@file@percent }
+\newlabel{sec:conclusion}{{8}{14}{Conclusion}{section.8}{}}
+\bibcite{bursuc2025benchmark}{{8}{2025}{{Bursuc et~al.}}{{Bursuc, Ehrenborg, Lin, Astefanoaei, Chiosa, Kukovec, Singh, Butterley, Bizid, Dougherty, et~al.}}}
+\bibcite{chakraborty2024neural}{{9}{2025}{{Chakraborty et~al.}}{{Chakraborty, Ebner, Bhat, Fakhoury, Fatima, Lahiri, and Swamy}}}
+\bibcite{chen2024verusbench}{{10}{2024}{{Chen et~al.}}{{}}}
+\bibcite{dalrymple2024guaranteed}{{11}{2024}{{Dalrymple et~al.}}{{Dalrymple, Skalse, Bengio, Russell, Tegmark, Seshia, Omohundro, Szegedy, Goldhaber, Ammann, Abate, Halpern, Barrett, Zhao, Zhi-Xuan, Wing, and Tenenbaum}}}
+\bibcite{safeguardedAI}{{12}{2025}{{David~Dalrymple}}{{}}}
+\bibcite{de2025lessons}{{13}{2025}{{de~Almeida~Borges et~al.}}{{de~Almeida~Borges, Casanueva~Art{\'\i }s, Falleri, Gallego~Arias, Martin-Dorel, Palmskog, Serebrenik, and Zimmermann}}}
+\bibcite{devoe2026hypothesis}{{14}{2026}{{DeVoe}}{{}}}
+\bibcite{dillinger2007acl2s}{{15}{2007}{{Dillinger et~al.}}{{Dillinger, Manolios, Vroon, and Moore}}}
+\bibcite{dodds2022formally}{{16}{2022}{{Dodds}}{{}}}
+\bibcite{dougherty2025proving}{{17}{2025}{{Dougherty and Mehta}}{{}}}
+\bibcite{fastcheck}{{18}{2024}{{Dubien}}{{}}}
+\bibcite{glazer2024frontiermath}{{19}{2024}{{Glazer et~al.}}{{Glazer, Erdil, Besiroglu, Chicharro, Chen, Gunning, Falkman~Olsson, Denain, Ho, de~Oliveira~Santos, J\"arviniemi, Barnett, Sandler, Vrzala, Sevilla, Ren, Pratt, Levine, Barkley, Stewart, Grechuk, Grechuk, Varma~Enugandla, and Wildon}}}
+\bibcite{gopinathan2026leanbug}{{20}{2026}{{Gopinathan}}{{}}}
+\bibcite{halstead1977elements}{{21}{1977}{{Halstead}}{{}}}
+\bibcite{hendrycks2021apps}{{22}{2021}{{Hendrycks et~al.}}{{Hendrycks, Basart, Kadavath, Mazeika, Arora, Guo, Burns, Puranik, He, Song, and Steinhardt}}}
+\bibcite{hsiang2025leandojo}{{23}{2025}{{Hsiang et~al.}}{{Hsiang, Adkisson, George, and Anandkumar}}}
+\bibcite{hu2024minictx}{{24}{2024}{{Hu et~al.}}{{Hu, Zhu, and Welleck}}}
+\bibcite{huang2024mustard}{{25}{2024}{{Huang et~al.}}{{Huang, Lin, Liu, Cao, Xin, Wang, Li, Song, and Liang}}}
+\bibcite{pygithub}{{26}{2026}{{Jacques et~al.}}{{Jacques, Wan, Kowalik, and Minack}}}
+\bibcite{jiang2025fate}{{27}{2025}{{Jiang et~al.}}{{Jiang, He, Wang, Gao, Hu, Wang, Guan, Wu, Dai, Xiao, and Dong}}}
+\bibcite{jimenez2024swebench}{{28}{2024}{{Jimenez et~al.}}{{Jimenez, Yang, Wettig, Yao, Pei, Press, and Narasimhan}}}
+\bibcite{klein2009sel4}{{29}{2009}{{Klein et~al.}}{{Klein, Elphinstone, Heiser, Andronick, Cock, Derrin, Elkaduwe, Engelhardt, Kolanski, Norrish, et~al.}}}
+\bibcite{leancomparator2026}{{30}{2026}{{Lean FRO}}{{}}}
+\bibcite{leroy2016compcert}{{31}{2016}{{Leroy et~al.}}{{Leroy, Blazy, K{\"a}stner, Schommer, Pister, and Ferdinand}}}
+\bibcite{li2025msc}{{32}{2025}{{Li et~al.}}{{Li, Lu, Shi, Weng, Sun, Yu, Zhang, Yu, Liu, and Du}}}
+\bibcite{liu2023fimo}{{33}{2023}{{Liu et~al.}}{{Liu, Shen, Xin, Liu, Yuan, Wang, Ju, Zheng, Yin, Li, et~al.}}}
+\bibcite{loughridge2024dafnybench}{{34}{2024}{{Loughridge et~al.}}{{Loughridge, Sun, Ahrenbach, Cassano, Sun, Sheng, Mudide, Misu, Amin, and Tegmark}}}
+\bibcite{lu2024process}{{35}{2024}{{Lu et~al.}}{{Lu, Wan, Liu, Huang, Xiong, Liu, Shen, Jin, Zhang, Wang, et~al.}}}
+\bibcite{lu2025solving}{{36}{2025}{{Lu et~al.}}{{Lu, Sheng, Lyu, Jin, Xia, Gu, and Zou}}}
+\bibcite{ma2025veriequivbench}{{37}{2025}{{Ma et~al.}}{{}}}
+\bibcite{maciver2019hypothesis}{{38}{2019}{{MacIver et~al.}}{{MacIver, Hatfield-Dodds, and {many other contributors}}}}
+\bibcite{vonhippel2026slopless}{{39}{2026}{{Max~von Hippel}}{{}}}
+\bibcite{mccabe1976complexity}{{40}{1976}{{McCabe}}{{}}}
+\bibcite{sfo2}{{41}{2024}{{Miyazono}}{{}}}
+\bibcite{perconti2014verifying}{{42}{2014}{{Perconti and Ahmed}}{{}}}
+\bibcite{poiroux2025reliable}{{43}{2025}{{Poiroux et~al.}}{{Poiroux, Weiss, Kun{\v {c}}ak, and Bosselut}}}
+\bibcite{rasmussen1997risk}{{44}{1997}{{Rasmussen}}{{}}}
+\bibcite{ren2025deepseek}{{45}{2025}{{Ren et~al.}}{{Ren, Shao, Song, Xin, Wang, Zhao, Zhang, Fu, Zhu, Yang, et~al.}}}
+\bibcite{leangeo}{{46}{2025}{{Song et~al.}}{{Song, Wang, Pu, Wang, Lin, Liu, Li, and Liu}}}
+\bibcite{stechly2025veribench}{{47}{2025}{{Stechly et~al.}}{{}}}
+\bibcite{rustParticipants}{{48}{2026}{{Team}}{{}}}
+\bibcite{thakur2025clever}{{49}{2025}{{Thakur et~al.}}{{Thakur, Lee, Tsoukalas, Sistla, Zhao, Zetzsche, Durrett, Yue, and Chaudhuri}}}
+\bibcite{thompson2024rango}{{50}{2024}{{Thompson et~al.}}{{Thompson, Saavedra, Carrott, Fisher, Sanchez-Stern, Brun, Ferreira, Lerner, and First}}}
+\bibcite{tsoukalas2024putnambench}{{51}{2024}{{Tsoukalas et~al.}}{{Tsoukalas, Lee, Jennings, Xin, Ding, Jennings, Thakur, and Chaudhuri}}}
+\bibcite{UKAISI_inspect_2024}{{52}{2024}{{UK AI Security Institute}}{{}}}
+\bibcite{sfo}{{53}{2026}{{von Hippel}}{{}}}
+\bibcite{wu2025invbench}{{54}{2025{}}{{Wu et~al.}}{{}}}
+\bibcite{wu2025verina}{{55}{2025{}}{{Wu et~al.}}{{Wu, Wang, Mangal, and Dillig}}}
+\bibcite{wu2024lean}{{56}{2024}{{Wu et~al.}}{{Wu, Wang, Lin, and Chen}}}
+\bibcite{ying2024lean}{{57}{2024}{{Ying et~al.}}{{Ying, Wu, Geng, Wang, Lin, and Chen}}}
+\bibcite{yu2025formalmath}{{58}{2025}{{Yu et~al.}}{{Yu, Peng, Ding, Li, Peng, Liu, Zhang, Yuan, Xin, Huang, et~al.}}}
+\bibcite{zheng2021minif2f}{{59}{2021}{{Zheng et~al.}}{{Zheng, Han, and Polu}}}
+\gdef \@abspage@last{18}

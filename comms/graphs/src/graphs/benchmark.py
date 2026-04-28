@@ -149,36 +149,48 @@ def plot_structural_faithfulness(df: pd.DataFrame) -> None:
     _save(fig, "structural_faithfulness")
 
 
+def _tail_note(series: pd.Series, clip: int) -> str:
+    """Return '(N values above X not shown; max=M)' for annotating clip axes."""
+    n = int((series > clip).sum())
+    if n == 0:
+        return ""
+    m = int(series.max())
+    return f"({n:,} values >{clip} not shown; max={m:,})"
+
+
 def plot_lean_complexity(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
+    clip_lines = 500
     axes[0].hist(
-        df["total_lean_lines"].clip(upper=500),
+        df["total_lean_lines"][df["total_lean_lines"] <= clip_lines],
         bins=40,
         color="#5ba3cf",
         edgecolor="white",
     )
-    axes[0].set_xlabel("Total Lean lines (clipped at 500)")
+    axes[0].set_xlabel(f"Total Lean lines  {_tail_note(df['total_lean_lines'], clip_lines)}")
     axes[0].set_ylabel("Count")
     axes[0].set_title("Lean output size")
 
+    clip_thm = 20
     axes[1].hist(
-        df["num_theorems"].clip(upper=20),
-        bins=range(0, 22),
+        df["num_theorems"][df["num_theorems"] <= clip_thm],
+        bins=range(0, clip_thm + 2),
         color="#e07b54",
         edgecolor="white",
     )
-    axes[1].set_xlabel("Number of theorems per sample")
+    axes[1].set_xlabel(f"Theorems per sample  {_tail_note(df['num_theorems'], clip_thm)}")
     axes[1].set_ylabel("Count")
     axes[1].set_title("Theorems per sample")
 
+    clip_sorry = 20
     axes[2].hist(
-        df["total_sorries"].clip(upper=20),
-        bins=range(0, 22),
+        df["total_sorries"][df["total_sorries"] <= clip_sorry],
+        bins=range(0, clip_sorry + 2),
         color="#7a7a7a",
         edgecolor="white",
     )
-    axes[2].set_xlabel("sorry count per sample")
+    axes[2].set_xlabel(f"sorry count per sample  {_tail_note(df['total_sorries'], clip_sorry)}")
     axes[2].set_ylabel("Count")
     axes[2].set_title("Sorry placeholders per sample")
 
@@ -220,33 +232,36 @@ def plot_python_source(df: pd.DataFrame) -> None:
 def plot_pipeline_cost(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
+    clip_time = 2000
     axes[0].hist(
-        df["time"].clip(upper=2000), bins=40, color="#5ba3cf", edgecolor="white"
+        df["time"][df["time"] <= clip_time], bins=40, color="#5ba3cf", edgecolor="white"
     )
-    axes[0].set_xlabel("Wall-clock time (s, clipped at 2000)")
+    axes[0].set_xlabel(f"Wall-clock time (s)  {_tail_note(df['time'], clip_time)}")
     axes[0].set_ylabel("Count")
     axes[0].set_title("Pipeline time per sample")
 
+    clip_tok = 500_000
     axes[1].hist(
-        df["token_usage"].clip(upper=500_000),
+        df["token_usage"][df["token_usage"] <= clip_tok],
         bins=40,
         color="#e07b54",
         edgecolor="white",
     )
-    axes[1].set_xlabel("Token usage (clipped at 500k)")
+    axes[1].set_xlabel(f"Token usage  {_tail_note(df['token_usage'], clip_tok)}")
     axes[1].set_ylabel("Count")
     axes[1].set_title("Token cost per sample")
     axes[1].xaxis.set_major_formatter(
         ticker.FuncFormatter(lambda x, _: f"{x / 1000:.0f}k")
     )
 
+    clip_turns = 30
     axes[2].hist(
-        df["total_turns"].clip(upper=30),
-        bins=range(0, 32),
+        df["total_turns"][df["total_turns"] <= clip_turns],
+        bins=range(0, clip_turns + 2),
         color="#7a7a7a",
         edgecolor="white",
     )
-    axes[2].set_xlabel("Total agent turns")
+    axes[2].set_xlabel(f"Total agent turns  {_tail_note(df['total_turns'], clip_turns)}")
     axes[2].set_ylabel("Count")
     axes[2].set_title("Agent turns per sample")
 
@@ -258,7 +273,7 @@ def plot_pipeline_cost(df: pd.DataFrame) -> None:
 def plot_difficulty_vs_faithfulness(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 2, figsize=(11, 4.5))
 
-    for diff, color in [("easy", "#5ba3cf"), ("hard", "#e07b54")]:
+    for diff, color in [("hard", "#e07b54"), ("easy", "#5ba3cf")]:
         subset = df[df["difficulty"] == diff]
         axes[0].hist(
             subset["sf_overall"].dropna(),
@@ -273,7 +288,7 @@ def plot_difficulty_vs_faithfulness(df: pd.DataFrame) -> None:
     axes[0].set_title("Faithfulness by difficulty")
     axes[0].legend()
 
-    for diff, color in [("easy", "#5ba3cf"), ("hard", "#e07b54")]:
+    for diff, color in [("hard", "#e07b54"), ("easy", "#5ba3cf")]:
         subset = df[df["difficulty"] == diff]
         axes[1].hist(
             subset["total_lean_lines"].clip(upper=500).dropna(),

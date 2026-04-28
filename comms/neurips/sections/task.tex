@@ -1,0 +1,129 @@
+\section{Task Definition}
+\Secl{task}
+
+Each problem in the \FVSpec benchmark consists of four components: (1) the original Python implementation of the function under test, (2) the original Python PBT exercising that implementation, (3) a full Lean implementation of the same function, and (4) a Lean theorem corresponding to the PBT, with a \texttt{sorry} placeholder where the proof should go. The AI's task is to fill in every theorem \texttt{sorry} with a Lean proof term that compiles cleanly under \texttt{lake build}; submissions are then scored by whether the proof retains any \texttt{sorry}, \texttt{admit}, or axioms beyond Mathlib's defaults. Each problem also includes a URL pointing to the original source code and license information.
+
+As a running example, consider \texttt{isort(lst)}. Figure~\ref{fig:running-example}
+shows all four artifacts of a single \FVSpec problem. The left column holds
+the original implementation (top) and the PBT exercising it
+(bottom); the right column holds the corresponding \texttt{Impl.lean}
+(top), a complete Lean port of the function, and \texttt{Spec.lean}
+(bottom), containing two theorems---one for sortedness, one for permutation---
+each with their own \texttt{sorry}. The AI's task is to discharge both
+Lean \texttt{sorry} placeholders.
+
+\begin{lrbox}{\fvspecPyImplBox}%
+\begin{minipage}{0.36\linewidth}
+{\small\sffamily\textbf{Python: implementation of \texttt{isort}}}\par\smallskip
+\begin{lstlisting}[style=code, language=Python, basicstyle=\ttfamily\scriptsize]
+from bisect import insort
+
+def isort(lst):
+    out = []
+    for x in lst: insort(out, x)
+    return out
+\end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
+
+\begin{lrbox}{\fvspecImplBox}%
+\begin{minipage}{0.46\linewidth}
+{\small\sffamily\textbf{Lean: \texttt{Impl.lean}}}\par\smallskip
+\begin{lstlisting}[style=code, language=Lean, basicstyle=\ttfamily\scriptsize]
+namespace Fvspec.Impl
+
+def insert (x : Int) : List Int -> List Int
+  | []      => [x]
+  | y :: ys => if x <= y then x :: y :: ys
+               else y :: insert x ys
+
+def isort : List Int -> List Int
+  | []      => []
+  | x :: xs => insert x (isort xs)
+
+end Fvspec.Impl
+\end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
+
+\begin{lrbox}{\fvspecPyPbtBox}%
+\begin{minipage}{0.36\linewidth}
+{\small\sffamily\textbf{Python: Hypothesis PBT}}\par\smallskip
+\begin{lstlisting}[style=code, language=Python, basicstyle=\ttfamily\scriptsize]
+from collections import Counter
+from hypothesis import given
+import hypothesis.strategies as st
+@given(st.lists(st.integers()))
+def test_isort(lst):
+    out = isort(lst)
+    pairs = zip(out, out[1:])
+    assert all(a <= b for a, b in pairs)
+    assert Counter(out) == Counter(lst)
+\end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
+
+\begin{lrbox}{\fvspecSpecBox}%
+\begin{minipage}{0.46\linewidth}
+{\small\sffamily\textbf{Lean: \texttt{Spec.lean}}}\par\smallskip
+\begin{lstlisting}[style=code, language=Lean, basicstyle=\ttfamily\scriptsize]
+import Fvspec.Impl
+open Fvspec.Impl
+
+theorem isort_sorted (l : List Int) :
+  (isort l).Sorted LE.le := sorry
+
+theorem isort_perm (l : List Int) :
+  (isort l).Perm l := sorry
+\end{lstlisting}
+\end{minipage}%
+\end{lrbox}%
+
+\begin{figure}[h]
+\centering
+\begin{tikzpicture}[
+  box/.style={draw, rounded corners, inner sep=4pt, fill=gray!5},
+  arr/.style={-{Latex[length=2.5mm]}, thick, gray!50!black},
+  group/.style={draw, dashed, rounded corners, inner sep=2mm,
+                gray!60!black, line width=0.6pt}
+]
+  \node[box, anchor=east] (pyimpl)
+       at (-0.5cm,  2.2cm) {\usebox{\fvspecPyImplBox}};
+  \node[box, anchor=west] (limpl)
+       at ( 0.5cm,  2.2cm) {\usebox{\fvspecImplBox}};
+  \node[box, anchor=east] (pypbt)
+       at (-0.5cm, -2.2cm) {\usebox{\fvspecPyPbtBox}};
+  \node[box, anchor=west] (lspec)
+       at ( 0.5cm, -2.2cm) {\usebox{\fvspecSpecBox}};
+  \node[group, fit=(pyimpl)(pypbt),
+        label={[font=\small\sffamily\bfseries]above:{\FVSpec:PBT}}] {};
+  \node[group, fit=(limpl)(lspec),
+        label={[font=\small\sffamily\bfseries]above:{\FVSpec:FV}}] {};
+  \draw[arr] (pyimpl.east) -- (limpl.west);
+  \draw[arr] (pypbt.east)  -- (lspec.west);
+\end{tikzpicture}
+\caption{The four artifacts of a single \FVSpec problem. Each problem is
+partitioned into the \emph{PBT corpus} (\FVSpec:PBT, left)---the original
+Python implementation and Hypothesis test we scrape from GitHub---and the
+\emph{formal-verification challenge} (\FVSpec:FV, right) we transpile from
+it: a complete Lean port of the implementation and a Lean theorem statement
+of the property under test. The AI must discharge both Lean \texttt{sorry}
+placeholders, one per theorem.}
+\label{fig:running-example}
+\end{figure}
+
+We encounter two practical issues when translating Python PBTs into Lean implementations and (unproven) specficiations.
+
+\paragraph{Nonsensical theorems.} Our pipeline can emit well-formed but useless statements in three ways.
+
+\emph{(i) Trivial Unit-typed conjectures.} When the formalization agent cannot recover a function's true return type, it falls back on \texttt{Unit} as a placeholder. The resulting theorem is a tautology---e.g.\ for our running example, \texttt{theorem isort\_check : isort lst = () := by plausible}, which holds for any total function into \texttt{Unit} and so carries no verification value.
+
+\emph{(ii) Ill-typed or unresolved-symbol theorems.} The formalization agent works from the Python source and writes Lean by analogy. When it invents a Lean name that does not exist---for instance, writing \texttt{theorem isort\_perm (l : List Int) : (isort l).permutationOf l := sorry}, where \texttt{permutationOf} is not a member of \texttt{List} (the correct name is \texttt{List.Perm})---or attaches a type signature inconsistent with the surrounding code, the Lean elaborator rejects the file with errors like \emph{unknown identifier}, \emph{type mismatch}, \emph{function expected}, or \emph{failed to synthesize}.
+
+\emph{(iii) Spec theorems leaking into \texttt{Impl.lean}.} Our pipeline runs two separate agents: one writes \texttt{Impl.lean} (definitions only), the other writes \texttt{Spec.lean} (theorems only). The implementation agent is explicitly instructed to emit no theorems, but occasionally---when shown the \texttt{isort} source---it pre-empts the spec agent by hallucinating a \texttt{namespace Fvspec.Spec\,\dots\,theorem isort\_sorted\,\dots\,end Fvspec.Spec} block inside \texttt{Impl.lean}, which violates our file split and would silently expand the proof obligation if left in.
+
+We catch (i) by regex, drop (ii) at compile time, and strip (iii) with a namespace-aware filter. A theorem that survives all three filters is a useful challenge problem even if it has drifted from the original PBT---because Lean checks proofs against \emph{the theorem we generated}, not the informal property.
+
+\paragraph{Lean as a (nearly) perfect oracle.} The Lean kernel arbitrates correctness, which is qualitatively much stronger than statistical sampling. It is not, however, adversarially perfect: an AI can satisfy the kernel by \emph{changing the question}---adding the Axiom of Choice, weakening hypotheses, or exploiting a security vulnerability in Lean itself~\cite{gopinathan2026leanbug}---and the proof will still type-check~\cite{vonhippel2026slopless}. To make gaming visible, every submission is scored on two axes: a binary \emph{proved} flag (the file compiles under \texttt{lake build} \emph{and} every original \texttt{sorry} has been discharged) and partial credit (fraction of original \texttt{sorry}s discharged). We additionally record any axiom dependencies the proof introduces, since an AI can trivialize a goal by quietly importing strong axioms; we do not currently auto-fail on extra axioms, but report them so reviewers can flag suspicious solutions. For higher-stakes evaluations, submissions can additionally be re-checked through \texttt{leanprover/comparator}~\cite{leancomparator2026}, which sandboxes the build and cross-validates the proof term against an independently-implemented Rust kernel. Lastly, a sufficiently motivated AI can still smuggle a vacuous proof past us when the original theorem statement is itself too weak---a limit shared by every benchmark whose scale exceeds full human review capacity.
+
+Next, we explain how we scrape the PBT corpus and what the corpus looks like.

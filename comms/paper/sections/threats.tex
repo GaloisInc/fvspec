@@ -1,8 +1,0 @@
-\section{Threats to Validity}
-\Secl{threats}
-
-We note that the theorems we construct may be false---this is desirable because the AI has the opportunity to contradict the theorem (and perhaps identify a counter-example). Because the Lean theorem prover is a so-called foundational tool, once a theorem is verified or contradicted, we have near-perfect confidence the answer is correct. However, because our specifications are translated rather than hand-written, some may not faithfully represent the original PBT. Our structural faithfulness metric provides an objective measure of translation quality, but it is a heuristic: a high score does not guarantee semantic equivalence, and a low score does not necessarily indicate a useless problem.
-
-Our benchmark does not include human baselines. We expect the dataset to exhibit a wide range of difficulty, including many problems that are trivial for current AIs, and many harder problems, including some insurmountable even to world-expert human teams. Without human expert performance data, we cannot directly calibrate this difficulty distribution.
-
-The pipeline's reliance on LLM-driven translation means that benchmark quality is bounded by the capabilities of the translation model. Samples where function discovery failed (~8\%) produce stub-based theorems that may be less representative. We mitigate this through postproduction filtering and the structural faithfulness metric, but some lower-quality samples may remain.

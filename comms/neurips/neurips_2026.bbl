@@ -1,0 +1,434 @@
+\begin{thebibliography}{59}
+\providecommand{\natexlab}[1]{#1}
+\providecommand{\url}[1]{\texttt{#1}}
+\expandafter\ifx\csname urlstyle\endcsname\relax
+  \providecommand{\doi}[1]{doi: #1}\else
+  \providecommand{\doi}{doi: \begingroup \urlstyle{rm}\Url}\fi
+
+\bibitem[Attanasio()]{radon}
+M.~Attanasio.
+\newblock Radon: Python code metrics.
+\newblock \url{https://radon.readthedocs.io/en/latest/}.
+\newblock Accessed 2025.
+
+\bibitem[Azerbayev et~al.(2023)Azerbayev, Piotrowski, Schoelkopf, Ayers, Radev,
+  and Avigad]{azerbayev2023proofnet}
+Z.~Azerbayev, B.~Piotrowski, H.~Schoelkopf, E.~W. Ayers, D.~Radev, and
+  J.~Avigad.
+\newblock Proofnet: Autoformalizing and formally proving undergraduate-level
+  mathematics.
+\newblock \emph{arXiv preprint arXiv:2302.12433}, 2023.
+
+\bibitem[Bansal et~al.(2019)Bansal, Loos, Rabe, Szegedy, and
+  Wilcox]{bansal2019holist}
+K.~Bansal, S.~Loos, M.~Rabe, C.~Szegedy, and S.~Wilcox.
+\newblock Holist: An environment for machine learning of higher order logic
+  theorem proving.
+\newblock In \emph{International conference on machine learning}, pages
+  454--463. PMLR, 2019.
+
+\bibitem[Barkallah et~al.(2025)Barkallah, Daruru, Miranda, Aniva, Nie, and
+  Koyejo]{barkallah2025veribench}
+S.~Barkallah, S.~Daruru, B.~Miranda, L.~Aniva, A.~Nie, and S.~Koyejo.
+\newblock {VeriBench-FTP}: A formal theorem proving benchmark in {L}ean 4 for
+  code verification.
+\newblock In \emph{The 5th Workshop on Mathematical Reasoning and {AI} at
+  {NeurIPS} 2025}, 2025.
+
+\bibitem[Beyer(2025)]{beyer2025svcomp}
+D.~Beyer.
+\newblock State of the art in software verification and witness validation:
+  {SV-COMP} 2025.
+\newblock In \emph{Proceedings of the 31st International Conference on Tools
+  and Algorithms for the Construction and Analysis of Systems (TACAS)}, 2025.
+
+\bibitem[Brandfonbrener et~al.(2024)Brandfonbrener, Beurerkellner, Romero,
+  Amin, and Vechev]{brandfonbrener2024minicodeprops}
+D.~Brandfonbrener, L.~Beurerkellner, D.~Romero, N.~Amin, and M.~Vechev.
+\newblock {miniCodeProps}: a minimal benchmark for proving code properties.
+\newblock \emph{arXiv preprint arXiv:2406.11915}, 2024.
+
+\bibitem[Buro et~al.(2020)Buro, Crole, and Mastroeni]{buro2020equational}
+S.~Buro, R.~Crole, and I.~Mastroeni.
+\newblock Equational logic and categorical semantics for multi-languages.
+\newblock \emph{Electronic Notes in Theoretical Computer Science},
+  352:\penalty0 79--103, 2020.
+
+\bibitem[Bursuc et~al.(2025)Bursuc, Ehrenborg, Lin, Astefanoaei, Chiosa,
+  Kukovec, Singh, Butterley, Bizid, Dougherty, et~al.]{bursuc2025benchmark}
+S.~Bursuc, T.~Ehrenborg, S.~Lin, L.~Astefanoaei, I.~E. Chiosa, J.~Kukovec,
+  A.~Singh, O.~Butterley, A.~Bizid, Q.~Dougherty, et~al.
+\newblock A benchmark for vericoding: formally verified program synthesis.
+\newblock \emph{arXiv preprint arXiv:2509.22908}, 2025.
+
+\bibitem[Chakraborty et~al.(2025)Chakraborty, Ebner, Bhat, Fakhoury, Fatima,
+  Lahiri, and Swamy]{chakraborty2024neural}
+S.~Chakraborty, G.~Ebner, S.~Bhat, S.~Fakhoury, S.~Fatima, S.~Lahiri, and
+  N.~Swamy.
+\newblock Towards neural synthesis for {SMT}-assisted proof-oriented
+  programming.
+\newblock In \emph{Proceedings of the 47th International Conference on Software
+  Engineering (ICSE)}, 2025.
+
+\bibitem[Chen et~al.(2024)]{chen2024verusbench}
+H.~Chen et~al.
+\newblock {VerusBench}: A benchmark for automated verification of {Rust} with
+  {Verus}.
+\newblock \emph{arXiv preprint arXiv:2409.13082}, 2024.
+
+\bibitem[Dalrymple et~al.(2024)Dalrymple, Skalse, Bengio, Russell, Tegmark,
+  Seshia, Omohundro, Szegedy, Goldhaber, Ammann, Abate, Halpern, Barrett, Zhao,
+  Zhi-Xuan, Wing, and Tenenbaum]{dalrymple2024guaranteed}
+D.~Dalrymple, J.~Skalse, Y.~Bengio, S.~Russell, M.~Tegmark, S.~Seshia,
+  S.~Omohundro, C.~Szegedy, B.~Goldhaber, N.~Ammann, A.~Abate, J.~Halpern,
+  C.~Barrett, D.~Zhao, T.~Zhi-Xuan, J.~Wing, and J.~Tenenbaum.
+\newblock Towards guaranteed safe {AI}: A framework for ensuring robust and
+  reliable {AI} systems.
+\newblock \emph{arXiv preprint arXiv:2405.06624}, 2024.
+
+\bibitem[David~Dalrymple(2025)]{safeguardedAI}
+N.~A. David~Dalrymple.
+\newblock Safeguarded ai.
+\newblock
+  \url{https://aria.org.uk/opportunity-spaces/mathematics-for-safe-ai/safeguarded-ai/},
+  2025.
+\newblock Accessed 25 April 2026.
+
+\bibitem[de~Almeida~Borges et~al.(2025)de~Almeida~Borges, Casanueva~Art{\'\i}s,
+  Falleri, Gallego~Arias, Martin-Dorel, Palmskog, Serebrenik, and
+  Zimmermann]{de2025lessons}
+A.~de~Almeida~Borges, A.~Casanueva~Art{\'\i}s, J.-R. Falleri, E.~J.
+  Gallego~Arias, {\'E}.~Martin-Dorel, K.~Palmskog, A.~Serebrenik, and
+  T.~Zimmermann.
+\newblock Lessons for interactive theorem proving researchers from a survey of
+  coq users.
+\newblock \emph{Journal of Automated Reasoning}, 69\penalty0 (1):\penalty0 8,
+  2025.
+
+\bibitem[DeVoe(2026)]{devoe2026hypothesis}
+L.~DeVoe.
+\newblock The {H}ypothesis corpus.
+\newblock \url{https://hypothesis.works/articles/hypothesis-corpus/}, 2026.
+\newblock Accessed April 2026.
+
+\bibitem[Dillinger et~al.(2007)Dillinger, Manolios, Vroon, and
+  Moore]{dillinger2007acl2s}
+P.~C. Dillinger, P.~Manolios, D.~Vroon, and J.~S. Moore.
+\newblock Acl2s:“the acl2 sedan”.
+\newblock \emph{Electronic Notes in Theoretical Computer Science}, 174\penalty0
+  (2):\penalty0 3--18, 2007.
+
+\bibitem[Dodds(2022)]{dodds2022formally}
+M.~Dodds.
+\newblock Formally verifying industry cryptography.
+\newblock \emph{{IEEE} Security \& Privacy}, 20\penalty0 (3):\penalty0 65--70,
+  2022.
+\newblock \doi{10.1109/MSEC.2022.3153035}.
+
+\bibitem[Dougherty and Mehta(2025)]{dougherty2025proving}
+Q.~Dougherty and R.~Mehta.
+\newblock Proving the coding interview: A benchmark for formally verified code
+  generation.
+\newblock In \emph{Proceedings of the LLM4Code Workshop at the 47th
+  International Conference on Software Engineering (ICSE)}, Ottawa, Ontario,
+  Canada, 2025.
+\newblock \doi{10.48550/arXiv.2502.05714}.
+
+\bibitem[Dubien(2024)]{fastcheck}
+N.~Dubien.
+\newblock {fast-check}: Property-based testing framework for
+  {JavaScript}/{TypeScript}.
+\newblock \url{https://github.com/dubzzz/fast-check}, 2024.
+\newblock Accessed April 2026.
+
+\bibitem[Glazer et~al.(2024)Glazer, Erdil, Besiroglu, Chicharro, Chen, Gunning,
+  Falkman~Olsson, Denain, Ho, de~Oliveira~Santos, J\"arviniemi, Barnett,
+  Sandler, Vrzala, Sevilla, Ren, Pratt, Levine, Barkley, Stewart, Grechuk,
+  Grechuk, Varma~Enugandla, and Wildon]{glazer2024frontiermath}
+E.~Glazer, E.~Erdil, T.~Besiroglu, D.~Chicharro, E.~Chen, A.~Gunning,
+  C.~Falkman~Olsson, J.-S. Denain, A.~Ho, E.~de~Oliveira~Santos,
+  O.~J\"arviniemi, M.~Barnett, R.~Sandler, M.~Vrzala, J.~Sevilla, Q.~Ren,
+  E.~Pratt, L.~Levine, G.~Barkley, N.~Stewart, B.~Grechuk, T.~Grechuk,
+  S.~Varma~Enugandla, and M.~Wildon.
+\newblock {FrontierMath}: A benchmark for evaluating advanced mathematical
+  reasoning in {AI}.
+\newblock \emph{arXiv preprint arXiv:2411.04872}, 2024.
+
+\bibitem[Gopinathan(2026)]{gopinathan2026leanbug}
+K.~Gopinathan.
+\newblock Lean proved this program was correct; then {I} found a bug.
+\newblock \url{https://kirancodes.me/posts/log-who-watches-the-watchers.html},
+  Apr. 2026.
+\newblock Blog post; reports a heap buffer overflow in
+  \texttt{lean\_alloc\_sarray} in the {Lean} 4 runtime, found by AFL++ fuzzing
+  of the verified \texttt{lean-zip} library. Accessed 26 April 2026.
+
+\bibitem[Halstead(1977)]{halstead1977elements}
+M.~H. Halstead.
+\newblock \emph{Elements of Software Science (Operating and Programming Systems
+  Series)}.
+\newblock Elsevier Science Inc., 1977.
+
+\bibitem[Hendrycks et~al.(2021)Hendrycks, Basart, Kadavath, Mazeika, Arora,
+  Guo, Burns, Puranik, He, Song, and Steinhardt]{hendrycks2021apps}
+D.~Hendrycks, S.~Basart, S.~Kadavath, M.~Mazeika, A.~Arora, E.~Guo, C.~Burns,
+  S.~Puranik, H.~He, D.~Song, and J.~Steinhardt.
+\newblock Measuring coding challenge competence with {APPS}.
+\newblock In \emph{Proceedings of the 35th Conference on Neural Information
+  Processing Systems (NeurIPS)}, 2021.
+
+\bibitem[Hsiang et~al.(2025)Hsiang, Adkisson, George, and
+  Anandkumar]{hsiang2025leandojo}
+R.~Hsiang, W.~Adkisson, R.~J. George, and A.~Anandkumar.
+\newblock {LeanDojo-v2}: A comprehensive library for {AI}-assisted theorem
+  proving in {L}ean.
+\newblock In \emph{The 5th Workshop on Mathematical Reasoning and {AI} at
+  {NeurIPS} 2025}, 2025.
+
+\bibitem[Hu et~al.(2024)Hu, Zhu, and Welleck]{hu2024minictx}
+J.~Hu, T.~Zhu, and S.~Welleck.
+\newblock minictx: Neural theorem proving with (long-) contexts.
+\newblock \emph{arXiv preprint arXiv:2408.03350}, 2024.
+
+\bibitem[Huang et~al.(2024)Huang, Lin, Liu, Cao, Xin, Wang, Li, Song, and
+  Liang]{huang2024mustard}
+Y.~Huang, X.~Lin, Z.~Liu, Q.~Cao, H.~Xin, H.~Wang, Z.~Li, L.~Song, and
+  X.~Liang.
+\newblock Mustard: Mastering uniform synthesis of theorem and proof data.
+\newblock \emph{arXiv preprint arXiv:2402.08957}, 2024.
+
+\bibitem[Jacques et~al.(2026)Jacques, Wan, Kowalik, and Minack]{pygithub}
+V.~Jacques, L.~Wan, S.~Kowalik, and E.~Minack.
+\newblock {PyGitHub}.
+\newblock \url{https://github.com/PyGithub/PyGithub}, 2026.
+\newblock Accessed 26 April 2026.
+
+\bibitem[Jiang et~al.(2025)Jiang, He, Wang, Gao, Hu, Wang, Guan, Wu, Dai, Xiao,
+  and Dong]{jiang2025fate}
+J.~Jiang, W.~He, Y.~Wang, G.~Gao, Y.~Hu, J.~Wang, N.~Guan, P.~Wu, C.~Dai,
+  L.~Xiao, and B.~Dong.
+\newblock {FATE}: A formal benchmark series for frontier algebra of multiple
+  difficulty levels.
+\newblock \emph{arXiv preprint arXiv:2511.02872}, 2025.
+
+\bibitem[Jimenez et~al.(2024)Jimenez, Yang, Wettig, Yao, Pei, Press, and
+  Narasimhan]{jimenez2024swebench}
+C.~E. Jimenez, J.~Yang, A.~Wettig, S.~Yao, K.~Pei, O.~Press, and K.~Narasimhan.
+\newblock {SWE}-bench: Can language models resolve real-world {GitHub} issues?
+\newblock In \emph{Proceedings of the 12th International Conference on Learning
+  Representations (ICLR)}, 2024.
+
+\bibitem[Klein et~al.(2009)Klein, Elphinstone, Heiser, Andronick, Cock, Derrin,
+  Elkaduwe, Engelhardt, Kolanski, Norrish, et~al.]{klein2009sel4}
+G.~Klein, K.~Elphinstone, G.~Heiser, J.~Andronick, D.~Cock, P.~Derrin,
+  D.~Elkaduwe, K.~Engelhardt, R.~Kolanski, M.~Norrish, et~al.
+\newblock sel4: Formal verification of an os kernel.
+\newblock In \emph{Proceedings of the ACM SIGOPS 22nd symposium on Operating
+  systems principles}, pages 207--220, 2009.
+
+\bibitem[{Lean FRO}(2026)]{leancomparator2026}
+{Lean FRO}.
+\newblock {Comparator}: A trustworthy judge for {Lean} proofs.
+\newblock \url{https://github.com/leanprover/comparator}, 2026.
+\newblock Sandboxes the build and replays proof terms, optionally
+  cross-checking against an independently-implemented {Rust} kernel
+  (\texttt{nanoda}). Accessed 26 April 2026.
+
+\bibitem[Leroy et~al.(2016)Leroy, Blazy, K{\"a}stner, Schommer, Pister, and
+  Ferdinand]{leroy2016compcert}
+X.~Leroy, S.~Blazy, D.~K{\"a}stner, B.~Schommer, M.~Pister, and C.~Ferdinand.
+\newblock Compcert-a formally verified optimizing compiler.
+\newblock In \emph{ERTS 2016: Embedded Real Time Software and Systems, 8th
+  European Congress}, 2016.
+
+\bibitem[Li et~al.(2025)Li, Lu, Shi, Weng, Sun, Yu, Zhang, Yu, Liu, and
+  Du]{li2025msc}
+S.~Li, W.~Lu, X.~Shi, K.~Weng, H.~Sun, M.~Yu, T.~Zhang, G.~Yu, H.~Liu, and
+  L.~Du.
+\newblock {MSC-180}: A benchmark for automated formal theorem proving from
+  mathematical subject classification.
+\newblock \emph{arXiv preprint arXiv:2512.18256}, 2025.
+
+\bibitem[Liu et~al.(2023)Liu, Shen, Xin, Liu, Yuan, Wang, Ju, Zheng, Yin, Li,
+  et~al.]{liu2023fimo}
+C.~Liu, J.~Shen, H.~Xin, Z.~Liu, Y.~Yuan, H.~Wang, W.~Ju, C.~Zheng, Y.~Yin,
+  L.~Li, et~al.
+\newblock Fimo: A challenge formal dataset for automated theorem proving.
+\newblock \emph{arXiv preprint arXiv:2309.04295}, 2023.
+
+\bibitem[Loughridge et~al.(2024)Loughridge, Sun, Ahrenbach, Cassano, Sun,
+  Sheng, Mudide, Misu, Amin, and Tegmark]{loughridge2024dafnybench}
+C.~Loughridge, Q.~Sun, S.~Ahrenbach, F.~Cassano, C.~Sun, Y.~Sheng, A.~Mudide,
+  M.~R.~H. Misu, N.~Amin, and M.~Tegmark.
+\newblock {DafnyBench}: A benchmark for formal software verification.
+\newblock \emph{arXiv preprint arXiv:2406.08467}, 2024.
+
+\bibitem[Lu et~al.(2024)Lu, Wan, Liu, Huang, Xiong, Liu, Shen, Jin, Zhang,
+  Wang, et~al.]{lu2024process}
+J.~Lu, Y.~Wan, Z.~Liu, Y.~Huang, J.~Xiong, C.~Liu, J.~Shen, H.~Jin, J.~Zhang,
+  H.~Wang, et~al.
+\newblock Process-driven autoformalization in lean 4.
+\newblock \emph{arXiv preprint arXiv:2406.01940}, 2024.
+
+\bibitem[Lu et~al.(2025)Lu, Sheng, Lyu, Jin, Xia, Gu, and Zou]{lu2025solving}
+P.~Lu, J.~Sheng, L.~Lyu, J.~Jin, T.~Xia, A.~Gu, and J.~Zou.
+\newblock Solving inequality proofs with large language models.
+\newblock In \emph{The 39th Conference on Neural Information Processing Systems
+  (NeurIPS)}, 2025.
+
+\bibitem[Ma et~al.(2025)]{ma2025veriequivbench}
+X.~Ma et~al.
+\newblock {VeriEquivBench}: Evaluating verifiable agents on novel data without
+  contamination.
+\newblock \emph{arXiv preprint arXiv:2510.06296}, 2025.
+
+\bibitem[MacIver et~al.(2019)MacIver, Hatfield-Dodds, and {many other
+  contributors}]{maciver2019hypothesis}
+D.~R. MacIver, Z.~Hatfield-Dodds, and {many other contributors}.
+\newblock Hypothesis: A new approach to property-based testing.
+\newblock \emph{Journal of Open Source Software}, 4\penalty0 (43):\penalty0
+  1891, 2019.
+\newblock \doi{10.21105/joss.01891}.
+
+\bibitem[Max~von Hippel(2026)]{vonhippel2026slopless}
+Q.~D. Max~von Hippel.
+\newblock Lies, damned lies, and proofs: Formal methods are not slopless.
+\newblock
+  \url{https://www.lesswrong.com/posts/rhAPh3YzhPoBNpgHg/lies-damned-lies-and-proofs-formal-methods-are-not-slopless},
+  Jan. 2026.
+\newblock Accessed 26 April 2026.
+
+\bibitem[McCabe(1976)]{mccabe1976complexity}
+T.~J. McCabe.
+\newblock A complexity measure.
+\newblock \emph{IEEE Transactions on Software Engineering}, \penalty0
+  (4):\penalty0 308--320, 1976.
+
+\bibitem[Miyazono(2024)]{sfo2}
+E.~Miyazono.
+\newblock Formally scalable {AI} oversight through specifications.
+\newblock
+  \url{https://foresight.org/resource/evan-miyazono-formally-scalable-ai-oversight-through-specifications/},
+  2024.
+\newblock Accessed 25 April 2026.
+
+\bibitem[Perconti and Ahmed(2014)]{perconti2014verifying}
+J.~T. Perconti and A.~Ahmed.
+\newblock Verifying an open compiler using multi-language semantics.
+\newblock In \emph{European Symposium on Programming Languages and Systems},
+  pages 128--148. Springer, 2014.
+
+\bibitem[Poiroux et~al.(2025)Poiroux, Weiss, Kun{\v{c}}ak, and
+  Bosselut]{poiroux2025reliable}
+A.~Poiroux, G.~Weiss, V.~Kun{\v{c}}ak, and A.~Bosselut.
+\newblock Reliable evaluation and benchmarks for statement autoformalization.
+\newblock In \emph{Proceedings of the 2025 Conference on Empirical Methods in
+  Natural Language Processing}, pages 17958--17980, 2025.
+
+\bibitem[Rasmussen(1997)]{rasmussen1997risk}
+J.~Rasmussen.
+\newblock Risk management in a dynamic society: a modelling problem.
+\newblock \emph{Safety science}, 27\penalty0 (2-3):\penalty0 183--213, 1997.
+
+\bibitem[Ren et~al.(2025)Ren, Shao, Song, Xin, Wang, Zhao, Zhang, Fu, Zhu,
+  Yang, et~al.]{ren2025deepseek}
+Z.~Ren, Z.~Shao, J.~Song, H.~Xin, H.~Wang, W.~Zhao, L.~Zhang, Z.~Fu, Q.~Zhu,
+  D.~Yang, et~al.
+\newblock Deepseek-prover-v2: Advancing formal mathematical reasoning via
+  reinforcement learning for subgoal decomposition.
+\newblock \emph{arXiv preprint arXiv:2504.21801}, 2025.
+
+\bibitem[Song et~al.(2025)Song, Wang, Pu, Wang, Lin, Liu, Li, and Liu]{leangeo}
+C.~Song, Z.~Wang, F.~Pu, H.~Wang, X.~Lin, J.~Liu, J.~Li, and Z.~Liu.
+\newblock {LeanGeo}: Formalizing computational geometry problems in {L}ean.
+\newblock \emph{arXiv preprint arXiv:2508.14644v1}, 2025.
+
+\bibitem[Stechly et~al.(2025)]{stechly2025veribench}
+K.~Stechly et~al.
+\newblock {VeriBench}: Benchmarking end-to-end formal verification.
+\newblock In \emph{AI4Math Workshop at ICML}, 2025.
+\newblock URL \url{https://openreview.net/forum?id=rWkGFmnSNl}.
+
+\bibitem[Team(2026)]{rustParticipants}
+R.~S. Team.
+\newblock 2025 state of rust survey results.
+\newblock
+  \url{https://blog.rust-lang.org/2026/03/02/2025-State-Of-Rust-Survey-results/},
+  March 2026.
+\newblock Accessed 25 April 2026.
+
+\bibitem[Thakur et~al.(2025)Thakur, Lee, Tsoukalas, Sistla, Zhao, Zetzsche,
+  Durrett, Yue, and Chaudhuri]{thakur2025clever}
+A.~Thakur, J.~Lee, G.~Tsoukalas, M.~Sistla, M.~Zhao, S.~Zetzsche, G.~Durrett,
+  Y.~Yue, and S.~Chaudhuri.
+\newblock Clever: A curated benchmark for formally verified code generation.
+\newblock \emph{arXiv preprint arXiv:2505.13938}, 2025.
+
+\bibitem[Thompson et~al.(2024)Thompson, Saavedra, Carrott, Fisher,
+  Sanchez-Stern, Brun, Ferreira, Lerner, and First]{thompson2024rango}
+K.~Thompson, N.~Saavedra, P.~Carrott, K.~Fisher, A.~Sanchez-Stern, Y.~Brun,
+  J.~F. Ferreira, S.~Lerner, and E.~First.
+\newblock Rango: Adaptive retrieval-augmented proving for automated software
+  verification.
+\newblock \emph{arXiv preprint arXiv:2412.14063}, 2024.
+
+\bibitem[Tsoukalas et~al.(2024)Tsoukalas, Lee, Jennings, Xin, Ding, Jennings,
+  Thakur, and Chaudhuri]{tsoukalas2024putnambench}
+G.~Tsoukalas, J.~Lee, J.~Jennings, J.~Xin, M.~Ding, M.~Jennings, A.~Thakur, and
+  S.~Chaudhuri.
+\newblock Putnambench: Evaluating neural theorem-provers on the putnam
+  mathematical competition.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  37:\penalty0 11545--11569, 2024.
+
+\bibitem[{UK AI Security Institute}(2024)]{UKAISI_inspect_2024}
+{UK AI Security Institute}.
+\newblock Inspect {AI}: Framework for large language model evaluations, 2024.
+\newblock URL \url{https://github.com/UKGovernmentBEIS/inspect_ai}.
+
+\bibitem[von Hippel(2026)]{sfo}
+M.~von Hippel.
+\newblock
+  \url{https://www.lesswrong.com/posts/SfhFh9Hfm6JYvzbby/the-scalable-formal-oversight-research-program},
+  2026.
+\newblock Accessed 25 April 2026.
+
+\bibitem[Wu et~al.(2025{\natexlab{a}})]{wu2025invbench}
+T.-Y. Wu et~al.
+\newblock {InvBench}: A benchmark for loop invariant synthesis.
+\newblock \emph{arXiv preprint arXiv:2509.21629}, 2025{\natexlab{a}}.
+
+\bibitem[Wu et~al.(2025{\natexlab{b}})Wu, Wang, Mangal, and
+  Dillig]{wu2025verina}
+W.-D. Wu, K.~Wang, R.~Mangal, and I.~Dillig.
+\newblock Verina: Benchmarking formally verified code generation.
+\newblock \emph{arXiv preprint arXiv:2505.23135}, 2025{\natexlab{b}}.
+
+\bibitem[Wu et~al.(2024)Wu, Wang, Lin, and Chen]{wu2024lean}
+Z.~Wu, J.~Wang, D.~Lin, and K.~Chen.
+\newblock {Lean-github}: Compiling github lean repositories for a versatile
+  {L}ean prover.
+\newblock \emph{arXiv preprint arXiv:2407.17227}, 2024.
+
+\bibitem[Ying et~al.(2024)Ying, Wu, Geng, Wang, Lin, and Chen]{ying2024lean}
+H.~Ying, Z.~Wu, Y.~Geng, J.~Wang, D.~Lin, and K.~Chen.
+\newblock {L}ean workbook: A large-scale lean problem set formalized from
+  natural language math problems.
+\newblock \emph{Advances in Neural Information Processing Systems},
+  37:\penalty0 105848--105863, 2024.
+
+\bibitem[Yu et~al.(2025)Yu, Peng, Ding, Li, Peng, Liu, Zhang, Yuan, Xin, Huang,
+  et~al.]{yu2025formalmath}
+Z.~Yu, R.~Peng, K.~Ding, Y.~Li, Z.~Peng, M.~Liu, Y.~Zhang, Z.~Yuan, H.~Xin,
+  W.~Huang, et~al.
+\newblock Formalmath: Benchmarking formal mathematical reasoning of large
+  language models.
+\newblock \emph{arXiv preprint arXiv:2505.02735}, 2025.
+
+\bibitem[Zheng et~al.(2021)Zheng, Han, and Polu]{zheng2021minif2f}
+K.~Zheng, J.~M. Han, and S.~Polu.
+\newblock Minif2f: a cross-system benchmark for formal olympiad-level
+  mathematics.
+\newblock \emph{arXiv preprint arXiv:2109.00110}, 2021.
+
+\end{thebibliography}

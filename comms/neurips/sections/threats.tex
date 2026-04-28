@@ -1,0 +1,52 @@
+\section{Threats to Validity}
+\Secl{threats}
+
+The most consequential threat to \FVSpec's validity is whether theorems stated over uninterpreted axioms actually mean anything about the original Python. We address this head-on in \Secr{threats-axioms}, then catalog the remaining threats.
+
+\subsection{Axiomatized interfaces for effectful code}
+\label{sec:threats-axioms}
+
+The \texttt{isort} running example from \Secr{task} is deliberately pure. Most PBTs in our corpus are not: production code routinely touches Redis, sockets, the filesystem, the wall clock, webhook queues, and so forth. A natural objection is that any Lean theorem extracted from such a PBT cannot say anything meaningful about the live system.
+
+The formalization agent handles this by treating the effectful world as an \emph{uninterpreted interface}. Parts of the source essential to the property---the entities and operators it constrains---are translated into Lean structures and inductive types. Parts that are pure plumbing---the database, the queue, the system clock---are introduced as opaque \texttt{axiom} declarations and threaded through the theorem as parameters. The resulting theorem holds \emph{over all interpretations} of those axioms, which is exactly the contract the original PBT was checking against the live environment.
+
+A canonical instance is \texttt{test\_workflow\_job\_time\_to\_start} from \texttt{scality/runner-manager}\footnote{\url{https://github.com/scality/runner-manager}}, a GitHub Actions self-hosted runner controller. The Python PBT initializes Redis-backed model classes, runs an ORM migrator, calls \texttt{datetime.now()} to fabricate two timestamps straddling a runner-startup timeout, enqueues a webhook through a background job queue, and asserts on the resulting runner count. The \FVSpec translation introduces seventeen axioms---including \texttt{Redis}, \texttt{Queue}, \texttt{State}, \texttt{State.after\_enqueue}, and \texttt{get\_runners}---and states the contract purely in terms of these uninterpreted operators:
+
+\begin{lstlisting}[style=code, language=Lean, basicstyle=\ttfamily\scriptsize]
+theorem create_runner_when_above_timeout
+  (initial_state : State) (state_after_enqueue : State)
+  (runner_group : RunnerGroup) (webhook_updated : WorkflowJobEvent)
+  (settings : ExtendedSettings) (created_at started_at : Time)
+  (h_initial_count : (get_runners runner_group initial_state).length = 1)
+  (h_below_max     : 1 < runner_group.max)
+  (h_above_timeout : started_at - created_at > settings.timeout_runner)
+  (h_enqueue       : state_after_enqueue =
+    State.after_enqueue initial_state runner_group webhook_updated settings)
+  : (get_runners runner_group state_after_enqueue).length = 2 := sorry
+\end{lstlisting}
+
+A model proving \texttt{create\_runner\_when\_above\_timeout} is reasoning about a scheduler's state-transition semantics under a timeout precondition; the fact that the production scheduler talks to Redis is no more load-bearing in the theorem than the choice of register allocator is in a correctness proof of a sorting algorithm.
+
+\subsection{Where axiomatization breaks down}
+\label{sec:threats-axiom-limits}
+
+The axiomatization move is not a universal solvent.
+
+\emph{Properties about the effect itself.} If the property is fundamentally about timing, memory, ordering of side effects, or wall-clock latency, an uninterpreted axiom cannot witness it. \texttt{assert response\_time < 100ms} cannot become a meaningful Lean theorem because the relevant semantics is precisely what the axiomatization discards.
+
+\emph{Effectful code disguised as pure code.} The agent identifies effectful boundaries via type signatures and call patterns. When a function has a pure signature but performs side effects internally (e.g., a logger called via a global, an \texttt{lru\_cache}-style hidden state), the agent will inline it as if pure. The resulting theorem may compile and even be true, but its proof obligation does not constrain the original side-effecting behavior.
+
+\emph{Axioms that misrepresent the API contract.} \texttt{axiom Redis : Type} captures \emph{some} Redis but not the real one. The agent does not encode Redis's consistency guarantees, ordering, or failure modes. A theorem proven over the axiomatized interface may not transfer to the live system if the production code relies on those omitted guarantees.
+
+\subsection{Other threats}
+\label{sec:threats-other}
+
+\emph{Translation faithfulness.} Specifications are translated rather than hand-written, so some may not faithfully represent the original PBT. Our structural-faithfulness score (\Secr{pipeline}) is a heuristic: a high score does not guarantee semantic equivalence, and a low score does not necessarily indicate a useless problem.
+
+\emph{LLM grader.} Difficulty labels come from \texttt{claude-haiku-4-5}, itself a model whose judgments are imperfect and uncalibrated against human expert performance. We expose the grader's confidence and rationale per sample so consumers can audit or override the labels.
+
+\emph{Stub-implementation tail.} A complete Lean implementation is generated for 59\% of samples (\Secr{pipeline}); the remaining 41\% ship against a stub, weakening the proof obligation: the theorem is well-typed but the body it constrains is opaque. These samples are tagged for easy filtering.
+
+\emph{License-detection edge cases.} Our scraper (\Secr{dataset}) skips repositories with explicitly non-permissive licenses but accepts repositories where GitHub cannot detect a license at all. Most such cases are forks of permissively-licensed upstreams (e.g., \texttt{pytorch}, \texttt{ivy}) where the LICENSE file was modified or moved during forking, but we cannot guarantee this for every retained sample.
+
+\emph{No human baselines.} We do not measure human expert performance on \FVSpec problems and therefore cannot calibrate the dataset's difficulty distribution against the proof effort required of skilled humans.
