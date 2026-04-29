@@ -17,6 +17,7 @@ class ModelConfig(BaseModel):
     provider: str
     model_pin: str
     dollars_per_output_millitoken: float
+    supports_temperature: bool = True
 
     @property
     def inspect_model(self) -> str:

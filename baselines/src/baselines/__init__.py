@@ -46,18 +46,24 @@ def run(
     k_val = k if k is not None else cfg.k
     temp_val = temperature if temperature is not None else cfg.temperature
 
+    model_cfg = cfg.get_model(model)
+
     eval_kwargs: dict = {}
     if k_val > 1:
         eval_kwargs["epochs"] = Epochs(k_val, ["pass_at_1", f"pass_at_{k_val}", "mean"])
-        if temp_val is None:
+        if temp_val is None and model_cfg.supports_temperature:
             temp_val = 0.7
             logging.getLogger(__name__).info(
                 "pass@%d run: defaulting temperature to 0.7", k_val
             )
     if temp_val is not None:
-        eval_kwargs["temperature"] = temp_val
-
-    model_cfg = cfg.get_model(model)
+        if model_cfg.supports_temperature:
+            eval_kwargs["temperature"] = temp_val
+        else:
+            logging.getLogger(__name__).warning(
+                "Model %s does not support temperature; ignoring --temperature",
+                model_cfg.human_name,
+            )
     task = fvspec_baselines(
         ranseed=seed,
         num_samples=n,
