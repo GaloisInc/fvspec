@@ -547,7 +547,9 @@ def plot_time_and_tokens(model_data: dict[str, dict[str, Any]]) -> None:
 
     time_data = [[s["total_time"] for s in samples] for _, samples, _ in models_list]
     token_data = [[s["total_tokens"] for s in samples] for _, samples, _ in models_list]
-    labels = [f"{m}" + (f"\n(k={k})" if k > 1 else "") for m, _, k in models_list]
+    labels = [
+        f"{_pretty(m)}" + (f"\n(k={k})" if k > 1 else "") for m, _, k in models_list
+    ]
 
     bp1 = axes[0].boxplot(time_data, labels=labels, patch_artist=True)
     for patch, color in zip(bp1["boxes"], _PALETTE):
