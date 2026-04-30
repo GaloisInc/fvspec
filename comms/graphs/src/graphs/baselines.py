@@ -16,6 +16,7 @@ from __future__ import annotations
 
 import json
 import math
+import re
 import zipfile
 from collections import defaultdict
 from pathlib import Path
@@ -38,6 +39,7 @@ _PALETTE = ["#5ba3cf", "#e07b54", "#7a7a7a", "#a67ac4", "#4db88c"]
 
 _PRETTY_MODEL = {
     "snt46": "Sonnet 4.6",
+    "ops47": "Opus 4.7",
     "gpt54": "GPT-5.4",
     "gpt54mini": "GPT-5.4 mini",
 }
@@ -83,6 +85,38 @@ def _load_eval(path: Path) -> dict[str, Any]:
     return header
 
 
+# Strong "I refuse to write a proof" signals: instruction-following phrases the
+# system prompt asks the model to invoke when it judges the spec unprovable.
+# Tuned to be conservative — these phrases rarely appear outside an explicit
+# refusal to fill in a `sorry`.
+_REFUSAL_PATTERNS = (
+    re.compile(r"leav(?:e|ing)[^.\n]{0,80}sorry[^.\n]{0,40}place", re.I),
+    re.compile(r"rather than[^.\n]{0,80}incorrect", re.I),
+)
+
+
+def _assistant_text(messages: list[dict[str, Any]]) -> str:
+    parts: list[str] = []
+    for m in messages:
+        if m.get("role") != "assistant":
+            continue
+        c = m.get("content")
+        if isinstance(c, str):
+            parts.append(c)
+        elif isinstance(c, list):
+            for item in c:
+                if not isinstance(item, dict):
+                    continue
+                if item.get("type") in ("text", "thinking", "reasoning"):
+                    parts.append(item.get("text", item.get("thinking", "")))
+    return "\n".join(parts)
+
+
+def _detect_refusal(sample: dict[str, Any]) -> bool:
+    text = _assistant_text(sample.get("messages", []))
+    return any(p.search(text) for p in _REFUSAL_PATTERNS)
+
+
 def _process_epoch(sample: dict[str, Any]) -> dict[str, Any]:
     """Flatten one (sample_id, epoch) record."""
     scores = sample.get("scores", {})
@@ -111,6 +145,7 @@ def _process_epoch(sample: dict[str, Any]) -> dict[str, Any]:
         "total_time": sample.get("total_time", 0.0),
         "message_count": len(sample.get("messages", [])),
         "total_tokens": total_tokens,
+        "refused": _detect_refusal(sample),
     }
 
 
@@ -121,6 +156,7 @@ def _aggregate(sid: str, epochs: list[dict[str, Any]]) -> dict[str, Any]:
     best = max(epochs_sorted, key=lambda e: (e["score_value"], e["partial_credit"]))
     n_eps = len(epochs_sorted)
     proved_count = sum(1 for e in epochs_sorted if e["proved"])
+    refused_count = sum(1 for e in epochs_sorted if e.get("refused"))
     mean_partial = sum(e["partial_credit"] for e in epochs_sorted) / n_eps
 
     return {
@@ -141,6 +177,9 @@ def _aggregate(sid: str, epochs: list[dict[str, Any]]) -> dict[str, Any]:
         "proved_count": proved_count,
         "any_proved": proved_count > 0,
         "all_proved": proved_count == n_eps,
+        "refused_count": refused_count,
+        "any_refused": refused_count > 0,
+        "all_refused": refused_count == n_eps,
         "mean_partial_credit": mean_partial,
         "total_time": sum(e["total_time"] for e in epochs_sorted),
         "total_tokens": sum(e["total_tokens"] for e in epochs_sorted),
@@ -210,7 +249,6 @@ def _pass_at_k_for_model(samples: list[dict[str, Any]], k: int) -> float:
 
 def _save(fig: plt.Figure, name: str) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT_DIR / f"{name}.png", dpi=200, bbox_inches="tight")
     fig.savefig(OUT_DIR / f"{name}.pdf", bbox_inches="tight")
     plt.close(fig)
 
@@ -273,9 +311,60 @@ def plot_prove_rate(model_data: dict[str, dict[str, Any]]) -> None:
     ax.set_ylabel("Proved rate (%)  [pass@k]")
     ax.set_ylim(0, 100)
     ax.set_title("Proved-ever rate by difficulty (best-of-k)")
-    ax.legend()
+    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0)
     fig.tight_layout()
     _save(fig, "baselines_prove_rate")
+
+
+def plot_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
+    """Grouped bar: per-epoch refusal rate by bucket and overall, per model.
+
+    A "refusal" is an epoch whose final assistant text invokes the system
+    prompt's leave-sorry-rather-than-write-incorrect-proofs clause. Per-epoch
+    is the natural unit (each epoch = one independent ask).
+    """
+    models_list = _iter_models(model_data)
+    if not models_list:
+        print("    skip baselines_refusal_rate: no runs found")
+        return
+    buckets = ["easy", "hard", "overall"]
+    x = np.arange(len(buckets))
+    width = 0.8 / max(len(models_list), 1)
+
+    fig, ax = plt.subplots(figsize=(8, 2.5))
+    for i, ((model, samples, k), color) in enumerate(zip(models_list, _PALETTE)):
+        rates = []
+        for bucket in buckets:
+            sub = (
+                samples
+                if bucket == "overall"
+                else [s for s in samples if s["difficulty_bucket"] == bucket]
+            )
+            n_epochs = sum(s["num_epochs"] for s in sub)
+            n_refused = sum(s["refused_count"] for s in sub)
+            rates.append(n_refused / n_epochs * 100 if n_epochs else 0)
+
+        label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
+        offset = (i - (len(models_list) - 1) / 2) * width
+        bars = ax.bar(x + offset, rates, width * 0.9, label=label, color=color)
+        for bar, rate in zip(bars, rates):
+            ax.text(
+                bar.get_x() + bar.get_width() / 2,
+                bar.get_height() + 0.5,
+                f"{rate:.0f}%",
+                ha="center",
+                va="bottom",
+                fontsize=8,
+            )
+
+    ax.set_xticks(x)
+    ax.set_xticklabels([b.capitalize() for b in buckets])
+    ax.set_ylabel("Refusal rate (%)  [per epoch]")
+    ax.set_ylim(0, 100)
+    ax.set_title("Refusal rate by difficulty (left sorry per system instruction)")
+    ax.legend()
+    fig.tight_layout()
+    _save(fig, "baselines_refusal_rate")
 
 
 def plot_partial_credit(model_data: dict[str, dict[str, Any]]) -> None:
@@ -794,6 +883,7 @@ def main() -> None:
 
     plots = [
         ("baselines_prove_rate", lambda: plot_prove_rate(model_data)),
+        ("baselines_refusal_rate", lambda: plot_refusal_rate(model_data)),
         ("baselines_partial_credit", lambda: plot_partial_credit(model_data)),
         ("baselines_score_breakdown", lambda: plot_score_breakdown(model_data)),
         ("baselines_cost", lambda: plot_time_and_tokens(model_data)),

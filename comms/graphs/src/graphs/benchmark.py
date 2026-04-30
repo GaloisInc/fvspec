@@ -84,7 +84,6 @@ def load() -> pd.DataFrame:
 
 def _save(fig: plt.Figure, name: str) -> None:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    fig.savefig(OUT_DIR / f"{name}.png", dpi=200, bbox_inches="tight")
     fig.savefig(OUT_DIR / f"{name}.pdf", bbox_inches="tight")
     plt.close(fig)
 
