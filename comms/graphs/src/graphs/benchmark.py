@@ -254,13 +254,16 @@ def plot_pipeline_cost(df: pd.DataFrame) -> None:
     )
 
     clip_turns = 30
+    # Drop total_turns==0: these come from an early pipeline path where the
+    # turn counter wasn't wired in. They aren't real zero-turn runs.
+    turns = df["total_turns"][df["total_turns"] > 0]
     axes[2].hist(
-        df["total_turns"][df["total_turns"] <= clip_turns],
-        bins=range(0, clip_turns + 2),
+        turns[turns <= clip_turns],
+        bins=range(1, clip_turns + 2),
         color="#7a7a7a",
         edgecolor="white",
     )
-    axes[2].set_xlabel(f"Total agent turns  {_tail_note(df['total_turns'], clip_turns)}")
+    axes[2].set_xlabel("Total agent turns")
     axes[2].set_ylabel("Count")
     axes[2].set_title("Agent turns per sample")
 

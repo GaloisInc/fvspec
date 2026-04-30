@@ -367,6 +367,101 @@ def plot_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
     _save(fig, "baselines_refusal_rate")
 
 
+def plot_difficulty_calibration(model_data: dict[str, dict[str, Any]]) -> None:
+    """How well does the easy/hard grader predict actual baseline difficulty?
+
+    Treats every (sample, model, epoch) record as one attempt. For each
+    sample, computes the empirical success rate across all attempts pooled
+    over all available models. A well-calibrated grader should yield a
+    bimodal distribution: easy samples concentrated near 100%, hard near 0%.
+    """
+    # Pool attempts across all models for each sample.
+    pooled: dict[str, dict[str, Any]] = {}
+    for d in model_data.values():
+        for s in d["samples"]:
+            sid = s["id"]
+            entry = pooled.setdefault(
+                sid,
+                {"bucket": s["difficulty_bucket"], "proved": 0, "total": 0},
+            )
+            entry["proved"] += s["proved_count"]
+            entry["total"] += s["num_epochs"]
+    if not pooled:
+        print("    skip baselines_difficulty_calibration: no samples")
+        return
+
+    by_bucket: dict[str, list[float]] = {"easy": [], "hard": []}
+    for entry in pooled.values():
+        b = entry["bucket"]
+        if b not in by_bucket or entry["total"] == 0:
+            continue
+        by_bucket[b].append(entry["proved"] / entry["total"])
+
+    # Rank-AUC: probability that a random easy sample's pooled success rate
+    # exceeds a random hard sample's. 0.5 = no separation, 1.0 = perfect.
+    e = by_bucket["easy"]
+    h = by_bucket["hard"]
+    if e and h:
+        greater = sum(1 for ei in e for hi in h if ei > hi)
+        ties = sum(1 for ei in e for hi in h if ei == hi)
+        auc = (greater + 0.5 * ties) / (len(e) * len(h))
+    else:
+        auc = float("nan")
+
+    fig, axes = plt.subplots(1, 2, figsize=(11, 3.4))
+
+    # Left: histograms of per-sample pooled success rate by bucket.
+    bins = np.linspace(0, 1, 16)
+    for color, bucket in [("#5ba3cf", "easy"), ("#e07b54", "hard")]:
+        rates = by_bucket[bucket]
+        if not rates:
+            continue
+        axes[0].hist(
+            rates,
+            bins=bins,
+            alpha=0.55,
+            color=color,
+            label=f"{bucket} (n={len(rates)})",
+            edgecolor="white",
+        )
+    axes[0].set_xlabel("Per-sample pooled success rate (across all models × epochs)")
+    axes[0].set_ylabel("Sample count")
+    axes[0].set_title("Empirical difficulty distribution by grader label")
+    axes[0].legend(loc="upper center")
+
+    # Right: violin / strip with bucket means and 95% CI.
+    positions = [1, 2]
+    parts = axes[1].violinplot(
+        [by_bucket["easy"], by_bucket["hard"]],
+        positions=positions,
+        showmeans=False,
+        showmedians=True,
+        widths=0.7,
+    )
+    for body, color in zip(parts["bodies"], ["#5ba3cf", "#e07b54"]):
+        body.set_facecolor(color)
+        body.set_alpha(0.55)
+    for bucket, x in zip(["easy", "hard"], positions):
+        rates = by_bucket[bucket]
+        if not rates:
+            continue
+        m = float(np.mean(rates))
+        axes[1].scatter([x], [m], color="black", zorder=3, label=None)
+        axes[1].text(x + 0.15, m, f"mean={m * 100:.0f}%", va="center", fontsize=9)
+    axes[1].set_xticks(positions)
+    axes[1].set_xticklabels(["easy", "hard"])
+    axes[1].set_ylabel("Per-sample pooled success rate")
+    axes[1].set_ylim(-0.05, 1.05)
+    title = "Bucket separation"
+    if not math.isnan(auc):
+        title += f"  (rank-AUC={auc:.2f})"
+    axes[1].set_title(title)
+
+    fig.suptitle("Easy/hard grader calibration", fontsize=12)
+    fig.tight_layout()
+    _save(fig, "baselines_difficulty_calibration")
+
+
 def plot_partial_credit(model_data: dict[str, dict[str, Any]]) -> None:
     """Overlapping histograms of mean partial credit per model, by bucket."""
     models_list = _iter_models(model_data)
@@ -884,6 +979,7 @@ def main() -> None:
     plots = [
         ("baselines_prove_rate", lambda: plot_prove_rate(model_data)),
         ("baselines_refusal_rate", lambda: plot_refusal_rate(model_data)),
+        ("baselines_difficulty_calibration", lambda: plot_difficulty_calibration(model_data)),
         ("baselines_partial_credit", lambda: plot_partial_credit(model_data)),
         ("baselines_score_breakdown", lambda: plot_score_breakdown(model_data)),
         ("baselines_cost", lambda: plot_time_and_tokens(model_data)),
