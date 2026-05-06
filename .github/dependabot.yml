@@ -3,12 +3,38 @@
 # Please see the documentation for all configuration options:
 # https://docs.github.com/code-security/dependabot/dependabot-version-updates/configuration-options-for-the-dependabot.yml-file
 
+# Setting `open-pull-requests-limit: 0` disables version-update PRs while still
+# allowing Dependabot to open security-update PRs.
 version: 2
 updates:
-  - package-ecosystem: "npm" # See documentation for possible values
+  - package-ecosystem: "uv"
+    directory: "/benchmark"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "⬆"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "uv"
+    directory: "/baselines"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "⬆"
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "npm"
     directory: "/leaderboard"
     schedule:
       interval: "weekly"
     commit-message:
       prefix: "⬆"
-    open-pull-requests-limit: 100
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: "uv"
+    directory: "/comms/graphs"
+    schedule:
+      interval: "weekly"
+    commit-message:
+      prefix: "⬆"
+    open-pull-requests-limit: 0
