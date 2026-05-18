@@ -42,20 +42,20 @@ export default function Home() {
           <div className="max-w-4xl mx-auto">
             <h2 className="text-3xl font-bold mb-4">About FVSpec</h2>
             <p className="text-lg text-muted-foreground mb-4">
-              We scrape 11,039 property-based tests (PBTs) from real-world Python repositories,
-              then automatically translate them into Lean 4 specifications with{' '}
-              <code className="font-mono text-sm">sorry</code> placeholders. The result is a
-              corpus of 9,415 Lean 4 verification challenges authored, in effect, by practicing
-              engineers who had no formal verification goal in mind — putting our problems out of
-              distribution relative to anything an AI is likely to have memorized.
+              We scrape 11,039 property-based tests (PBTs) from real-world Python repositories, then
+              automatically translate them into Lean 4 specifications with{' '}
+              <code className="font-mono text-sm">sorry</code> placeholders. The result is a corpus
+              of 9,415 Lean 4 verification challenges authored, in effect, by practicing engineers
+              who had no formal verification goal in mind — putting our problems out of distribution
+              relative to anything an AI is likely to have memorized.
             </p>
             <p className="text-lg text-muted-foreground mb-8">
-              Translating PBTs into Lean specifications is challenging: it requires modeling
-              Python semantics in Lean, inferring the logical property encoded in an imperative
-              PBT, and handling the inherent difficulties of dependently-typed programming in a
-              seldom-used language. We describe a three-agent LLM pipeline for transpilation,
-              evaluate coverage and quality metrics, and provide baselines for proof generation
-              using several automated and model-based approaches.
+              Translating PBTs into Lean specifications is challenging: it requires modeling Python
+              semantics in Lean, inferring the logical property encoded in an imperative PBT, and
+              handling the inherent difficulties of dependently-typed programming in a seldom-used
+              language. We describe a three-agent LLM pipeline for transpilation, evaluate coverage
+              and quality metrics, and provide baselines for proof generation using several
+              automated and model-based approaches.
             </p>
             <div className="grid grid-cols-1 gap-6 md:grid-cols-4">
               <Card>
@@ -117,15 +117,15 @@ export default function Home() {
               problems. Each model has access to the Lean LSP via MCP tools and is scored on a
               binary <em>proved</em> flag (zero <code className="font-mono text-sm">sorry</code>{' '}
               remaining and <code className="font-mono text-sm">lake build</code> succeeds) and{' '}
-              <em>partial credit</em> (fraction of{' '}
-              <code className="font-mono text-sm">sorry</code> placeholders removed).
+              <em>partial credit</em> (fraction of <code className="font-mono text-sm">sorry</code>{' '}
+              placeholders removed).
             </p>
             <Card>
               <CardContent className="py-8 text-center">
                 <p className="text-muted-foreground">
                   Across Claude Sonnet 4.6, Claude Opus 4.7, and GPT 5.4, models average{' '}
-                  <strong>70%</strong> on easy problems and <strong>49%</strong> on hard
-                  problems — the benchmark is far from saturated.
+                  <strong>70%</strong> on easy problems and <strong>49%</strong> on hard problems —
+                  the benchmark is far from saturated.
                 </p>
                 <Button variant="outline" asChild className="mt-6">
                   <Link href="/paper">
@@ -159,21 +159,20 @@ export default function Home() {
                 <CardContent>
                   <h3 className="font-semibold mb-3">Abstract</h3>
                   <p className="text-muted-foreground leading-relaxed text-sm">
-                    We present a benchmark for evaluating AI models and agents on real-world
-                    formal software verification tasks. We first scrape 11,039 property-based
-                    tests (PBTs) from real-world Python repositories, then automatically
-                    translate them into Lean 4 specifications with{' '}
-                    <code className="font-mono">sorry</code> placeholders. Translating PBTs into
-                    Lean specifications is challenging: it requires modeling Python semantics in
-                    Lean, inferring the logical property encoded in an imperative PBT, and
-                    handling the inherent difficulties of dependently-typed programming in a
-                    seldom-used language. We describe a three-agent LLM pipeline for transpiling
-                    PBTs into Lean specifications, evaluate coverage and quality metrics, and
-                    provide baselines for proof generation using several automated and
+                    We present a benchmark for evaluating AI models and agents on real-world formal
+                    software verification tasks. We first scrape 11,039 property-based tests (PBTs)
+                    from real-world Python repositories, then automatically translate them into Lean
+                    4 specifications with <code className="font-mono">sorry</code> placeholders.
+                    Translating PBTs into Lean specifications is challenging: it requires modeling
+                    Python semantics in Lean, inferring the logical property encoded in an
+                    imperative PBT, and handling the inherent difficulties of dependently-typed
+                    programming in a seldom-used language. We describe a three-agent LLM pipeline
+                    for transpiling PBTs into Lean specifications, evaluate coverage and quality
+                    metrics, and provide baselines for proof generation using several automated and
                     model-based approaches. Our benchmark aims to drive progress on the
-                    underexplored problem of AI-assisted formal verification of real-world
-                    software, which is of increasing interest as AI produces more and more of
-                    the world&apos;s code.
+                    underexplored problem of AI-assisted formal verification of real-world software,
+                    which is of increasing interest as AI produces more and more of the world&apos;s
+                    code.
                   </p>
                 </CardContent>
               </Card>
