@@ -4,5 +4,5 @@ parse==1.19.0
 #pandas==1.4.2
 psycopg2==2.9.10
 python-dotenv==1.0.1
-aiohttp==3.10.11
+aiohttp==3.13.4
 openai==1.99.9
