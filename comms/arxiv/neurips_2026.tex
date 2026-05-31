@@ -15,7 +15,7 @@
 % 2. "position" option is used for the Position Paper Track
 %  \usepackage[position]{neurips_2026}
 % 3. "eandd" option is used for the Evaluations & Datasets Track
-\usepackage[eandd]{neurips_2026}
+% \usepackage[eandd]{neurips_2026}
  % if you need to opt-in for a single-blind submission in the E&D track:
  %\usepackage[eandd, nonanonymous]{neurips_2026}
 % 4. "creativeai" option is used for the Creative AI Track
@@ -31,7 +31,7 @@
 % 2. Position Paper Track
 %  \usepackage[position, final]{neurips_2026}
 % 3. Evaluations & Datasets Track
- % \usepackage[eandd, final]{neurips_2026}
+\usepackage[preprint]{neurips_2026}
 % 4. Creative AI Track
 %  \usepackage[creativeai, final]{neurips_2026}
 % 5. Workshop with single-blind reviewing
@@ -168,36 +168,24 @@
 % \AND instead of \And before the third author name.
 
 
-\author{%
-% David S.~Hippocampus\thanks{Use footnote for providing further information
-  %   about author (webpage, alternative address)---\emph{not} for acknowledging
-  %   funding agencies.} \\
-  % Department of Computer Science\\
-  % Cranberry-Lemon University\\
-  % Pittsburgh, PA 15213 \\
-  % \texttt{hippo@cs.cranberry-lemon.edu} \\
-  % examples of more authors
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
-  % \AND
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
-  % \And
-  % Coauthor \\
-  % Affiliation \\
-  % Address \\
-  % \texttt{email} \\
+\author{
+  Quinn Dougherty\\
+  Forall R\&D\thanks{Work completed at Galois Inc}\\
+  \texttt{quinn@for-all.dev}
+  \And
+  Max von Hippel\\
+  Benchify\\
+  \texttt{max@benchify.com}
+  \And
+  Hazel Shackleton\\
+  Galois Inc\\
+  \texttt{hazel.shackleton@galois.com}
+  \And
+  Mike Dodds\\
+  Galois Inc\\
+  \texttt{miked@galois.com}
 }
+
 
 \begin{document}
 
@@ -215,13 +203,17 @@
 \input{sections/related.tex}
 \input{sections/conclusion.tex}
 
+\medskip\noindent\hrule\medskip
+\noindent\textbf{Acknowledgements.}
+We thank Evan Boehs and Jake Ginesin for their contributions to the scraper, and Herbert Sekpey for his work on data cleaning.
+
+
 \bibliographystyle{abbrvnat}
 \bibliography{citations}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 \appendix
-
 \input{sections/appendix}
 % \section{Technical appendices and supplementary material}
 % Technical appendices with additional results, figures, graphs, and proofs may be submitted with the paper submission before the full submission deadline (see above). You can upload a ZIP file for videos or code, but do not upload a separate PDF file for the appendix. There is no page limit for the technical appendices. 
@@ -230,8 +222,8 @@
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-\newpage
-\input{sections/checklist.tex}
+% \newpage
+% \input{checklist.tex}
 
 
 \end{document}

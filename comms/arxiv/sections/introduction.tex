@@ -18,13 +18,20 @@ software production.
 
 
 The only way FV can play this role is if agents can conduct verification work
-at least as well and as quickly as they can produce code. Otherwise, FV becomes a bottleneck and will naturally wither under the capital pressure~\cite{rasmussen1997risk} to iterate. There is currently little evidence that such capabilities are possible. To achieve them, we would first need high-quality benchmarks to train on. Existing benchmarks (see Table~\ref{tab:fv-benchmarks}) 
+at least as well and as quickly as they can produce code. Otherwise, FV becomes a bottleneck
+and will naturally wither under the capital pressure to iterate\footnote{The reader is referred to~\cite{rasmussen1997risk} for a detailed discussion of how socioeconomic pressures degrade safety cultures and cause predictable accidents.}.
+There is currently little evidence that such capabilities are possible.
+To achieve them, we would first need high-quality benchmarks to train on.
+Existing benchmarks (see Table~\ref{tab:fv-benchmarks}) 
 are too small (e.g.~\cite{loughridge2024dafnybench}),
 focused on advanced mathematics rather than engineering (e.g.~\cite{glazer2024frontiermath}),
 or derived from expert-driven verification projects (as is the case in~\cite{chakraborty2024neural}) which 
 are quite different from what you would get were you to verify the average software project.
 To clarify this last point: 
-    historically, FV has been bottle-necked by the number of human expert practitioners able to write proofs in an ITP\footnote{We were unable to find any formal estimate of the number of human formal methods practitioners today. However, as a very rough proxy, \citet{de2025lessons} conducted the largest ever survey of users of any particular ITP -- in this case Coq, which is now called Rocq -- at 466 participants. As a point of contrast, that year's survey by the Rust foundation of Rust software engineers had 7,156 participants~\cite{rustParticipants}. Anecdotally, most ITP work today is in Rocq, Lean 4, or Isabelle.}, and therefore, outside of pedagogy or academic research, FV was only ever applied to the most mathematically complex and safety-critical applications, such as compilers~\cite{leroy2016compcert} or
+    historically, FV has been bottle-necked by the number of human expert practitioners 
+    able to write proofs in an ITP\footnote{We were unable to find any formal estimate of the number of human formal methods practitioners today. However, as a very rough proxy, \citet{de2025lessons} conducted the largest ever survey of users of any particular ITP -- in this case Coq, which is now called Rocq -- at 466 participants. As a point of contrast, that year's survey by the Rust foundation of Rust software engineers had 7,156 participants~\cite{rustParticipants}. Anecdotally, most ITP work today is in Rocq, Lean 4, or Isabelle.}, 
+    and therefore, outside of pedagogy or academic research, FV was only ever applied to the most 
+    mathematically complex and safety-critical applications, such as compilers~\cite{leroy2016compcert} or
     an OS kernel~\cite{klein2009sel4}.
     These projects are generally monolithic, closed systems, 
     in contrast to the average
@@ -41,7 +48,7 @@ and operating on different chips~\cite{buro2020equational,perconti2014verifying}
 
 \begin{table}[h]
 \centering
-\footnotesize
+\small
 \setlength{\tabcolsep}{4pt}
 \renewcommand{\arraystretch}{1.05}
 \begin{tabularx}{\textwidth}{@{}
@@ -105,7 +112,7 @@ FVSpec:FV & Lean & 75{,}005 & software verification: specs from the wild \\
 \end{table}
 
 In light of the limitations of prior works, we generate a new benchmark, \FVSpec, from public uses of property-based testing (PBT). 
-While FV itself is rarely used in software development, PBT is a ``close sibling'' technology which has seen significant adoption, sometimes called "lightweight formal methods"~\cite{JacksonWing1996}. In both FV and PBT, engineers write \emph{specifications}: logical properties that the software must obey. For example, we might require that a Python function \texttt{isort(lst)} always returns a sorted permutation of its input \texttt{lst}. The difference lies in how this property is checked. In FV, the property is proved using mathematical techniques---this results in almost-perfect confidence, but requires proof engineering by highly expert teams~\cite{dodds2022formally}. In PBT, the code is randomly tested---e.g. for random values of x. This is a push-button process with no proof engineering, and provides only statistical assurance.
+While FV itself is rarely used in software development, PBT is a ``close sibling'' technology which has seen significant adoption, sometimes called ``lightweight formal methods''~\cite{JacksonWing1996}. In both FV and PBT, engineers write \emph{specifications}: logical properties that the software must obey. For example, we might require that a Python function \texttt{isort(lst)} always returns a sorted permutation of its input \texttt{lst}. The difference lies in how this property is checked. In FV, the property is proved using mathematical techniques---this results in almost-perfect confidence, but requires proof engineering by highly expert teams~\cite{dodds2022formally}. In PBT, the code is randomly tested---e.g. for random values of x. This is a push-button process with no proof engineering, and provides only statistical assurance.
 
 
 
@@ -115,7 +122,7 @@ In fact, PBTs are typically seen as the first step toward FV.
 For example, in the interactive theorem prover ACL2s~\cite{dillinger2007acl2s}, any unproven theorem statement is automatically treated as a PBT until the author supplies a proof. 
 Thus the idea of translating PBTs to theorems for FV is natural and, to an extent, industry-standard. We build on this. 
 First, we scrape 11{,}039 PBTs written in Python's Hypothesis framework~\cite{maciver2019hypothesis}. 
-Each PBT in our dataset can be seen as a formal conjecture about a piece of Python code, which the author would like to either substantiate (prove) or disprove. 
+Each PBT in our dataset can be seen as a formal conjecture about a piece of Python code, which the author would like to either substantiate (better yet, prove), or disprove. 
 We refer to our scraped PBT corpus as \FVSpec:PBT.
 To make it possible for an AI to resolve these conjectures, 
 we translate both code and PBTs to the theorem prover Lean, which is becoming the de-facto standard in AI formal verification. 
@@ -134,21 +141,22 @@ our actual motivation is to build a large benchmark of realistic and high-qualit
 software verification exercises, representative of the diversity of code found in 
 ``normal'' codebases.
 Thus, we don't worry whether or not our translations are perfectly equivalent, so long as they are equivalently interesting.
-The result is 9{,}415 Lean 4 verification challenges. Each consists of four artifacts (Figure~\ref{fig:running-example}): first, the original Python implementation; second, the original Python PBT exercising it; third, a complete Lean implementation of the same function; and fourth, a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience. As Table~\ref{tab:fv-benchmarks} shows, the bulk of ITP benchmarks target mathematics rather than software. 
+The result is 9{,}415 Lean 4 verification challenges, derived from 2{,}772 of the 11{,}039 PBTs (25\% pipeline yield from \texttt{lake build} success), with $\approx$3 formalizations per PBT retained when no single attempt dominates on quality metrics. Each consists of four artifacts (Figure~\ref{fig:running-example}): first, the original Python implementation; second, the original Python PBT exercising it; third, a complete Lean implementation of the same function; and fourth, a Lean theorem statement of the property with a \texttt{sorry} for the proof. Unlike existing FV benchmarks, each problem corresponds to real-world software written by engineers with no formal verification experience. As Table~\ref{tab:fv-benchmarks} shows, the bulk of ITP benchmarks target mathematics rather than software. The software-verification benchmarks that are large---Vericoding~\cite{bursuc2025benchmark} (12{,}504 tasks), LEAN-GitHub~\cite{wu2024lean} (28{,}597 theorems), and CoqStoq~\cite{thompson2024rango} (10{,}396 theorems)---all derive from code that was written specifically for or in an ITP: Vericoding aggregates problems from competitive verification events (VerifyThis) and the Archive of Formal Proofs; LEAN-GitHub and CoqStoq scrape GitHub repositories where the primary artifact \emph{is} the Lean or Coq proof. FVAPPS~\cite{dougherty2025proving}, the closest methodological predecessor, starts from competitive programming puzzles (APPS~\cite{hendrycks2021apps}) translated into PBTs, not from code written in the ordinary course of software development. None of these benchmarks contain specifications authored by practicing engineers who had no formal verification goal in mind, which is precisely what ours does---putting our problems out of distribution relative to anything an AI is likely to have memorized.
+
+
 
 Our main contributions are:
 \begin{enumerate}
   \item \textbf{\FVSpec:PBT} — a corpus of 11{,}039 deduplicated Python property-based tests scraped from 333 open-source repositories, the first large, license-clean PBT dataset drawn from ordinary software development (no competition problems, no curated ITP code).
-  \item \textbf{\FVSpec:FV} — 9{,}415 Lean~4 formal verification challenge samples (mean of approx. 8 theorems per sample) lifted from 2{,}772 of those PBTs by an agentic transpilation pipeline with iterative LSP repair, each annotated with structural faithfulness scores (median 0.65), difficulty label (62\% hard) which is around 70\% calibrated, and full artifact metadata.
-  \item \textbf{Baseline evaluations} of Claude Sonnet~4.6, Claude Opus~4.7, and GPT~5.4 showing mean 70\% on easies and mean 49\% on hards.
-  \item \textbf{Open-source release} of the full pipeline (consisting of scraper, dependency extractor, formalization agent, and post-production scripts) under an MIT/Apache dual license\footnote{release planned for after submission}.
+  \item \textbf{\FVSpec:FV} — 9{,}415 Lean~4 formal verification challenge samples (mean of approx. 8 theorems per sample) lifted from 2{,}772 of those PBTs by an agentic transpilation pipeline with iterative Language Server Protocol (LSP) repair, each annotated with structural faithfulness scores (median 0.65), difficulty label (62\% hard) which is around 70\% calibrated, and full artifact metadata.
+  \item \textbf{Baseline evaluations} of Claude Sonnet~4.6, Claude Opus~4.7, and GPT~5.4 showing mean 70\% success on easies and mean 49\% on hards.
+  \item \textbf{Open-source release} of the full pipeline (scraper, dependency extractor, formalization agent, and post-production scripts) at \href{https://github.com/GaloisInc/fvspec}{github.com/GaloisInc/fvspec} under an MIT/Apache dual license. The datasets are available at \href{https://huggingface.co/datasets/GaloisInc/fvspec-pbt}{huggingface.co/datasets/GaloisInc/fvspec-pbt} (\FVSpec:PBT) and \href{https://huggingface.co/datasets/GaloisInc/fvspec-fv}{huggingface.co/datasets/GaloisInc/fvspec-fv} (\FVSpec:FV).
 \end{enumerate}
+
+
 
 The rest of the paper is organized as follows.
 We formalize the task in \Secr{task}.
-We characterize our input corpus, detailing how we scraped and deduplicated 11{,}039 Hypothesis tests from open-source repositories, in \Secr{dataset},
-and discuss how that corpus compares to a similar one released by the Hypothesis team~\cite{devoe2026hypothesis}.
-Then, we describe our generation pipeline---
-scraping,
-dependency extraction, LLM-based transpilation with iterative Lean LSP repair, and post-production cleaning---in \Secr{pipeline}.
+We characterize the \FVSpec:PBT corpus of 11{,}039 scraped PBTs in \Secr{dataset}, and compare it to a similar corpus released by the Hypothesis team~\cite{devoe2026hypothesis}.
+We then describe the pipeline that converts 2{,}772 of those PBTs (25\%) into 9{,}415 Lean challenges in \Secr{pipeline}.
 We characterize the benchmark and present baseline results in \Secr{results}, discuss threats to validity in \Secr{threats}, survey related work in \Secr{related}, and conclude in \Secr{conclusion}.
