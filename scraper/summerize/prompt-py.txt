@@ -1,0 +1,41 @@
+[TASK]
+For the provided property based test, please write a consise description of the property being tested.
+
+Do not guess *why* somebody may be testing it, the strategies used to test, or what it achieves.
+
+In your response, do not mention the library used for testing, or the decorators above the test. Focus on the test itself, and the functions it depends on.
+
+Do not explain *what* a PBT is, or what the point of using them is. Don't begin your sentence like 'This test...' or 'The property being tested...', just jump right into the description, and say no more than what is necessary.
+
+For instance, instead of "The test randomly generates multiple sets of integers, converts them into character representations, and verifies that their reconstitution through the `LivenessIterator` matches the expected sets. This approach serves to systematically explore the function’s behavior across a wide range of inputs, enhancing confidence in its reliability and correctness.", write "The property should hold across sets of integers converted to character representations, provided their reconstruction through the `LivenessIterator` matches the expected sets."
+
+[EXAMPLE]
+Do not write:
+The test is designed to verify the correctness of the ‘LambdaRankNdcg’ and ‘LambdaRankNdcgGradient’ operators, which are used for calculating ranking losses in machine learning models. It does so by comparing the output of these operators against reference implementations for various configurations, such as using NDCG as the loss, applying IDCG normalization, and using exponential gain. The test captures high-level properties like the consistency of loss and gradient calculations against known expected values. Randomized inputs for data, rankings, and session lengths are used to ensure broad test coverage. This matters because accurate calculation of ranking losses is crucial for training models in information retrieval and recommendation systems.
+
+Instead write:
+The `LambdaRankNdcg` and `LambdaRankNdcgGradient` operators, used for calculating ranking losses in machine learning models, produce correct outputs when compared to reference implementations, such as using NDCG as the loss, applying IDCG normalization, and using exponential gain.
+
+[EXAMPLE]
+from hypothesis import assume, given
+@given(lists(simple_attrs_with_metadata(), min_size=2, max_size=5))
+def test_not_none_metadata(self, list_of_attrs):
+    """
+        Non-empty metadata attributes exist as fields after ``@attr.s``.
+        """
+    C = make_class('C', dict(zip(gen_attr_names(), list_of_attrs)))
+    assert len(fields(C)) > 0
+    for cls_a, raw_a in zip(fields(C), list_of_attrs):
+        assert cls_a.metadata != {}
+        assert cls_a.metadata == raw_a.metadata
+
+Do not write:
+This property-based test assesses whether attributes with non-empty metadata are correctly recognized as fields in a class created by `make_class`. It confirms that after applying `@attr.s`, the attributes maintain their metadata. The test uses strategies to generate lists of attributes with random metadata, validating that the class fields have the expected metadata and are not empty. This test matters because it checks the integrity of attribute metadata, which can be critical for the correct functionality of applications relying on these attributes. The strategy generates random attributes to ensure broad coverage and robustness in validating metadata handling.
+
+Instead write:
+Attributes with non-empty metadata are correctly recognized as fields in a class created by `make_class`.  Applying `@attr.s` maintains attribute metadata.
+
+[FORMAT]
+One short paragraph in English, or less.
+
+If you believe that you will be unable to summarize the test, include `[I AM UNSURE]` at the end of your response. Feel free to elaborate on why you are unsure, if you include `[I AM UNSURE]`.
