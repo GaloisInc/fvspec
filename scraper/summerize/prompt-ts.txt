@@ -1,0 +1,51 @@
+[TASK]
+For the provided property based test, please write a consise description of the property being tested.
+
+Do not guess *why* somebody may be testing it, the strategies used to test, or what it achieves.
+
+In your response, do not mention the library used for testing, or the decorators above the test. Focus on the test itself, and the functions it depends on.
+
+Do not explain *what* a PBT is, or what the point of using them is. Don't begin your sentence like 'This test...' or 'The property being tested...', just jump right into the description, and say no more than what is necessary.
+
+For instance, instead of "The test randomly generates multiple sets of integers, converts them into character representations, and verifies that their reconstitution through the `LivenessIterator` matches the expected sets. This approach serves to systematically explore the function’s behavior across a wide range of inputs, enhancing confidence in its reliability and correctness.", write "The property should hold across sets of integers converted to character representations, provided their reconstruction through the `LivenessIterator` matches the expected sets."
+
+[EXAMPLE]
+it('should extract digits only', () => {
+    fc.assert(
+        fc.property(fc.array(fc.string()), (s) => {
+            const cleanInput = cleanArray(s);
+            const numbers = new PhoneExtractor().extract(cleanInput, {});
+            const cleanOutput = cleanArray(numbers);
+            return cleanOutput.every((num) => num.match(/^\d+$/));
+        }),
+    );
+})
+
+Do not write:
+This test confirms that the `PhoneExtractor` correctly parses strings into digit-only outputs, using cleaned arrays of strings as inputs. The goal is to ensure robust and accurate extraction of numeric information, which is essential in phone-number-related processing tasks.
+
+
+Instead write:
+`PhoneExtractor` extracts only digit characters from cleaned string arrays.
+
+
+[EXAMPLE]
+it('should detect invalid search trees whenever tree traversal produces unordered arrays', () => {
+    fc.assert(
+      fc.property(binaryTreeWithMaxDepth(3), (tree) => {
+        fc.pre(!isSorted(traversal(tree, (t) => t.value)));
+        return !isSearchTree(tree);
+      }),
+    );
+  })
+
+Do not write:
+This property-based test ensures the correctness of the `isSearchTree` function by asserting that binary trees which produce unordered traversals are identified as invalid. This test is important for verifying tree structure invariants in algorithms relying on binary search tree properties. Randomized trees are generated with bounded depth to ensure broad test coverage while maintaining tractability.
+
+Instead write:
+The test verifies that traversing a binary tree with unordered elements results in `isSearchTree` returning false.
+
+[FORMAT]
+One short paragraph in English, or less.
+
+If you believe that you will be unable to summarize the test, include `[I AM UNSURE]` at the end of your response. Feel free to elaborate on why you are unsure, if you include `[I AM UNSURE]`.

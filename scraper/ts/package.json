@@ -1,0 +1,23 @@
+{
+  "name": "ts",
+  "module": "index.ts",
+  "type": "module",
+  "scripts": {
+    "pg": "bun pglite.ts",
+    "dev": "DRY=true bun index.ts",
+    "start": "bun index.ts"
+  },
+  "devDependencies": {
+    "@types/bun": "latest",
+    "@electric-sql/pglite": "^0.3.4",
+    "@electric-sql/pglite-socket": "^0.0.9",
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "fast-check": "^3.23.2",
+    "postgres": "^3.4.5",
+    "ts-morph": "^25.0.1",
+  }
+}
