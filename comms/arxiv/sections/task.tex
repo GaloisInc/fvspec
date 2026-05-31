@@ -8,7 +8,7 @@ shows all four artifacts of a single \FVSpec problem. The left column holds
 the original implementation (top) and the PBT exercising it
 (bottom); the right column holds the corresponding \texttt{Impl.lean}
 (top), a complete Lean port of the function, and \texttt{Spec.lean}
-(bottom), containing two theorems---one for sortedness, one for permutation---
+(bottom), containing two theorems (one for sortedness, one for permutation)
 each with their own \texttt{sorry}. The AI's task is to discharge both
 Lean \texttt{sorry} placeholders.
 
@@ -112,4 +112,19 @@ placeholders, one per theorem.}
 \label{fig:running-example}
 \end{figure}
 
-% Next, we explain how we scrape the PBT corpus and what the corpus looks like.
+We encounter two practical issues when translating Python PBTs into Lean implementations and (unproven) specficiations.
+
+\paragraph{Nonsensical theorems pre-validation.} Our pipeline can emit well-formed but useless statements in the following three ways.
+
+\emph{(i) Trivial Unit-typed conjectures.} When the formalization agent cannot recover the true return type of the function under test (FUT), it stubs the FUT's return type as \texttt{Unit}. The resulting theorem becomes a tautology---e.g.\ for our running example, \texttt{theorem isort\_check : isort lst = () := by plausible}, which holds for any total function into \texttt{Unit} and so carries no verification value.
+
+\emph{(ii) Ill-typed or unresolved-symbol theorems.} The formalization agent works from the Python source and writes Lean by analogy. When it invents a Lean name that does not exist---for instance, writing \texttt{theorem isort\_perm (l : List Int) : (isort l).permutationOf l := sorry}, where \texttt{permutationOf} is not a member of \texttt{List} (the correct name is \texttt{List.Perm})---or attaches a type signature inconsistent with the surrounding code, the Lean elaborator rejects the file with errors like \emph{unknown identifier}, \emph{type mismatch}, \emph{function expected}, or \emph{failed to synthesize}.
+
+\emph{(iii) Spec theorems leaking into \texttt{Impl.lean}.} Our pipeline runs two separate agents: one writes \texttt{Impl.lean} (definitions only), the other writes \texttt{Spec.lean} (theorems only). The implementation agent is explicitly instructed to emit no theorems, but occasionally it pre-empts the spec agent by inserting a \texttt{namespace Fvspec.Spec}\ldots\texttt{theorem isort\_sorted}\ldots \texttt{end Fvspec.Spec} block inside \texttt{Impl.lean}, which violates our file split and would silently  expand the proof obligation if left in.                         
+We catch (i) by regex, drop (ii) at compile time, and strip (iii) with a namespace-aware filter that removes any \texttt{namespace Fvspec.Spec} block found in \texttt{Impl.lean}. The namespace-bracketed pattern is fully eliminated by this filter (zero occurrences in the released dataset). A small residual ($\sim$0.9\% of samples) carries naked \texttt{theorem} declarations in \texttt{Impl.lean} written outside any namespace; because grading targets only \texttt{Spec.lean}, these do not expand the proof obligation, but they do represent stray proof activity that escaped the filter. A theorem that survives all three filters is a useful challenge problem even if it has drifted from the original PBT---because Lean checks proofs against \emph{the theorem we generated}, not the informal property.
+
+
+
+\paragraph{Lean as a (nearly) perfect oracle.} The Lean kernel arbitrates correctness, which is qualitatively much stronger than statistical sampling. It is not, however, adversarially perfect: an AI can satisfy the kernel by \emph{changing the question}---adding the Axiom of Choice, weakening hypotheses, or exploiting a security vulnerability in Lean itself~\cite{gopinathan2026leanbug}---and the proof will still type-check~\cite{vonhippel2026slopless}. To make gaming visible, every submission is scored on two axes: a binary \emph{proved} flag (the file compiles under \texttt{lake build} \emph{and} every original \texttt{sorry} has been discharged) and partial credit (fraction of original \texttt{sorry}s discharged). We additionally record any axiom dependencies the proof introduces, since an AI can trivialize a goal by quietly importing strong axioms; we do not currently auto-fail on extra axioms, but report them so reviewers can flag suspicious solutions. For higher-stakes evaluations, submissions can additionally be re-checked through \texttt{leanprover/comparator}~\cite{leancomparator2026}, which sandboxes the build and cross-validates the proof term against an independently-implemented kernel. Lastly, a sufficiently motivated AI can still smuggle a vacuous proof past us when the original theorem statement is itself too weak---a limit shared by every benchmark whose scale exceeds full human review capacity.
+
+Next, we explain how we scrape the PBT corpus and what the corpus looks like.

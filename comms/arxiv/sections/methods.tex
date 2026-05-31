@@ -1,4 +1,67 @@
-\section{\FVSpec:PBT$\to$FV Pipeline}
+\section{Methods}
+
+The procedure was scraping Hypothesis~\cite{maciver2019hypothesis} PBTs from GitHub and "transpiling" them to Lean statements. 
+
+\subsection{Property-Based Test Corpus (\FVSpec:PBT)}
+\Secl{dataset}
+
+We scrape real-world Python property-based tests from public GitHub repositories that depend on Hypothesis~\cite{maciver2019hypothesis}. The scraper is available at \href{https://github.com/GaloisInc/fvspec/tree/main/scraper}{github.com/GaloisInc/fvspec/tree/main/scraper}. It operates in three stages.
+\emph{(1) Discovery.} We crawl the Hypothesis dependency graph using PyGitHub~\cite{pygithub} and persist 19{,}808 unique \texttt{owner/repo} pairs into a static snapshot.
+\emph{(2) Licensing.} We skip repositories with an explicitly non-permissive license (e.g.\ AGPL, GPL, LGPL, MPL), and record the license string alongside the rest of each repository's metadata.
+\emph{(3) Extraction.} We shallow-clone each accepted repository, locate PBTs via \texttt{ripgrep}, and parse the surrounding Python to recover the transitive closure of locally-defined functions called therein.
+
+A 24-hour run produced 54{,}345 raw PBTs.
+The GitHub dependency graph surfaces many forks of the same upstream (e.g.\ hundreds of forks of \texttt{pytorch} carrying an identical Hypothesis suite), so we group repositories by base name, retain the most-starred ``canonical'' fork per group, and additionally drop tests whose whitespace-normalized SHA-256 already appears in the canonical set.
+After deduplication the working corpus is 11{,}039 PBTs across 333 repositories owned by 281 distinct GitHub users, spanning 303 distinct upstream project names.
+
+\subsubsection{Diversity}
+\label{sec:dataset-diversity}
+
+A perennial concern with scraped benchmarks is concentration: SWE-bench~\cite{jimenez2024swebench}, for instance, draws all 2{,}294 of its task instances from just 12 repositories, with \texttt{django} alone supplying 37\% and the top three (\texttt{django}, \texttt{sympy}, \texttt{scikit-learn}) supplying 64\%. Our corpus is far more spread out---it draws from 333 repositories, no single one of which contributes more than 8.7\% of the PBTs and whose top ten together contribute 58.5\%---and most of those repositories are unstarred personal projects rather than curated showcase code (Table~\ref{tab:dataset-stats}). The median PBT is just 13~LoC, but exercises around $3\times$ its own length in project code (see Figure~\ref{fig:pbt-vs-deps}).
+
+To illustrate the diversity of our dataset, consider the result of drawing ten repositories from it uniformly at random:\footnote{Reproduce with \texttt{random.seed(13); random.sample([r for r in repos if r.stars >= 10], 10)} against the 333-repo deduplicated corpus; the star floor filters out personal forks.}
+\texttt{sec-parser} (SEC-filings parser),
+\texttt{whenever} (datetime library),
+\texttt{LDAR\_Sim} (methane leak-detection simulator),
+\texttt{bowtie} (JSON-schema test runner),
+\texttt{Ivy-Octernships-ML} (ML-framework scaffolding),
+\texttt{aaanalysis} (amino-acid analysis library),
+\texttt{shrinkray} (test-case shrinker),
+\texttt{logot} (log-output assertion library),
+\texttt{tokenizations} (NLP tokenisation), and
+\texttt{onnx-embedding} (ONNX-backed embedding library).
+This is broadly representative of real-world software engineering, as opposed to purely academic or competitive programming.
+
+Figure~\ref{fig:python_source} summarizes three code-quality metrics across the corpus.
+The source tests span a wide range of complexity, from trivial single-assertion tests to multi-strategy tests exercising complex library APIs---diversity inherited directly from real-world engineering practice and not curated for difficulty.
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/python_source.pdf}
+  \caption{Code-quality metrics for the 11{,}039 deduplicated PBTs, computed by Radon~\cite{radon}. \emph{Left}: lines of code.
+  \emph{Center}: cyclomatic complexity---the number of linearly independent execution paths through the function, i.e.\ one plus the number of binary branch points~\cite{mccabe1976complexity}; higher values indicate more complex control flow.
+  \emph{Right}: maintainability index---a 0--100 composite of Halstead volume~\cite{halstead1977elements}, cyclomatic complexity, and source lines, where higher is more maintainable; the spike at 100 is an artefact of Radon capping the score at that value.}
+  \label{fig:python_source}
+\end{figure}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\linewidth]{figs/realpbt_pbt_vs_deps.pdf}
+  \caption{Three views of the relationship between PBT size and the size of the
+  code being exercised, over the $n=6{,}912$ post-deduplication PBTs whose
+  local dependencies were recoverable.
+  (The remaining $4{,}127$ either exercise only standard-library or external code, or had dep extraction fail; the figure is therefore a subset of the full $11{,}039$-PBT corpus.)
+  (a)~Per-PBT scatter of PBT LoC against the total LoC of the directly-called
+  dependencies.
+  (b)~Histogram of the ratio between dependency LoC and PBT LoC (log scale);
+  the median PBT exercises code $3.3\times$ its own length.
+  (c)~Histogram of the number of direct local function calls per PBT.}
+\label{fig:pbt-vs-deps}
+\end{figure}
+
+% Next, we describe the pipeline by which we transpile our PBT corpus into Lean FV challenges.
+
+\subsection{\FVSpec:PBT$\to$FV Pipeline}
 \Secl{pipeline}
 
 We lift each PBT in the \Secr{dataset} corpus (\FVSpec:PBT) into a Lean
@@ -32,26 +95,11 @@ After each generation step we type-check the output via the Lean LSP
 are fed back to the agent and a revised translation is requested. The
 loop terminates on success or after 16 tool-iterations.
 
-\emph{Post-production.} We first extract LLM turn counts from the raw
-\texttt{.eval} archives produced by the formalization agent, which runs
-as an Inspect~AI~\cite{UKAISI_inspect_2024} task. We then
-collapse runs into a single JSONL, deduplicating by sample id and
-tie-breaking with a quality score (structural faithfulness, theorem
-count, unit-tests, implementation success). Next, we re-run
-\texttt{lake build} on each retained sample and drop failures, which we
-classify into nine families: timeouts, well-founded recursion,
-unknown identifiers, failures to synthesize, type mismatches, syntax
-errors, missing functions, application errors, and declaration errors.
-We then run \texttt{radon} on the Python source and a custom AST
-analyzer on the Lean artifacts to extract line counts, theorem and
-\texttt{def} counts, residual \texttt{sorry}/\texttt{admit}s, and
-axioms. Finally, conditioning on these metrics, we assign a binary
-easy/hard label using \texttt{claude-haiku-4-5} as judge, together with
-a calibrated confidence score and a short rationale.
+\emph{Post-production.} We first extract LLM turn counts from the raw \texttt{.eval} file archives produced by the formalization agent, which runs as an  Inspect~AI~\cite{UKAISI_inspect_2024} task. We then collapse runs into a single JSONL, deduplicating by sample id and tie-breaking with a quality score (structural faithfulness, theorem count, unit-tests, implementation success). Next, we re-run
+\texttt{lake build} on each retained sample and drop failures, which we classify into nine families: timeouts, non-wellfounded recursion, unknown identifiers, failures to synthesize, type mismatches, syntax errors, missing functions, application errors, and declaration errors. We then run a custom AST analyzer on the Lean artifacts to extract line counts, theorem and \texttt{def} counts, residual  \texttt{sorry} and axioms. Finally, conditioning on these metrics, we assign a binary easy/hard label using \texttt{claude-haiku-4-5} as judge, together with
+a confidence score and a short rationale. The Haiku grader is calibrated by checking if its results are predictive of \texttt{claude-sonnet-4-6} and \texttt{gpt-5.4-2026-03-05} performance, where the grader showed approx. 70\% calibration
 
-The structural-faithfulness score used in the merge
-tie-break is a fixed weighted average of five sub-scores, each measuring
-how much of a Python-side artifact survives translation:
+The structural-faithfulness score used in the merge tie-break is a fixed weighted average of five sub-scores, each measuring how much of a Python-side artifact survives translation:
 \begin{equation}
   S = 0.25\,S_{\text{param}} + 0.25\,S_{\text{type}} + 0.20\,S_{\text{strat}} + 0.20\,S_{\text{assert}} + 0.10\,S_{\text{dep}}
   \label{eq:faithfulness}
@@ -59,22 +107,15 @@ how much of a Python-side artifact survives translation:
 where each sub-score is in $[0,1]$: $S_{\text{param}}$ (parameter coverage), $S_{\text{type}}$ (type correspondence), $S_{\text{strat}}$ (strategy coverage), $S_{\text{assert}}$ (assertion coverage), and $S_{\text{dep}}$ (dependency coverage). For
 \texttt{isort}, parameter coverage rewards the Lean theorem taking a
 single \texttt{List Int} matching Python's \texttt{lst}; type
-correspondence verifies that Python's \texttt{list[int]} maps to
-\texttt{List Int}; strategy coverage tracks that
-\texttt{st.lists(st.integers())} ranges over arbitrary integer lists,
-with no missing bounds in the Lean version; assertion coverage rewards
-both Python assertions producing a corresponding Lean theorem; and
-dependency coverage rewards every named helper recovered in function
-discovery surviving into \texttt{Impl.lean}. Sub-scores ship alongside
-the overall score so consumers can re-weight or filter.
+correspondence verifies that Python's  \texttt{list[int]} maps to \texttt{List Int}; strategy coverage tracks that \texttt{st.lists(st.integers())} ranges over arbitrary integer lists, with no missing bounds in the Lean version; assertion coverage rewards both Python assertions producing a corresponding Lean theorem; and dependency coverage rewards every named helper recovered in function discovery surviving into \texttt{Impl.lean}. Sub-scores ship alongside the overall score so consumers can re-weight or filter.
 
-\subsection{Pipeline yield}
+\subsubsection{Pipeline yield}
 \label{sec:pipeline-yield}
 
 The published \FVSpec:FV dataset contains
 \textbf{9{,}415 samples} drawn from \textbf{2{,}772 distinct PBTs}
 (Figure~\ref{fig:pipeline}, bottom right):
-formalization succeeded for $2{,}772$ of $11{,}039$ input PBTs ($25\%$);
+formalization succeeded for $9{,}415$ of $11{,}039$ input PBTs ($25\%$);
 the rest were dropped by \texttt{lake build}. The mean sample carries 8 theorems
 (median 6, max 66) and median structural faithfulness 0.65 (Figure~\ref{fig:faithfulness}). A complete Lean implementation was generated for 59\% of samples; the remaining 41\% ship
 against a stub \texttt{Impl.lean}, so the theorem statement is well-typed

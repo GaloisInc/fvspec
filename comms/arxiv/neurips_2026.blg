@@ -1,0 +1,49 @@
+This is BibTeX, Version 0.99d (TeX Live 2025/Homebrew)
+Capacity: max_strings=200000, hash_size=200000, hash_prime=170003
+The top-level auxiliary file: neurips_2026.aux
+The style file: abbrvnat.bst
+Database file #1: citations.bib
+Warning--empty year in radon
+Warning--there's a number but no volume in mccabe1976complexity
+You've used 59 entries,
+            2773 wiz_defined-function locations,
+            888 strings with 18469 characters,
+and the built_in function-call counts, 33400 in all, are:
+= -- 2654
+> -- 3017
+< -- 26
++ -- 1020
+- -- 960
+* -- 2890
+:= -- 5406
+add.period$ -- 193
+call.type$ -- 59
+change.case$ -- 485
+chr.to.int$ -- 58
+cite$ -- 120
+duplicate$ -- 1221
+empty$ -- 2118
+format.name$ -- 1029
+if$ -- 6762
+int.to.chr$ -- 2
+int.to.str$ -- 1
+missing$ -- 49
+newline$ -- 317
+num.names$ -- 236
+pop$ -- 1061
+preamble$ -- 1
+purify$ -- 428
+quote$ -- 0
+skip$ -- 1071
+stack$ -- 0
+substring$ -- 483
+swap$ -- 117
+text.length$ -- 4
+text.prefix$ -- 0
+top$ -- 0
+type$ -- 644
+warning$ -- 2
+while$ -- 207
+width$ -- 0
+write$ -- 759
+(There were 2 warnings)
