@@ -115,10 +115,6 @@ export default function PaperPage() {
           <p className="text-muted-foreground">
             For the full paper — including methodology, dataset construction, baseline experiments,
             and threats to validity — see the{' '}
-            <a href="/fvspec_anon.pdf" target="_blank" rel="noopener" className="underline">
-              PDF
-            </a>{' '}
-            or the{' '}
             <a
               href="https://arxiv.org/abs/2606.01008"
               target="_blank"
