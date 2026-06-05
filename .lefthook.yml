@@ -48,7 +48,7 @@ pre-commit:
       run: npm run build
     format-leaderboard:
       root: "leaderboard"
-      glob: "*.{ts,json,md,yaml,yml}"
+      glob: "*.{ts,tsx,json,md,yaml,yml}"
       run: npm run format
       stage_fixed: true
     lint-leaderboard:
