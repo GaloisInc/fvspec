@@ -55,6 +55,9 @@ export function Header() {
             <Link href="/paper" className={getLinkClassName('/paper')}>
               Paper
             </Link>
+            <Link href="/about" className={getLinkClassName('/about')}>
+              About
+            </Link>
           </nav>
         </div>
         {/* External links on right - always visible on small+ screens */}
@@ -101,6 +104,13 @@ export function Header() {
               onClick={() => setMobileMenuOpen(false)}
             >
               Paper
+            </Link>
+            <Link
+              href="/about"
+              className={getLinkClassName('/about')}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              About
             </Link>
             <a
               href="https://huggingface.co/datasets/GaloisInc/fvspec-pbt"
