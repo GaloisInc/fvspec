@@ -51,11 +51,6 @@ export default function PaperPage() {
           </div>
           <div className="mt-6 flex flex-wrap gap-4">
             <Button variant="outline" asChild>
-              <a href="/fvspec_anon.pdf" target="_blank" rel="noopener">
-                Download PDF
-              </a>
-            </Button>
-            <Button variant="outline" asChild>
               <a href="https://arxiv.org/abs/2606.01008" target="_blank" rel="noopener noreferrer">
                 arXiv
               </a>
