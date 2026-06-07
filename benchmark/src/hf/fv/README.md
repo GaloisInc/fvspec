@@ -21,7 +21,7 @@ language:
 
 FVSpec is a benchmark of **9,415 Lean 4 formalization challenges** derived from **2,772 unique Python property-based tests** (PBTs). Each sample pairs an `Impl.lean` (computable definitions) with a `Spec.lean` (theorem statements containing `sorry` placeholders for models to discharge).
 
-Built on [RealPBT](https://huggingface.co/datasets/Benchify/realpbt). Browse the dataset at [fvspec.galois.com](https://fvspec.galois.com).
+Built on [RealPBT](https://huggingface.co/datasets/galoisinc/fvspec-pbt). Browse the dataset at [fvspec.galois.com](https://fvspec.galois.com).
 
 ## Dataset Structure
 
@@ -73,7 +73,7 @@ A single Python PBT may have 2--15 formalizations from different pipeline runs.
 ```python
 from datasets import load_dataset
 
-ds = load_dataset("quinn-dougherty/fvspec", split="train")
+ds = load_dataset("galoisinc/fvspec-fv", split="train")
 
 # One-per-PBT (2,772 canonical samples)
 canonical = ds.filter(lambda x: x["is_canonical"])

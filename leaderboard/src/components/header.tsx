@@ -55,17 +55,29 @@ export function Header() {
             <Link href="/paper" className={getLinkClassName('/paper')}>
               Paper
             </Link>
+            <Link href="/about" className={getLinkClassName('/about')}>
+              About
+            </Link>
           </nav>
         </div>
         {/* External links on right - always visible on small+ screens */}
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
             <a
-              href="https://huggingface.co/datasets/quinn-dougherty/fvspec"
+              href="https://huggingface.co/datasets/GaloisInc/fvspec-pbt"
               target="_blank"
               rel="noopener noreferrer"
             >
-              HuggingFace
+              HF: PBT
+            </a>
+          </Button>
+          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+            <a
+              href="https://huggingface.co/datasets/GaloisInc/fvspec-fv"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              HF: FV
             </a>
           </Button>
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
@@ -93,14 +105,30 @@ export function Header() {
             >
               Paper
             </Link>
+            <Link
+              href="/about"
+              className={getLinkClassName('/about')}
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              About
+            </Link>
             <a
-              href="https://huggingface.co/datasets/quinn-dougherty/fvspec"
+              href="https://huggingface.co/datasets/GaloisInc/fvspec-pbt"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
               onClick={() => setMobileMenuOpen(false)}
             >
-              HuggingFace →
+              HuggingFace: PBT →
+            </a>
+            <a
+              href="https://huggingface.co/datasets/GaloisInc/fvspec-fv"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              HuggingFace: FV →
             </a>
             <a
               href="https://github.com/GaloisInc/fvspec"
