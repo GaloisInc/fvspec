@@ -18,8 +18,7 @@ const figures = [
   {
     src: '/figures/structural_faithfulness.png',
     alt: 'Distribution of structural faithfulness scores',
-    caption:
-      'Figure 2. Structural faithfulness of translations, with a clear mode above 0.5.',
+    caption: 'Figure 2. Structural faithfulness of translations, with a clear mode above 0.5.',
   },
   {
     src: '/figures/difficulty_distribution.png',
@@ -52,12 +51,9 @@ export default function PaperPage() {
           </div>
           <div className="mt-6 flex flex-wrap gap-4">
             <Button variant="outline" asChild>
-              <a href="/fvspec_anon.pdf" target="_blank" rel="noopener">
-                Download PDF
+              <a href="https://arxiv.org/abs/2606.01008" target="_blank" rel="noopener noreferrer">
+                arXiv
               </a>
-            </Button>
-            <Button variant="outline" disabled title="arXiv version coming soon">
-              arXiv (coming soon)
             </Button>
             <Button variant="outline" asChild>
               <a
@@ -97,7 +93,7 @@ export default function PaperPage() {
         <section className="mb-10">
           <h2 className="text-xl font-bold mb-6">Figures</h2>
           <div className="grid gap-8">
-            {figures.map((fig) => (
+            {figures.map(fig => (
               <figure key={fig.src} className="space-y-3">
                 <div className="rounded-lg border bg-white p-4">
                   <Image
@@ -119,10 +115,15 @@ export default function PaperPage() {
           <p className="text-muted-foreground">
             For the full paper — including methodology, dataset construction, baseline experiments,
             and threats to validity — see the{' '}
-            <a href="/fvspec_anon.pdf" target="_blank" rel="noopener" className="underline">
-              PDF
+            <a
+              href="https://arxiv.org/abs/2606.01008"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline"
+            >
+              arXiv version
             </a>
-            . An arXiv version is forthcoming.
+            .
           </p>
         </section>
       </main>

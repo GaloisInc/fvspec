@@ -1,0 +1,10 @@
+version: "3.8"
+
+services:
+  scraper:
+    build: .
+    network_mode: "host"
+    env_file:
+      - .env
+    container_name: benchify-scraper
+    command: python main.py --mode dependents

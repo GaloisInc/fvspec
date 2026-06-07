@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -121,18 +122,36 @@ export default function Home() {
               placeholders removed).
             </p>
             <Card>
-              <CardContent className="py-8 text-center">
-                <p className="text-muted-foreground">
+              <CardContent className="py-8">
+                <figure className="space-y-3">
+                  <div className="rounded-lg border bg-white p-4">
+                    <Image
+                      src="/figures/baselines_pass_at_k_curve.png"
+                      alt="pass@k curves for Claude Sonnet 4.6, Claude Opus 4.7, and GPT 5.4, overall and split by easy vs. hard difficulty"
+                      width={1600}
+                      height={500}
+                      className="h-auto w-full"
+                      sizes="(max-width: 768px) 100vw, 768px"
+                    />
+                  </div>
+                  <figcaption className="text-sm text-muted-foreground text-center">
+                    pass@k (unbiased estimator) for Claude Sonnet 4.6, Claude Opus 4.7, and GPT 5.4,
+                    overall and split by difficulty.
+                  </figcaption>
+                </figure>
+                <p className="text-muted-foreground text-center mt-8">
                   Across Claude Sonnet 4.6, Claude Opus 4.7, and GPT 5.4, models average{' '}
                   <strong>70%</strong> on easy problems and <strong>49%</strong> on hard problems —
                   the benchmark is far from saturated.
                 </p>
-                <Button variant="outline" asChild className="mt-6">
-                  <Link href="/paper">
-                    See full results
-                    <ArrowRight className="ml-2 h-4 w-4" />
-                  </Link>
-                </Button>
+                <div className="text-center">
+                  <Button variant="outline" asChild className="mt-6">
+                    <Link href="/paper">
+                      See full results
+                      <ArrowRight className="ml-2 h-4 w-4" />
+                    </Link>
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </div>
