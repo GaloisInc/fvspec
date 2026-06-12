@@ -14,9 +14,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'fvspec Leaderboard - Formal Verification Benchmark [PRE-ALPHA]',
+  title: 'fvspec Leaderboard - Formal Verification Benchmark',
   description:
-    '[PRE-ALPHA PREVIEW] Leaderboard for fvspec: evaluating AI models on formal verification tasks in Lean 4. All content is preliminary mockup data.',
+    'Leaderboard for fvspec: evaluating AI models on formal verification tasks in Lean 4.',
 }
 
 export default function RootLayout({

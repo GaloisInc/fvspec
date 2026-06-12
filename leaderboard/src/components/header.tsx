@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useState } from 'react'
 import { usePathname } from 'next/navigation'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Menu, X } from 'lucide-react'
 
 export function Header() {
@@ -43,9 +42,6 @@ export function Header() {
           </Button>
           <Link href="/" className="flex items-center space-x-2">
             <span className="font-bold text-xl">fvspec</span>
-            <Badge variant="outline" className="text-xs">
-              PRE-ALPHA
-            </Badge>
           </Link>
           {/* Desktop navigation - hidden on mobile */}
           <nav className="hidden md:flex gap-6">
@@ -62,6 +58,11 @@ export function Header() {
         </div>
         {/* External links on right - always visible on small+ screens */}
         <div className="flex items-center gap-2">
+          <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
+            <a href="https://arxiv.org/abs/2606.01008" target="_blank" rel="noopener noreferrer">
+              arXiv
+            </a>
+          </Button>
           <Button variant="outline" size="sm" asChild className="hidden sm:inline-flex">
             <a
               href="https://huggingface.co/datasets/GaloisInc/fvspec-pbt"
@@ -112,6 +113,15 @@ export function Header() {
             >
               About
             </Link>
+            <a
+              href="https://arxiv.org/abs/2606.01008"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              arXiv →
+            </a>
             <a
               href="https://huggingface.co/datasets/GaloisInc/fvspec-pbt"
               target="_blank"

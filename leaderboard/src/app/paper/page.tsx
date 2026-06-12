@@ -90,6 +90,14 @@ export default function PaperPage() {
           </CardContent>
         </Card>
 
+        <div className="mb-10 flex justify-center">
+          <Button size="lg" asChild className="px-10 py-6 text-lg font-semibold">
+            <a href="https://arxiv.org/abs/2606.01008" target="_blank" rel="noopener noreferrer">
+              Read on arXiv →
+            </a>
+          </Button>
+        </div>
+
         <section className="mb-10">
           <h2 className="text-xl font-bold mb-6">Figures</h2>
           <div className="grid gap-8">
