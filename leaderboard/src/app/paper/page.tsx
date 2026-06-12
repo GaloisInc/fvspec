@@ -1,6 +1,5 @@
 import Image from 'next/image'
 import { Card, CardContent } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 
 export const metadata = {
@@ -38,9 +37,6 @@ export default function PaperPage() {
     <div className="min-h-screen bg-background">
       <div className="border-b">
         <div className="container mx-auto px-4 py-8">
-          <Badge className="mb-4" variant="outline">
-            Research Paper · NeurIPS 2026 (Evaluations &amp; Datasets)
-          </Badge>
           <h1 className="text-4xl font-bold tracking-tight mb-4">
             FVSpec: Real-World Property-Based Tests as Lean Challenges
           </h1>
