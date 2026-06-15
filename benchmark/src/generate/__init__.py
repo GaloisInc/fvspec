@@ -38,7 +38,10 @@ app = Typer(no_args_is_help=False, invoke_without_command=True)
 @app.callback()
 def main_callback(
     ctx: typer.Context,
-    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
+    datafile: str = Option(
+        "GaloisInc/fvspec-pbt",
+        help="HF dataset repo id, or a local JSONL filename under ./benchmark/data",
+    ),
     variant: str = Option(
         None,
         "-v",
@@ -111,7 +114,7 @@ def main_callback(
 
     Args:
         ctx: Typer context.
-        datafile: Path to the JSONL file containing test data.
+        datafile: HF dataset repo id (default GaloisInc/fvspec-pbt), or a local JSONL filename under ./benchmark/data.
         variant: Prompt variant name (overrides config.toml).
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).
@@ -245,7 +248,10 @@ def main_callback(
 
 @app.command(name="compare-variants")
 def compare_variants(
-    datafile: str = Option("realpbt2.jsonl", help="Path to test data JSONL file"),
+    datafile: str = Option(
+        "GaloisInc/fvspec-pbt",
+        help="HF dataset repo id, or a local JSONL filename under ./benchmark/data",
+    ),
     variant: list[str] = Option(
         None,
         "-v",
@@ -306,7 +312,7 @@ def compare_variants(
     """Run A/B testing comparing multiple prompt variants using eval_set.
 
     Args:
-        datafile: Path to the JSONL file containing test data.
+        datafile: HF dataset repo id (default GaloisInc/fvspec-pbt), or a local JSONL filename under ./benchmark/data.
         variant: List of variant names to compare.
         sample_size: Number of samples to draw (overrides config.toml).
         ranseed: Random seed used when sampling datapoints (overrides config.toml).

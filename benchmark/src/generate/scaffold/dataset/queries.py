@@ -1,6 +1,8 @@
-"""Query functions for realpbt2.jsonl dataset.
+"""Query functions for the fvspec-pbt dataset.
 
 All data access should go through these functions for consistency and testability.
+Datapoints are loaded from the Hugging Face Hub (``GaloisInc/fvspec-pbt``) by
+default, or from a local JSONL file when an existing path is supplied.
 """
 
 import json
@@ -11,6 +13,9 @@ from pathlib import Path
 from generate.scaffold.dataset.models import Datapoint
 
 logger = logging.getLogger(__name__)
+
+# Default source dataset on the Hugging Face Hub.
+DEFAULT_HF_REPO = "GaloisInc/fvspec-pbt"
 
 # Maximum number of dependencies allowed per sample before filtering
 # Rationale: Samples with >100 dependencies are extreme outliers that:
@@ -42,6 +47,49 @@ def load_jsonl(path: Path) -> list[Datapoint]:
             except (json.JSONDecodeError, ValueError) as e:
                 logger.warning(f"Skipping invalid record at line {line_num}: {e}")
     return datapoints
+
+
+def load_hf(repo_id: str = DEFAULT_HF_REPO, split: str = "train") -> list[Datapoint]:
+    """Load datapoints from a Hugging Face Hub dataset.
+
+    The dataset schema matches the :class:`Datapoint` model field-for-field, so
+    each row validates directly.
+
+    Args:
+        repo_id: HF dataset repo id (e.g. ``"GaloisInc/fvspec-pbt"``)
+        split: Dataset split to load
+
+    Returns:
+        List of parsed Datapoint objects
+    """
+    from datasets import load_dataset
+
+    logger.info(f"Loading datapoints from Hugging Face Hub: {repo_id} ({split})")
+    ds = load_dataset(repo_id, split=split)
+    datapoints: list[Datapoint] = []
+    for idx, record in enumerate(ds):
+        try:
+            datapoints.append(Datapoint.model_validate(record))
+        except ValueError as e:
+            logger.warning(f"Skipping invalid record at index {idx}: {e}")
+    return datapoints
+
+
+def load_datapoints(source: str | Path | None = None) -> list[Datapoint]:
+    """Load datapoints from a local JSONL file or the Hugging Face Hub.
+
+    If ``source`` points to an existing file it is parsed as JSONL; otherwise
+    ``source`` (or the default) is treated as a HF dataset repo id.
+
+    Args:
+        source: Local JSONL path, a HF repo id, or None for the default repo.
+
+    Returns:
+        List of parsed Datapoint objects
+    """
+    if source is not None and Path(source).exists():
+        return load_jsonl(Path(source))
+    return load_hf(str(source) if source else DEFAULT_HF_REPO)
 
 
 def sample_datapoints(

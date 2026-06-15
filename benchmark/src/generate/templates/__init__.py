@@ -3,7 +3,7 @@
 from typer import Option, Typer
 
 from generate.config import DATA_DIR, load_config
-from generate.scaffold.dataset.queries import load_jsonl, sample_datapoints
+from generate.scaffold.dataset.queries import load_datapoints, sample_datapoints
 from generate.templates.formalize import (
     FormalizationVariantRegistry,
     get_formalization_prompts,
@@ -23,7 +23,7 @@ __all__ = [
 ]
 
 app = Typer()
-DEFAULT_DATASET = "realpbt2.jsonl"
+DEFAULT_DATASET = "GaloisInc/fvspec-pbt"
 
 
 @app.command()
@@ -32,7 +32,8 @@ def preview_prompts(
         DEFAULT_DATASET,
         "--data",
         "-d",
-        help="Dataset JSONL file under benchmark/data (default: realpbt2.jsonl).",
+        help="HF dataset repo id, or a local JSONL filename under benchmark/data "
+        "(default: GaloisInc/fvspec-pbt).",
     ),
     variant: str = Option(
         None,
@@ -74,8 +75,9 @@ def preview_prompts(
     )
     actual_ranseed = ranseed if ranseed is not None else config.dataset.ranseed
 
-    data_path = DATA_DIR / data
-    all_datapoints = load_jsonl(data_path)
+    local_path = DATA_DIR / data
+    source = str(local_path) if local_path.exists() else data
+    all_datapoints = load_datapoints(source)
     datapoints = sample_datapoints(all_datapoints, actual_sample_size, actual_ranseed)
 
     if prompt_type.lower() == "deps":

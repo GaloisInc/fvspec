@@ -8,7 +8,7 @@ def _sample(**kwargs: object) -> FvspecSample:
         sample_id=str(kwargs.get("sample_id", "1")),
         spec=str(kwargs.get("spec", "theorem t : True := sorry")),
         impl=str(kwargs.get("impl", "def f := 1")),
-        realpbt_code=str(kwargs.get("realpbt_code", "def test(): pass")),
+        pbt_code=str(kwargs.get("pbt_code", "def test(): pass")),
         num_theorems=int(kwargs.get("num_theorems", 1)),  # type: ignore[arg-type]
         difficulty_binary=kwargs.get("difficulty_binary"),  # type: ignore[arg-type]
     )

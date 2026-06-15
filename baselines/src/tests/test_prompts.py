@@ -21,8 +21,8 @@ class TestUserPrompt:
             sample_id="42",
             spec="theorem foo : True := sorry",
             impl="def foo := 1",
-            realpbt_code="def test_foo(): assert foo() == 1",
-            realpbt_summary="foo returns 1",
+            pbt_code="def test_foo(): assert foo() == 1",
+            pbt_summary="foo returns 1",
             num_theorems=1,
             difficulty_binary="easy",
         )
@@ -38,8 +38,8 @@ class TestUserPrompt:
             sample_id="1",
             spec="theorem bar : True := sorry",
             impl="def bar := 2",
-            realpbt_code="def test_bar(): pass",
-            realpbt_summary=None,
+            pbt_code="def test_bar(): pass",
+            pbt_summary=None,
             num_theorems=2,
         )
         rendered = render_user_prompt(sample)

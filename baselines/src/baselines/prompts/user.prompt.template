@@ -19,11 +19,11 @@ Replace all `sorry` placeholders in Spec.lean with valid Lean 4 proofs. There ar
 This specification was derived from the following Python test:
 
 ```python
-{{ realpbt_code }}
+{{ pbt_code }}
 ```
 
-{% if realpbt_summary %}
-**Summary:** {{ realpbt_summary }}
+{% if pbt_summary %}
+**Summary:** {{ pbt_summary }}
 {% endif %}
 
 ## Instructions

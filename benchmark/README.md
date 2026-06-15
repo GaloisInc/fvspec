@@ -1,8 +1,8 @@
 # Benchmark
 
-The benchmark input is `data/realpbt2.jsonl` — a JSONL file where each row is a PBT with embedded dependencies, summary, and metadata.
+The benchmark input is the [`GaloisInc/fvspec-pbt`](https://huggingface.co/datasets/GaloisInc/fvspec-pbt) dataset on the Hugging Face Hub — each row is a PBT with embedded dependencies, summary, and metadata. It is pulled automatically at run time (`datasets.load_dataset`); no local file is required. To run against a local JSONL instead, drop it under `data/` and pass its filename via `--datafile` (e.g. `--datafile mydata.jsonl`).
 
-This data was scraped by Benchify (www.benchify.com) from permissively-licensed repos on Github. For more information about the data please contact max@benchify.com or maxvh@hey.com.
+The underlying tests were scraped from permissively-licensed repos on GitHub.
 
 ## Generating the benchmark synthetic signatures
 
@@ -232,7 +232,7 @@ See `src/scripts/postproduction/accumulate_wandb/README.md` for manifest configu
 Preview prompt templates:
 
 ```bash
-# Preview prompts (samples from realpbt2.jsonl)
+# Preview prompts (samples from GaloisInc/fvspec-pbt)
 uv run preview-prompts --prompt-type formalize
 uv run preview-prompts --prompt-type deps
 

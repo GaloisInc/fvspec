@@ -84,9 +84,7 @@ def compile_sample(
 ) -> ValidationResult:
     """Compile a single sample by copying lake-template and running lake build."""
     sample_id = sample["sample_id"]
-    sample_name = sample.get(
-        "realpbt_sample_name", sample.get("sample_name", "unknown")
-    )
+    sample_name = sample.get("pbt_sample_name", sample.get("sample_name", "unknown"))
     spec = sample.get("spec", "")
     impl = sample.get("impl", "")
 

@@ -20,7 +20,7 @@ def render_user_prompt(sample: FvspecSample) -> str:
     return template.render(
         impl=sample.impl,
         spec=sample.spec,
-        realpbt_code=sample.realpbt_code,
-        realpbt_summary=sample.realpbt_summary,
+        pbt_code=sample.pbt_code,
+        pbt_summary=sample.pbt_summary,
         num_theorems=sample.num_theorems,
     )

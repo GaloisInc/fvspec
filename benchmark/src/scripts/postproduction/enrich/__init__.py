@@ -1,6 +1,6 @@
 """Post-production: Enrich samples with dedup metadata for HuggingFace delivery.
 
-Groups samples by SHA-256 of ``realpbt_code``, ranks formalizations within
+Groups samples by SHA-256 of ``pbt_code``, ranks formalizations within
 each group by quality score, computes Pareto dominance on structural
 faithfulness sub-metrics, and annotates every row with:
 
@@ -47,8 +47,8 @@ FIELD_ORDER_PREFIX = [
     # Identity
     "sample_id",
     "code_hash",
-    "realpbt_sample_name",
-    "realpbt_id",
+    "pbt_sample_name",
+    "pbt_id",
     "run",
     # Dedup metadata
     "is_canonical",
@@ -56,10 +56,10 @@ FIELD_ORDER_PREFIX = [
     "num_formalizations",
     "pareto_dominated",
     # Source PBT
-    "realpbt_code",
-    "realpbt_summary",
-    "realpbt_lines_pbt",
-    "realpbt_radon",
+    "pbt_code",
+    "pbt_summary",
+    "pbt_lines_pbt",
+    "pbt_radon",
     "language",
     # Lean artifacts
     "spec",
@@ -205,7 +205,7 @@ def main(
 ) -> None:
     """Enrich samples with dedup metadata for HuggingFace delivery.
 
-    Groups samples by SHA-256 of realpbt_code, ranks formalizations by
+    Groups samples by SHA-256 of pbt_code, ranks formalizations by
     quality score, computes Pareto dominance on structural faithfulness
     sub-metrics, strips v1 grader fields, and reorders columns.
     """

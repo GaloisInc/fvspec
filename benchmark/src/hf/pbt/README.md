@@ -10,28 +10,106 @@ tags:
 - property-based-testing
 - hypothesis
 - software-testing
-pretty_name: RealPBT
+pretty_name: fvspec-pbt
 size_categories:
 - 10K<n<100K
 language:
 - en
+configs:
+- config_name: default
+  data_files:
+  - split: train
+    path: train.jsonl
+dataset_info:
+  features:
+  - name: id
+    dtype: int64
+  - name: name
+    dtype: string
+  - name: code
+    dtype: string
+  - name: language
+    dtype: string
+  - name: source_file
+    dtype: string
+  - name: start_line
+    dtype: int64
+  - name: end_line
+    dtype: int64
+  - name: repo
+    struct:
+    - name: name
+      dtype: string
+    - name: url
+      dtype: string
+    - name: license
+      dtype: string
+    - name: stars
+      dtype: int64
+    - name: forks
+      dtype: int64
+  - name: metrics
+    struct:
+    - name: loc
+      dtype: int64
+    - name: sloc
+      dtype: int64
+    - name: lloc
+      dtype: int64
+    - name: comments
+      dtype: int64
+    - name: avg_complexity
+      dtype: float64
+    - name: max_complexity
+      dtype: int64
+    - name: maintainability_index
+      dtype: float64
+    - name: halstead_difficulty
+      dtype: float64
+    - name: halstead_effort
+      dtype: float64
+  - name: summary
+    dtype: string
+  - name: dependencies
+    list:
+    - name: name
+      dtype: string
+    - name: qualified_name
+      dtype: string
+    - name: code
+      dtype: string
+    - name: language
+      dtype: string
+    - name: source_file
+      dtype: string
+    - name: depth
+      dtype: int64
+    - name: kind
+      dtype: string
+    - name: resolution
+      dtype: string
+  splits:
+  - name: train
+    num_examples: 21746
 ---
 
-# RealPBT: Real-World Property-Based Tests
+# fvspec-pbt: Real-World Property-Based Tests
 
-RealPBT is a corpus of **21,746 real-world Python property-based tests** (PBTs) mined from **645 open-source repositories**. Each row is a single test paired with its resolved dependency closure, a complexity profile, and (for a graded subset) a natural-language summary of the property under test.
+**fvspec-pbt** is a corpus of **21,746 real-world Python property-based tests** (PBTs) mined from **645 open-source repositories**. Each row is a single test paired with its resolved dependency closure, a static complexity profile, and (for a graded subset) a natural-language summary of the property under test.
 
-This is the **source dataset** for [FVSpec](https://huggingface.co/datasets/galoisinc/fvspec-fv): every FVSpec Lean 4 formalization is derived from one of these PBTs. Use RealPBT directly to study real-world testing practice, or as input to your own formalization / test-generation pipelines. Browse the downstream benchmark at [fvspec.galois.com](https://fvspec.galois.com).
+This is the **source dataset** for [fvspec-fv](https://huggingface.co/datasets/GaloisInc/fvspec-fv): every fvspec-fv Lean 4 formalization is derived from one of these PBTs. Use fvspec-pbt directly to study real-world testing practice, or as input to your own formalization / test-generation pipelines. Browse the downstream benchmark at [fvspec.galois.com](https://fvspec.galois.com).
+
+> **Note:** This dataset was previously named *RealPBT*. The name and the `realpbt_*` column prefix used downstream have been retired in favour of `fvspec-pbt` / `pbt_*`.
 
 ## Why real-world tests?
 
-Synthetic coding puzzles leak into model training data. RealPBT is harvested from production test suites — Hypothesis strategies, `pytest` fixtures, and assertion-style invariants written by real engineers — to provide a contamination-resistant basis for evaluating program understanding and specification.
+Synthetic coding puzzles leak into model training data. fvspec-pbt is harvested from production test suites — Hypothesis strategies, `pytest` fixtures, and assertion-style invariants written by real engineers — to provide a contamination-resistant basis for evaluating program understanding and specification.
 
 ## Dataset Structure
 
-Each row represents one Python test function together with the code it depends on.
+A single split (`train`) of 21,746 rows. Each row represents one Python test function together with the code it depends on.
 
-### Key Fields
+### Top-level fields
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -42,9 +120,9 @@ Each row represents one Python test function together with the code it depends o
 | `source_file` | str | Path to the test within its origin repository |
 | `start_line` / `end_line` | int | Location of the test in `source_file` |
 | `summary` | str \| null | Natural-language description of the property under test (present for a 7,627-test subset; `null` otherwise) |
-| `repo` | dict | Origin repository metadata (see below) |
-| `metrics` | dict | Static complexity profile of the test (see below) |
-| `dependencies` | list[dict] | Resolved dependency closure — helpers, fixtures, classes, and assignments the test transitively references |
+| `repo` | struct | Origin repository metadata (see below) |
+| `metrics` | struct | Static complexity profile of the test (see below) |
+| `dependencies` | list[struct] | Resolved dependency closure — helpers, fixtures, classes, and assignments the test transitively references |
 
 ### `repo` sub-fields
 
@@ -104,7 +182,7 @@ License mix across origin repositories (most common):
 ```python
 from datasets import load_dataset
 
-ds = load_dataset("galoisinc/fvspec-pbt", split="train")
+ds = load_dataset("GaloisInc/fvspec-pbt", split="train")
 
 # Tests with a natural-language summary
 summarized = ds.filter(lambda x: x["summary"] is not None)
@@ -116,19 +194,19 @@ standalone = ds.filter(lambda x: len(x["dependencies"]) == 0)
 permissive = ds.filter(lambda x: x["repo"]["license"] in {"MIT", "Apache-2.0", "BSD-3-Clause"})
 ```
 
-## Relationship to FVSpec
+## Relationship to fvspec-fv
 
-RealPBT is the upstream input to the FVSpec formalization pipeline:
+fvspec-pbt is the upstream input to the fvspec-fv formalization pipeline:
 
 ```
-RealPBT (this dataset)  →  unified formalization agent  →  FVSpec (Lean 4 Impl + Spec)
+fvspec-pbt (this dataset)  →  unified formalization agent  →  fvspec-fv (Lean 4 Impl + Spec)
 ```
 
-A FVSpec sample's `realpbt_code` and `realpbt_summary` fields trace back to a row's `code` and `summary` here. Join on the test source to study how a given Python property maps onto its Lean formalization(s).
+An fvspec-fv sample's `pbt_code` and `pbt_summary` fields trace back to a row's `code` and `summary` here, and its `pbt_id` field is the foreign key to this dataset's `id`. Join on `pbt_id` to study how a given Python property maps onto its Lean formalization(s).
 
 ## Citation
 
-If you use RealPBT, please cite:
+If you use fvspec-pbt, please cite:
 
 ```bibtex
 @misc{fvspec2026,

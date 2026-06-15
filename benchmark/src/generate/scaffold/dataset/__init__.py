@@ -1,11 +1,12 @@
-"""Dataset module for building inspect_ai tasks from realpbt2.jsonl.
+"""Dataset module for building inspect_ai tasks from the fvspec-pbt dataset.
 
-This module provides a JSONL-based interface to the realpbt2 dataset.
+Datapoints are loaded from the Hugging Face Hub (``GaloisInc/fvspec-pbt``) by
+default, or from a local JSONL file when an existing path is supplied.
 
 Public API:
-    - mk_dataset: Create dataset from realpbt2.jsonl (primary interface)
+    - mk_dataset: Create dataset from fvspec-pbt (primary interface)
     - load_datapoints_by_id: Load specific datapoints by ID
-    - load_jsonl: Load all datapoints from JSONL file
+    - load_datapoints: Load all datapoints from HF Hub or a local JSONL file
 
     Types:
     - Datapoint: Pydantic model for PBT datapoints
@@ -23,10 +24,10 @@ from generate.scaffold.dataset.function_discovery import (
 )
 from generate.scaffold.dataset.models import Datapoint
 from generate.scaffold.dataset.queries import (
-    load_datapoints_by_id as _load_by_id,
+    load_datapoints,
 )
 from generate.scaffold.dataset.queries import (
-    load_jsonl,
+    load_datapoints_by_id as _load_by_id,
 )
 from generate.scaffold.dataset.queries import (
     sample_datapoints as _sample,
@@ -45,7 +46,7 @@ __all__ = [
     # Primary interface
     "mk_dataset",
     "load_datapoints_by_id",
-    "load_jsonl",
+    "load_datapoints",
     # Function discovery
     "FunctionInfo",
     # Shared utilities
@@ -102,7 +103,7 @@ def mk_initial_prompt(prompt: Prompt, variant: str | None = None) -> str:
 
 
 def mk_dataset(
-    data_path: Path,
+    source: str | Path | None,
     date_time: datetime,
     variant: str | None = None,
     sample_size: int = 100,
@@ -112,10 +113,11 @@ def mk_dataset(
     git_commit: str | None = None,
     model: str | None = None,
 ) -> MemoryDataset:
-    """Create an inspect_ai dataset from realpbt2.jsonl.
+    """Create an inspect_ai dataset from the fvspec-pbt dataset.
 
     Args:
-        data_path: Path to the realpbt2.jsonl file
+        source: Local JSONL path, a HF repo id, or None for the default
+            (``GaloisInc/fvspec-pbt``) on the Hugging Face Hub.
         date_time: Timestamp for organizing output artifacts
         variant: Prompt variant name. If None, uses registry default.
         sample_size: Number of datapoints to sample from the dataset
@@ -132,8 +134,8 @@ def mk_dataset(
     registry = VariantRegistry()
     actual_variant = variant or registry.default_variant()
 
-    # Load and sample datapoints from JSONL
-    all_datapoints = load_jsonl(data_path)
+    # Load and sample datapoints (HF Hub or local JSONL)
+    all_datapoints = load_datapoints(source)
     datapoints = _sample(
         all_datapoints,
         n=sample_size,
@@ -180,17 +182,18 @@ def mk_dataset(
 
 
 def load_datapoints_by_id(
-    data_path: Path,
+    source: str | Path | None,
     datapoint_ids: list[int],
 ) -> dict[int, Datapoint]:
-    """Load specific datapoints by ID from realpbt2.jsonl.
+    """Load specific datapoints by ID from the fvspec-pbt dataset.
 
     Args:
-        data_path: Path to the realpbt2.jsonl file
+        source: Local JSONL path, a HF repo id, or None for the default
+            (``GaloisInc/fvspec-pbt``) on the Hugging Face Hub.
         datapoint_ids: List of datapoint IDs to load
 
     Returns:
         Dictionary mapping datapoint ID to Datapoint object
     """
-    all_datapoints = load_jsonl(data_path)
+    all_datapoints = load_datapoints(source)
     return _load_by_id(all_datapoints, datapoint_ids)

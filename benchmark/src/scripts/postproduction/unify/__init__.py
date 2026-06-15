@@ -4,26 +4,26 @@ Specifically merges the legacy feb03 schema (`fvspec-feb03.graded.metrics.jsonl`
 with the apr08 schema (`fvspec-apr08.metrics.jsonl`). The two files were produced
 by different generations of the pipeline and have several schema drifts:
 
-- Renamed: feb03 `radon` -> apr08 `realpbt_radon` (same 21-key shape).
-- Restructured deps: feb03 `realpbt_deps` + `realpbt_dep_names`
+- Renamed: feb03 `radon` -> apr08 `pbt_radon` (same 21-key shape).
+- Restructured deps: feb03 `pbt_deps` + `pbt_dep_names`
   (parallel JSON-stringified lists) -> apr08 `dependencies` (list of structured
   objects with name, code, qualified_name, source_file, depth, kind, resolution).
   We backfill the structured shape from the parallel lists with `null` for the
   fields feb03 didn't capture. We do NOT keep two parallel formats.
-- Lost in translation: feb03 `realpbt_repo_id` (int) is dropped; apr08's richer
+- Lost in translation: feb03 `pbt_repo_id` (int) is dropped; apr08's richer
   `repo` object cannot be reconstructed from feb03 alone, so feb03 rows get
   `repo: null`.
 - Dead fields removed: `lean_metrics.tests_structure`, `lean_metrics.tests_complexity`,
   and `metrics_metadata.tests_available` are 100%-null in feb03 and absent in
   apr08, so we drop them on both sides.
 - Redundant apr08 fields removed: top-level `metrics` (strict subset of
-  `realpbt_radon`) and top-level `git_commit` (already in `provenance.git_commit`).
-- feb03 `sample_name` is dropped (duplicate of `realpbt_sample_name`).
+  `pbt_radon`) and top-level `git_commit` (already in `provenance.git_commit`).
+- feb03 `sample_name` is dropped (duplicate of `pbt_sample_name`).
 - feb03 carries grader fields (`grader_metadata`, `difficulty_subjective_haiku`,
   `difficulty_subjective_haiku_takes`); apr08 hasn't been graded yet, so those
   are emitted as `null` for apr08 rows.
 - feb03 doesn't track `success`; emitted as `null` (postprod validate will fill).
-- apr08's `realpbt_id` is missing entirely from the file; we leave it `null`.
+- apr08's `pbt_id` is missing entirely from the file; we leave it `null`.
   (We considered backfilling from realpbt2.jsonl, but realpbt v1 vs v2 ids
   diverged too much to make the join meaningful.)
 
@@ -54,7 +54,7 @@ console = Console()
 # Schema constants ---------------------------------------------------------
 
 # The 21 keys radon emits. feb03's `radon` has all populated; apr08's
-# `realpbt_radon` has the same key set but ~12 of them are null.
+# `pbt_radon` has the same key set but ~12 of them are null.
 RADON_KEYS = [
     "loc",
     "sloc",
@@ -125,15 +125,15 @@ def _feb03_dependencies(row: dict[str, Any]) -> list[dict[str, Any]]:
     """Backfill the apr08-style `dependencies` list from feb03's parallel arrays.
 
     feb03 stores deps as two parallel JSON-stringified lists:
-      - `realpbt_dep_names`: ["foo", "bar"]
-      - `realpbt_deps`:      ["def foo(...): ...", "def bar(...): ..."]
+      - `pbt_dep_names`: ["foo", "bar"]
+      - `pbt_deps`:      ["def foo(...): ...", "def bar(...): ..."]
 
     apr08 stores them as structured objects with extra fields we don't have
     in feb03 (qualified_name, source_file, depth, kind, resolution). We emit
     `null` for those, so the merged schema is uniform but lossy upward.
     """
-    names = _parse_json_list(row.get("realpbt_dep_names"))
-    codes = _parse_json_list(row.get("realpbt_deps"))
+    names = _parse_json_list(row.get("pbt_dep_names"))
+    codes = _parse_json_list(row.get("pbt_deps"))
     n = max(len(names), len(codes))
     deps: list[dict[str, Any]] = []
     for i in range(n):
@@ -162,18 +162,18 @@ def transform_feb03(row: dict[str, Any]) -> dict[str, Any]:
     return {
         # Identity / provenance
         "sample_id": None,  # assigned by caller
-        "realpbt_id": row.get("realpbt_id"),
+        "pbt_id": row.get("pbt_id"),
         "run": "feb03",
         # PBT metadata
-        "realpbt_sample_name": row.get("realpbt_sample_name"),
-        "realpbt_summary": row.get("realpbt_summary"),
-        "realpbt_code": row.get("realpbt_code"),
-        "realpbt_lines_pbt": row.get("realpbt_lines_pbt"),
-        # Renamed: radon -> realpbt_radon (same 21-key shape, fully populated)
-        "realpbt_radon": row.get("radon"),
+        "pbt_sample_name": row.get("pbt_sample_name"),
+        "pbt_summary": row.get("pbt_summary"),
+        "pbt_code": row.get("pbt_code"),
+        "pbt_lines_pbt": row.get("pbt_lines_pbt"),
+        # Renamed: radon -> pbt_radon (same 21-key shape, fully populated)
+        "pbt_radon": row.get("radon"),
         # Backfilled from parallel lists (lossy upward, null for missing fields)
         "dependencies": _feb03_dependencies(row),
-        # feb03 has only an integer realpbt_repo_id; the structured `repo`
+        # feb03 has only an integer pbt_repo_id; the structured `repo`
         # object cannot be reconstructed from feb03 alone (realpbt v1 vs v2
         # ids diverged), so leave null.
         "repo": None,
@@ -216,18 +216,18 @@ def transform_apr08(row: dict[str, Any]) -> dict[str, Any]:
     return {
         # Identity / provenance
         "sample_id": None,  # assigned by caller
-        # apr08 doesn't carry realpbt_id at all; backfill via realpbt2.jsonl
+        # apr08 doesn't carry pbt_id at all; backfill via realpbt2.jsonl
         # was considered and rejected (realpbt v1 vs v2 ids diverged too much).
-        "realpbt_id": None,
+        "pbt_id": None,
         "run": "apr08",
         # PBT metadata
-        "realpbt_sample_name": row.get("realpbt_sample_name"),
-        "realpbt_summary": row.get("realpbt_summary"),
-        "realpbt_code": row.get("realpbt_code"),
-        "realpbt_lines_pbt": row.get("realpbt_lines_pbt"),
+        "pbt_sample_name": row.get("pbt_sample_name"),
+        "pbt_summary": row.get("pbt_summary"),
+        "pbt_code": row.get("pbt_code"),
+        "pbt_lines_pbt": row.get("pbt_lines_pbt"),
         # Already in target shape (with many nulls for the keys radon doesn't
         # bother computing on apr08; that's intentional).
-        "realpbt_radon": row.get("realpbt_radon"),
+        "pbt_radon": row.get("pbt_radon"),
         # Already structured.
         "dependencies": row.get("dependencies") or [],
         "repo": row.get("repo"),
@@ -258,7 +258,7 @@ def transform_apr08(row: dict[str, Any]) -> dict[str, Any]:
         "difficulty_subjective_haiku": None,
         "difficulty_subjective_haiku_takes": None,
         # Note: apr08's top-level `metrics` is dropped (strict subset of
-        # `realpbt_radon`).
+        # `pbt_radon`).
     }
 
 
@@ -338,9 +338,7 @@ def main(
     _write_jsonl(output, merged)
 
     # Summary
-    feb03_with_realpbt_id = sum(
-        1 for r in feb03_transformed if r["realpbt_id"] is not None
-    )
+    feb03_with_pbt_id = sum(1 for r in feb03_transformed if r["pbt_id"] is not None)
     feb03_with_deps = sum(1 for r in feb03_transformed if r["dependencies"])
     apr08_with_repo = sum(1 for r in apr08_transformed if r["repo"] is not None)
     apr08_with_deps = sum(1 for r in apr08_transformed if r["dependencies"])
@@ -349,12 +347,12 @@ def main(
     console.print(f"  feb03 rows in:                  {len(feb03_rows)}")
     console.print(f"  apr08 rows in:                  {len(apr08_rows)}")
     console.print(f"  total rows out:                 {len(merged)}")
-    console.print(f"  feb03 rows w/ realpbt_id:       {feb03_with_realpbt_id}")
+    console.print(f"  feb03 rows w/ pbt_id:       {feb03_with_pbt_id}")
     console.print(f"  feb03 rows w/ dependencies:     {feb03_with_deps}")
     console.print(f"  apr08 rows w/ repo:             {apr08_with_repo}")
     console.print(f"  apr08 rows w/ dependencies:     {apr08_with_deps}")
     console.print(
-        "\n[dim]Note: apr08 rows have realpbt_id=null (no reliable backfill source); "
+        "\n[dim]Note: apr08 rows have pbt_id=null (no reliable backfill source); "
         "feb03 rows have repo=null and success=null.[/dim]"
     )
 

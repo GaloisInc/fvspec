@@ -19,9 +19,10 @@ Benchmark generation system using the `inspect_ai` framework.
 - **Naming**: `.prompt.template` (Jinja2 markup) vs `.prompt` (plain)
 - **⚠️ Testing**: Template bugs are subtle - verify rendered output when modifying
 
-**`data/realpbt2.jsonl`** - Input dataset (JSONL)
+**`GaloisInc/fvspec-pbt`** (Hugging Face Hub) - Input dataset
 - Each row is a PBT with embedded dependencies, summary, and metadata
-- Loaded via `mk_dataset()` in `scaffold/dataset/`
+- Loaded via `mk_dataset()` in `scaffold/dataset/` (`datasets.load_dataset`)
+- Override with a local JSONL under `data/` via `--datafile <name>`
 
 ## Common Commands
 
@@ -41,7 +42,7 @@ uv run ruff format && uv run ruff check && uv run pytest
 ## Architecture
 
 **Unified Agent Flow:**
-1. Sample from `realpbt2.jsonl` with filtering
+1. Sample from `GaloisInc/fvspec-pbt` (HF Hub) with filtering
 2. **Function discovery** - Tree-sitter lookup (92% coverage)
 3. **Dependency formalization** - Each dep gets its own `function_impl_agent` call (KNOWN_TEST_INFRA deps are skipped)
 4. **Unified formalization agent** - Sees full context (PBT + summary + discovered code + deps), produces both Impl.lean (zero sorry) and Spec.lean (theorems with sorry) via LSP tool loop
@@ -66,8 +67,8 @@ Edit `config.toml` for model/variant/wandb. **CRITICAL:** Keep `entity = "fvspec
 ## Dataset Schema
 
 **Pydantic models** (`dataset/models.py`, `queries.py`):
-- Datapoint: `id`, `repo_id`, `name`, `code`, `summary`, embedded `deps`
-- Loaded from `realpbt2.jsonl` via `mk_dataset()`
+- Datapoint: `id`, `name`, `code`, `summary`, `repo`, `metrics`, embedded `dependencies`
+- Loaded from `GaloisInc/fvspec-pbt` (HF Hub) via `mk_dataset()`
 
 ## Postproduction Pipeline
 

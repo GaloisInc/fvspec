@@ -30,7 +30,7 @@ FIELDS_TO_REMOVE = {
     # not informative
     "has_unit_tests",
     "id",  # redundant with sample_id
-    # Realpbt metadata fields - not needed for benchmark
+    # fvspec-pbt metadata fields - not needed for benchmark
     "hash",
     "summary_vector",
     "summaryversion",
@@ -71,26 +71,26 @@ FIELDS_TO_REMOVE = {
 }
 
 # Field renames: old_name -> new_name
-# Fields from realpbt dataset (https://huggingface.co/datasets/Benchify/realpbt)
-# are prefixed with "realpbt_" for clarity
+# Fields from the fvspec-pbt dataset (https://huggingface.co/datasets/GaloisInc/fvspec-pbt)
+# are prefixed with "pbt_" for clarity
 FIELD_RENAMES = {
-    # Core realpbt fields from Datapoint model
+    # Core fvspec-pbt fields from Datapoint model
     # Note: 'id' is removed (redundant with sample_id)
-    # 'original_id' becomes 'realpbt_id' (FK to HuggingFace realpbt dataset)
-    "original_id": "realpbt_id",
-    "radon": "realpbt_radon",
-    "repo_id": "realpbt_repo_id",
-    "name": "realpbt_sample_name",
-    "code": "realpbt_code",
-    "source_file": "realpbt_source_file",
-    "start_line": "realpbt_start_line",
-    "end_line": "realpbt_end_line",
-    "dep_names": "realpbt_dep_names",
-    "deps": "realpbt_deps",
-    "source": "realpbt_source",
-    "summary": "realpbt_summary",
-    "mode": "realpbt_mode",
-    "lines_pbt": "realpbt_lines_pbt",
+    # 'original_id' becomes 'pbt_id' (FK to the HuggingFace fvspec-pbt dataset)
+    "original_id": "pbt_id",
+    "radon": "pbt_radon",
+    "repo_id": "pbt_repo_id",
+    "name": "pbt_sample_name",
+    "code": "pbt_code",
+    "source_file": "pbt_source_file",
+    "start_line": "pbt_start_line",
+    "end_line": "pbt_end_line",
+    "dep_names": "pbt_dep_names",
+    "deps": "pbt_deps",
+    "source": "pbt_source",
+    "summary": "pbt_summary",
+    "mode": "pbt_mode",
+    "lines_pbt": "pbt_lines_pbt",
     # Note: id, hash, summary_vector, summaryversion, summaryconfidence are removed (see FIELDS_TO_REMOVE)
 }
 
@@ -98,16 +98,16 @@ FIELD_RENAMES = {
 FIELD_ORDER = [
     # Benchmark-generated identifiers
     "sample_id",
-    "realpbt_sample_name",
+    "pbt_sample_name",
     # Generated Lean code
     "spec",
     "impl",
-    # RealPBT source data
-    "realpbt_id",
-    "realpbt_name",
-    "realpbt_repo_id",
-    "realpbt_code",
-    "realpbt_summary",
+    # fvspec-pbt source data
+    "pbt_id",
+    "pbt_name",
+    "pbt_repo_id",
+    "pbt_code",
+    "pbt_summary",
     # Results
     "num_theorems",
     # Provenance

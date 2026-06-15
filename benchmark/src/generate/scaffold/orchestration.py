@@ -516,7 +516,8 @@ def fvspec(
     """Create fvspec benchmark task with unified formalization agent.
 
     Args:
-        datafile: Path to JSONL data file (relative to `./benchmark/data/`)
+        datafile: HF dataset repo id (e.g. `GaloisInc/fvspec-pbt`), or a local
+            JSONL filename relative to `./benchmark/data/` if it exists there.
         variant: Prompt variant name from registry.toml
         sample_size: Number of samples to draw from the dataset
         ranseed: Random seed used when sampling datapoints
@@ -540,10 +541,12 @@ def fvspec(
     registry = FormalizationVariantRegistry()
     resolved_variant = variant or registry.default_variant()
 
-    # Load dataset
-    data_path = DATA_DIR / datafile
+    # Load dataset: prefer a local JSONL under ./benchmark/data if present,
+    # otherwise treat `datafile` as a Hugging Face Hub repo id.
+    local_path = DATA_DIR / datafile
+    source = str(local_path) if local_path.exists() else datafile
     dataset = mk_dataset(
-        data_path,
+        source,
         now,
         variant=resolved_variant,
         sample_size=sample_size,

@@ -172,5 +172,5 @@ def get_sample_summary(sample: dict[str, Any]) -> str:
         Summary string (sample_id and name)
     """
     sample_id = sample.get("sample_id", "unknown")
-    sample_name = sample.get("realpbt_sample_name", "unknown")
+    sample_name = sample.get("pbt_sample_name", "unknown")
     return f"{sample_id}_{sample_name}"

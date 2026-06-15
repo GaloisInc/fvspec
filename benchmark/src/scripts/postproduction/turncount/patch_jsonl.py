@@ -94,7 +94,7 @@ def main(
 ) -> None:
     """Patch turn_counts into a merged JSONL file from .eval zip files.
 
-    Matches JSONL rows to .eval samples using (realpbt_sample_name, token_usage)
+    Matches JSONL rows to .eval samples using (pbt_sample_name, token_usage)
     as the join key. Only patches rows where turn_counts is currently null.
     """
     console.print("[bold]Patching turn_counts into JSONL from .eval files[/bold]\n")
@@ -130,7 +130,7 @@ def main(
             patched_lines.append(line)
             continue
 
-        name = sample.get("realpbt_sample_name")
+        name = sample.get("pbt_sample_name")
         token_usage = sample.get("token_usage", 0)
         key = (name, token_usage)
 

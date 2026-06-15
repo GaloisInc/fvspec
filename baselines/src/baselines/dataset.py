@@ -44,8 +44,8 @@ def load_samples_from_jsonl(path: str | Path) -> list[FvspecSample]:
                     sample_id=str(row["sample_id"]),
                     spec=row.get("spec") or "",
                     impl=row.get("impl") or "",
-                    realpbt_code=row.get("realpbt_code") or "",
-                    realpbt_summary=row.get("realpbt_summary"),
+                    pbt_code=row.get("pbt_code") or "",
+                    pbt_summary=row.get("pbt_summary"),
                     num_theorems=row.get("num_theorems") or 0,
                     difficulty_binary=row.get("difficulty_binary"),
                 )
@@ -65,8 +65,8 @@ def load_samples_from_hf() -> list[FvspecSample]:
                 sample_id=str(row["sample_id"]),
                 spec=row["spec"] or "",
                 impl=row["impl"] or "",
-                realpbt_code=row["realpbt_code"] or "",
-                realpbt_summary=row.get("realpbt_summary"),
+                pbt_code=row["pbt_code"] or "",
+                pbt_summary=row.get("pbt_summary"),
                 num_theorems=row.get("num_theorems") or 0,
                 difficulty_binary=row.get("difficulty_binary"),
             )
@@ -146,8 +146,8 @@ def to_inspect_dataset(samples: list[FvspecSample]) -> MemoryDataset:
                 metadata={
                     "impl": sample.impl,
                     "spec": sample.spec,
-                    "realpbt_code": sample.realpbt_code,
-                    "realpbt_summary": sample.realpbt_summary,
+                    "pbt_code": sample.pbt_code,
+                    "pbt_summary": sample.pbt_summary,
                     "num_theorems": sample.num_theorems,
                     "difficulty_bucket": sample.difficulty_bucket,
                 },

@@ -39,7 +39,7 @@ def _flatten(d: dict) -> dict:
     lm = d.get("lean_metrics") or {}
     spec_s = lm.get("spec_structure") or {}
     spec_c = lm.get("spec_complexity") or {}
-    radon = d.get("realpbt_radon") or {}
+    radon = d.get("pbt_radon") or {}
     tc = d.get("turn_counts") or {}
 
     flat: dict = {
@@ -50,7 +50,7 @@ def _flatten(d: dict) -> dict:
         "num_theorems": d["num_theorems"],
         "actually_invokes_given": d["actually_invokes_given"],
         "impl_autoform_success": d["impl_autoform_success"],
-        "realpbt_lines_pbt": d["realpbt_lines_pbt"],
+        "pbt_lines_pbt": d["pbt_lines_pbt"],
         "time": d["time"],
         "token_usage": d["token_usage"],
         "total_lean_lines": lm.get("total_lean_lines", 0),
@@ -202,7 +202,7 @@ def plot_python_source(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
     axes[0].hist(
-        df["realpbt_lines_pbt"].clip(upper=100),
+        df["pbt_lines_pbt"].clip(upper=100),
         bins=40,
         color="#5ba3cf",
         edgecolor="white",

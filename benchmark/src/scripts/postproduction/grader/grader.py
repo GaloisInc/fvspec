@@ -275,7 +275,7 @@ def process_jsonl(
     # Process all samples and write complete output
     with open(output_file, "w") as outfile:
         for i, sample in enumerate(all_samples):
-            name = sample.get("realpbt_sample_name")
+            name = sample.get("pbt_sample_name")
             sample_id = sample.get("sample_id")
 
             if i in indices_to_grade:

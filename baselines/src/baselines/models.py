@@ -9,8 +9,8 @@ class FvspecSample(BaseModel):
     sample_id: str
     spec: str
     impl: str
-    realpbt_code: str
-    realpbt_summary: str | None = None
+    pbt_code: str
+    pbt_summary: str | None = None
     num_theorems: int
     difficulty_binary: str | None = None
 

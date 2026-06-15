@@ -69,8 +69,8 @@ The output is a JSONL file (one JSON object per line) where each sample contains
 ```json
 {
   "sample_id": 12345,
-  "realpbt_sample_name": "test_example",
-  "realpbt_repo_id": 789,
+  "pbt_sample_name": "test_example",
+  "pbt_repo_id": 789,
 
   "code": "Python PBT source code...",
   "spec": "Lean specification code...",

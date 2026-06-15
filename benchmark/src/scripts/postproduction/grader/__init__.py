@@ -270,7 +270,7 @@ def preview_prompt(
     for i, sample in enumerate(samples_to_render, start=start):
         console.print(f"[bold cyan]{'=' * 80}[/bold cyan]")
         console.print(
-            f"[bold cyan]Sample {i}: {sample.get('realpbt_sample_name', 'unknown')}[/bold cyan]"
+            f"[bold cyan]Sample {i}: {sample.get('pbt_sample_name', 'unknown')}[/bold cyan]"
         )
         console.print(f"[bold cyan]{'=' * 80}[/bold cyan]\n")
 

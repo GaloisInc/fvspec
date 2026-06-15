@@ -1,7 +1,7 @@
 """Post-production: Deduplicate samples by Python source code across runs.
 
 Samples from different runs may formalize the same Python PBT. This step
-groups samples by SHA-256 of ``realpbt_code`` and keeps the highest-quality
+groups samples by SHA-256 of ``pbt_code`` and keeps the highest-quality
 sample from each group (using the same quality scoring as the merge step).
 
 Usage (from benchmark/ directory):
@@ -37,8 +37,8 @@ console = Console()
 
 
 def code_hash(sample: dict[str, Any]) -> str:
-    """SHA-256 of realpbt_code — canonical identity for the underlying PBT."""
-    code = sample.get("realpbt_code", "")
+    """SHA-256 of pbt_code — canonical identity for the underlying PBT."""
+    code = sample.get("pbt_code", "")
     return hashlib.sha256(code.encode()).hexdigest()
 
 
@@ -105,7 +105,7 @@ def main(
 ) -> None:
     """Deduplicate samples by Python PBT source code.
 
-    Groups samples by SHA-256 of realpbt_code and keeps the highest-quality
+    Groups samples by SHA-256 of pbt_code and keeps the highest-quality
     sample from each group. When the same PBT was formalized in multiple runs,
     the best formalization (by success, structural faithfulness, theorem count,
     etc.) is retained.

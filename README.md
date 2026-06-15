@@ -12,7 +12,7 @@ The website
 
 ### `./benchmark`
 
-The benchmark generation pipeline and postproduction tools. Includes unified formalization agent (produces both `Impl.lean` and `Spec.lean`), quality assessment, and post-processing (turncount, merge, metrics, grading). Requires `ANTHROPIC_API_KEY` in `.env`, and `realpbt2.jsonl` in `./benchmark/data` (PBTs scraped by Benchify; contact max@benchify.com for access).
+The benchmark generation pipeline and postproduction tools. Includes unified formalization agent (produces both `Impl.lean` and `Spec.lean`), quality assessment, and post-processing (turncount, merge, metrics, grading). Requires `ANTHROPIC_API_KEY` in `.env`. Source PBTs are pulled automatically from the [`GaloisInc/fvspec-pbt`](https://huggingface.co/datasets/GaloisInc/fvspec-pbt) dataset on the Hugging Face Hub; to run against a local file instead, drop a JSONL under `./benchmark/data` and pass its name via `--datafile`.
 
 ### `./baselines`
 
