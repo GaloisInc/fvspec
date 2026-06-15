@@ -206,14 +206,17 @@ An fvspec-fv sample's `pbt_code` and `pbt_summary` fields trace back to a row's 
 
 ## Citation
 
-If you use fvspec-pbt, please cite:
+If you use fvspec-pbt, please cite the paper — [Real-World PBTs as Lean Specs (arXiv:2606.01008)](https://arxiv.org/abs/2606.01008):
 
 ```bibtex
 @misc{fvspec2026,
   title={Real-World PBTs as Lean Specs},
   author={Dougherty, Quinn and Shackleton, Hazel and von Hippel, Max and Dodds, Mike},
   year={2026},
-  url={https://fvspec.galois.com}
+  eprint={2606.01008},
+  archivePrefix={arXiv},
+  primaryClass={cs.LO},
+  url={https://arxiv.org/abs/2606.01008}
 }
 ```
 

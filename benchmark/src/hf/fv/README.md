@@ -484,11 +484,24 @@ for sample in ds:
 
 ## Compilation Guarantee
 
-Every sample in this dataset compiles successfully with `lake build` against the Lean toolchain and Mathlib version specified in `provenance.lean_toolchain`. To compile a sample locally:
+Every sample in this dataset compiles successfully with `lake build` against the Lean toolchain pinned in `provenance.lean_toolchain`. The samples depend on **[Batteries](https://github.com/leanprover-community/batteries)** (plus [`aesop`](https://github.com/leanprover-community/aesop) and [`plausible`](https://github.com/leanprover-community/plausible)) — **not Mathlib**. Keeping the dependency surface small makes the benchmark fast to set up and avoids pulling Mathlib's large library into the proof context.
 
-1. Set up a Lean 4 project with the matching toolchain and Mathlib dependency
-2. Write `impl` to `Fvspec/Impl.lean` and `spec` to `Fvspec/Spec.lean`
-3. Run `lake build`
+To compile a sample locally:
+
+1. Create a Lean 4 project on the matching toolchain (e.g. `leanprover/lean4:v4.29.0`) with `batteries`, `aesop`, and `plausible` as dependencies — see [`baselines/lake-template/`](https://github.com/GaloisInc/fvspec/tree/main/baselines/lake-template) for a ready-made `lakefile.toml`.
+2. Write `impl` to `Fvspec/Impl.lean` and `spec` to `Fvspec/Spec.lean`, with a root `Fvspec.lean` importing both.
+3. Run `lake build`.
+
+## Evaluating Models
+
+The intended task is to **discharge the `sorry` placeholders in `spec`** — i.e. prove the theorems, using `impl` as the implementation under test. The reference evaluation harness lives in [`baselines/`](https://github.com/GaloisInc/fvspec/tree/main/baselines); it drives models through [`inspect_ai`](https://inspect.aisi.org.uk/) with [`lean-lsp-mcp`](https://github.com/oOo0oOo/lean-lsp-mcp) tools (write spec, read diagnostics/goals, `lean_multi_attempt`, local search) against a per-sample copy of the `lake-template` above. Frontier models evaluated include Claude Sonnet/Opus 4.6, GPT-5.4 (and mini), and Gemini 2.5 Pro.
+
+**Scoring** (per sample):
+
+- **Binary `proved`**: `1.0` iff the model's spec has **zero remaining `sorry`**, `lake build` succeeds, and the build emits no `declaration uses 'sorry'` warnings; `0.0` otherwise.
+- **Partial credit**: `max(0, sorries_removed / sorries_original)`. The remaining-`sorry` count can transiently *increase* as a proof gets closer to done (each `sorry` becomes less load-bearing), so partial credit is clamped at `0`.
+
+For a balanced harness, sample stratified easy/hard buckets using `difficulty_binary` (e.g. 50% easy / 50% hard), fixing the within-bucket shuffle with a seed for reproducibility.
 
 ## Difficulty Grading
 
@@ -511,14 +524,17 @@ The `apr08` run produces higher structural faithfulness on average; `feb03` tend
 
 ## Citation
 
-If you use fvspec-fv, please cite:
+If you use fvspec-fv, please cite the paper — [Real-World PBTs as Lean Specs (arXiv:2606.01008)](https://arxiv.org/abs/2606.01008):
 
 ```bibtex
 @misc{fvspec2026,
   title={Real-World PBTs as Lean Specs},
   author={Dougherty, Quinn and Shackleton, Hazel and von Hippel, Max and Dodds, Mike},
   year={2026},
-  url={https://fvspec.galois.com}
+  eprint={2606.01008},
+  archivePrefix={arXiv},
+  primaryClass={cs.LO},
+  url={https://arxiv.org/abs/2606.01008}
 }
 ```
 
