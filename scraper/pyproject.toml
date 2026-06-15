@@ -11,7 +11,9 @@ dependencies = [
     "astor==0.8.1",
     "tqdm==4.66.3",
     "parse==1.19.0",
-    "psycopg2==2.9.10",
+    # psycopg2-binary ships prebuilt wheels (bundled libpq), so `uv sync` works in
+    # CI and on bare machines without pg_config / libpq-dev. Same import as psycopg2.
+    "psycopg2-binary==2.9.10",
     "python-dotenv==1.2.2",
     "aiohttp==3.14.0",
     "openai==1.99.9",
@@ -37,3 +39,24 @@ include = [
     "embed",
     "summerize",
 ]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.3",
+    "ruff>=0.15.2",
+    "ty>=0.0.18",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+# `examples/` holds sample Python projects (scrape fixtures) and `embed/` is an
+# experimental embedding-search tool with undeclared optional deps (cohere,
+# pgvector, numpy); neither is part of the core scraper, so keep both out of
+# ruff/ty.
+[tool.ruff]
+extend-exclude = ["examples", "embed"]
+
+[tool.ty.src]
+exclude = ["examples", "embed"]

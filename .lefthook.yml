@@ -41,6 +41,26 @@ pre-commit:
       glob: "*.py"
       run: uv run pytest
 
+    # Scraper: format, lint, typecheck, test
+    format-scraper:
+      root: "scraper/"
+      glob: "*.py"
+      run: uv run ruff format {staged_files}
+      stage_fixed: true
+    lint-scraper:
+      root: "scraper/"
+      glob: "*.py"
+      run: uv run ruff check --fix {staged_files}
+      stage_fixed: true
+    typecheck-scraper:
+      root: "scraper/"
+      glob: "*.py"
+      run: uv run ty check
+    test-scraper:
+      root: "scraper/"
+      glob: "*.py"
+      run: uv run pytest
+
     # Leaderboard: build first (needed for type resolution), then format/lint/typecheck
     build-leaderboard:
       root: "leaderboard"

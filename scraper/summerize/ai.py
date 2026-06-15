@@ -11,18 +11,18 @@ load_dotenv()
 pool = ThreadedConnectionPool(
     minconn=1,
     maxconn=10,
-    dbname=os.environ['DB_NAME'],
-    user=os.environ['DB_USER'],
-    password=os.environ['DB_PASS'],
-    host=os.environ['DB_HOST'],
-    port=os.environ['DB_PORT']
+    dbname=os.environ["DB_NAME"],
+    user=os.environ["DB_USER"],
+    password=os.environ["DB_PASS"],
+    host=os.environ["DB_HOST"],
+    port=os.environ["DB_PORT"],
 )
 
-with open(Path(__file__).parent / './prompt-ts.txt', 'r') as file:
+with open(Path(__file__).parent / "./prompt-ts.txt", "r") as file:
     prompt = file.read()
 
 client = openai.Client(
-    api_key=os.environ['OPENAI_API_KEY'],
+    api_key=os.environ["OPENAI_API_KEY"],
 )
 
 q = """
@@ -41,6 +41,7 @@ ORDER BY a.id
 OFFSET %s LIMIT %s
 """
 
+
 def fetch_batch(offset, limit=100):
     con = pool.getconn()
     try:
@@ -52,6 +53,7 @@ def fetch_batch(offset, limit=100):
     finally:
         pool.putconn(con)
 
+
 def filter_processed(rows):
     if not rows:
         return []
@@ -59,11 +61,14 @@ def filter_processed(rows):
     con = pool.getconn()
     try:
         cur = con.cursor()
-        cur.execute("""
+        cur.execute(
+            """
             SELECT hash
             FROM scrapedtests
             WHERE hash = ANY(%s) AND summaryversion IS NOT NULL
-        """, (hashes,))
+        """,
+            (hashes,),
+        )
         processed_hashes = {h for (h,) in cur.fetchall()}
         cur.close()
     finally:
@@ -71,6 +76,7 @@ def filter_processed(rows):
 
     print(f"Filtered {len(rows)} rows, {len(processed_hashes)} already processed.")
     return [r for r in rows if r[0] not in processed_hashes]
+
 
 def process_row(row):
     con = pool.getconn()
@@ -95,7 +101,7 @@ def process_row(row):
         )
 
         print(summary)
-        print('\n' + c.output_text + '\n------')
+        print("\n" + c.output_text + "\n------")
 
         confidence = 1
         if "[I AM UNSURE]" in c.output_text:
@@ -103,7 +109,7 @@ def process_row(row):
 
         cur.execute(
             "UPDATE scrapedtests SET summary = %s, summaryversion = 1, summaryconfidence = %s WHERE id = %s",
-            (c.output_text, confidence, id)
+            (c.output_text, confidence, id),
         )
         con.commit()
         cur.close()
@@ -111,6 +117,7 @@ def process_row(row):
         print(f"Error processing row {id}: {e}")
     finally:
         pool.putconn(con)
+
 
 BATCH_SIZE = 100
 offset = 0
