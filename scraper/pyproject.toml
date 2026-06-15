@@ -1,0 +1,39 @@
+[project]
+name = "scraper"
+version = "0.1.0"
+description = "Scrape Hypothesis property-based tests and their contexts from GitHub"
+readme = "README.md"
+authors = [
+    { name = "Quinn Dougherty", email = "quinn@for-all.dev" }
+]
+requires-python = ">=3.12"
+dependencies = [
+    "astor==0.8.1",
+    "tqdm==4.66.3",
+    "parse==1.19.0",
+    "psycopg2==2.9.10",
+    "python-dotenv==1.2.2",
+    "aiohttp==3.14.0",
+    "openai==1.99.9",
+]
+
+[project.scripts]
+scraper = "main:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+# Flat layout: modules live at the top level rather than under a src/ package.
+include = [
+    "db.py",
+    "githubAsync.py",
+    "license.py",
+    "main.py",
+    "migrator.py",
+    "parse.py",
+    "migrations",
+    "embed",
+    "summerize",
+]

@@ -125,7 +125,7 @@ async def main(mode, stale_date, timeout):
                 con.commit()
 
 
-if __name__ == "__main__":
+def cli():
     parser = argparse.ArgumentParser(description='Scrape from dependents')
     parser.add_argument("--mode", required=True, choices=["dependents", "gh"], help="Mode to run in (dependents or gh)")
     parser.add_argument('--stale-date', default=None, help='By default, the script skips repos it has already parsed. If you want to reparse, set the stale date (YYYY-MM-DD)')
@@ -133,3 +133,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     asyncio.run(main(args.mode, args.stale_date, args.timeout))
+
+
+if __name__ == "__main__":
+    cli()
