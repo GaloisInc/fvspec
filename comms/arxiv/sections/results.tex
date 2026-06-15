@@ -30,7 +30,7 @@ Each sample is graded for proof difficulty by Claude Haiku 4.5, which assigns a 
   \label{fig:baseline_refusal_rate}
 \end{figure}
 
-We evaluate two frontier models (Claude Sonnet~4.6 and GPT~5.4) on 100 randomly sampled easy problems and 100 hard problems (difficulty as defined in \Secr{results}). Each model has access to the Lean LSP via MCP tools and is scored on two metrics: a binary \emph{proved} flag (zero \texttt{sorry} remaining and \texttt{lake build} succeeds) and \emph{partial credit} (fraction of \texttt{sorry} placeholders removed).
+We evaluate three frontier models (Claude Sonnet~4.6, Claude Opus~4.7, and GPT~5.4) on 100 randomly sampled easy problems and 100 hard problems (difficulty as defined in \Secr{results}). Each model has access to the Lean LSP via MCP tools and is scored on two metrics: a binary \emph{proved} flag (zero \texttt{sorry} remaining and \texttt{lake build} succeeds) and \emph{partial credit} (fraction of \texttt{sorry} placeholders removed).
 
 \ref{fig:baseline_prove_rate} shows that an average of 49\% of hard samples were solved and an average of 70\% of easy samples were solved. \ref{fig:baseline_refusal_rate} is about when a language model believes a problem isn't solvable. 
 
