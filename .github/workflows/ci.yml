@@ -12,6 +12,7 @@ jobs:
       baselines: ${{ steps.filter.outputs.baselines }}
       benchmark: ${{ steps.filter.outputs.benchmark }}
       leaderboard: ${{ steps.filter.outputs.leaderboard }}
+      scraper: ${{ steps.filter.outputs.scraper }}
     steps:
       - uses: actions/checkout@v4
       - uses: dorny/paths-filter@v3
@@ -24,6 +25,8 @@ jobs:
               - 'benchmark/**'
             leaderboard:
               - 'leaderboard/**'
+            scraper:
+              - 'scraper/**'
 
   baselines-checks:
     name: BASELINES; ruff format and lint
@@ -68,6 +71,34 @@ jobs:
         with:
           enable-cache: true
           cache-dependency-glob: "benchmark/uv.lock"
+      - name: Set up Python
+        run: uv python install
+      - name: Install dependencies
+        run: uv sync
+      - name: Format check
+        run: uv run ruff format --check
+      - name: Lint
+        run: uv run ruff check
+      - name: Type check
+        run: uv run ty check
+      - name: Run tests
+        run: uv run pytest -xvs
+
+  scraper-checks:
+    name: SCRAPER; ruff, ty, and tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.scraper == 'true'
+    defaults:
+      run:
+        working-directory: scraper
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+          cache-dependency-glob: "scraper/uv.lock"
       - name: Set up Python
         run: uv python install
       - name: Install dependencies
