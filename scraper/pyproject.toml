@@ -15,7 +15,7 @@ dependencies = [
     # CI and on bare machines without pg_config / libpq-dev. Same import as psycopg2.
     "psycopg2-binary==2.9.10",
     "python-dotenv==1.2.2",
-    "aiohttp==3.14.0",
+    "aiohttp==3.14.1",
     "openai==1.99.9",
 ]
 
