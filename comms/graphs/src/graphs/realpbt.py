@@ -1,6 +1,7 @@
 """Dataset characterization and comparison analysis for the RealPBT dataset.
 
-Loads from comms/graphs/data/realpbt2.jsonl (local) and computes:
+Loads from the galoisinc/fvspec-pbt HuggingFace dataset (deps embedded
+per row) and computes:
   - Repository distribution (PBTs per repo, stars, forks)
   - License breakdown
   - PBT complexity metrics
@@ -15,7 +16,6 @@ Usage:
 
 from __future__ import annotations
 
-import json
 import re
 from pathlib import Path
 
@@ -23,11 +23,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import seaborn as sns
+from datasets import load_dataset
 
+HF_REPO = "galoisinc/fvspec-pbt"
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
-_PBTS_PATH = Path(__file__).resolve().parents[2] / "data" / "realpbt2.jsonl"
-_REPO_ROOT = Path(__file__).resolve().parents[4]  # fvspec root
-_DEPS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt_deps.jsonl"
 
 
 # ---------------------------------------------------------------------------
@@ -35,20 +34,10 @@ _DEPS_PATH = _REPO_ROOT / "benchmark" / "artifacts" / "realpbt_deps.jsonl"
 # ---------------------------------------------------------------------------
 
 
-def _load_local_pbts() -> list[dict]:
-    """Load PBTs from the local artifacts directory."""
-    if not _PBTS_PATH.exists():
-        raise FileNotFoundError(
-            f"Dataset not found at {_PBTS_PATH}. "
-            "Run 'uv run realpbt-pipeline' from benchmark/ first."
-        )
-    rows = []
-    with open(_PBTS_PATH) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
+def _load_pbts() -> list[dict]:
+    """Load PBTs (with dependencies embedded per row) from HuggingFace."""
+    ds = load_dataset(HF_REPO, split="train")
+    return list(ds)
 
 
 def _build_dataframes(rows: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -86,19 +75,6 @@ def _build_dataframes(rows: list[dict]) -> tuple[pd.DataFrame, pd.DataFrame]:
         .reset_index()
     )
     return pbt_df, repo_df
-
-
-def _load_deps_data() -> list[dict]:
-    """Load the dependency-annotated dataset from realpbt_deps.jsonl."""
-    if not _DEPS_PATH.exists():
-        return []
-    rows = []
-    with open(_DEPS_PATH) as f:
-        for line in f:
-            line = line.strip()
-            if line:
-                rows.append(json.loads(line))
-    return rows
 
 
 # ---------------------------------------------------------------------------
@@ -255,10 +231,10 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
 
 def print_comparison_table() -> None:
     """Print a LaTeX table comparing our dataset to Liam's hypothesis-corpus."""
-    # Our dataset statistics (from pbts.jsonl + HF Benchify/realpbt)
+    # Our dataset statistics (from galoisinc/fvspec-pbt + HF Benchify/realpbt)
     our_pre_dedup = 54_345  # Benchify/realpbt HuggingFace total
-    # realpbt2/pbts.jsonl is post-dedup
-    rows = _load_local_pbts()
+    # galoisinc/fvspec-pbt is post-dedup
+    rows = _load_pbts()
     _, repo_df = _build_dataframes(rows)
     our_post_dedup = len(rows)
     our_repos = len(repo_df)
@@ -397,23 +373,19 @@ def main() -> None:
     sns.set_theme(style="whitegrid", font_scale=0.95)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
 
-    print("Loading RealPBT dataset from local artifacts...")
-    rows = _load_local_pbts()
+    print(f"Loading RealPBT dataset from HuggingFace ({HF_REPO})...")
+    rows = _load_pbts()
     print(f"  {len(rows):,} PBTs loaded")
 
     pbt_df, repo_df = _build_dataframes(rows)
     print(f"  {len(repo_df):,} unique repositories")
-
-    dep_rows = _load_deps_data()
-    if dep_rows:
-        print(f"  {len(dep_rows):,} PBTs with dependency data loaded")
 
     plots = [
         ("realpbt_pbts_per_repo", lambda: plot_pbts_per_repo(repo_df)),
         ("realpbt_stars_forks", lambda: plot_stars_forks(repo_df)),
         ("realpbt_licenses", lambda: plot_license_breakdown(repo_df)),
         ("realpbt_complexity", lambda: plot_pbt_complexity(pbt_df)),
-        ("realpbt_pbt_vs_deps", lambda: plot_pbt_vs_deps(dep_rows)),
+        ("realpbt_pbt_vs_deps", lambda: plot_pbt_vs_deps(rows)),
     ]
 
     for name, fn in plots:

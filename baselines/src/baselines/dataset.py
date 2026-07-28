@@ -1,6 +1,6 @@
 """Dataset loading and stratified sampling for fvspec baselines.
 
-Supports loading from local JSONL files or the quinn-dougherty/fvspec
+Supports loading from local JSONL files or the galoisinc/fvspec-fv
 HuggingFace dataset.
 """
 
@@ -54,10 +54,10 @@ def load_samples_from_jsonl(path: str | Path) -> list[FvspecSample]:
 
 
 def load_samples_from_hf() -> list[FvspecSample]:
-    """Load all samples from the quinn-dougherty/fvspec HuggingFace dataset."""
+    """Load all samples from the galoisinc/fvspec-fv HuggingFace dataset."""
     from datasets import load_dataset
 
-    ds = load_dataset("quinn-dougherty/fvspec", split="train")
+    ds = load_dataset("galoisinc/fvspec-fv", split="train")
     samples = []
     for row in ds:
         samples.append(
@@ -79,7 +79,7 @@ def load_samples(data_source: str = "huggingface") -> list[FvspecSample]:
 
     Args:
         data_source: Path to a local JSONL file, or "huggingface" to
-            load from quinn-dougherty/fvspec.
+            load from galoisinc/fvspec-fv.
     """
     if data_source.lower() == "huggingface":
         return load_samples_from_hf()

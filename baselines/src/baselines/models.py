@@ -4,7 +4,7 @@ from pydantic import BaseModel, Field, computed_field
 
 
 class FvspecSample(BaseModel):
-    """A single sample from the quinn-dougherty/fvspec HuggingFace dataset."""
+    """A single sample from the galoisinc/fvspec-fv HuggingFace dataset."""
 
     sample_id: str
     spec: str

@@ -2,7 +2,7 @@
 
 Baseline implementations for measuring benchmark performance.
 
-1. Load samples from local JSONL (`data/fvspec-mar27.jsonl`) or `quinn-dougherty/fvspec` from HuggingFace. Configured via `data_source` in `config.toml` or `--data-source` CLI flag.
+1. Load samples from local JSONL (`data/fvspec-mar27.jsonl`) or `galoisinc/fvspec-fv` from HuggingFace. Configured via `data_source` in `config.toml` or `--data-source` CLI flag.
 2. Write a solver with `inspect-ai` that uses `lean-lsp-mcp` tools and the `lake-template` boilerplate dir in tmpdirs.
 3. Write outcome stats to `.toml` and `.json` in timestamped subdirectories under `artifacts/results/<eval-timestamp>/` for automatic loading into `typst` in `./../comms/paper/*.typ`
 4. The task is to actually write the proof-- to fill in the sorry in `Spec.lean`

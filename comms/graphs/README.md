@@ -6,10 +6,9 @@ Analysis code for all figures in the FVSpec paper.
 
 ```
 src/graphs/
-  __init__.py   – FVSpec results figures (loads from HuggingFace: quinn-dougherty/fvspec)
+  __init__.py   – FVSpec results figures (loads from HuggingFace: galoisinc/fvspec-fv)
   realpbt.py    – RealPBT corpus characterisation + PBT-vs-dependency analysis
-                  (loads from benchmark/artifacts/realpbt2/pbts.jsonl
-                   and  benchmark/artifacts/realpbt_deps.jsonl)
+                  (loads from HuggingFace: galoisinc/fvspec-pbt)
 out/            – generated figures (gitignored)
 ```
 
@@ -19,7 +18,7 @@ out/            – generated figures (gitignored)
 # Install dependencies (one-time)
 uv sync
 
-# Generate corpus characterisation figures only (no HF access needed)
+# Generate corpus characterisation figures (requires HuggingFace login: huggingface-cli login)
 make realpbt
 
 # Generate results figures (requires HuggingFace login: huggingface-cli login)
@@ -59,6 +58,5 @@ make realpbt && make results && make install
 
 | Script | Data source | Path |
 |---|---|---|
-| realpbt.py | RealPBT corpus | benchmark/artifacts/realpbt2/pbts.jsonl |
-| realpbt.py | Dependency data | benchmark/artifacts/realpbt_deps.jsonl |
-| __init__.py | FVSpec benchmark | HuggingFace: quinn-dougherty/fvspec |
+| realpbt.py | RealPBT corpus (deps embedded per row) | HuggingFace: galoisinc/fvspec-pbt |
+| __init__.py | FVSpec benchmark | HuggingFace: galoisinc/fvspec-fv |

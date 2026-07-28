@@ -1,6 +1,6 @@
 """FVSpec benchmark dataset characterization plots.
 
-Loads the quinn-dougherty/fvspec HuggingFace dataset and produces figures
+Loads the galoisinc/fvspec-fv HuggingFace dataset and produces figures
 covering difficulty distribution, structural faithfulness, Lean output
 complexity, Python source metrics, pipeline cost, and cross-cutting views.
 
@@ -21,7 +21,7 @@ import matplotlib.ticker as ticker
 import pandas as pd
 import seaborn as sns
 
-HF_REPO = "quinn-dougherty/fvspec"
+HF_REPO = "galoisinc/fvspec-fv"
 OUT_DIR = Path(__file__).resolve().parents[2] / "out"
 
 SF_KEYS = [
@@ -199,7 +199,7 @@ def plot_lean_complexity(df: pd.DataFrame) -> None:
 
 
 def plot_python_source(df: pd.DataFrame) -> None:
-    fig, axes = plt.subplots(1, 3, figsize=(14, 4))
+    fig, axes = plt.subplots(1, 2, figsize=(10, 4))
 
     axes[0].hist(
         df["pbt_lines_pbt"].clip(upper=100),
@@ -216,12 +216,6 @@ def plot_python_source(df: pd.DataFrame) -> None:
     axes[1].set_xlabel("Avg cyclomatic complexity")
     axes[1].set_ylabel("Count")
     axes[1].set_title("Python source complexity")
-
-    mi = df["py_maintainability"].dropna()
-    axes[2].hist(mi, bins=30, color="#7a7a7a", edgecolor="white")
-    axes[2].set_xlabel("Maintainability index")
-    axes[2].set_ylabel("Count")
-    axes[2].set_title("Python maintainability index")
 
     fig.suptitle("Python source characteristics", fontsize=13)
     fig.tight_layout()

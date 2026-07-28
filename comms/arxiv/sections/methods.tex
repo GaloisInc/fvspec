@@ -32,15 +32,14 @@ To illustrate the diversity of our dataset, consider the result of drawing ten r
 \texttt{onnx-embedding} (ONNX-backed embedding library).
 This is broadly representative of real-world software engineering, as opposed to purely academic or competitive programming.
 
-Figure~\ref{fig:python_source} summarizes three code-quality metrics across the corpus.
+Figure~\ref{fig:python_source} summarizes two code-quality metrics across the corpus.
 The source tests span a wide range of complexity, from trivial single-assertion tests to multi-strategy tests exercising complex library APIs---diversity inherited directly from real-world engineering practice and not curated for difficulty.
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\linewidth]{figs/python_source.pdf}
   \caption{Code-quality metrics for the 11{,}039 deduplicated PBTs, computed by Radon~\cite{radon}. \emph{Left}: lines of code.
-  \emph{Center}: cyclomatic complexity---the number of linearly independent execution paths through the function, i.e.\ one plus the number of binary branch points~\cite{mccabe1976complexity}; higher values indicate more complex control flow.
-  \emph{Right}: maintainability index---a 0--100 composite of Halstead volume~\cite{halstead1977elements}, cyclomatic complexity, and source lines, where higher is more maintainable; the spike at 100 is an artefact of Radon capping the score at that value.}
+  \emph{Right}: cyclomatic complexity---the number of linearly independent execution paths through the function, i.e.\ one plus the number of binary branch points~\cite{mccabe1976complexity}; higher values indicate more complex control flow.}
   \label{fig:python_source}
 \end{figure}
 
