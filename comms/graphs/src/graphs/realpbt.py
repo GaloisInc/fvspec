@@ -113,12 +113,6 @@ def plot_pbts_per_repo(repo_df: pd.DataFrame) -> None:
     )
     axes[1].legend()
 
-    n_repos = len(repo_df)
-    n_pbts = repo_df["pbt_count"].sum()
-    fig.suptitle(
-        f"Repository distribution: {n_repos:,} repos, {n_pbts:,} PBTs total",
-        fontsize=13,
-    )
     fig.tight_layout()
     _save(fig, "realpbt_pbts_per_repo")
 
@@ -163,7 +157,6 @@ def plot_stars_forks(repo_df: pd.DataFrame) -> None:
         f"Forks distribution\n({sum(repo_df['forks'] == 0):,} repos with 0 forks omitted)"
     )
 
-    fig.suptitle("Repository popularity (stars and forks)", fontsize=13)
     fig.tight_layout()
     _save(fig, "realpbt_stars_forks")
 
@@ -224,7 +217,6 @@ def plot_pbt_complexity(pbt_df: pd.DataFrame) -> None:
     axes[2].set_title("Python maintainability index")
     axes[2].legend()
 
-    fig.suptitle(f"PBT complexity metrics (n={len(pbt_df):,})", fontsize=13)
     fig.tight_layout()
     _save(fig, "realpbt_complexity")
 
@@ -322,7 +314,6 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
         return
 
     df = pd.DataFrame(records)
-    n = len(df)
 
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
@@ -363,7 +354,6 @@ def plot_pbt_vs_deps(dep_rows: list[dict]) -> None:
     ax.set_xticks(range(0, 11))
     ax.legend(fontsize=8)
 
-    fig.suptitle(f"PBT complexity vs. code under test (n={n:,})", fontsize=13)
     fig.tight_layout()
     _save(fig, "realpbt_pbt_vs_deps")
 

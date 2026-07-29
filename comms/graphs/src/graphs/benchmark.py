@@ -106,7 +106,6 @@ def plot_difficulty_distribution(df: pd.DataFrame) -> None:
     axes[1].set_ylabel("Count")
     axes[1].set_title("Difficulty grader confidence distribution")
 
-    fig.suptitle("Difficulty distribution (n={:,})".format(len(df)), fontsize=13)
     fig.tight_layout()
     _save(fig, "difficulty_distribution")
 
@@ -143,7 +142,6 @@ def plot_structural_faithfulness(df: pd.DataFrame) -> None:
             fontsize=8,
         )
 
-    fig.suptitle("Structural faithfulness", fontsize=13)
     fig.tight_layout()
     _save(fig, "structural_faithfulness")
 
@@ -193,7 +191,6 @@ def plot_lean_complexity(df: pd.DataFrame) -> None:
     axes[2].set_ylabel("Count")
     axes[2].set_title("Sorry placeholders per sample")
 
-    fig.suptitle("Lean output complexity", fontsize=13)
     fig.tight_layout()
     _save(fig, "lean_complexity")
 
@@ -217,7 +214,6 @@ def plot_python_source(df: pd.DataFrame) -> None:
     axes[1].set_ylabel("Count")
     axes[1].set_title("Python source complexity")
 
-    fig.suptitle("Python source characteristics", fontsize=13)
     fig.tight_layout()
     _save(fig, "python_source")
 
@@ -261,7 +257,6 @@ def plot_pipeline_cost(df: pd.DataFrame) -> None:
     axes[2].set_ylabel("Count")
     axes[2].set_title("Agent turns per sample")
 
-    fig.suptitle("Pipeline cost", fontsize=13)
     fig.tight_layout()
     _save(fig, "pipeline_cost")
 
@@ -299,7 +294,6 @@ def plot_difficulty_vs_faithfulness(df: pd.DataFrame) -> None:
     axes[1].set_title("Lean output size by difficulty")
     axes[1].legend()
 
-    fig.suptitle("Difficulty vs. output characteristics", fontsize=13)
     fig.tight_layout()
     _save(fig, "difficulty_vs_faithfulness")
 
@@ -321,7 +315,6 @@ def plot_implementation_level(df: pd.DataFrame) -> None:
     for i, val in enumerate(grouped.values):
         axes[1].text(i, val + 0.005, f"{val:.2f}", ha="center", fontsize=9)
 
-    fig.suptitle("Implementation level breakdown", fontsize=13)
     fig.tight_layout()
     _save(fig, "implementation_level")
 

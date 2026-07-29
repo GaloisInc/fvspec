@@ -457,7 +457,6 @@ def plot_difficulty_calibration(model_data: dict[str, dict[str, Any]]) -> None:
         title += f"  (rank-AUC={auc:.2f})"
     axes[1].set_title(title)
 
-    fig.suptitle("Easy/hard grader calibration", fontsize=12)
     fig.tight_layout()
     _save(fig, "baselines_difficulty_calibration")
 
@@ -489,7 +488,6 @@ def plot_partial_credit(model_data: dict[str, dict[str, Any]]) -> None:
         ax.set_title(f"Partial credit distribution — {bucket}")
         ax.legend()
 
-    fig.suptitle("Partial credit (sorry removal ratio)", fontsize=13)
     fig.tight_layout()
     _save(fig, "baselines_partial_credit")
 
@@ -570,7 +568,6 @@ def plot_time_and_tokens(model_data: dict[str, dict[str, Any]]) -> None:
     )
     plt.setp(axes[1].get_xticklabels(), rotation=45, ha="right")
 
-    fig.suptitle("Compute cost per sample", fontsize=13)
     fig.tight_layout()
     _save(fig, "baselines_cost")
 
@@ -613,7 +610,6 @@ def plot_sorry_removal(model_data: dict[str, dict[str, Any]]) -> None:
         ax.set_title(f"{_pretty(model)}" + (f" (k={k})" if k > 1 else ""))
         ax.legend(fontsize=8)
 
-    fig.suptitle("Sorry removal per sample", fontsize=13)
     fig.tight_layout()
     _save(fig, "baselines_sorry_removal")
 
@@ -714,9 +710,6 @@ def plot_pass_at_k_curve(model_data: dict[str, dict[str, Any]]) -> None:
     ax.grid(True, alpha=0.3)
     ax.legend(fontsize=8, ncol=2)
 
-    fig.suptitle(
-        "pass@k unbiased estimator (Chen et al. 2021)", fontsize=13
-    )
     fig.tight_layout()
     _save(fig, "baselines_pass_at_k_curve")
 
@@ -803,11 +796,6 @@ def plot_success_count_histogram(model_data: dict[str, dict[str, Any]]) -> None:
         ax.legend()
 
     axes[0][0].set_ylabel("# samples")
-    fig.suptitle(
-        "Per-sample success count distribution\n"
-        "(c = number of epochs that fully proved a given sample)",
-        fontsize=12,
-    )
     fig.tight_layout()
     _save(fig, "baselines_success_count_hist")
 
@@ -908,10 +896,6 @@ def plot_sample_success_heatmap(model_data: dict[str, dict[str, Any]]) -> None:
         n_easy = sum(1 for s in samples_sorted if s["difficulty_bucket"] == "easy")
         ax.axvline(n_easy - 0.5, color="#c44", linestyle=":", linewidth=1, alpha=0.6)
 
-    fig.suptitle(
-        "Per-sample success matrix — green = proved in that epoch",
-        fontsize=12,
-    )
     fig.tight_layout()
     _save(fig, "baselines_sample_success_heatmap")
 
