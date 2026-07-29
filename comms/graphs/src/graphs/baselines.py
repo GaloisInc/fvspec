@@ -316,7 +316,7 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
                 f"{rate:.0f}%",
                 ha="center",
                 va="bottom",
-                fontsize=9,
+                fontsize=12,
             )
 
         bars = ax_refusal.bar(x + offset, refusal_rates, width * 0.9, label=label, color=color)
@@ -327,20 +327,18 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
                 f"{rate:.0f}%",
                 ha="center",
                 va="bottom",
-                fontsize=9,
+                fontsize=12,
             )
 
-    for ax, ylabel, title in (
-        (ax_prove, "Proved rate (%)  [pass@k]", None),
-        (ax_refusal, "Refusal rate (%)  [per epoch]", "Refusal rate by difficulty"),
+    for ax, ylabel in (
+        (ax_prove, "Proved rate (%)  [pass@k]"),
+        (ax_refusal, "Refusal rate (%)  [per epoch]"),
     ):
         ax.set_xticks(x)
-        ax.set_xticklabels([b.capitalize() for b in buckets], fontsize=14)
-        ax.set_ylabel(ylabel, fontsize=15)
+        ax.set_xticklabels([b.capitalize() for b in buckets], fontsize=17)
+        ax.set_ylabel(ylabel, fontsize=18)
         ax.set_ylim(0, 100)
-        if title:
-            ax.set_title(title, fontsize=12)
-        ax.tick_params(axis="y", labelsize=13)
+        ax.tick_params(axis="y", labelsize=16)
 
     handles, labels = ax_prove.get_legend_handles_labels()
     fig.legend(
@@ -349,7 +347,7 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
         loc="upper center",
         bbox_to_anchor=(0.5, 1.1),
         ncol=len(models_list),
-        fontsize=14,
+        fontsize=17,
         frameon=False,
     )
     fig.tight_layout()
