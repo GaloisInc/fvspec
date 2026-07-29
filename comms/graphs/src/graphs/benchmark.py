@@ -94,17 +94,19 @@ def plot_difficulty_distribution(df: pd.DataFrame) -> None:
     counts = df["difficulty"].value_counts()
     colors = {"easy": "#5ba3cf", "hard": "#e07b54"}
     axes[0].bar(counts.index, counts.values, color=[colors[x] for x in counts.index])
-    axes[0].set_ylabel("Count")
-    axes[0].set_title("Difficulty: easy vs. hard")
+    axes[0].set_ylabel("Count", fontsize=13)
+    axes[0].set_title("Difficulty: easy vs. hard", fontsize=14)
+    axes[0].tick_params(labelsize=12)
     for i, val in enumerate(counts.values):
-        axes[0].text(i, val + 50, str(val), ha="center", fontsize=9)
+        axes[0].text(i, val + 50, str(val), ha="center", fontsize=11)
 
     axes[1].hist(
         df["difficulty_confidence"], bins=20, color="#7a7a7a", edgecolor="white"
     )
-    axes[1].set_xlabel("Grader confidence")
-    axes[1].set_ylabel("Count")
-    axes[1].set_title("Difficulty grader confidence distribution")
+    axes[1].set_xlabel("Grader confidence", fontsize=13)
+    axes[1].set_ylabel("Count", fontsize=13)
+    axes[1].set_title("Difficulty grader confidence distribution", fontsize=14)
+    axes[1].tick_params(labelsize=12)
 
     fig.tight_layout()
     _save(fig, "difficulty_distribution")
