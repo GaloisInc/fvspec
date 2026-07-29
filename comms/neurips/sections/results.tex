@@ -20,21 +20,15 @@ Figure~\ref{fig:difficulty_vs_faithfulness} examines the relationship between di
 \subsection{Baselines}
 
 \begin{figure}[t]
-  \includegraphics[width=\linewidth]{figs/baselines_prove_rate.pdf}
-  \caption{baseline prove rate}
-  \label{fig:baseline_prove_rate}
-\end{figure}
-
-\begin{figure}[t]
-  \includegraphics[width=\linewidth]
-  {figs/baselines_refusal_rate.pdf}
-  \caption{baseline refusal rate}
-  \label{fig:baseline_refusal_rate}
+  \centering
+  \includegraphics[width=\linewidth]{figs/baselines_prove_refusal_rate.pdf}
+  \caption{Baseline prove rate and refusal rate, by difficulty. \emph{Left}: proved-ever rate. \emph{Right}: refusal rate (share of epochs invoking the leave-\texttt{sorry} system instruction).}
+  \label{fig:baseline_prove_refusal_rate}
 \end{figure}
 
 We evaluate two frontier models (Claude Sonnet~4.6 and GPT~5.4) on 100 randomly sampled easy problems and 100 hard problems (difficulty as defined in \Secr{results}). Each model has access to the Lean LSP via MCP tools and is scored on two metrics: a binary \emph{proved} flag (zero \texttt{sorry} remaining and \texttt{lake build} succeeds) and \emph{partial credit} (fraction of \texttt{sorry} placeholders removed, clamped to $[0,1]$).
 
-\ref{fig:baseline_prove_rate} shows that an average of 49\% of hard samples were solved and an average of 70\% of easy samples were solved. \ref{fig:baseline_refusal_rate} is about when a language model believes a problem isn't solvable. 
+Figure~\ref{fig:baseline_prove_refusal_rate} (left) shows that an average of 49\% of hard samples were solved and an average of 70\% of easy samples were solved. Figure~\ref{fig:baseline_prove_refusal_rate} (right) is about when a language model believes a problem isn't solvable.
 
 \begin{figure}[t]
   \includegraphics[width=\linewidth]{figs/baselines_cost.pdf}

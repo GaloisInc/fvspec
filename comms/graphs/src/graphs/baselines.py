@@ -265,106 +265,94 @@ def _iter_models(
 # ---------------------------------------------------------------------------
 
 
-def plot_prove_rate(model_data: dict[str, dict[str, Any]]) -> None:
-    """Grouped bar: proved-ever rate by bucket and overall, per model.
+def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
+    """Combined figure: proved-ever rate (left) and refusal rate (right), per model.
 
-    Restricted to the n=200, pass@5 runs so the headline number reflects
+    Both panels share one model/bucket structure and one legend (figure-level,
+    above the panels) rather than a per-panel legend.
+
+    A "refusal" is an epoch whose final assistant text invokes the system
+    prompt's leave-sorry-rather-than-write-incorrect-proofs clause. Per-epoch
+    is the natural unit (each epoch = one independent ask).
+
+    Restricted to the n=200, pass@5 runs so the headline numbers reflect
     the full benchmark with multi-epoch coverage.
     """
     filtered = {m: d for m, d in model_data.items() if "n-200_k-5" in m}
     if not filtered:
-        print("    skip baselines_prove_rate: no n-200_k-5 runs found")
+        print("    skip baselines_prove_refusal_rate: no n-200_k-5 runs found")
         return
     models_list = _iter_models(filtered)
     buckets = ["easy", "hard", "overall"]
     x = np.arange(len(buckets))
     width = 0.8 / max(len(models_list), 1)
 
-    fig, ax = plt.subplots(figsize=(8, 2.5))
+    fig, (ax_prove, ax_refusal) = plt.subplots(1, 2, figsize=(12, 3.4))
+
     for i, ((model, samples, k), color) in enumerate(zip(models_list, _PALETTE)):
-        rates = []
+        prove_rates = []
+        refusal_rates = []
         for bucket in buckets:
             sub = (
                 samples
                 if bucket == "overall"
                 else [s for s in samples if s["difficulty_bucket"] == bucket]
             )
-            rates.append(
+            prove_rates.append(
                 sum(s["any_proved"] for s in sub) / len(sub) * 100 if sub else 0
             )
+            n_epochs = sum(s["num_epochs"] for s in sub)
+            n_refused = sum(s["refused_count"] for s in sub)
+            refusal_rates.append(n_refused / n_epochs * 100 if n_epochs else 0)
 
         label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
         offset = (i - (len(models_list) - 1) / 2) * width
-        bars = ax.bar(x + offset, rates, width * 0.9, label=label, color=color)
-        for bar, rate in zip(bars, rates):
-            ax.text(
+
+        bars = ax_prove.bar(x + offset, prove_rates, width * 0.9, label=label, color=color)
+        for bar, rate in zip(bars, prove_rates):
+            ax_prove.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 1,
                 f"{rate:.0f}%",
                 ha="center",
                 va="bottom",
-                fontsize=8,
+                fontsize=9,
             )
 
-    ax.set_xticks(x)
-    ax.set_xticklabels([b.capitalize() for b in buckets])
-    ax.set_ylabel("Proved rate (%)  [pass@k]")
-    ax.set_ylim(0, 100)
-    ax.set_title("Proved-ever rate by difficulty (best-of-k)")
-    ax.legend(loc="upper left", bbox_to_anchor=(1.01, 1.0), borderaxespad=0)
-    fig.tight_layout()
-    _save(fig, "baselines_prove_rate")
-
-
-def plot_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
-    """Grouped bar: per-epoch refusal rate by bucket and overall, per model.
-
-    A "refusal" is an epoch whose final assistant text invokes the system
-    prompt's leave-sorry-rather-than-write-incorrect-proofs clause. Per-epoch
-    is the natural unit (each epoch = one independent ask).
-    """
-    models_list = _iter_models(model_data)
-    if not models_list:
-        print("    skip baselines_refusal_rate: no runs found")
-        return
-    buckets = ["easy", "hard", "overall"]
-    x = np.arange(len(buckets))
-    width = 0.8 / max(len(models_list), 1)
-
-    fig, ax = plt.subplots(figsize=(8, 2.5))
-    for i, ((model, samples, k), color) in enumerate(zip(models_list, _PALETTE)):
-        rates = []
-        for bucket in buckets:
-            sub = (
-                samples
-                if bucket == "overall"
-                else [s for s in samples if s["difficulty_bucket"] == bucket]
-            )
-            n_epochs = sum(s["num_epochs"] for s in sub)
-            n_refused = sum(s["refused_count"] for s in sub)
-            rates.append(n_refused / n_epochs * 100 if n_epochs else 0)
-
-        label = f"{_pretty(model)}" + (f" (k={k})" if k > 1 else "")
-        offset = (i - (len(models_list) - 1) / 2) * width
-        bars = ax.bar(x + offset, rates, width * 0.9, label=label, color=color)
-        for bar, rate in zip(bars, rates):
-            ax.text(
+        bars = ax_refusal.bar(x + offset, refusal_rates, width * 0.9, label=label, color=color)
+        for bar, rate in zip(bars, refusal_rates):
+            ax_refusal.text(
                 bar.get_x() + bar.get_width() / 2,
                 bar.get_height() + 0.5,
                 f"{rate:.0f}%",
                 ha="center",
                 va="bottom",
-                fontsize=8,
+                fontsize=9,
             )
 
-    ax.set_xticks(x)
-    ax.set_xticklabels([b.capitalize() for b in buckets])
-    ax.set_ylabel("Refusal rate (%)  [per epoch]")
-    ax.set_ylim(0, 100)
-    ax.set_title("Refusal rate by difficulty (left sorry per system instruction)")
-    ax.legend()
+    for ax, ylabel, title in (
+        (ax_prove, "Proved rate (%)  [pass@k]", "Proved-ever rate by difficulty (best-of-k)"),
+        (ax_refusal, "Refusal rate (%)  [per epoch]", "Refusal rate by difficulty"),
+    ):
+        ax.set_xticks(x)
+        ax.set_xticklabels([b.capitalize() for b in buckets], fontsize=11)
+        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_ylim(0, 100)
+        ax.set_title(title, fontsize=12)
+        ax.tick_params(axis="y", labelsize=10)
+
+    handles, labels = ax_prove.get_legend_handles_labels()
+    fig.legend(
+        handles,
+        labels,
+        loc="upper center",
+        bbox_to_anchor=(0.5, 1.1),
+        ncol=len(models_list),
+        fontsize=10,
+        frameon=False,
+    )
     fig.tight_layout()
-    _save(fig, "baselines_refusal_rate")
+    _save(fig, "baselines_prove_refusal_rate")
 
 
 def plot_difficulty_calibration(model_data: dict[str, dict[str, Any]]) -> None:
@@ -963,8 +951,7 @@ def main() -> None:
     )
 
     plots = [
-        ("baselines_prove_rate", lambda: plot_prove_rate(model_data)),
-        ("baselines_refusal_rate", lambda: plot_refusal_rate(model_data)),
+        ("baselines_prove_refusal_rate", lambda: plot_prove_and_refusal_rate(model_data)),
         ("baselines_difficulty_calibration", lambda: plot_difficulty_calibration(model_data)),
         ("baselines_partial_credit", lambda: plot_partial_credit(model_data)),
         ("baselines_score_breakdown", lambda: plot_score_breakdown(model_data)),
