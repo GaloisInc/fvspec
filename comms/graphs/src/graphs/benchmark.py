@@ -157,6 +157,13 @@ def _tail_note(series: pd.Series, clip: int) -> str:
     return f"({n:,} values >{clip} not shown; max={m:,})"
 
 
+def _xlabel_with_tail(ax: plt.Axes, label: str, series: pd.Series, clip: int) -> None:
+    """Set an xlabel, putting any tail note on its own line so long clip
+    annotations don't run into the neighboring subplot."""
+    note = _tail_note(series, clip)
+    ax.set_xlabel(f"{label}\n{note}" if note else label)
+
+
 def plot_lean_complexity(df: pd.DataFrame) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(14, 4))
 
@@ -167,7 +174,7 @@ def plot_lean_complexity(df: pd.DataFrame) -> None:
         color="#5ba3cf",
         edgecolor="white",
     )
-    axes[0].set_xlabel(f"Total Lean lines  {_tail_note(df['total_lean_lines'], clip_lines)}")
+    _xlabel_with_tail(axes[0], "Total Lean lines", df["total_lean_lines"], clip_lines)
     axes[0].set_ylabel("Count")
     axes[0].set_title("Lean output size")
 
@@ -178,7 +185,7 @@ def plot_lean_complexity(df: pd.DataFrame) -> None:
         color="#e07b54",
         edgecolor="white",
     )
-    axes[1].set_xlabel(f"Theorems per sample  {_tail_note(df['num_theorems'], clip_thm)}")
+    _xlabel_with_tail(axes[1], "Theorems per sample", df["num_theorems"], clip_thm)
     axes[1].set_ylabel("Count")
     axes[1].set_title("Theorems per sample")
 
@@ -189,7 +196,7 @@ def plot_lean_complexity(df: pd.DataFrame) -> None:
         color="#7a7a7a",
         edgecolor="white",
     )
-    axes[2].set_xlabel(f"sorry count per sample  {_tail_note(df['total_sorries'], clip_sorry)}")
+    _xlabel_with_tail(axes[2], "sorry count per sample", df["total_sorries"], clip_sorry)
     axes[2].set_ylabel("Count")
     axes[2].set_title("Sorry placeholders per sample")
 
@@ -227,7 +234,7 @@ def plot_pipeline_cost(df: pd.DataFrame) -> None:
     axes[0].hist(
         df["time"][df["time"] <= clip_time], bins=40, color="#5ba3cf", edgecolor="white"
     )
-    axes[0].set_xlabel(f"Wall-clock time (s)  {_tail_note(df['time'], clip_time)}")
+    _xlabel_with_tail(axes[0], "Wall-clock time (s)", df["time"], clip_time)
     axes[0].set_ylabel("Count")
     axes[0].set_title("Pipeline time per sample")
 
@@ -238,7 +245,7 @@ def plot_pipeline_cost(df: pd.DataFrame) -> None:
         color="#e07b54",
         edgecolor="white",
     )
-    axes[1].set_xlabel(f"Token usage  {_tail_note(df['token_usage'], clip_tok)}")
+    _xlabel_with_tail(axes[1], "Token usage", df["token_usage"], clip_tok)
     axes[1].set_ylabel("Count")
     axes[1].set_title("Token cost per sample")
     axes[1].xaxis.set_major_formatter(
