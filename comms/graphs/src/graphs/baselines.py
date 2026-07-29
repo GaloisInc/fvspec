@@ -287,7 +287,7 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
     x = np.arange(len(buckets))
     width = 0.8 / max(len(models_list), 1)
 
-    fig, (ax_prove, ax_refusal) = plt.subplots(1, 2, figsize=(12, 3.4))
+    fig, (ax_prove, ax_refusal) = plt.subplots(1, 2, figsize=(24, 4))
 
     for i, ((model, samples, k), color) in enumerate(zip(models_list, _PALETTE)):
         prove_rates = []
@@ -331,15 +331,16 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
             )
 
     for ax, ylabel, title in (
-        (ax_prove, "Proved rate (%)  [pass@k]", "Proved-ever rate by difficulty (best-of-k)"),
+        (ax_prove, "Proved rate (%)  [pass@k]", None),
         (ax_refusal, "Refusal rate (%)  [per epoch]", "Refusal rate by difficulty"),
     ):
         ax.set_xticks(x)
-        ax.set_xticklabels([b.capitalize() for b in buckets], fontsize=11)
-        ax.set_ylabel(ylabel, fontsize=11)
+        ax.set_xticklabels([b.capitalize() for b in buckets], fontsize=14)
+        ax.set_ylabel(ylabel, fontsize=15)
         ax.set_ylim(0, 100)
-        ax.set_title(title, fontsize=12)
-        ax.tick_params(axis="y", labelsize=10)
+        if title:
+            ax.set_title(title, fontsize=12)
+        ax.tick_params(axis="y", labelsize=13)
 
     handles, labels = ax_prove.get_legend_handles_labels()
     fig.legend(
@@ -348,7 +349,7 @@ def plot_prove_and_refusal_rate(model_data: dict[str, dict[str, Any]]) -> None:
         loc="upper center",
         bbox_to_anchor=(0.5, 1.1),
         ncol=len(models_list),
-        fontsize=10,
+        fontsize=14,
         frameon=False,
     )
     fig.tight_layout()
