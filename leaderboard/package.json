@@ -42,7 +42,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
-    "hono": "^4.12.32",
+    "hono": "^4.13.0",
     "lucide-react": "^1.14.0",
     "lz-string": "^1.5.0",
     "next": "^16.2.11",
